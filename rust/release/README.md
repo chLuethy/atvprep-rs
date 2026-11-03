@@ -34,6 +34,7 @@ deletes its temporary master credential. It does not change any existing contain
 A production release still needs the platform evidence and operator decision described in
 [the deployment guide](../../DEPLOYMENT.md).
 
-The Gitea tag workflow builds unsigned Linux binaries as workflow artifacts. It requires a
-runner with Docker Buildx and both architecture execution support; it does not sign, publish,
-or deploy a release. Complete the platform checks and signing separately before distribution.
+The Gitea tag workflow builds unsigned Linux binaries as workflow artifacts. It can also be
+started manually for testing. The runner needs Docker and Buildx; the job creates and removes
+an isolated BuildKit builder for multi-architecture execution. It does not sign, publish, or
+deploy a release. Complete platform checks and signing separately before distribution.

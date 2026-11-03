@@ -1,5 +1,6 @@
 name: Build release binaries
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v*'
@@ -9,7 +10,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build unsigned Linux binaries
-        run: ./rust/release/build.sh "$RUNNER_TEMP/atvprep-release"
+        shell: bash
+        run: |
+          builder="atvprep-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker buildx create --name "$builder" --driver docker-container
+          trap 'docker buildx rm "$builder"' EXIT
+          export BUILDX_BUILDER="$builder"
+          docker buildx inspect "$builder" --bootstrap
+          ./rust/release/build.sh "$RUNNER_TEMP/atvprep-release"
       - uses: actions/upload-artifact@v4
         with:
           name: atvprep-linux-unsigned

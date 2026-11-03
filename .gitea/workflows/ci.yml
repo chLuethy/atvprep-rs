@@ -1,6 +1,8 @@
 name: Rust and frontend CI
 on:
   push:
+    branches:
+      - '**'
   pull_request:
 
 jobs:
