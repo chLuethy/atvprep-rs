@@ -14,12 +14,12 @@ body=$(jq -n --arg tag "$tag" '{tag_name:$tag,name:$tag,draft:true,prerelease:($
 curl -fsS -H "$auth" -H 'Content-Type: application/json' -d "$body" "$api/releases" > "$work/release.json"
 id=$(jq -er '.id' "$work/release.json")
 echo "Created draft release $id; failures leave it unpublished for inspection."
-for name in release.json release.json.sig atvprep-linux-x86_64 atvprep-linux-aarch64; do
+for name in release.json release.json.sig release.pub atvprep-linux-x86_64 atvprep-linux-aarch64; do
   curl -fsS -H "$auth" -F "attachment=@$root/release/$name" "$api/releases/$id/assets?name=$name" > /dev/null
 done
 curl -fsS -H "$auth" "$api/releases/$id" > "$work/assets.json"
-jq -e '(.assets | length) == 4' "$work/assets.json" >/dev/null
-for name in release.json release.json.sig atvprep-linux-x86_64 atvprep-linux-aarch64; do
+jq -e '(.assets | length) == 5' "$work/assets.json" >/dev/null
+for name in release.json release.json.sig release.pub atvprep-linux-x86_64 atvprep-linux-aarch64; do
   url=$(jq -er --arg name "$name" '[.assets[] | select(.name == $name) | .browser_download_url] | if length == 1 then .[0] else error("asset missing or duplicated") end' "$work/assets.json")
   uuid=$(jq -er --arg name "$name" '.assets[] | select(.name == $name) | .uuid' "$work/assets.json")
   curl -fsS -L -H "$auth" "$GITHUB_SERVER_URL/attachments/$uuid" -o "$work/download-$name"

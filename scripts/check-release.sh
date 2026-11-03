@@ -10,6 +10,7 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 umask 077
 printf '%s\n' "$RELEASE_TRUSTED_KEY" > "$work/release.pub"
+cmp "$work/release.pub" "$bundle/release.pub"
 printf 'atvprep %s\n' "$RELEASE_TRUSTED_KEY" > "$work/allowed-signers"
 ssh-keygen -Y verify -f "$work/allowed-signers" -I atvprep -n atvprep-release -s "$signature" < "$manifest"
 jq -e --arg version "$RELEASE_VERSION" '
