@@ -1,25 +1,44 @@
-name: Build release binaries
+name: Verify and publish release
 on:
   workflow_dispatch:
   push:
     tags:
       - 'v*'
+
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Build unsigned Linux binaries
+      - name: Install verification tools
         shell: bash
         run: |
-          builder="atvprep-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          docker buildx create --name "$builder" --driver docker-container
-          trap 'docker buildx rm "$builder"' EXIT
-          export BUILDX_BUILDER="$builder"
-          docker buildx inspect "$builder" --bootstrap
-          ./rust/release/build.sh "$RUNNER_TEMP/atvprep-release"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: atvprep-linux-unsigned
-          path: ${{ runner.temp }}/atvprep-release/
-          if-no-files-found: error
+          if [ "$(id -u)" -eq 0 ]; then SUDO=(); else SUDO=(sudo); fi
+          "${SUDO[@]}" apt-get update
+          "${SUDO[@]}" apt-get install -y jq binutils openssh-client qemu-user-static
+      - name: Verify committed release
+        shell: bash
+        env:
+          RELEASE_TRUSTED_KEY: ${{ secrets.RELEASE_TRUSTED_KEY }}
+        run: |
+          set -euo pipefail
+          for file in release/release.json release/release.json.sig release/atvprep-linux-x86_64 release/atvprep-linux-aarch64; do
+            git ls-files --error-unmatch "$file" >/dev/null
+          done
+          version=$(jq -er '.version' release/release.json)
+          workspace_version=$(sed -n '/^\[workspace.package\]/,/^\[/{s/^version = "\([^"]*\)"/\1/p;}' rust/Cargo.toml)
+          test "$version" = "$workspace_version"
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            test "$GITHUB_REF" = "refs/tags/v$version"
+          fi
+          RELEASE_VERSION="$version" ./scripts/check-release.sh
+      - name: Publish verified bytes
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          RELEASE_VERSION=$(jq -er '.version' release/release.json) ./scripts/publish-release.sh
