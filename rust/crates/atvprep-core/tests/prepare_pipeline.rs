@@ -272,15 +272,16 @@ fn run_case(name: &str, variant: &str) -> Value {
 }
 
 // FFmpeg emits intermediate encode percentages according to elapsed wall time.
-// Preserve its final percentage and every deterministic protocol line, while
-// independently rejecting out-of-range or non-monotonic progress.
+// Discard sampled encode percentages, but retain the deterministic 90% stage
+// boundary regardless of whether ffmpeg or finalization emits it first.
+// Independently reject out-of-range or non-monotonic progress.
 fn stable_machine(value: Value) -> Value {
     let Some(lines) = value.as_array() else {
         return value;
     };
     let mut result = Vec::new();
     let mut encoding = false;
-    let mut pending = None;
+    let mut encode_reached_90 = false;
     let mut previous = None;
     for line in lines {
         let text = line.as_str().expect("machine protocol string");
@@ -293,26 +294,26 @@ fn stable_machine(value: Value) -> Value {
             );
             previous = Some(percent);
             if encoding {
-                pending = Some(line.clone());
+                encode_reached_90 |= percent == 90;
                 continue;
             }
         }
-        if let Some(last) = pending.take() {
-            result.push(last);
-        }
         if text.starts_with("ATVPREP-STAGE ") {
             encoding = text == "ATVPREP-STAGE encode";
+            result.push(line.clone());
+            if text == "ATVPREP-STAGE finalize" && encode_reached_90 {
+                result.push(Value::String("ATVPREP-PROGRESS 90".into()));
+                encode_reached_90 = false;
+            }
+            continue;
         }
         result.push(line.clone());
-    }
-    if let Some(last) = pending {
-        result.push(last);
     }
     Value::Array(result)
 }
 
 #[test]
-fn encode_sampling_preserves_final_progress_and_later_protocol() {
+fn encode_sampling_normalizes_intermediate_progress_and_preserves_stage_boundary() {
     let sampled = json!([
         "ATVPREP-STAGE encode",
         "ATVPREP-PROGRESS 69",
@@ -323,13 +324,21 @@ fn encode_sampling_preserves_final_progress_and_later_protocol() {
     ]);
     let expected = json!([
         "ATVPREP-STAGE encode",
-        "ATVPREP-PROGRESS 86",
         "ATVPREP-STAGE finalize",
         "ATVPREP-PROGRESS 90",
         "ATVPREP-PROGRESS 97"
     ]);
     assert_eq!(stable_machine(sampled), expected);
     assert_eq!(stable_machine(expected.clone()), expected);
+    assert_eq!(
+        stable_machine(json!([
+            "ATVPREP-STAGE encode",
+            "ATVPREP-PROGRESS 90",
+            "ATVPREP-STAGE finalize",
+            "ATVPREP-PROGRESS 97"
+        ])),
+        expected
+    );
 }
 
 #[test]
