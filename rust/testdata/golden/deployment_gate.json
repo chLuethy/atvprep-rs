@@ -1,0 +1,150 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "error": "the reason must be 1 to 200 printable characters",
+        "valid": false
+      },
+      "input": "",
+      "name": "operator-text-0"
+    },
+    {
+      "expected": {
+        "valid": true
+      },
+      "input": " ",
+      "name": "operator-text-1"
+    },
+    {
+      "expected": {
+        "valid": true
+      },
+      "input": "planned upgrade",
+      "name": "operator-text-2"
+    },
+    {
+      "expected": {
+        "valid": true
+      },
+      "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "name": "operator-text-3"
+    },
+    {
+      "expected": {
+        "valid": true
+      },
+      "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "name": "operator-text-4"
+    },
+    {
+      "expected": {
+        "error": "the reason must be 1 to 200 printable characters",
+        "valid": false
+      },
+      "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "name": "operator-text-5"
+    },
+    {
+      "expected": {
+        "valid": true
+      },
+      "input": "ääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääää",
+      "name": "operator-text-6"
+    },
+    {
+      "expected": {
+        "error": "the reason must be 1 to 200 printable characters",
+        "valid": false
+      },
+      "input": "äääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääää",
+      "name": "operator-text-7"
+    },
+    {
+      "expected": {
+        "valid": true
+      },
+      "input": "更新 😀",
+      "name": "operator-text-8"
+    },
+    {
+      "expected": {
+        "valid": true
+      },
+      "input": "á",
+      "name": "operator-text-9"
+    },
+    {
+      "expected": {
+        "error": "the reason must be 1 to 200 printable characters",
+        "valid": false
+      },
+      "input": "bad\nreason",
+      "name": "operator-text-10"
+    },
+    {
+      "expected": {
+        "error": "the reason must be 1 to 200 printable characters",
+        "valid": false
+      },
+      "input": "bad\treason",
+      "name": "operator-text-11"
+    },
+    {
+      "expected": {
+        "error": "the reason must be 1 to 200 printable characters",
+        "valid": false
+      },
+      "input": "bad\u0000reason",
+      "name": "operator-text-12"
+    },
+    {
+      "expected": {
+        "error": "the reason must be 1 to 200 printable characters",
+        "valid": false
+      },
+      "input": "bad reason",
+      "name": "operator-text-13"
+    },
+    {
+      "expected": {
+        "error": "the reason must be 1 to 200 printable characters",
+        "valid": false
+      },
+      "input": "bad reason",
+      "name": "operator-text-14"
+    },
+    {
+      "expected": {
+        "error": "the reason must be 1 to 200 printable characters",
+        "valid": false
+      },
+      "input": "bad​reason",
+      "name": "operator-text-15"
+    },
+    {
+      "expected": {
+        "error": "the reason must be 1 to 200 printable characters",
+        "valid": false
+      },
+      "input": "bad‍reason",
+      "name": "operator-text-16"
+    },
+    {
+      "expected": {
+        "error": "the reason must be 1 to 200 printable characters",
+        "valid": false
+      },
+      "input": "badreason",
+      "name": "operator-text-17"
+    },
+    {
+      "expected": {
+        "error": "the reason must be 1 to 200 printable characters",
+        "valid": false
+      },
+      "input": "bad͸reason",
+      "name": "operator-text-18"
+    }
+  ],
+  "suite": "deployment_gate"
+}

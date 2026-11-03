@@ -1,0 +1,404 @@
+{
+  "cases": [
+    {
+      "expected": [
+        {
+          "ok": true
+        },
+        {
+          "ok": false
+        }
+      ],
+      "input": [
+        {
+          "at": 0,
+          "op": "create"
+        },
+        {
+          "at": 20,
+          "op": "authenticate"
+        }
+      ],
+      "name": "idle-boundary"
+    },
+    {
+      "expected": [
+        {
+          "ok": true
+        },
+        {
+          "last_seen_seconds": 0,
+          "ok": true
+        },
+        {
+          "last_seen_seconds": 0,
+          "ok": true
+        },
+        {
+          "last_seen_seconds": 10,
+          "ok": true
+        },
+        {
+          "last_seen_seconds": 10,
+          "ok": true
+        },
+        {
+          "last_seen_seconds": 20,
+          "ok": true
+        },
+        {
+          "last_seen_seconds": 20,
+          "ok": true
+        },
+        {
+          "last_seen_seconds": 30,
+          "ok": true
+        },
+        {
+          "last_seen_seconds": 30,
+          "ok": true
+        },
+        {
+          "last_seen_seconds": 40,
+          "ok": true
+        },
+        {
+          "last_seen_seconds": 40,
+          "ok": true
+        },
+        {
+          "last_seen_seconds": 50,
+          "ok": true
+        },
+        {
+          "last_seen_seconds": 50,
+          "ok": true
+        },
+        {
+          "ok": false
+        }
+      ],
+      "input": [
+        {
+          "at": 0,
+          "op": "create"
+        },
+        {
+          "at": 0,
+          "op": "authenticate"
+        },
+        {
+          "at": 9,
+          "op": "authenticate"
+        },
+        {
+          "at": 10,
+          "op": "authenticate"
+        },
+        {
+          "at": 19,
+          "op": "authenticate"
+        },
+        {
+          "at": 20,
+          "op": "authenticate"
+        },
+        {
+          "at": 29,
+          "op": "authenticate"
+        },
+        {
+          "at": 30,
+          "op": "authenticate"
+        },
+        {
+          "at": 39,
+          "op": "authenticate"
+        },
+        {
+          "at": 40,
+          "op": "authenticate"
+        },
+        {
+          "at": 49,
+          "op": "authenticate"
+        },
+        {
+          "at": 50,
+          "op": "authenticate"
+        },
+        {
+          "at": 59,
+          "op": "authenticate"
+        },
+        {
+          "at": 60,
+          "op": "authenticate"
+        }
+      ],
+      "name": "absolute-and-refresh-boundaries"
+    },
+    {
+      "expected": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": false
+        },
+        {
+          "ok": false
+        },
+        {
+          "ok": false
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": false
+        },
+        {
+          "ok": true
+        }
+      ],
+      "input": [
+        {
+          "at": 0,
+          "op": "create"
+        },
+        {
+          "at": 0,
+          "name": "one",
+          "op": "issue"
+        },
+        {
+          "at": 0,
+          "method": "DELETE",
+          "name": "one",
+          "op": "validate"
+        },
+        {
+          "at": 0,
+          "name": "one",
+          "op": "validate",
+          "path": "/api/v1/scans"
+        },
+        {
+          "action": "other",
+          "at": 0,
+          "name": "one",
+          "op": "validate"
+        },
+        {
+          "at": 0,
+          "method": "post",
+          "name": "one",
+          "op": "validate"
+        },
+        {
+          "at": 0,
+          "name": "one",
+          "op": "validate"
+        },
+        {
+          "allow_used": true,
+          "at": 0,
+          "name": "one",
+          "op": "validate"
+        }
+      ],
+      "name": "csrf-binding-and-replay"
+    },
+    {
+      "expected": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": false
+        }
+      ],
+      "input": [
+        {
+          "at": 0,
+          "op": "create"
+        },
+        {
+          "at": 0,
+          "name": "one",
+          "op": "issue"
+        },
+        {
+          "at": 10,
+          "name": "one",
+          "op": "validate"
+        }
+      ],
+      "name": "csrf-expiry"
+    },
+    {
+      "expected": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": false
+        },
+        {
+          "ok": true
+        }
+      ],
+      "input": [
+        {
+          "at": 0,
+          "op": "create"
+        },
+        {
+          "at": 0,
+          "op": "create",
+          "session": "b"
+        },
+        {
+          "at": 0,
+          "name": "one",
+          "op": "issue"
+        },
+        {
+          "at": 0,
+          "name": "one",
+          "op": "validate",
+          "session": "b"
+        },
+        {
+          "at": 0,
+          "name": "one",
+          "op": "validate"
+        }
+      ],
+      "name": "csrf-session-binding"
+    },
+    {
+      "expected": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": false
+        },
+        {
+          "last_seen_seconds": 1,
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": false
+        }
+      ],
+      "input": [
+        {
+          "at": 0,
+          "op": "create"
+        },
+        {
+          "at": 0,
+          "name": "one",
+          "op": "issue"
+        },
+        {
+          "at": 1,
+          "new_session": "b",
+          "op": "rotate"
+        },
+        {
+          "at": 1,
+          "op": "authenticate"
+        },
+        {
+          "at": 1,
+          "op": "authenticate",
+          "session": "b"
+        },
+        {
+          "at": 1,
+          "name": "one",
+          "op": "validate",
+          "session": "b"
+        },
+        {
+          "at": 2,
+          "op": "revoke",
+          "session": "b"
+        },
+        {
+          "at": 2,
+          "op": "authenticate",
+          "session": "b"
+        }
+      ],
+      "name": "rotation-and-revocation"
+    },
+    {
+      "expected": [
+        {
+          "ok": true
+        },
+        {
+          "ok": false
+        },
+        {
+          "ok": false
+        },
+        {
+          "ok": false
+        }
+      ],
+      "input": [
+        {
+          "at": 0,
+          "op": "create"
+        },
+        {
+          "at": 0,
+          "op": "authenticate",
+          "session": "invalid"
+        },
+        {
+          "at": 0,
+          "op": "authenticate",
+          "session": "字幕"
+        },
+        {
+          "at": 0,
+          "name": "missing",
+          "op": "validate"
+        }
+      ],
+      "name": "invalid-input"
+    }
+  ],
+  "suite": "auth_service"
+}

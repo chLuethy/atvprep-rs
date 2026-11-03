@@ -1,0 +1,50 @@
+import { expect, test } from "@playwright/test";
+import { openAndUnlock } from "./support";
+
+test.use({ trace: "off", screenshot: "off", video: "off" });
+
+test.describe("library journey", () => {
+  test("filters, verifies a selection, deep-links the inspector and queues re-inspection", async ({ page }) => {
+    await openAndUnlock(page, "/files");
+    await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
+    await expect(page.getByRole("table", { name: "Media files" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
+
+    await page.getByLabel("Search files").fill("Sample Movie");
+    const sampleLink = page.getByRole("link", { name: "Sample Movie" });
+    await expect(sampleLink).toBeVisible();
+    await expect(page.getByRole("link", { name: "Failed Movie" })).toHaveCount(0);
+
+    // A click selects the file and opens it in the inspector, where Verify acts on it.
+    await sampleLink.click();
+    await expect(page).toHaveURL(/\/files\/.+/);
+    await expect(page.getByRole("heading", { name: "Sample Movie" })).toBeVisible();
+    await page.getByRole("button", { name: "Verify", exact: true }).click();
+    await expect(page.locator(".lib-notice").getByText("Verification job queued", { exact: false })).toBeVisible();
+    await expect(page.getByRole("list", { name: "Why" })).toHaveCount(0);
+
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Sample Movie" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Re-inspect" }).click();
+    await expect(page.getByRole("region", { name: "Confirm re-inspection" })).toBeVisible();
+    await page.getByRole("button", { name: "Confirm re-inspect" }).click();
+    await expect(page.getByText("Re-inspection queued", { exact: true })).toBeVisible();
+  });
+
+  test("shows the scope of a prepare run before anything is queued", async ({ page }) => {
+    await openAndUnlock(page, "/files");
+
+    await expect(page.getByRole("button", { name: "Prepare All" })).toHaveCount(0);
+    await page.getByRole("link", { name: "Failed Movie" }).click();
+    await page.getByRole("button", { name: /Prepare preview/ }).click();
+
+    const preview = page.getByRole("region", { name: "Prepare preview" });
+    await expect(preview).toContainText("Failed Movie");
+    await expect(preview).toContainText("Nothing is written until you confirm.");
+    await expect(page.getByRole("button", { name: "Prepare 1 file" })).toBeVisible();
+
+    await preview.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByRole("region", { name: "Prepare preview" })).toHaveCount(0);
+  });
+});

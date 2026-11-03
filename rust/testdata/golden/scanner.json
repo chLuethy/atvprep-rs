@@ -1,0 +1,184 @@
+{
+  "cases": [
+    {
+      "expected": false,
+      "input": {
+        "kind": "temporary",
+        "name": "film.mp4"
+      },
+      "name": "temporary-film.mp4"
+    },
+    {
+      "expected": true,
+      "input": {
+        "kind": "temporary",
+        "name": ".tmp_fixmeta_x.mp4"
+      },
+      "name": "temporary-.tmp_fixmeta_x.mp4"
+    },
+    {
+      "expected": true,
+      "input": {
+        "kind": "temporary",
+        "name": "x.mp4.tmp_moov.1"
+      },
+      "name": "temporary-x.mp4.tmp_moov.1"
+    },
+    {
+      "expected": true,
+      "input": {
+        "kind": "temporary",
+        "name": "MOVIE.TMP.mp4"
+      },
+      "name": "temporary-MOVIE.TMP.mp4"
+    },
+    {
+      "expected": false,
+      "input": {
+        "kind": "temporary",
+        "name": "tmp.mp4"
+      },
+      "name": "temporary-tmp.mp4"
+    },
+    {
+      "expected": true,
+      "input": {
+        "kind": "temporary",
+        "name": "film.tmpx"
+      },
+      "name": "temporary-film.tmpx"
+    },
+    {
+      "expected": false,
+      "input": {
+        "kind": "temporary",
+        "name": "字幕.mp4"
+      },
+      "name": "temporary-字幕.mp4"
+    },
+    {
+      "expected": true,
+      "input": {
+        "excluded": [
+          "cache"
+        ],
+        "kind": "excluded",
+        "name": "cache",
+        "relative": "a/cache"
+      },
+      "name": "exclude-7"
+    },
+    {
+      "expected": true,
+      "input": {
+        "excluded": [
+          "a/cache"
+        ],
+        "kind": "excluded",
+        "name": "cache",
+        "relative": "a/cache"
+      },
+      "name": "exclude-8"
+    },
+    {
+      "expected": false,
+      "input": {
+        "excluded": [
+          "a/cache"
+        ],
+        "kind": "excluded",
+        "name": "cache",
+        "relative": "b/cache"
+      },
+      "name": "exclude-9"
+    },
+    {
+      "expected": false,
+      "input": {
+        "excluded": [
+          "cache"
+        ],
+        "kind": "excluded",
+        "name": "CACHE",
+        "relative": "a/CACHE"
+      },
+      "name": "exclude-10"
+    },
+    {
+      "expected": false,
+      "input": {
+        "excluded": [],
+        "kind": "excluded",
+        "name": "sub",
+        "relative": "a/sub"
+      },
+      "name": "exclude-11"
+    },
+    {
+      "expected": false,
+      "input": {
+        "excluded": [
+          "sub"
+        ],
+        "kind": "excluded",
+        "name": "deep",
+        "relative": "a/sub/deep"
+      },
+      "name": "exclude-12"
+    },
+    {
+      "expected": {
+        "fingerprint": "film.de.ASS:3:1700000002000000000|film.en.srt:2:1700000001000000000|filmb.vtt:4:1700000003000000000",
+        "sidecars": [
+          {
+            "mtime_ns": 1700000002000000000,
+            "relative_path": "movies/film.de.ASS",
+            "size": 3
+          },
+          {
+            "mtime_ns": 1700000001000000000,
+            "relative_path": "movies/film.en.srt",
+            "size": 2
+          },
+          {
+            "mtime_ns": 1700000003000000000,
+            "relative_path": "movies/filmb.vtt",
+            "size": 4
+          }
+        ]
+      },
+      "input": {
+        "files": [
+          {
+            "mtime_ns": 1700000000000000000,
+            "name": "film.mp4",
+            "size": 10
+          },
+          {
+            "mtime_ns": 1700000001000000000,
+            "name": "film.en.srt",
+            "size": 2
+          },
+          {
+            "mtime_ns": 1700000002000000000,
+            "name": "film.de.ASS",
+            "size": 3
+          },
+          {
+            "mtime_ns": 1700000003000000000,
+            "name": "filmb.vtt",
+            "size": 4
+          },
+          {
+            "mtime_ns": 1700000004000000000,
+            "name": "other.srt",
+            "size": 5
+          }
+        ],
+        "kind": "sidecars"
+      },
+      "name": "descriptor-sidecars"
+    }
+  ],
+  "suite": "scanner"
+}

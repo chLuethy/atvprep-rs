@@ -1,0 +1,810 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "consumed": 8,
+        "identical": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "input": {
+        "exit_code": 0,
+        "kind": "lines",
+        "lines": [
+          "1,a1",
+          "2,a1",
+          "1,a2",
+          "2,a2",
+          "1,a3",
+          "2,a3",
+          "1,a4",
+          "2,a4"
+        ],
+        "pairs": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "name": "lines: two identical tracks"
+    },
+    {
+      "expected": {
+        "consumed": 2,
+        "identical": []
+      },
+      "input": {
+        "exit_code": 0,
+        "kind": "lines",
+        "lines": [
+          "1,a1",
+          "2,x",
+          "1,a2",
+          "2,a2",
+          "1,a3",
+          "2,a3",
+          "1,a4",
+          "2,a4"
+        ],
+        "pairs": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "name": "lines: differs at the first packet"
+    },
+    {
+      "expected": {
+        "consumed": 6,
+        "identical": []
+      },
+      "input": {
+        "exit_code": 0,
+        "kind": "lines",
+        "lines": [
+          "1,a1",
+          "2,a1",
+          "1,a2",
+          "2,a2",
+          "1,a3",
+          "2,x",
+          "1,a4",
+          "2,a4"
+        ],
+        "pairs": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "name": "lines: differs at the third packet"
+    },
+    {
+      "expected": {
+        "consumed": 7,
+        "identical": []
+      },
+      "input": {
+        "exit_code": 0,
+        "kind": "lines",
+        "lines": [
+          "1,a1",
+          "2,a1",
+          "1,a2",
+          "2,a2",
+          "1,a3",
+          "2,a3",
+          "1,a4"
+        ],
+        "pairs": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "name": "lines: different packet counts"
+    },
+    {
+      "expected": {
+        "consumed": 12,
+        "identical": [
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      },
+      "input": {
+        "exit_code": 0,
+        "kind": "lines",
+        "lines": [
+          "1,a1",
+          "2,a1",
+          "3,a1",
+          "1,a2",
+          "2,a2",
+          "3,a2",
+          "1,a3",
+          "2,a3",
+          "3,a3",
+          "1,a4",
+          "2,a4",
+          "3,a4"
+        ],
+        "pairs": [
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      },
+      "name": "lines: three identical tracks"
+    },
+    {
+      "expected": {
+        "consumed": 12,
+        "identical": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "input": {
+        "exit_code": 0,
+        "kind": "lines",
+        "lines": [
+          "1,a1",
+          "2,a1",
+          "3,a1",
+          "1,a2",
+          "2,a2",
+          "3,x",
+          "1,a3",
+          "2,a3",
+          "3,a3",
+          "1,a4",
+          "2,a4",
+          "3,a4"
+        ],
+        "pairs": [
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      },
+      "name": "lines: third track differs"
+    },
+    {
+      "expected": {
+        "consumed": 8,
+        "identical": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "input": {
+        "exit_code": 0,
+        "kind": "lines",
+        "lines": [
+          "1,a1",
+          "1,a2",
+          "1,a3",
+          "1,a4",
+          "2,a1",
+          "2,a2",
+          "2,a3",
+          "2,a4"
+        ],
+        "pairs": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "name": "lines: not interleaved"
+    },
+    {
+      "expected": {
+        "consumed": 13,
+        "identical": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "input": {
+        "exit_code": 0,
+        "kind": "lines",
+        "lines": [
+          "x",
+          "1",
+          "a,b",
+          "",
+          "9,zz",
+          "1,a1",
+          "2,a1",
+          "1,a2",
+          "2,a2",
+          "1,a3",
+          "2,a3",
+          "1,a4",
+          "2,a4"
+        ],
+        "pairs": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "name": "lines: garbled and foreign lines"
+    },
+    {
+      "expected": {
+        "consumed": 0,
+        "identical": []
+      },
+      "input": {
+        "exit_code": 0,
+        "kind": "lines",
+        "lines": [],
+        "pairs": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "name": "lines: empty output"
+    },
+    {
+      "expected": {
+        "consumed": 8,
+        "identical": []
+      },
+      "input": {
+        "exit_code": 1,
+        "kind": "lines",
+        "lines": [
+          "1,a1",
+          "2,a1",
+          "1,a2",
+          "2,a2",
+          "1,a3",
+          "2,a3",
+          "1,a4",
+          "2,a4"
+        ],
+        "pairs": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "name": "lines: non zero exit"
+    },
+    {
+      "expected": {
+        "consumed": 4,
+        "identical": []
+      },
+      "input": {
+        "exit_code": 0,
+        "kind": "lines",
+        "lines": [
+          "1,a1",
+          "1,a2",
+          "1,a3",
+          "1,a4"
+        ],
+        "pairs": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "name": "lines: no packets at all for a stream"
+    },
+    {
+      "expected": {
+        "consumed": 4,
+        "identical": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "input": {
+        "exit_code": 0,
+        "kind": "lines",
+        "lines": [
+          " 1,a1,zz\n",
+          "2,a1,yy\n",
+          "1,a2\n",
+          "2,a2\n"
+        ],
+        "pairs": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "name": "lines: extra fields and newlines"
+    },
+    {
+      "expected": {
+        "consumed": 16,
+        "identical": [
+          [
+            3,
+            4
+          ]
+        ]
+      },
+      "input": {
+        "exit_code": 0,
+        "kind": "lines",
+        "lines": [
+          "1,a1",
+          "2,x",
+          "3,a1",
+          "4,a1",
+          "1,a2",
+          "2,a2",
+          "3,a2",
+          "4,a2",
+          "1,a3",
+          "2,a3",
+          "3,a3",
+          "4,a3",
+          "1,a4",
+          "2,a4",
+          "3,a4",
+          "4,a4"
+        ],
+        "pairs": [
+          [
+            1,
+            2
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+      },
+      "name": "lines: later pair stays alive"
+    },
+    {
+      "expected": {
+        "indices": [],
+        "pairs": []
+      },
+      "input": {
+        "kind": "candidates",
+        "probe": {
+          "streams": [
+            {
+              "codec_type": "video",
+              "index": 0
+            }
+          ]
+        }
+      },
+      "name": "candidates: no audio"
+    },
+    {
+      "expected": {
+        "indices": [],
+        "pairs": []
+      },
+      "input": {
+        "kind": "candidates",
+        "probe": {
+          "streams": [
+            {
+              "bit_rate": "640000",
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "sample_rate": "48000",
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        }
+      },
+      "name": "candidates: one audio"
+    },
+    {
+      "expected": {
+        "indices": [
+          2
+        ],
+        "pairs": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "input": {
+        "kind": "candidates",
+        "probe": {
+          "streams": [
+            {
+              "bit_rate": "640000",
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "sample_rate": "48000",
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "bit_rate": "640000",
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 2,
+              "sample_rate": "48000",
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        }
+      },
+      "name": "candidates: two equal"
+    },
+    {
+      "expected": {
+        "indices": [],
+        "pairs": []
+      },
+      "input": {
+        "kind": "candidates",
+        "probe": {
+          "streams": [
+            {
+              "bit_rate": "640000",
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "sample_rate": "48000",
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "bit_rate": "640000",
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 2,
+              "sample_rate": "48000",
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "candidates: different language"
+    },
+    {
+      "expected": {
+        "indices": [
+          2
+        ],
+        "pairs": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "input": {
+        "kind": "candidates",
+        "probe": {
+          "streams": [
+            {
+              "bit_rate": "640000",
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "sample_rate": "48000",
+              "tags": {
+                "language": "de"
+              }
+            },
+            {
+              "bit_rate": "640000",
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 2,
+              "sample_rate": "48000",
+              "tags": {
+                "language": "ger"
+              }
+            }
+          ]
+        }
+      },
+      "name": "candidates: normalised language"
+    },
+    {
+      "expected": {
+        "indices": [],
+        "pairs": []
+      },
+      "input": {
+        "kind": "candidates",
+        "probe": {
+          "streams": [
+            {
+              "bit_rate": "640000",
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "sample_rate": "48000",
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "bit_rate": "1",
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 2,
+              "sample_rate": "48000",
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        }
+      },
+      "name": "candidates: different bit rate"
+    },
+    {
+      "expected": {
+        "indices": [
+          2,
+          3,
+          5
+        ],
+        "pairs": [
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ]
+        ]
+      },
+      "input": {
+        "kind": "candidates",
+        "probe": {
+          "streams": [
+            {
+              "bit_rate": "640000",
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 3,
+              "sample_rate": "48000",
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "bit_rate": "640000",
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "sample_rate": "48000",
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "bit_rate": "640000",
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 2,
+              "sample_rate": "48000",
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "bit_rate": "640000",
+              "channels": 2,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 5,
+              "sample_rate": "48000",
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "bit_rate": "640000",
+              "channels": 2,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 4,
+              "sample_rate": "48000",
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "bit_rate": "640000",
+              "channels": 6,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 6,
+              "sample_rate": "48000",
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        }
+      },
+      "name": "candidates: three groups"
+    },
+    {
+      "expected": {
+        "indices": [
+          2
+        ],
+        "pairs": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "input": {
+        "kind": "candidates",
+        "probe": {
+          "streams": [
+            {
+              "bit_rate": null,
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "sample_rate": "48000",
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "bit_rate": null,
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 2,
+              "sample_rate": "48000",
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        }
+      },
+      "name": "candidates: missing bit rate"
+    },
+    {
+      "expected": {
+        "indices": [
+          8
+        ],
+        "pairs": [
+          [
+            7,
+            8
+          ]
+        ]
+      },
+      "input": {
+        "kind": "candidates",
+        "probe": {
+          "streams": [
+            {
+              "bit_rate": "640000",
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": "7",
+              "sample_rate": "48000",
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "bit_rate": "640000",
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": "8",
+              "sample_rate": "48000",
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        }
+      },
+      "name": "candidates: string indexes"
+    }
+  ],
+  "suite": "duplicate_audio"
+}

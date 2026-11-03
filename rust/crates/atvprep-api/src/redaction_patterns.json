@@ -1,0 +1,9 @@
+{
+  "URL": "(?i)\\b[a-z][a-z0-9+.-]*://[^\\s,;}]+",
+  "AUTHORIZATION": "(?i)(?P<prefix>\\b(?:authorization|cookie)[\\\"']?\\s*[:=]\\s*)(?P<value>(?!\\s*[\\\"'])[^\\r\\n,;}]+)",
+  "QUOTED_SECRET": "(?i)(?P<prefix>\\b(?:authorization|cookie|password|secret|token|credential|api[-_]?key)[\\\"']?\\s*[:=]\\s*)(?P<quote>[\\\"'])(?P<value>.*?)\\k<quote>",
+  "SECRET_TOKEN": "(?i)(?P<prefix>\\b(?:password|secret|token|credential|api[-_]?key)[\\\"']?\\s*[:=]\\s*)(?P<value>[^\\s,;}]+)",
+  "PATH_KEY": "(?i)(?P<prefix>\\b(?:path|file|filename)[\\\"']?\\s*[:=]\\s*)(?P<quote>[\\\"'])(?P<value>.*?)\\k<quote>|(?P<prefix_unquoted>\\b(?:path|file|filename)[\\\"']?\\s*[:=]\\s*)(?P<value_unquoted>(?:/|[A-Za-z]:[\\\\/]|\\\\\\\\)[^;\\r\\n}]*?)(?=,\\s*__REDACTION_URL_\\d+__|\\s+[A-Za-z_][\\w-]*\\s*[:=]|[;\\r\\n}]|$)",
+  "ABSOLUTE_PATH": "(?<![\\w:/])/(?!/)[^\\r\\n;{}\\\"']*?\\.[A-Za-z0-9]{1,12}(?=$|[\\s,;}]|[\\\"'])|(?<![\\w])(?:[A-Za-z]:[\\\\/]|\\\\\\\\)[^\\r\\n;{}\\\"']*?\\.[A-Za-z0-9]{1,12}(?=$|[\\s,;}]|[\\\"'])|(?<![\\w:/])/(?!/)[^\\r\\n;{}\\\"']*?\\S(?=(?:,\\s*__REDACTION_URL_\\d__|\\s+__REDACTION_URL_\\d__|\\s+[A-Za-z_][\\w-]*\\s*[:=])|[\\r\\n;{}\\\"']|$)|(?<![\\w])(?:[A-Za-z]:[\\\\/]|\\\\\\\\)[^\\r\\n;{}\\\"']*?\\S(?=(?:,\\s*__REDACTION_URL_\\d__|\\s+__REDACTION_URL_\\d__|\\s+[A-Za-z_][\\w-]*\\s*[:=])|[\\r\\n;{}\\\"']|$)",
+  "PLACEHOLDER": "__REDACTION_URL_(\\d+)__"
+}

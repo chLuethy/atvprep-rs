@@ -1,0 +1,24 @@
+[package]
+name = "atvprep-manager"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+atvprep-core = { path = "../atvprep-core" }
+chrono = { version = "0.4.44", features = ["clock"] }
+chrono-tz = "0.10.4"
+hmac = "0.12.1"
+rustix = { version = "1.1.6", features = ["process", "fs", "system"] }
+rusqlite = { version = "0.41.1", features = ["bundled", "functions"] }
+serde_json = "1.0.154"
+serde = { version = "1.0.229", features = ["derive"] }
+tempfile = "3"
+regex = "1.13.1"
+sha2 = "0.10.9"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+atvprep-testkit = { path = "../atvprep-testkit" }

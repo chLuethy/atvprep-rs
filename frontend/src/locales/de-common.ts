@@ -1,0 +1,22 @@
+/** German texts used on several pages. */
+export const deCommon: Record<string, string | readonly [string, string]> = {
+  "Language": "Sprache",
+  "Version {version}": "Version {version}",
+  "Verify": "Prüfen",
+  "Fix": "Reparieren",
+  "Convert": "Konvertieren",
+  "Inspect": "Analysieren",
+  "Session expired. Lock and unlock again.": "Sitzung abgelaufen. Sperren und erneut entsperren.",
+  "{fallback} The server said: {detail}.": "{fallback} Der Server meldet: {detail}.",
+  "Cancel": "Abbrechen",
+  "Retry": "Erneut versuchen",
+  "Edit": "Bearbeiten",
+  "Delete": "Löschen",
+  "Name": "Name",
+  "Action": "Aktion",
+  "Library": "Mediathek",
+  "Open job": "Auftrag öffnen",
+  "Run now": "Jetzt ausführen",
+  "Schedules": "Zeitpläne",
+  "Prepare": "Überarbeiten",
+};

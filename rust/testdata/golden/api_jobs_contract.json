@@ -1,0 +1,737 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "completed": 23
+      },
+      "input": {
+        "seed": "jobs",
+        "setup": "jobs",
+        "steps": [
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"action\":\"bad\",\"media_ids\":[\"<m:1>\"]}",
+              "csrf_action": "create-job",
+              "csrf_alias": "bad-action",
+              "idempotency_key": "bad-action",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs"
+            },
+            "response": {
+              "body": {
+                "detail": "request validation failed",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "request validation failed"
+                },
+                "instance": "/api/v1/jobs",
+                "status": 422,
+                "title": "request validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"action\":\"verify\",\"media_ids\":[]}",
+              "csrf_action": "create-job",
+              "csrf_alias": "empty",
+              "idempotency_key": "empty",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs"
+            },
+            "response": {
+              "body": {
+                "detail": "request validation failed",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "request validation failed"
+                },
+                "instance": "/api/v1/jobs",
+                "status": 422,
+                "title": "request validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"action\":\"verify\",\"media_ids\":[\"invalid\"]}",
+              "csrf_action": "create-job",
+              "csrf_alias": "bad-id",
+              "idempotency_key": "bad-id",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs"
+            },
+            "response": {
+              "body": {
+                "detail": "media_ids must contain opaque identifiers",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "media_ids must contain opaque identifiers"
+                },
+                "instance": "/api/v1/jobs",
+                "status": 422,
+                "title": "media_ids must contain opaque identifiers",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"action\":\"prepare\",\"media_ids\":[\"<m:1>\"]}",
+              "csrf_action": "create-job",
+              "csrf_alias": "unapproved",
+              "idempotency_key": "unapproved",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs"
+            },
+            "response": {
+              "body": {
+                "detail": "an explicit approval is required to change files",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "an explicit approval is required to change files"
+                },
+                "instance": "/api/v1/jobs",
+                "status": 422,
+                "title": "an explicit approval is required to change files",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"action\":\"prepare\",\"media_ids\":[\"<m:1>\"],\"manual_approval\":true,\"confirm_delete_original\":true}",
+              "csrf_action": "create-job",
+              "csrf_alias": "delete",
+              "idempotency_key": "delete",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs"
+            },
+            "response": {
+              "body": {
+                "detail": "deleting an original is not available",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "deleting an original is not available"
+                },
+                "instance": "/api/v1/jobs",
+                "status": 422,
+                "title": "deleting an original is not available",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"action\":\"prepare\",\"media_ids\":[\"<m:999>\"],\"manual_approval\":true}",
+              "csrf_action": "create-job",
+              "csrf_alias": "missing-prepare",
+              "idempotency_key": "missing-prepare",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs"
+            },
+            "response": {
+              "body": {
+                "detail": "resource not found",
+                "error": {
+                  "code": "not_found",
+                  "message": "resource not found"
+                },
+                "instance": "/api/v1/jobs",
+                "status": 404,
+                "title": "Not Found",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 404
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{}",
+              "csrf_action": "retry-job",
+              "csrf_alias": "retry",
+              "idempotency_key": "retry",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs/<j:1>/retry"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "id": "<j:2>",
+                  "status": "queued"
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{}",
+              "csrf_action": "retry-job",
+              "csrf_alias": "retry",
+              "idempotency_key": "retry",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs/<j:1>/retry"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "id": "<j:2>",
+                  "status": "queued"
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{}",
+              "csrf_action": "retry-job",
+              "csrf_alias": "unfinished-retry",
+              "idempotency_key": "unfinished-retry",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs/<j:2>/retry"
+            },
+            "response": {
+              "body": {
+                "detail": "job has no retryable failed items",
+                "error": {
+                  "code": "request_error",
+                  "message": "job has no retryable failed items"
+                },
+                "instance": "/api/v1/jobs/<j:2>/retry",
+                "status": 409,
+                "title": "job has no retryable failed items",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 409
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{}",
+              "csrf_action": "cancel-job",
+              "csrf_alias": "cancel",
+              "idempotency_key": "cancel",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs/<j:2>/cancel"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "id": "<j:2>",
+                  "status": "cancel_requested"
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{}",
+              "csrf_action": "cancel-job",
+              "csrf_alias": "cancel",
+              "idempotency_key": "cancel",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs/<j:2>/cancel"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "id": "<j:2>",
+                  "status": "cancel_requested"
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"action\":\"inspect\",\"media_ids\":[\"<m:1>\"]}",
+              "csrf_action": "create-job",
+              "csrf_alias": "inspect",
+              "idempotency_key": "inspect",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "action": "inspect",
+                  "id": "<j:3>",
+                  "status": "queued"
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 201
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"action\":\"verify\",\"media_ids\":[\"<m:1>\"]}",
+              "csrf_action": "create-job",
+              "csrf_alias": "verify",
+              "idempotency_key": "verify",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "action": "verify",
+                  "id": "<j:4>",
+                  "status": "queued"
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 201
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"action\":\"prepare\",\"media_ids\":[\"<m:1>\"],\"manual_approval\":true}",
+              "csrf_action": "create-job",
+              "csrf_alias": "prepare",
+              "idempotency_key": "prepare",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "action": "prepare",
+                  "id": "<j:5>",
+                  "status": "queued"
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 201
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"action\":\"prepare\",\"media_ids\":[\"<m:1>\"],\"manual_approval\":true}",
+              "csrf_action": "create-job",
+              "csrf_alias": "duplicate-prepare",
+              "idempotency_key": "duplicate-prepare",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs"
+            },
+            "response": {
+              "body": {
+                "detail": "active job item already exists for media",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "active job item already exists for media"
+                },
+                "instance": "/api/v1/jobs",
+                "status": 422,
+                "title": "active job item already exists for media",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"action\":\"prepare\",\"media_ids\":[\"<m:1>\"],\"manual_approval\":true}",
+              "csrf_action": "create-job",
+              "csrf_alias": "prepare",
+              "idempotency_key": "prepare",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "action": "prepare",
+                  "id": "<j:5>",
+                  "status": "queued"
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 201
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"action\":\"fix\",\"media_ids\":[\"<m:2>\"],\"manual_approval\":true}",
+              "csrf_action": "create-job",
+              "csrf_alias": "fix",
+              "idempotency_key": "fix",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "action": "prepare",
+                  "id": "<j:6>",
+                  "status": "queued"
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 201
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"action\":\"convert\",\"media_ids\":[\"<m:3>\"],\"manual_approval\":true}",
+              "csrf_action": "create-job",
+              "csrf_alias": "convert",
+              "idempotency_key": "convert",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "action": "prepare",
+                  "id": "<j:7>",
+                  "status": "queued"
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 201
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"reason\":\"write contract\"}",
+              "csrf_action": "close-gate",
+              "csrf_alias": "close",
+              "idempotency_key": "close",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/deployment/close"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "active_items": 0,
+                  "active_scans": 0,
+                  "changed_at": "<ts>",
+                  "changed_by_kind": "admin-session",
+                  "generation": 1,
+                  "healthy": true,
+                  "mode": "maintenance",
+                  "open_permits": [],
+                  "permits": 0,
+                  "phase": "steady",
+                  "quiesced": true,
+                  "reason": "write contract"
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{}",
+              "csrf_action": "cancel-job",
+              "csrf_alias": "cancel-prepare",
+              "idempotency_key": "cancel-prepare",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs/<j:5>/cancel"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "id": "<j:5>",
+                  "status": "cancel_requested"
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{}",
+              "csrf_action": "retry-job",
+              "csrf_alias": "blocked-retry",
+              "idempotency_key": "blocked-retry",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs/<j:1>/retry"
+            },
+            "response": {
+              "body": {
+                "detail": "maintenance: new work is not accepted right now",
+                "error": {
+                  "code": "request_error",
+                  "message": "maintenance: new work is not accepted right now"
+                },
+                "instance": "/api/v1/jobs/<j:1>/retry",
+                "status": 503,
+                "title": "maintenance: new work is not accepted right now",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store",
+                "retry-after": "60"
+              },
+              "status": 503
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"action\":\"verify\",\"media_ids\":[\"<m:1>\"]}",
+              "csrf_action": "create-job",
+              "csrf_alias": "blocked-create",
+              "idempotency_key": "blocked-create",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs"
+            },
+            "response": {
+              "body": {
+                "detail": "maintenance: new work is not accepted right now",
+                "error": {
+                  "code": "request_error",
+                  "message": "maintenance: new work is not accepted right now"
+                },
+                "instance": "/api/v1/jobs",
+                "status": 503,
+                "title": "maintenance: new work is not accepted right now",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store",
+                "retry-after": "60"
+              },
+              "status": 503
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"statuses\":[\"failed\"]}",
+              "csrf_action": "clear-jobs",
+              "csrf_alias": "clear",
+              "idempotency_key": "clear",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs/clear"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "cleared": 1
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          }
+        ]
+      },
+      "name": "jobs-http-sequence"
+    },
+    {
+      "expected": {
+        "completed": 3
+      },
+      "input": {
+        "seed": "jobs",
+        "setup": "prepare-retry",
+        "steps": [
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{}",
+              "csrf_action": "retry-job",
+              "csrf_alias": "prepare-retry",
+              "idempotency_key": "prepare-retry",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs/<j:2>/retry"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "id": "<j:3>",
+                  "status": "queued"
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{}",
+              "csrf_action": "retry-job",
+              "csrf_alias": "prepare-retry",
+              "idempotency_key": "prepare-retry",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs/<j:2>/retry"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "id": "<j:3>",
+                  "status": "queued"
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs/<j:3>"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "action": "prepare",
+                  "cancelled_count": 0,
+                  "delete_confirmed": false,
+                  "failed_count": 0,
+                  "finished_at": null,
+                  "id": "<j:3>",
+                  "origin_job_id": "<j:2>",
+                  "progress": 0,
+                  "requested_at": "<ts>",
+                  "started_at": null,
+                  "status": "queued",
+                  "subject": "Movie/film.mp4",
+                  "succeeded_count": 0,
+                  "total_count": 1,
+                  "trigger": "retry"
+                },
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {},
+                  "limit": null,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          }
+        ]
+      },
+      "name": "prepare-retry-http-sequence"
+    }
+  ],
+  "suite": "api_jobs_contract"
+}

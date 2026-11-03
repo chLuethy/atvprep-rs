@@ -1,0 +1,300 @@
+{
+  "cases": [
+    {
+      "expected": [
+        7
+      ],
+      "input": {
+        "argv": [
+          "ffprobe",
+          "-v",
+          "error",
+          "/dev/fd/7/movie.mp4"
+        ],
+        "kind": "fds"
+      },
+      "name": "inherited_fds ['ffprobe', '-v', 'error', '/dev/fd/7/movie.mp4']"
+    },
+    {
+      "expected": [
+        4,
+        7
+      ],
+      "input": {
+        "argv": [
+          "ffmpeg",
+          "-i",
+          "/dev/fd/7/a.mp4",
+          "-progress",
+          "/dev/fd/4",
+          "/dev/fd/7/.tmp.mp4"
+        ],
+        "kind": "fds"
+      },
+      "name": "inherited_fds ['ffmpeg', '-i', '/dev/fd/7/a.mp4', '-progress', '/dev/fd/4', '/dev/fd/7/.tmp.mp4']"
+    },
+    {
+      "expected": [
+        12
+      ],
+      "input": {
+        "argv": [
+          "mp4info",
+          "/dev/fd/12"
+        ],
+        "kind": "fds"
+      },
+      "name": "inherited_fds ['mp4info', '/dev/fd/12']"
+    },
+    {
+      "expected": [],
+      "input": {
+        "argv": [
+          "ffprobe",
+          "/mnt/media/movie.mp4",
+          "--note=/dev/fd/9/x"
+        ],
+        "kind": "fds"
+      },
+      "name": "inherited_fds ['ffprobe', '/mnt/media/movie.mp4', '--note=/dev/fd/9/x']"
+    },
+    {
+      "expected": [],
+      "input": {
+        "argv": [
+          "x",
+          "/dev/fd/x"
+        ],
+        "kind": "fds"
+      },
+      "name": "inherited_fds ['x', '/dev/fd/x']"
+    },
+    {
+      "expected": [],
+      "input": {
+        "argv": [
+          "x",
+          "/dev/fd/"
+        ],
+        "kind": "fds"
+      },
+      "name": "inherited_fds ['x', '/dev/fd/']"
+    },
+    {
+      "expected": [
+        7
+      ],
+      "input": {
+        "argv": [
+          "x",
+          "/dev/fd/007/a"
+        ],
+        "kind": "fds"
+      },
+      "name": "inherited_fds ['x', '/dev/fd/007/a']"
+    },
+    {
+      "expected": [
+        3
+      ],
+      "input": {
+        "argv": [
+          "x",
+          "/dev/fd/3/",
+          "/dev/fd/3/b",
+          "/dev/fd/3"
+        ],
+        "kind": "fds"
+      },
+      "name": "inherited_fds ['x', '/dev/fd/3/', '/dev/fd/3/b', '/dev/fd/3']"
+    },
+    {
+      "expected": [
+        7
+      ],
+      "input": {
+        "argv": [
+          "x",
+          "/dev/fd/7\n"
+        ],
+        "kind": "fds"
+      },
+      "name": "inherited_fds ['x', '/dev/fd/7\\n']"
+    },
+    {
+      "expected": [],
+      "input": {
+        "argv": [
+          "x",
+          "/dev/fd/7\nmore"
+        ],
+        "kind": "fds"
+      },
+      "name": "inherited_fds ['x', '/dev/fd/7\\nmore']"
+    },
+    {
+      "expected": [],
+      "input": {
+        "argv": [
+          "x",
+          "/dev/fd/5x"
+        ],
+        "kind": "fds"
+      },
+      "name": "inherited_fds ['x', '/dev/fd/5x']"
+    },
+    {
+      "expected": [],
+      "input": {
+        "argv": [],
+        "kind": "fds"
+      },
+      "name": "inherited_fds []"
+    },
+    {
+      "expected": null,
+      "input": {
+        "kind": "leaf",
+        "name": "movie.mp4"
+      },
+      "name": "leaf 'movie.mp4'"
+    },
+    {
+      "expected": "fix leaf must be one non-empty basename",
+      "input": {
+        "kind": "leaf",
+        "name": ""
+      },
+      "name": "leaf ''"
+    },
+    {
+      "expected": "fix leaf must be one non-empty basename",
+      "input": {
+        "kind": "leaf",
+        "name": "."
+      },
+      "name": "leaf '.'"
+    },
+    {
+      "expected": "fix leaf must be one non-empty basename",
+      "input": {
+        "kind": "leaf",
+        "name": ".."
+      },
+      "name": "leaf '..'"
+    },
+    {
+      "expected": "fix leaf must be one non-empty basename",
+      "input": {
+        "kind": "leaf",
+        "name": "a/b"
+      },
+      "name": "leaf 'a/b'"
+    },
+    {
+      "expected": "fix leaf must be one non-empty basename",
+      "input": {
+        "kind": "leaf",
+        "name": "a\\b"
+      },
+      "name": "leaf 'a\\\\b'"
+    },
+    {
+      "expected": "fix leaf must be one non-empty basename",
+      "input": {
+        "kind": "leaf",
+        "name": "a\u0000b"
+      },
+      "name": "leaf 'a\\x00b'"
+    },
+    {
+      "expected": "fix leaf must be one non-empty basename",
+      "input": {
+        "kind": "leaf",
+        "name": "../movie.mp4"
+      },
+      "name": "leaf '../movie.mp4'"
+    },
+    {
+      "expected": "fix leaf must be one non-empty basename",
+      "input": {
+        "kind": "leaf",
+        "name": "nested/movie.mp4"
+      },
+      "name": "leaf 'nested/movie.mp4'"
+    },
+    {
+      "expected": null,
+      "input": {
+        "kind": "leaf",
+        "name": " "
+      },
+      "name": "leaf ' '"
+    },
+    {
+      "expected": null,
+      "input": {
+        "kind": "leaf",
+        "name": "ä.mp4"
+      },
+      "name": "leaf 'ä.mp4'"
+    },
+    {
+      "expected": null,
+      "input": {
+        "kind": "leaf",
+        "name": ".hidden"
+      },
+      "name": "leaf '.hidden'"
+    },
+    {
+      "expected": null,
+      "input": {
+        "kind": "temp",
+        "name": ".tmp_fixmeta_a.mp4"
+      },
+      "name": "temp '.tmp_fixmeta_a.mp4'"
+    },
+    {
+      "expected": null,
+      "input": {
+        "kind": "temp",
+        "name": ".tmp_fixmeta_"
+      },
+      "name": "temp '.tmp_fixmeta_'"
+    },
+    {
+      "expected": "temporary output has an unexpected name",
+      "input": {
+        "kind": "temp",
+        "name": "other.mp4"
+      },
+      "name": "temp 'other.mp4'"
+    },
+    {
+      "expected": "fix leaf must be one non-empty basename",
+      "input": {
+        "kind": "temp",
+        "name": ".tmp_fixmeta_a/b"
+      },
+      "name": "temp '.tmp_fixmeta_a/b'"
+    },
+    {
+      "expected": "temporary output has an unexpected name",
+      "input": {
+        "kind": "temp",
+        "name": ".TMP_fixmeta_x"
+      },
+      "name": "temp '.TMP_fixmeta_x'"
+    },
+    {
+      "expected": "fix leaf must be one non-empty basename",
+      "input": {
+        "kind": "temp",
+        "name": ""
+      },
+      "name": "temp ''"
+    }
+  ],
+  "suite": "fd_contract"
+}

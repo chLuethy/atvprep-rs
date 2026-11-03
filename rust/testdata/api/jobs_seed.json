@@ -1,0 +1,175 @@
+{
+  "tables": {
+    "library_roots": [
+      {
+        "id": 1,
+        "name": "Movies",
+        "canonical_path": "/private/library"
+      }
+    ],
+    "deployment_gate": [
+      {
+        "id": 1,
+        "mode": "open",
+        "phase": "steady",
+        "generation": 0
+      }
+    ],
+    "settings_revision": [
+      {
+        "id": 1,
+        "revision": 1
+      }
+    ],
+    "runtime_settings": [
+      {
+        "key": "max_probe_workers",
+        "value_json": 3,
+        "value_type": "int",
+        "revision": 1
+      }
+    ],
+    "media_files": [
+      {
+        "id": 1,
+        "root_id": 1,
+        "relative_path": "Movie/film.mp4",
+        "kind": "video",
+        "suffix": ".mp4",
+        "size": 123,
+        "mtime_ns": 4,
+        "fingerprint": "fixture",
+        "discovery_state": "present",
+        "compliance_state": "clean",
+        "workflow_state": "idle",
+        "desired_action": "none",
+        "scanned_device": 1,
+        "scanned_inode": 101,
+        "scanned_ctime_ns": 1
+      },
+      {
+        "id": 2,
+        "root_id": 1,
+        "relative_path": "Movie/film-2.mp4",
+        "kind": "video",
+        "suffix": ".mp4",
+        "size": 123,
+        "mtime_ns": 4,
+        "fingerprint": "fixture-2",
+        "discovery_state": "present",
+        "compliance_state": "clean",
+        "workflow_state": "idle",
+        "desired_action": "none",
+        "scanned_device": 1,
+        "scanned_inode": 102,
+        "scanned_ctime_ns": 1
+      },
+      {
+        "id": 3,
+        "root_id": 1,
+        "relative_path": "Movie/film-3.mp4",
+        "kind": "video",
+        "suffix": ".mp4",
+        "size": 123,
+        "mtime_ns": 4,
+        "fingerprint": "fixture-3",
+        "discovery_state": "present",
+        "compliance_state": "clean",
+        "workflow_state": "idle",
+        "desired_action": "none",
+        "scanned_device": 1,
+        "scanned_inode": 103,
+        "scanned_ctime_ns": 1
+      }
+    ],
+    "scan_runs": [
+      {
+        "id": 1,
+        "root_id": 1,
+        "generation": 1,
+        "status": "succeeded",
+        "started_at": "2026-01-02T12:30:00+00:00"
+      }
+    ],
+    "jobs": [
+      {
+        "id": 1,
+        "action": "verify",
+        "status": "failed",
+        "trigger": "manual",
+        "requested_at": "2026-01-02T12:30:00+00:00",
+        "total_count": 1,
+        "failed_count": 1,
+        "finished_at": "2026-01-02T12:31:00+00:00"
+      }
+    ],
+    "job_items": [
+      {
+        "id": 1,
+        "job_id": 1,
+        "media_file_id": 1,
+        "action": "verify",
+        "position": 0,
+        "status": "failed",
+        "log_tail": "processed",
+        "error_code": "fixture_failed",
+        "error_detail": "Fixture execution failed.",
+        "finished_at": "2026-01-02T12:31:00+00:00"
+      }
+    ],
+    "sidecars": [
+      {
+        "id": 1,
+        "media_file_id": 1,
+        "relative_path": "Movie/film.en.srt",
+        "fingerprint": "sidecar",
+        "size": 42,
+        "mtime_ns": 9,
+        "created_at": "2026-01-02T12:30:00+00:00"
+      }
+    ],
+    "schedules": [
+      {
+        "id": 1,
+        "name": "Weekly",
+        "action": "verify",
+        "root_id": 1,
+        "days_mask": 5,
+        "time_of_day": "12:30",
+        "max_files": 25,
+        "enabled": false
+      }
+    ],
+    "inspections": [
+      {
+        "id": 1,
+        "media_file_id": 1,
+        "source_fingerprint": "source",
+        "input_fingerprint": "stale",
+        "tool_name": "ffprobe",
+        "tool_version": "1",
+        "result": {
+          "ok": true,
+          "path": "/private/film.mp4",
+          "nested": [
+            {
+              "password": "hidden"
+            }
+          ]
+        },
+        "created_at": "2026-01-02T12:30:00+00:00"
+      }
+    ],
+    "events": [
+      {
+        "id": 1,
+        "job_id": 1,
+        "topic": "job.created",
+        "entity_type": "job",
+        "entity_id": 1,
+        "payload_json": {},
+        "created_at": "2026-01-02T12:30:00+00:00"
+      }
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+[package]
+name = "atvprep-api"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+atvprep-core = { path = "../atvprep-core" }
+atvprep-manager = { path = "../atvprep-manager" }
+axum = { version = "0.8.8", features = ["json", "tokio", "ws"] }
+base64 = "0.22.1"
+caseless = "0.2.2"
+chrono = { version = "0.4.44", features = ["clock"] }
+fancy-regex = "0.20.0"
+hmac = "0.12.1"
+indexmap = { version = "2.14.2", features = ["serde"] }
+rusqlite = { version = "0.41.1", features = ["bundled"] }
+rustix = { version = "1.1.6", features = ["process", "fs"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sha2 = "0.10.9"
+subtle = "2.6.1"
+tokio = { version = "1.48.0", features = ["rt-multi-thread", "sync", "time"] }
+toml = "0.9.11"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+futures-util = { version = "0.3.34", features = ["sink"] }
+tokio-tungstenite = "0.29.0"
+tempfile = "3"
+tower = { version = "0.5", features = ["util"] }

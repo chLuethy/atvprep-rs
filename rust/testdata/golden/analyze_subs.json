@@ -1,0 +1,1178 @@
+{
+  "cases": [
+    {
+      "expected": [
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": true,
+          "lang": "deu",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 3
+        },
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": false,
+          "lang": "eng",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 2
+        }
+      ],
+      "input": {
+        "audio_langs": [
+          "deu"
+        ],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 3,
+            "tags": {
+              "language": "deu"
+            }
+          }
+        ],
+        "video": null
+      },
+      "name": "internal english and german"
+    },
+    {
+      "expected": [
+        {
+          "action": "mov_text",
+          "codec": "webvtt",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": true,
+          "lang": "eng",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 2
+        }
+      ],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_name": "webvtt",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ],
+        "video": null
+      },
+      "name": "webvtt"
+    },
+    {
+      "expected": [
+        {
+          "action": "mov_text",
+          "codec": "mov_text",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": true,
+          "lang": "eng",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 2
+        }
+      ],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_name": "mov_text",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ],
+        "video": null
+      },
+      "name": "mov_text"
+    },
+    {
+      "expected": [
+        {
+          "action": "skip",
+          "codec": "hdmv_pgs_subtitle",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": false,
+          "lang": "eng",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 2
+        },
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": true,
+          "lang": "eng",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 3
+        }
+      ],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_name": "hdmv_pgs_subtitle",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 3,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ],
+        "video": null
+      },
+      "name": "image subs are skipped entries"
+    },
+    {
+      "expected": [
+        {
+          "action": "skip",
+          "codec": "dvd_subtitle",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": false,
+          "lang": "fra",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 2
+        }
+      ],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_name": "dvd_subtitle",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 2,
+            "tags": {
+              "language": "fra"
+            }
+          }
+        ],
+        "video": null
+      },
+      "name": "vobsub"
+    },
+    {
+      "expected": [],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_name": "ass",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ],
+        "video": null
+      },
+      "name": "ass is dropped"
+    },
+    {
+      "expected": [],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 2,
+            "tags": {
+              "language": "fra"
+            }
+          }
+        ],
+        "video": null
+      },
+      "name": "unwanted language dropped"
+    },
+    {
+      "expected": [
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": true,
+          "lang": "fra",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 2
+        }
+      ],
+      "input": {
+        "audio_langs": [
+          "fra"
+        ],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 2,
+            "tags": {
+              "language": "fra"
+            }
+          }
+        ],
+        "video": null
+      },
+      "name": "audio language kept"
+    },
+    {
+      "expected": [
+        {
+          "action": "skip",
+          "codec": "hdmv_pgs_subtitle",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": false,
+          "lang": "jpn",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 2
+        }
+      ],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_name": "hdmv_pgs_subtitle",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 2,
+            "tags": {
+              "language": "jpn"
+            }
+          }
+        ],
+        "video": null
+      },
+      "name": "image sub of an unwanted language still listed"
+    },
+    {
+      "expected": [
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": true,
+          "lang": "deu",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 4
+        },
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": false,
+          "lang": "deu",
+          "sdh": true,
+          "source": "internal",
+          "stream_idx": 3
+        },
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": true,
+          "input_idx": 0,
+          "is_default": false,
+          "lang": "deu",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 2
+        }
+      ],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 2,
+            "tags": {
+              "language": "deu",
+              "title": "Forced"
+            }
+          },
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 3,
+            "tags": {
+              "language": "deu",
+              "title": "SDH"
+            }
+          },
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 4,
+            "tags": {
+              "language": "deu"
+            }
+          }
+        ],
+        "video": null
+      },
+      "name": "forced and sdh"
+    },
+    {
+      "expected": [
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": true,
+          "input_idx": 0,
+          "is_default": true,
+          "lang": "deu",
+          "sdh": true,
+          "source": "internal",
+          "stream_idx": 2
+        }
+      ],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 2,
+            "tags": {
+              "language": "deu",
+              "title": "Forced SDH"
+            }
+          }
+        ],
+        "video": null
+      },
+      "name": "forced and sdh together"
+    },
+    {
+      "expected": [
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": true,
+          "lang": "deu",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 2
+        }
+      ],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 2,
+            "tags": {
+              "language": "deu"
+            }
+          },
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 3,
+            "tags": {
+              "language": "deu",
+              "title": "Other"
+            }
+          }
+        ],
+        "video": null
+      },
+      "name": "two normal tracks first wins"
+    },
+    {
+      "expected": [
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": true,
+          "input_idx": 0,
+          "is_default": true,
+          "lang": "eng",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 2
+        }
+      ],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {
+              "forced": 1
+            },
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ],
+        "video": null
+      },
+      "name": "forced flag"
+    },
+    {
+      "expected": [
+        {
+          "action": "mov_text",
+          "codec": "srt",
+          "forced": false,
+          "input_idx": 1,
+          "is_default": true,
+          "lang": "deu",
+          "sdh": false,
+          "source": "external",
+          "stream_idx": 0
+        },
+        {
+          "action": "mov_text",
+          "codec": "srt",
+          "forced": true,
+          "input_idx": 2,
+          "is_default": false,
+          "lang": "eng",
+          "sdh": false,
+          "source": "external",
+          "stream_idx": 0
+        }
+      ],
+      "input": {
+        "audio_langs": [
+          "deu"
+        ],
+        "sidecars": [
+          "Film.de.srt",
+          "Film.en.forced.srt",
+          "Film.fr.srt",
+          "Film.srt"
+        ],
+        "streams": [],
+        "video": "Film.mkv"
+      },
+      "name": "sidecars with video"
+    },
+    {
+      "expected": [
+        {
+          "action": "mov_text",
+          "codec": "srt",
+          "forced": false,
+          "input_idx": 1,
+          "is_default": true,
+          "lang": "deu",
+          "sdh": false,
+          "source": "external",
+          "stream_idx": 0
+        },
+        {
+          "action": "mov_text",
+          "codec": "srt",
+          "forced": false,
+          "input_idx": 2,
+          "is_default": false,
+          "lang": "eng",
+          "sdh": false,
+          "source": "external",
+          "stream_idx": 0
+        },
+        {
+          "action": "mov_text",
+          "codec": "srt",
+          "forced": true,
+          "input_idx": 4,
+          "is_default": false,
+          "lang": "eng",
+          "sdh": false,
+          "source": "external",
+          "stream_idx": 0
+        }
+      ],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [
+          "Film.de.srt",
+          "Film.en.srt",
+          "Film.xx.srt",
+          "Film.en.forced.srt"
+        ],
+        "streams": [],
+        "video": null
+      },
+      "name": "sidecars without video"
+    },
+    {
+      "expected": [
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": true,
+          "lang": "deu",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 2
+        }
+      ],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [
+          "Film.de.srt"
+        ],
+        "streams": [
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 2,
+            "tags": {
+              "language": "deu"
+            }
+          }
+        ],
+        "video": "Film.mkv"
+      },
+      "name": "sidecar blocked by internal same kind"
+    },
+    {
+      "expected": [
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": true,
+          "lang": "deu",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 2
+        },
+        {
+          "action": "mov_text",
+          "codec": "srt",
+          "forced": false,
+          "input_idx": 2,
+          "is_default": false,
+          "lang": "deu",
+          "sdh": true,
+          "source": "external",
+          "stream_idx": 0
+        },
+        {
+          "action": "mov_text",
+          "codec": "srt",
+          "forced": true,
+          "input_idx": 1,
+          "is_default": false,
+          "lang": "deu",
+          "sdh": false,
+          "source": "external",
+          "stream_idx": 0
+        }
+      ],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [
+          "Film.de.forced.srt",
+          "Film.de.sdh.srt"
+        ],
+        "streams": [
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 2,
+            "tags": {
+              "language": "deu"
+            }
+          }
+        ],
+        "video": "Film.mkv"
+      },
+      "name": "sidecar allowed for another kind"
+    },
+    {
+      "expected": [
+        {
+          "action": "mov_text",
+          "codec": "srt",
+          "forced": false,
+          "input_idx": 1,
+          "is_default": true,
+          "lang": "deu",
+          "sdh": false,
+          "source": "external",
+          "stream_idx": 0
+        },
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": true,
+          "input_idx": 0,
+          "is_default": false,
+          "lang": "deu",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 2
+        }
+      ],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [
+          "Film.de.srt"
+        ],
+        "streams": [
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 2,
+            "tags": {
+              "language": "deu",
+              "title": "Forced"
+            }
+          }
+        ],
+        "video": "Film.mkv"
+      },
+      "name": "forced inside does not block full sidecar"
+    },
+    {
+      "expected": [
+        {
+          "action": "mov_text",
+          "codec": "srt",
+          "forced": false,
+          "input_idx": 1,
+          "is_default": true,
+          "lang": "deu",
+          "sdh": false,
+          "source": "external",
+          "stream_idx": 0
+        }
+      ],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [
+          "Film.de.srt",
+          "Film.de.copy.srt"
+        ],
+        "streams": [],
+        "video": "Film.mkv"
+      },
+      "name": "two normal sidecars"
+    },
+    {
+      "expected": [
+        {
+          "action": "mov_text",
+          "codec": "srt",
+          "forced": false,
+          "input_idx": 1,
+          "is_default": true,
+          "lang": "deu",
+          "sdh": false,
+          "source": "external",
+          "stream_idx": 0
+        },
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": false,
+          "lang": "eng",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 2
+        },
+        {
+          "action": "mov_text",
+          "codec": "srt",
+          "forced": true,
+          "input_idx": 3,
+          "is_default": false,
+          "lang": "eng",
+          "sdh": false,
+          "source": "external",
+          "stream_idx": 0
+        },
+        {
+          "action": "mov_text",
+          "codec": "srt",
+          "forced": false,
+          "input_idx": 2,
+          "is_default": false,
+          "lang": "fra",
+          "sdh": false,
+          "source": "external",
+          "stream_idx": 0
+        }
+      ],
+      "input": {
+        "audio_langs": [
+          "fra"
+        ],
+        "sidecars": [
+          "Film.de.srt",
+          "Film.fr.srt",
+          "Film.en.forced.srt"
+        ],
+        "streams": [
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ],
+        "video": "Film.mkv"
+      },
+      "name": "sidecar numbering"
+    },
+    {
+      "expected": [
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": true,
+          "lang": "deu",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 3
+        },
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": false,
+          "lang": "eng",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 2
+        },
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": false,
+          "lang": "eng",
+          "sdh": true,
+          "source": "internal",
+          "stream_idx": 4
+        },
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": false,
+          "lang": "fra",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 6
+        },
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": true,
+          "input_idx": 0,
+          "is_default": false,
+          "lang": "fra",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 5
+        }
+      ],
+      "input": {
+        "audio_langs": [
+          "fra"
+        ],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 5,
+            "tags": {
+              "language": "fra",
+              "title": "Forced"
+            }
+          },
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 4,
+            "tags": {
+              "language": "eng",
+              "title": "SDH"
+            }
+          },
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 3,
+            "tags": {
+              "language": "deu"
+            }
+          },
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 6,
+            "tags": {
+              "language": "fra"
+            }
+          }
+        ],
+        "video": null
+      },
+      "name": "sort order"
+    },
+    {
+      "expected": [
+        {
+          "action": "skip",
+          "codec": "hdmv_pgs_subtitle",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": false,
+          "lang": "deu",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 1
+        },
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": true,
+          "lang": "eng",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 2
+        }
+      ],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_name": "hdmv_pgs_subtitle",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 1,
+            "tags": {
+              "language": "deu"
+            }
+          },
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ],
+        "video": null
+      },
+      "name": "default skips skipped entries"
+    },
+    {
+      "expected": [
+        {
+          "action": "skip",
+          "codec": "hdmv_pgs_subtitle",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": false,
+          "lang": "deu",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 1
+        }
+      ],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_name": "hdmv_pgs_subtitle",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 1,
+            "tags": {
+              "language": "deu"
+            }
+          }
+        ],
+        "video": null
+      },
+      "name": "only skipped entries"
+    },
+    {
+      "expected": [
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": true,
+          "lang": "eng",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 0
+        }
+      ],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ],
+        "video": null
+      },
+      "name": "index missing"
+    },
+    {
+      "expected": [
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": true,
+          "lang": "eng",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 4
+        }
+      ],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": "4",
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ],
+        "video": null
+      },
+      "name": "index as string"
+    },
+    {
+      "expected": [],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "index": 2,
+            "tags": null
+          }
+        ],
+        "video": null
+      },
+      "name": "tags null"
+    },
+    {
+      "expected": [],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_type": "subtitle",
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ],
+        "video": null
+      },
+      "name": "codec null"
+    },
+    {
+      "expected": [
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": true,
+          "lang": "deu",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 2
+        },
+        {
+          "action": "mov_text",
+          "codec": "subrip",
+          "forced": false,
+          "input_idx": 0,
+          "is_default": false,
+          "lang": "eng",
+          "sdh": false,
+          "source": "internal",
+          "stream_idx": 3
+        }
+      ],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [],
+        "streams": [
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 2,
+            "tags": {
+              "language": "de"
+            }
+          },
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "index": 3,
+            "tags": {
+              "language": "ENG"
+            }
+          }
+        ],
+        "video": null
+      },
+      "name": "language spellings"
+    },
+    {
+      "expected": [],
+      "input": {
+        "audio_langs": [],
+        "sidecars": [],
+        "streams": [],
+        "video": null
+      },
+      "name": "empty"
+    }
+  ],
+  "suite": "analyze_subs"
+}

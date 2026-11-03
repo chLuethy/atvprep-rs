@@ -1,0 +1,1918 @@
+{
+  "cases": [
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "deu"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 2,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "deu"
+            }
+          }
+        ]
+      },
+      "name": "analyze: stereo aac german"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 2,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: stereo aac english"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 6,
+          "codec": "eac3",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "deu"
+        },
+        {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "deu"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "deu"
+            }
+          }
+        ]
+      },
+      "name": "analyze: eac3 5.1 german"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 6,
+          "codec": "eac3",
+          "index": 1,
+          "is_atmos": true,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "eng"
+        },
+        {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 1,
+            "profile": "Dolby Digital Plus + Dolby Atmos",
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: eac3 5.1 atmos english"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 6,
+          "codec": "ac3",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "eng"
+        },
+        {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "ac3",
+            "codec_type": "audio",
+            "index": 1,
+            "profile": "Dolby Digital Plus + Dolby Atmos",
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: ac3 5.1 atmos flag ignored"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "eac3",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 2,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 1,
+            "profile": "Dolby Digital Plus + Dolby Atmos",
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: eac3 stereo atmos flag ignored"
+    },
+    {
+      "expected": [
+        {
+          "action": "transcode_eac3",
+          "channels": 6,
+          "codec": "eac3",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": true,
+          "lang": "deu"
+        },
+        {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "deu"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "dts",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "deu"
+            }
+          }
+        ]
+      },
+      "name": "analyze: dts 5.1"
+    },
+    {
+      "expected": [
+        {
+          "action": "transcode_eac3",
+          "channels": 8,
+          "codec": "eac3",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": true,
+          "lang": "eng"
+        },
+        {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 8,
+            "codec_name": "truehd",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: truehd 7.1"
+    },
+    {
+      "expected": [
+        {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": true,
+          "lang": "eng"
+        },
+        {
+          "action": "transcode_eac3",
+          "channels": 2,
+          "codec": "eac3",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 2,
+            "codec_name": "flac",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: flac stereo"
+    },
+    {
+      "expected": [
+        {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": true,
+          "lang": "eng"
+        },
+        {
+          "action": "transcode_eac3",
+          "channels": 2,
+          "codec": "eac3",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 2,
+            "codec_name": "vorbis",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: vorbis stereo"
+    },
+    {
+      "expected": [
+        {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": true,
+          "lang": "eng"
+        },
+        {
+          "action": "transcode_eac3",
+          "channels": 2,
+          "codec": "eac3",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 2,
+            "codec_name": "pcm_s16le",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: pcm stereo"
+    },
+    {
+      "expected": [
+        {
+          "action": "transcode_eac3",
+          "channels": 6,
+          "codec": "eac3",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": true,
+          "lang": "eng"
+        },
+        {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "pcm_s24le",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: pcm 5.1"
+    },
+    {
+      "expected": [],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "wmapro",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: unknown codec surround"
+    },
+    {
+      "expected": [],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 2,
+            "codec_name": "wmav2",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: unknown codec stereo"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "ac3",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "deu"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 2,
+            "codec_name": "ac3",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "deu"
+            }
+          }
+        ]
+      },
+      "name": "analyze: ac3 stereo"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "eac3",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "deu"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 2,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "deu"
+            }
+          }
+        ]
+      },
+      "name": "analyze: eac3 stereo"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 6,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "eng"
+        },
+        {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: aac surround"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 6,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "eng"
+        },
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "aac",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": false,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 2,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: aac surround plus stereo"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 6,
+          "codec": "eac3",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "deu"
+        },
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "aac",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": false,
+          "lang": "deu"
+        },
+        {
+          "action": "copy",
+          "channels": 6,
+          "codec": "eac3",
+          "index": 3,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": false,
+          "lang": "eng"
+        },
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "aac",
+          "index": 4,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": false,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "deu"
+            }
+          },
+          {
+            "channels": 2,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 2,
+            "tags": {
+              "language": "deu"
+            }
+          },
+          {
+            "channels": 6,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 3,
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 2,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 4,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: german and english surround plus stereo"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 6,
+          "codec": "eac3",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "deu"
+        },
+        {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "deu"
+        },
+        {
+          "action": "copy",
+          "channels": 6,
+          "codec": "eac3",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": false,
+          "lang": "eng"
+        },
+        {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "deu"
+            }
+          },
+          {
+            "channels": 6,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 6,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 3,
+            "tags": {
+              "language": "fra"
+            }
+          }
+        ]
+      },
+      "name": "analyze: german english french"
+    },
+    {
+      "expected": [
+        {
+          "action": "transcode_eac3",
+          "channels": 8,
+          "codec": "eac3",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": true,
+          "lang": "fra"
+        },
+        {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "fra"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 8,
+            "codec_name": "dts",
+            "codec_type": "audio",
+            "index": 2,
+            "tags": {
+              "language": "fra"
+            }
+          }
+        ]
+      },
+      "name": "analyze: english french by channels"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 6,
+          "codec": "eac3",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "fra"
+        },
+        {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "fra"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 6,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 2,
+            "tags": {
+              "language": "fra"
+            }
+          }
+        ]
+      },
+      "name": "analyze: english french by codec"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 6,
+          "codec": "eac3",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "eng"
+        },
+        {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 6,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 2,
+            "tags": {
+              "language": "fra"
+            }
+          }
+        ]
+      },
+      "name": "analyze: english french by index"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 6,
+          "codec": "eac3",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "und"
+        },
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "aac",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": false,
+          "lang": "und"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 1
+          },
+          {
+            "channels": 2,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 2
+          }
+        ]
+      },
+      "name": "analyze: only und"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "aac",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 1
+          },
+          {
+            "channels": 2,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: und and english"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "aac",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "deu"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 1
+          },
+          {
+            "channels": 2,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 2,
+            "tags": {
+              "language": "deu"
+            }
+          }
+        ]
+      },
+      "name": "analyze: german and und"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 6,
+          "codec": "aac",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "eng"
+        },
+        {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [
+          1
+        ],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 6,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: skip best"
+    },
+    {
+      "expected": [],
+      "input": {
+        "kind": "analyze",
+        "skip": [
+          1
+        ],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: skip everything"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 6,
+          "codec": "eac3",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "eng"
+        },
+        {
+          "action": "transcode_eac3",
+          "channels": 6,
+          "codec": "eac3",
+          "index": 4,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "eng"
+        },
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "aac",
+          "index": 5,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": false,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 6,
+            "codec_name": "ac3",
+            "codec_type": "audio",
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 6,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 3,
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 6,
+            "codec_name": "dts",
+            "codec_type": "audio",
+            "index": 4,
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 2,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 5,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: four tracks per language"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "eac3",
+          "index": 3,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "eng"
+        },
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "ac3",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": false,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 2,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 2,
+            "codec_name": "ac3",
+            "codec_type": "audio",
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 2,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 3,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: three stereo tracks"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "deu"
+        },
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "aac",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": false,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 2,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "deu"
+            }
+          },
+          {
+            "channels": 2,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 2,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 3,
+            "tags": {
+              "language": "fra"
+            }
+          }
+        ]
+      },
+      "name": "analyze: stereo only mixed languages"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "deu"
+        },
+        {
+          "action": "copy",
+          "channels": 6,
+          "codec": "eac3",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": false,
+          "lang": "eng"
+        },
+        {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 2,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "de"
+            }
+          },
+          {
+            "channels": 6,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 2,
+            "tags": {
+              "language": "ENG"
+            }
+          }
+        ]
+      },
+      "name": "analyze: language spellings"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 6,
+          "codec": "eac3",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "eng"
+        },
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": false,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": "2",
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": "6",
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: channels as string"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 0,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": null,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: channels null"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 0,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: channels missing"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "aac",
+          "index": 0,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 2,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: index missing"
+    },
+    {
+      "expected": [],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 2,
+            "codec_name": null,
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: codec null"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "und"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 2,
+            "codec_name": "aac",
+            "index": 1,
+            "tags": null
+          }
+        ]
+      },
+      "name": "analyze: tags null"
+    },
+    {
+      "expected": [],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": []
+      },
+      "name": "analyze: empty"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 6,
+          "codec": "eac3",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "deu"
+        },
+        {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "deu"
+        },
+        {
+          "action": "transcode_eac3",
+          "channels": 6,
+          "codec": "eac3",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "eng"
+        },
+        {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "deu"
+            }
+          },
+          {
+            "channels": 6,
+            "codec_name": "dts",
+            "codec_type": "audio",
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: surround only per language"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "eng"
+        },
+        {
+          "action": "copy",
+          "channels": 2,
+          "codec": "aac",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": false,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 2,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 2,
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: equal scores keep file order"
+    },
+    {
+      "expected": [
+        {
+          "action": "copy",
+          "channels": 6,
+          "codec": "eac3",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "eng"
+        },
+        {
+          "action": "transcode_eac3",
+          "channels": 8,
+          "codec": "eac3",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "eng"
+        },
+        {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 1,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "eng"
+        }
+      ],
+      "input": {
+        "kind": "analyze",
+        "skip": [],
+        "streams": [
+          {
+            "channels": 6,
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "index": 1,
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 8,
+            "codec_name": "truehd",
+            "codec_type": "audio",
+            "index": 2,
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "analyze: second language surround wins downmix"
+    },
+    {
+      "expected": [
+        true,
+        3,
+        true,
+        6,
+        1,
+        -1
+      ],
+      "input": {
+        "kind": "score",
+        "track": {
+          "action": "copy",
+          "channels": 6,
+          "codec": "eac3",
+          "index": 1,
+          "is_atmos": true,
+          "is_default": false,
+          "is_transcoded": false,
+          "lang": "eng"
+        }
+      },
+      "name": "score: atmos copy"
+    },
+    {
+      "expected": [
+        false,
+        3,
+        true,
+        6,
+        2,
+        -2
+      ],
+      "input": {
+        "kind": "score",
+        "track": {
+          "action": "copy",
+          "channels": 6,
+          "codec": "eac3",
+          "index": 2,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": false,
+          "lang": "deu"
+        }
+      },
+      "name": "score: eac3 copy"
+    },
+    {
+      "expected": [
+        false,
+        2,
+        true,
+        6,
+        1,
+        -3
+      ],
+      "input": {
+        "kind": "score",
+        "track": {
+          "action": "copy",
+          "channels": 6,
+          "codec": "ac3",
+          "index": 3,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": false,
+          "lang": "eng"
+        }
+      },
+      "name": "score: ac3 copy"
+    },
+    {
+      "expected": [
+        false,
+        1,
+        false,
+        2,
+        1,
+        -4
+      ],
+      "input": {
+        "kind": "score",
+        "track": {
+          "action": "downmix",
+          "channels": 2,
+          "codec": "aac",
+          "index": 4,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "eng"
+        }
+      },
+      "name": "score: aac downmix"
+    },
+    {
+      "expected": [
+        false,
+        0,
+        false,
+        2,
+        0,
+        -5
+      ],
+      "input": {
+        "kind": "score",
+        "track": {
+          "action": "transcode_eac3",
+          "channels": 2,
+          "codec": "flac",
+          "index": 5,
+          "is_atmos": false,
+          "is_default": false,
+          "is_transcoded": true,
+          "lang": "fra"
+        }
+      },
+      "name": "score: other codec"
+    },
+    {
+      "expected": [
+        false,
+        1,
+        true,
+        2,
+        2,
+        0
+      ],
+      "input": {
+        "kind": "score",
+        "track": {
+          "action": "copy",
+          "channels": 2,
+          "codec": "aac",
+          "index": 0,
+          "is_atmos": false,
+          "is_default": true,
+          "is_transcoded": false,
+          "lang": "deu"
+        }
+      },
+      "name": "score: negative index"
+    }
+  ],
+  "suite": "analyze_audio"
+}

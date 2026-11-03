@@ -1,0 +1,2242 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "completed": 41
+      },
+      "input": {
+        "steps": [
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "revision": 1,
+                  "settings": [
+                    {
+                      "default_value": false,
+                      "effective_revision": 1,
+                      "key": "auto_apply_new_sidecars",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": false
+                    },
+                    {
+                      "default_value": true,
+                      "effective_revision": 1,
+                      "key": "auto_check_new_files",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": true
+                    },
+                    {
+                      "default_value": false,
+                      "effective_revision": 1,
+                      "key": "auto_fix_mp4",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": false
+                    },
+                    {
+                      "default_value": true,
+                      "effective_revision": 1,
+                      "key": "auto_recheck_new_subtitles",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": true
+                    },
+                    {
+                      "default_value": false,
+                      "effective_revision": 1,
+                      "key": "auto_transcode",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": false
+                    },
+                    {
+                      "default_value": false,
+                      "effective_revision": 1,
+                      "key": "delete_original",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": false
+                    },
+                    {
+                      "default_value": 7,
+                      "effective_revision": 1,
+                      "key": "event_retention_days",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 7
+                    },
+                    {
+                      "default_value": 7,
+                      "effective_revision": 1,
+                      "key": "job_retention_days",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 7
+                    },
+                    {
+                      "default_value": 7,
+                      "effective_revision": 1,
+                      "key": "log_retention_days",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 7
+                    },
+                    {
+                      "default_value": 1,
+                      "effective_revision": 1,
+                      "key": "max_ffmpeg_workers",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 1
+                    },
+                    {
+                      "default_value": 2,
+                      "effective_revision": 1,
+                      "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                      "key": "max_probe_workers",
+                      "last_changed_revision": 1,
+                      "read_only": false,
+                      "restart_required": false,
+                      "revision": 1,
+                      "source": "db_override",
+                      "value": 3
+                    },
+                    {
+                      "default_value": [],
+                      "effective_revision": 1,
+                      "key": "scan_exclude_dirs",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": []
+                    },
+                    {
+                      "default_value": 3600,
+                      "effective_revision": 1,
+                      "key": "scan_interval_seconds",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 3600
+                    },
+                    {
+                      "default_value": 120,
+                      "effective_revision": 1,
+                      "key": "settle_seconds",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 120
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 1,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "library_roots",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": [
+                        "<path>",
+                        "<path>"
+                      ]
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 1,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "state_dir",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": "<path>"
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 1,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "database_path",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": "<path>"
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 1,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "bind_host",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": "127.0.0.1"
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 1,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "bind_port",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 8765
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 1,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "atvprep_command",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": [
+                        "atvprep"
+                      ]
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 1,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "fix_extra_args",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": []
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 1,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "convert_extra_args",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": []
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 1,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "quarantine_dir",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": null
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 1,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "log_tail_bytes",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 16384
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 1,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "session_absolute_ttl_seconds",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 28800
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 1,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "session_idle_ttl_seconds",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 3600
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 1,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "csrf_ttl_seconds",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 900
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 1,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "session_cookie_secure",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": true
+                    }
+                  ],
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":true,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-0",
+              "idempotency_key": "invalid-0",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "detail": "setting must be int integer-compatible",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting must be int integer-compatible"
+                },
+                "instance": "/api/v1/settings/max_probe_workers",
+                "status": 422,
+                "title": "setting must be int integer-compatible",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":\"4\",\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-1",
+              "idempotency_key": "invalid-1",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "detail": "setting must be int integer-compatible",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting must be int integer-compatible"
+                },
+                "instance": "/api/v1/settings/max_probe_workers",
+                "status": 422,
+                "title": "setting must be int integer-compatible",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":4.0,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-2",
+              "idempotency_key": "invalid-2",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "detail": "setting must be int integer-compatible",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting must be int integer-compatible"
+                },
+                "instance": "/api/v1/settings/max_probe_workers",
+                "status": 422,
+                "title": "setting must be int integer-compatible",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":null,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-3",
+              "idempotency_key": "invalid-3",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "detail": "setting must be int integer-compatible",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting must be int integer-compatible"
+                },
+                "instance": "/api/v1/settings/max_probe_workers",
+                "status": 422,
+                "title": "setting must be int integer-compatible",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":0,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-4",
+              "idempotency_key": "invalid-4",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "detail": "setting must be between 1 and 32",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting must be between 1 and 32"
+                },
+                "instance": "/api/v1/settings/max_probe_workers",
+                "status": 422,
+                "title": "setting must be between 1 and 32",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":33,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-5",
+              "idempotency_key": "invalid-5",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "detail": "setting must be between 1 and 32",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting must be between 1 and 32"
+                },
+                "instance": "/api/v1/settings/max_probe_workers",
+                "status": 422,
+                "title": "setting must be between 1 and 32",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":0,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-6",
+              "idempotency_key": "invalid-6",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_ffmpeg_workers"
+            },
+            "response": {
+              "body": {
+                "detail": "setting must be between 1 and 32",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting must be between 1 and 32"
+                },
+                "instance": "/api/v1/settings/max_ffmpeg_workers",
+                "status": 422,
+                "title": "setting must be between 1 and 32",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":33,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-7",
+              "idempotency_key": "invalid-7",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_ffmpeg_workers"
+            },
+            "response": {
+              "body": {
+                "detail": "setting must be between 1 and 32",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting must be between 1 and 32"
+                },
+                "instance": "/api/v1/settings/max_ffmpeg_workers",
+                "status": 422,
+                "title": "setting must be between 1 and 32",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":4,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-8",
+              "idempotency_key": "invalid-8",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/scan_interval_seconds"
+            },
+            "response": {
+              "body": {
+                "detail": "setting must be between 5 and 86400",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting must be between 5 and 86400"
+                },
+                "instance": "/api/v1/settings/scan_interval_seconds",
+                "status": 422,
+                "title": "setting must be between 5 and 86400",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":86401,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-9",
+              "idempotency_key": "invalid-9",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/scan_interval_seconds"
+            },
+            "response": {
+              "body": {
+                "detail": "setting must be between 5 and 86400",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting must be between 5 and 86400"
+                },
+                "instance": "/api/v1/settings/scan_interval_seconds",
+                "status": 422,
+                "title": "setting must be between 5 and 86400",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":-1,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-10",
+              "idempotency_key": "invalid-10",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/settle_seconds"
+            },
+            "response": {
+              "body": {
+                "detail": "setting must be between 0 and 86400",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting must be between 0 and 86400"
+                },
+                "instance": "/api/v1/settings/settle_seconds",
+                "status": 422,
+                "title": "setting must be between 0 and 86400",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":86401,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-11",
+              "idempotency_key": "invalid-11",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/settle_seconds"
+            },
+            "response": {
+              "body": {
+                "detail": "setting must be between 0 and 86400",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting must be between 0 and 86400"
+                },
+                "instance": "/api/v1/settings/settle_seconds",
+                "status": 422,
+                "title": "setting must be between 0 and 86400",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":1,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-12",
+              "idempotency_key": "invalid-12",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/auto_transcode"
+            },
+            "response": {
+              "body": {
+                "detail": "setting must be bool integer-compatible",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting must be bool integer-compatible"
+                },
+                "instance": "/api/v1/settings/auto_transcode",
+                "status": 422,
+                "title": "setting must be bool integer-compatible",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":\"true\",\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-13",
+              "idempotency_key": "invalid-13",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/auto_transcode"
+            },
+            "response": {
+              "body": {
+                "detail": "setting must be bool integer-compatible",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting must be bool integer-compatible"
+                },
+                "instance": "/api/v1/settings/auto_transcode",
+                "status": 422,
+                "title": "setting must be bool integer-compatible",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":0,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-14",
+              "idempotency_key": "invalid-14",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/event_retention_days"
+            },
+            "response": {
+              "body": {
+                "detail": "setting must be between 1 and 365",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting must be between 1 and 365"
+                },
+                "instance": "/api/v1/settings/event_retention_days",
+                "status": 422,
+                "title": "setting must be between 1 and 365",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":366,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-15",
+              "idempotency_key": "invalid-15",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/event_retention_days"
+            },
+            "response": {
+              "body": {
+                "detail": "setting must be between 1 and 365",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting must be between 1 and 365"
+                },
+                "instance": "/api/v1/settings/event_retention_days",
+                "status": 422,
+                "title": "setting must be between 1 and 365",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":[\"..\"],\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-16",
+              "idempotency_key": "invalid-16",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/scan_exclude_dirs"
+            },
+            "response": {
+              "body": {
+                "detail": "setting scan_exclude_dirs has an invalid value",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting scan_exclude_dirs has an invalid value"
+                },
+                "instance": "/api/v1/settings/scan_exclude_dirs",
+                "status": 422,
+                "title": "setting scan_exclude_dirs has an invalid value",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":[\"/tmp\"],\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-17",
+              "idempotency_key": "invalid-17",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/scan_exclude_dirs"
+            },
+            "response": {
+              "body": {
+                "detail": "setting scan_exclude_dirs has an invalid value",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting scan_exclude_dirs has an invalid value"
+                },
+                "instance": "/api/v1/settings/scan_exclude_dirs",
+                "status": 422,
+                "title": "setting scan_exclude_dirs has an invalid value",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":[1],\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-18",
+              "idempotency_key": "invalid-18",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/scan_exclude_dirs"
+            },
+            "response": {
+              "body": {
+                "detail": "setting scan_exclude_dirs has an invalid value",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting scan_exclude_dirs has an invalid value"
+                },
+                "instance": "/api/v1/settings/scan_exclude_dirs",
+                "status": 422,
+                "title": "setting scan_exclude_dirs has an invalid value",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":[\"C:\\\\tmp\"],\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-19",
+              "idempotency_key": "invalid-19",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/scan_exclude_dirs"
+            },
+            "response": {
+              "body": {
+                "detail": "setting scan_exclude_dirs has an invalid value",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting scan_exclude_dirs has an invalid value"
+                },
+                "instance": "/api/v1/settings/scan_exclude_dirs",
+                "status": 422,
+                "title": "setting scan_exclude_dirs has an invalid value",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":[\"a//b\"],\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-20",
+              "idempotency_key": "invalid-20",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/scan_exclude_dirs"
+            },
+            "response": {
+              "body": {
+                "detail": "setting scan_exclude_dirs has an invalid value",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting scan_exclude_dirs has an invalid value"
+                },
+                "instance": "/api/v1/settings/scan_exclude_dirs",
+                "status": 422,
+                "title": "setting scan_exclude_dirs has an invalid value",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":[\"d0\",\"d1\",\"d2\",\"d3\",\"d4\",\"d5\",\"d6\",\"d7\",\"d8\",\"d9\",\"d10\",\"d11\",\"d12\",\"d13\",\"d14\",\"d15\",\"d16\",\"d17\",\"d18\",\"d19\",\"d20\",\"d21\",\"d22\",\"d23\",\"d24\",\"d25\",\"d26\",\"d27\",\"d28\",\"d29\",\"d30\",\"d31\",\"d32\",\"d33\",\"d34\",\"d35\",\"d36\",\"d37\",\"d38\",\"d39\",\"d40\",\"d41\",\"d42\",\"d43\",\"d44\",\"d45\",\"d46\",\"d47\",\"d48\",\"d49\",\"d50\",\"d51\",\"d52\",\"d53\",\"d54\",\"d55\",\"d56\",\"d57\",\"d58\",\"d59\",\"d60\",\"d61\",\"d62\",\"d63\",\"d64\",\"d65\",\"d66\",\"d67\",\"d68\",\"d69\",\"d70\",\"d71\",\"d72\",\"d73\",\"d74\",\"d75\",\"d76\",\"d77\",\"d78\",\"d79\",\"d80\",\"d81\",\"d82\",\"d83\",\"d84\",\"d85\",\"d86\",\"d87\",\"d88\",\"d89\",\"d90\",\"d91\",\"d92\",\"d93\",\"d94\",\"d95\",\"d96\",\"d97\",\"d98\",\"d99\",\"d100\"],\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-21",
+              "idempotency_key": "invalid-21",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/scan_exclude_dirs"
+            },
+            "response": {
+              "body": {
+                "detail": "setting scan_exclude_dirs has an invalid value",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting scan_exclude_dirs has an invalid value"
+                },
+                "instance": "/api/v1/settings/scan_exclude_dirs",
+                "status": 422,
+                "title": "setting scan_exclude_dirs has an invalid value",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"settings\":{},\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "empty",
+              "idempotency_key": "empty",
+              "method": "PATCH",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings"
+            },
+            "response": {
+              "body": {
+                "detail": "settings update must not be empty",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "settings update must not be empty"
+                },
+                "instance": "/api/v1/settings",
+                "status": 422,
+                "title": "settings update must not be empty",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"settings\":{\"not_allowed\":1},\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "unknown",
+              "idempotency_key": "unknown",
+              "method": "PATCH",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings"
+            },
+            "response": {
+              "body": {
+                "detail": "setting is not allowlisted",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting is not allowlisted"
+                },
+                "instance": "/api/v1/settings",
+                "status": 422,
+                "title": "setting is not allowlisted",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":\"/tmp\",\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "structural",
+              "idempotency_key": "structural",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/state_dir"
+            },
+            "response": {
+              "body": {
+                "detail": "setting is not allowlisted",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting is not allowlisted"
+                },
+                "instance": "/api/v1/settings/state_dir",
+                "status": 422,
+                "title": "setting is not allowlisted",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"settings\":{\"auto_transcode\":true,\"max_probe_workers\":0},\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-patch",
+              "idempotency_key": "invalid-patch",
+              "method": "PATCH",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings"
+            },
+            "response": {
+              "body": {
+                "detail": "setting max_probe_workers has an invalid value",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "setting max_probe_workers has an invalid value"
+                },
+                "instance": "/api/v1/settings",
+                "status": 422,
+                "title": "setting max_probe_workers has an invalid value",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":4,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-0",
+              "idempotency_key": "invalid-0",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "default_value": 2,
+                  "effective_revision": 2,
+                  "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                  "key": "max_probe_workers",
+                  "last_changed_revision": 2,
+                  "read_only": false,
+                  "restart_required": false,
+                  "revision": 2,
+                  "source": "db_override",
+                  "value": 4
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":4,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "invalid-0",
+              "idempotency_key": "invalid-0",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "default_value": 2,
+                  "effective_revision": 2,
+                  "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                  "key": "max_probe_workers",
+                  "last_changed_revision": 2,
+                  "read_only": false,
+                  "restart_required": false,
+                  "revision": 2,
+                  "source": "db_override",
+                  "value": 4
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":6,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "stale",
+              "idempotency_key": "stale",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "detail": "settings revision conflict",
+                "error": {
+                  "code": "request_error",
+                  "message": "settings revision conflict"
+                },
+                "instance": "/api/v1/settings/max_probe_workers",
+                "status": 409,
+                "title": "settings revision conflict",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 409
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"settings\":{\"scan_interval_seconds\":600,\"auto_transcode\":true},\"expected_revision\":2}",
+              "csrf_action": "settings",
+              "csrf_alias": "patch",
+              "idempotency_key": "patch",
+              "method": "PATCH",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "revision": 3,
+                  "settings": [
+                    {
+                      "default_value": 3600,
+                      "effective_revision": 3,
+                      "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                      "key": "scan_interval_seconds",
+                      "last_changed_revision": 3,
+                      "read_only": false,
+                      "restart_required": false,
+                      "revision": 3,
+                      "source": "db_override",
+                      "value": 600
+                    },
+                    {
+                      "default_value": false,
+                      "effective_revision": 3,
+                      "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                      "key": "auto_transcode",
+                      "last_changed_revision": 3,
+                      "read_only": false,
+                      "restart_required": false,
+                      "revision": 3,
+                      "source": "db_override",
+                      "value": true
+                    }
+                  ]
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/audit?limit=1"
+            },
+            "response": {
+              "body": {
+                "data": [
+                  {
+                    "actor": "session:1",
+                    "key": "max_probe_workers",
+                    "new_value": 4,
+                    "old_value": 3,
+                    "revision": 2
+                  }
+                ],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {},
+                  "limit": 1,
+                  "next_cursor": "<cursor:settings-audit:1>",
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/audit?limit=1&cursor=<cursor:settings-audit:1>"
+            },
+            "response": {
+              "body": {
+                "data": [
+                  {
+                    "actor": "session:1",
+                    "key": "scan_interval_seconds",
+                    "new_value": 600,
+                    "old_value": null,
+                    "revision": 3
+                  }
+                ],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {},
+                  "limit": 1,
+                  "next_cursor": "<cursor:settings-audit:2>",
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/audit?key=auto_transcode"
+            },
+            "response": {
+              "body": {
+                "data": [
+                  {
+                    "actor": "session:1",
+                    "key": "auto_transcode",
+                    "new_value": true,
+                    "old_value": null,
+                    "revision": 3
+                  }
+                ],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {},
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":[\" cache \",\"./a/b/\",\"cache\",\"./ cache\"],\"expected_revision\":3}",
+              "csrf_action": "settings",
+              "csrf_alias": "exclude",
+              "idempotency_key": "exclude",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/scan_exclude_dirs"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "default_value": [],
+                  "effective_revision": 4,
+                  "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                  "key": "scan_exclude_dirs",
+                  "last_changed_revision": 4,
+                  "read_only": false,
+                  "restart_required": false,
+                  "revision": 4,
+                  "source": "db_override",
+                  "value": [
+                    "cache",
+                    "a/b",
+                    " cache"
+                  ]
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":[\"d0\",\"d1\",\"d2\",\"d3\",\"d4\",\"d5\",\"d6\",\"d7\",\"d8\",\"d9\",\"d10\",\"d11\",\"d12\",\"d13\",\"d14\",\"d15\",\"d16\",\"d17\",\"d18\",\"d19\",\"d20\",\"d21\",\"d22\",\"d23\",\"d24\",\"d25\",\"d26\",\"d27\",\"d28\",\"d29\",\"d30\",\"d31\",\"d32\",\"d33\",\"d34\",\"d35\",\"d36\",\"d37\",\"d38\",\"d39\",\"d40\",\"d41\",\"d42\",\"d43\",\"d44\",\"d45\",\"d46\",\"d47\",\"d48\",\"d49\",\"d50\",\"d51\",\"d52\",\"d53\",\"d54\",\"d55\",\"d56\",\"d57\",\"d58\",\"d59\",\"d60\",\"d61\",\"d62\",\"d63\",\"d64\",\"d65\",\"d66\",\"d67\",\"d68\",\"d69\",\"d70\",\"d71\",\"d72\",\"d73\",\"d74\",\"d75\",\"d76\",\"d77\",\"d78\",\"d79\",\"d80\",\"d81\",\"d82\",\"d83\",\"d84\",\"d85\",\"d86\",\"d87\",\"d88\",\"d89\",\"d90\",\"d91\",\"d92\",\"d93\",\"d94\",\"d95\",\"d96\",\"d97\",\"d98\",\"d99\"],\"expected_revision\":4}",
+              "csrf_action": "settings",
+              "csrf_alias": "many",
+              "idempotency_key": "many",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/scan_exclude_dirs"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "default_value": [],
+                  "effective_revision": 5,
+                  "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                  "key": "scan_exclude_dirs",
+                  "last_changed_revision": 5,
+                  "read_only": false,
+                  "restart_required": false,
+                  "revision": 5,
+                  "source": "db_override",
+                  "value": {
+                    "truncated": true
+                  }
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "revision": 5,
+                  "settings": [
+                    {
+                      "default_value": false,
+                      "effective_revision": 5,
+                      "key": "auto_apply_new_sidecars",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": false
+                    },
+                    {
+                      "default_value": true,
+                      "effective_revision": 5,
+                      "key": "auto_check_new_files",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": true
+                    },
+                    {
+                      "default_value": false,
+                      "effective_revision": 5,
+                      "key": "auto_fix_mp4",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": false
+                    },
+                    {
+                      "default_value": true,
+                      "effective_revision": 5,
+                      "key": "auto_recheck_new_subtitles",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": true
+                    },
+                    {
+                      "default_value": false,
+                      "effective_revision": 5,
+                      "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                      "key": "auto_transcode",
+                      "last_changed_revision": 3,
+                      "read_only": false,
+                      "restart_required": false,
+                      "revision": 3,
+                      "source": "db_override",
+                      "value": true
+                    },
+                    {
+                      "default_value": false,
+                      "effective_revision": 5,
+                      "key": "delete_original",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": false
+                    },
+                    {
+                      "default_value": 7,
+                      "effective_revision": 5,
+                      "key": "event_retention_days",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 7
+                    },
+                    {
+                      "default_value": 7,
+                      "effective_revision": 5,
+                      "key": "job_retention_days",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 7
+                    },
+                    {
+                      "default_value": 7,
+                      "effective_revision": 5,
+                      "key": "log_retention_days",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 7
+                    },
+                    {
+                      "default_value": 1,
+                      "effective_revision": 5,
+                      "key": "max_ffmpeg_workers",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 1
+                    },
+                    {
+                      "default_value": 2,
+                      "effective_revision": 5,
+                      "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                      "key": "max_probe_workers",
+                      "last_changed_revision": 2,
+                      "read_only": false,
+                      "restart_required": false,
+                      "revision": 2,
+                      "source": "db_override",
+                      "value": 4
+                    },
+                    {
+                      "default_value": [],
+                      "effective_revision": 5,
+                      "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                      "key": "scan_exclude_dirs",
+                      "last_changed_revision": 5,
+                      "read_only": false,
+                      "restart_required": false,
+                      "revision": 5,
+                      "source": "db_override",
+                      "value": {
+                        "truncated": true
+                      }
+                    },
+                    {
+                      "default_value": 3600,
+                      "effective_revision": 5,
+                      "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                      "key": "scan_interval_seconds",
+                      "last_changed_revision": 3,
+                      "read_only": false,
+                      "restart_required": false,
+                      "revision": 3,
+                      "source": "db_override",
+                      "value": 600
+                    },
+                    {
+                      "default_value": 120,
+                      "effective_revision": 5,
+                      "key": "settle_seconds",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 120
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 5,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "library_roots",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": [
+                        "<path>",
+                        "<path>"
+                      ]
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 5,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "state_dir",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": "<path>"
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 5,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "database_path",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": "<path>"
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 5,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "bind_host",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": "127.0.0.1"
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 5,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "bind_port",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 8765
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 5,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "atvprep_command",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": [
+                        "atvprep"
+                      ]
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 5,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "fix_extra_args",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": []
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 5,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "convert_extra_args",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": []
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 5,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "quarantine_dir",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": null
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 5,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "log_tail_bytes",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 16384
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 5,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "session_absolute_ttl_seconds",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 28800
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 5,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "session_idle_ttl_seconds",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 3600
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 5,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "csrf_ttl_seconds",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 900
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 5,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "session_cookie_secure",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": true
+                    }
+                  ],
+                  "truncated": true
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/audit?key=scan_exclude_dirs"
+            },
+            "response": {
+              "body": {
+                "data": [
+                  {
+                    "actor": "session:1",
+                    "key": "scan_exclude_dirs",
+                    "new_value": [
+                      "cache",
+                      "a/b",
+                      " cache"
+                    ],
+                    "old_value": null,
+                    "revision": 4
+                  },
+                  {
+                    "actor": "session:1",
+                    "key": "scan_exclude_dirs",
+                    "new_value": [
+                      "d0",
+                      "d1",
+                      "d2",
+                      "d3",
+                      "d4",
+                      "d5",
+                      "d6",
+                      "d7",
+                      "d8",
+                      "d9",
+                      "d10",
+                      "d11",
+                      "d12",
+                      "d13",
+                      "d14",
+                      "d15",
+                      "d16",
+                      "d17",
+                      "d18",
+                      "d19",
+                      "d20",
+                      "d21",
+                      "d22",
+                      "d23",
+                      "d24",
+                      "d25",
+                      "d26",
+                      "d27",
+                      "d28",
+                      "d29",
+                      "d30",
+                      "d31",
+                      "d32",
+                      "d33",
+                      "d34",
+                      "d35",
+                      "d36",
+                      "d37",
+                      "d38",
+                      "d39",
+                      "d40",
+                      "d41",
+                      "d42",
+                      "d43",
+                      "d44",
+                      "d45",
+                      "d46",
+                      "d47",
+                      "d48",
+                      "d49",
+                      "d50",
+                      "d51",
+                      "d52",
+                      "d53",
+                      "d54",
+                      "d55",
+                      "d56",
+                      "d57",
+                      "d58",
+                      "d59",
+                      "d60",
+                      "d61",
+                      "d62",
+                      "d63"
+                    ],
+                    "old_value": [
+                      "cache",
+                      "a/b",
+                      " cache"
+                    ],
+                    "revision": 5
+                  }
+                ],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {},
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": true
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":[],\"expected_revision\":5}",
+              "csrf_action": "settings",
+              "csrf_alias": "clear",
+              "idempotency_key": "clear",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/scan_exclude_dirs"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "default_value": [],
+                  "effective_revision": 6,
+                  "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                  "key": "scan_exclude_dirs",
+                  "last_changed_revision": 6,
+                  "read_only": false,
+                  "restart_required": false,
+                  "revision": 6,
+                  "source": "db_override",
+                  "value": []
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "revision": 6,
+                  "settings": [
+                    {
+                      "default_value": false,
+                      "effective_revision": 6,
+                      "key": "auto_apply_new_sidecars",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": false
+                    },
+                    {
+                      "default_value": true,
+                      "effective_revision": 6,
+                      "key": "auto_check_new_files",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": true
+                    },
+                    {
+                      "default_value": false,
+                      "effective_revision": 6,
+                      "key": "auto_fix_mp4",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": false
+                    },
+                    {
+                      "default_value": true,
+                      "effective_revision": 6,
+                      "key": "auto_recheck_new_subtitles",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": true
+                    },
+                    {
+                      "default_value": false,
+                      "effective_revision": 6,
+                      "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                      "key": "auto_transcode",
+                      "last_changed_revision": 3,
+                      "read_only": false,
+                      "restart_required": false,
+                      "revision": 3,
+                      "source": "db_override",
+                      "value": true
+                    },
+                    {
+                      "default_value": false,
+                      "effective_revision": 6,
+                      "key": "delete_original",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": false
+                    },
+                    {
+                      "default_value": 7,
+                      "effective_revision": 6,
+                      "key": "event_retention_days",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 7
+                    },
+                    {
+                      "default_value": 7,
+                      "effective_revision": 6,
+                      "key": "job_retention_days",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 7
+                    },
+                    {
+                      "default_value": 7,
+                      "effective_revision": 6,
+                      "key": "log_retention_days",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 7
+                    },
+                    {
+                      "default_value": 1,
+                      "effective_revision": 6,
+                      "key": "max_ffmpeg_workers",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 1
+                    },
+                    {
+                      "default_value": 2,
+                      "effective_revision": 6,
+                      "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                      "key": "max_probe_workers",
+                      "last_changed_revision": 2,
+                      "read_only": false,
+                      "restart_required": false,
+                      "revision": 2,
+                      "source": "db_override",
+                      "value": 4
+                    },
+                    {
+                      "default_value": [],
+                      "effective_revision": 6,
+                      "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                      "key": "scan_exclude_dirs",
+                      "last_changed_revision": 6,
+                      "read_only": false,
+                      "restart_required": false,
+                      "revision": 6,
+                      "source": "db_override",
+                      "value": []
+                    },
+                    {
+                      "default_value": 3600,
+                      "effective_revision": 6,
+                      "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                      "key": "scan_interval_seconds",
+                      "last_changed_revision": 3,
+                      "read_only": false,
+                      "restart_required": false,
+                      "revision": 3,
+                      "source": "db_override",
+                      "value": 600
+                    },
+                    {
+                      "default_value": 120,
+                      "effective_revision": 6,
+                      "key": "settle_seconds",
+                      "last_changed_revision": null,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 120
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 6,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "library_roots",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": [
+                        "<path>",
+                        "<path>"
+                      ]
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 6,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "state_dir",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": "<path>"
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 6,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "database_path",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": "<path>"
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 6,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "bind_host",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": "127.0.0.1"
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 6,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "bind_port",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 8765
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 6,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "atvprep_command",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": [
+                        "atvprep"
+                      ]
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 6,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "fix_extra_args",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": []
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 6,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "convert_extra_args",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": []
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 6,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "quarantine_dir",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": null
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 6,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "log_tail_bytes",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 16384
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 6,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "session_absolute_ttl_seconds",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 28800
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 6,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "session_idle_ttl_seconds",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 3600
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 6,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "csrf_ttl_seconds",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": 900
+                    },
+                    {
+                      "default_value": null,
+                      "effective_revision": 6,
+                      "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                      "key": "session_cookie_secure",
+                      "last_changed_revision": null,
+                      "read_only": true,
+                      "restart_required": true,
+                      "revision": 0,
+                      "source": "default",
+                      "value": true
+                    }
+                  ],
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/audit?cursor=invalid"
+            },
+            "response": {
+              "body": {
+                "detail": "invalid cursor",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "invalid cursor"
+                },
+                "instance": "/api/v1/settings/audit",
+                "status": 400,
+                "title": "invalid cursor",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 400
+            }
+          }
+        ]
+      },
+      "name": "settings-http-sequence"
+    }
+  ],
+  "suite": "api_settings_contract"
+}

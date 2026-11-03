@@ -1,0 +1,410 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "audio_labels": [
+          [
+            "fall → A1"
+          ],
+          [],
+          [
+            "fall → A3"
+          ],
+          [],
+          []
+        ],
+        "count": {
+          "fall": 2,
+          "folw": 0,
+          "forc": 0
+        },
+        "fall": {
+          "0": 1,
+          "2": 3
+        },
+        "folw": {},
+        "forc": {},
+        "sub_labels": []
+      },
+      "input": {
+        "audio": [
+          {
+            "channels": 6,
+            "lang": "deu"
+          },
+          {
+            "channels": 2,
+            "lang": "deu"
+          },
+          {
+            "channels": 6,
+            "lang": "eng"
+          },
+          {
+            "channels": 2,
+            "lang": "eng"
+          },
+          {
+            "channels": 1,
+            "lang": "eng"
+          }
+        ],
+        "subs": []
+      },
+      "name": "surround falls back to first stereo"
+    },
+    {
+      "expected": {
+        "audio_labels": [
+          [],
+          [],
+          [],
+          []
+        ],
+        "count": {
+          "fall": 0,
+          "folw": 0,
+          "forc": 0
+        },
+        "fall": {},
+        "folw": {},
+        "forc": {},
+        "sub_labels": []
+      },
+      "input": {
+        "audio": [
+          {
+            "channels": 6,
+            "lang": "deu"
+          },
+          {
+            "channels": 2,
+            "lang": "eng"
+          },
+          {
+            "channels": 6,
+            "lang": null
+          },
+          {
+            "channels": 2,
+            "lang": null
+          }
+        ],
+        "subs": []
+      },
+      "name": "no sibling or no language"
+    },
+    {
+      "expected": {
+        "audio_labels": [
+          [],
+          []
+        ],
+        "count": {
+          "fall": 0,
+          "folw": 0,
+          "forc": 0
+        },
+        "fall": {},
+        "folw": {},
+        "forc": {},
+        "sub_labels": []
+      },
+      "input": {
+        "audio": [
+          {
+            "channels": 6,
+            "lang": "deu"
+          },
+          {
+            "channels": 0,
+            "lang": "deu"
+          }
+        ],
+        "subs": []
+      },
+      "name": "unknown channels"
+    },
+    {
+      "expected": {
+        "audio_labels": [
+          [
+            "fall → A1",
+            "folw → S0"
+          ],
+          [
+            "folw → S0"
+          ],
+          []
+        ],
+        "count": {
+          "fall": 1,
+          "folw": 2,
+          "forc": 1
+        },
+        "fall": {
+          "0": 1
+        },
+        "folw": {
+          "0": 0,
+          "1": 0
+        },
+        "forc": {
+          "1": 0
+        },
+        "sub_labels": [
+          [],
+          [
+            "forc → S0"
+          ],
+          []
+        ]
+      },
+      "input": {
+        "audio": [
+          {
+            "channels": 6,
+            "lang": "deu"
+          },
+          {
+            "channels": 2,
+            "lang": "deu"
+          },
+          {
+            "channels": 2,
+            "lang": "eng"
+          }
+        ],
+        "subs": [
+          {
+            "forced": true,
+            "lang": "deu"
+          },
+          {
+            "forced": false,
+            "lang": "deu"
+          },
+          {
+            "forced": false,
+            "lang": "eng"
+          }
+        ]
+      },
+      "name": "forced and full"
+    },
+    {
+      "expected": {
+        "audio_labels": [
+          [
+            "folw → S0"
+          ]
+        ],
+        "count": {
+          "fall": 0,
+          "folw": 1,
+          "forc": 1
+        },
+        "fall": {},
+        "folw": {
+          "0": 0
+        },
+        "forc": {
+          "2": 0
+        },
+        "sub_labels": [
+          [],
+          [],
+          [
+            "forc → S0"
+          ]
+        ]
+      },
+      "input": {
+        "audio": [
+          {
+            "channels": 2,
+            "lang": "deu"
+          }
+        ],
+        "subs": [
+          {
+            "forced": true,
+            "lang": "deu"
+          },
+          {
+            "forced": true,
+            "lang": "deu"
+          },
+          {
+            "forced": false,
+            "lang": "deu"
+          }
+        ]
+      },
+      "name": "first forced wins"
+    },
+    {
+      "expected": {
+        "audio_labels": [
+          [
+            "folw → S0"
+          ]
+        ],
+        "count": {
+          "fall": 0,
+          "folw": 1,
+          "forc": 0
+        },
+        "fall": {},
+        "folw": {
+          "0": 0
+        },
+        "forc": {},
+        "sub_labels": [
+          []
+        ]
+      },
+      "input": {
+        "audio": [
+          {
+            "channels": 2,
+            "lang": "eng"
+          }
+        ],
+        "subs": [
+          {
+            "forced": true,
+            "lang": "eng"
+          }
+        ]
+      },
+      "name": "forced only"
+    },
+    {
+      "expected": {
+        "audio_labels": [
+          []
+        ],
+        "count": {
+          "fall": 0,
+          "folw": 0,
+          "forc": 0
+        },
+        "fall": {},
+        "folw": {},
+        "forc": {},
+        "sub_labels": [
+          []
+        ]
+      },
+      "input": {
+        "audio": [
+          {
+            "channels": 2,
+            "lang": "nld"
+          }
+        ],
+        "subs": [
+          {
+            "forced": false,
+            "lang": "nld"
+          }
+        ]
+      },
+      "name": "no forced"
+    },
+    {
+      "expected": {
+        "audio_labels": [
+          []
+        ],
+        "count": {
+          "fall": 0,
+          "folw": 0,
+          "forc": 0
+        },
+        "fall": {},
+        "folw": {},
+        "forc": {},
+        "sub_labels": [
+          [],
+          []
+        ]
+      },
+      "input": {
+        "audio": [
+          {
+            "channels": 2,
+            "lang": "deu"
+          }
+        ],
+        "subs": [
+          {
+            "forced": true,
+            "lang": null
+          },
+          {
+            "forced": false,
+            "lang": null
+          }
+        ]
+      },
+      "name": "subs without language"
+    },
+    {
+      "expected": {
+        "audio_labels": [],
+        "count": {
+          "fall": 0,
+          "folw": 0,
+          "forc": 0
+        },
+        "fall": {},
+        "folw": {},
+        "forc": {},
+        "sub_labels": []
+      },
+      "input": {
+        "audio": [],
+        "subs": []
+      },
+      "name": "empty"
+    },
+    {
+      "expected": {
+        "audio_labels": [
+          [
+            "fall → A1"
+          ],
+          []
+        ],
+        "count": {
+          "fall": 1,
+          "folw": 0,
+          "forc": 0
+        },
+        "fall": {
+          "0": 1
+        },
+        "folw": {},
+        "forc": {},
+        "sub_labels": []
+      },
+      "input": {
+        "audio": [
+          {
+            "channels": 6,
+            "lang": "fra"
+          },
+          {
+            "channels": 1,
+            "lang": "fra"
+          }
+        ],
+        "subs": []
+      },
+      "name": "mono is a fallback target"
+    }
+  ],
+  "suite": "tracklinks"
+}

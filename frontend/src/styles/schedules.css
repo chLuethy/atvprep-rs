@@ -1,0 +1,32 @@
+/* schedules: a list of timetables with an inline editor; no cards, no modal */
+.schedules { height: 100%; overflow: auto; padding: 16px max(16px, env(safe-area-inset-right, 0px)) 32px 24px; max-width: 1080px; }
+.sched-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sched-head h1 { margin: 0; font-size: var(--text-lg); font-weight: 650; letter-spacing: var(--tracking-title); }
+.sched-lede { margin: 4px 0 12px; max-width: 70ch; }
+.sched-list { border-top: 1px solid var(--line); }
+.sched-row { padding: 9px 0; border-bottom: 1px solid var(--line); }
+.sched-row.paused .sched-name { color: var(--muted); }
+.sched-line { display: grid; grid-template-columns: 24px minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.3fr) auto; gap: 4px 16px; align-items: start; }
+.sched-switch { display: inline-flex; padding-top: 2px; }
+.sched-switch input { width: 16px; height: 16px; accent-color: var(--accent-strong); margin: 0; }
+.sched-main, .sched-when, .sched-last { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.sched-name { font-weight: 600; }
+.sched-target, .sched-when .muted, .sched-last .muted { font-size: var(--text-sm); }
+.sched-actions { display: flex; gap: 2px; }
+.sched-row .confirm, .sched-row > .notice { margin: 8px 0 0 40px; }
+.sched-editor { margin: 0 0 14px; }
+.sched-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px 16px; margin-bottom: 8px; }
+.sched-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.sched-field.wide { grid-column: 1 / -1; }
+.sched-field > span { color: var(--muted); font-size: var(--text-sm); font-weight: 500; }
+.sched-field .input, .sched-field .select { width: 100%; }
+.sched-field.action { grid-column: span 2; }
+.sched-field .seg { width: fit-content; max-width: 100%; }
+.sched-field .seg button { padding: 5px 14px; white-space: nowrap; }
+.sched-field .seg button:disabled { opacity: 0.6; cursor: not-allowed; }
+@media (max-width: 560px) { .sched-field.action { grid-column: 1 / -1; } }
+@media (max-width: 880px) {
+  .sched-line { grid-template-columns: 24px minmax(0, 1fr); }
+  .sched-when, .sched-last, .sched-actions { grid-column: 2; }
+  .sched-row .confirm, .sched-row > .notice { margin-left: 0; }
+}

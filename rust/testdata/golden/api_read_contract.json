@@ -1,0 +1,1429 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "body": {
+          "data": [
+            {
+              "id": "<r:1>",
+              "latest_scan": {
+                "finished_at": null,
+                "generation": 1,
+                "id": "<s:1>",
+                "root_id": "<r:1>",
+                "started_at": "<ts>",
+                "status": "succeeded"
+              },
+              "name": "Movies"
+            }
+          ],
+          "meta": {}
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/roots"
+      },
+      "name": "roots"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": [
+            {
+              "compliance_reasons": [],
+              "compliance_state": "clean",
+              "converted_kept": false,
+              "desired_action": "none",
+              "discovery_state": "present",
+              "display_path": "Movie/film.mp4",
+              "embed_sidecars": [],
+              "fix_status": null,
+              "id": "<m:1>",
+              "kind": "video",
+              "last_seen_at": "<ts>",
+              "mtime_ns": 4,
+              "needs_reencode": false,
+              "pending_sidecars": 0,
+              "root_id": "<r:1>",
+              "size": 123,
+              "suffix": ".mp4",
+              "workflow_state": "idle"
+            }
+          ],
+          "meta": {
+            "current_cursor": null,
+            "current_sequence": null,
+            "facets": {
+              "suffix": [
+                ".mp4"
+              ]
+            },
+            "limit": 50,
+            "next_cursor": null,
+            "truncated": false
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/files"
+      },
+      "name": "files"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": {
+            "files": [],
+            "folders": [
+              {
+                "counts": {
+                  "clean": 1
+                },
+                "id": "<r:1>",
+                "name": "Movies",
+                "total": 1
+              }
+            ],
+            "path": "",
+            "root_id": null,
+            "truncated": false
+          },
+          "meta": {}
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/browse"
+      },
+      "name": "browse"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": {
+            "files": [],
+            "folders": [
+              {
+                "counts": {
+                  "clean": 1
+                },
+                "id": null,
+                "name": "Movie",
+                "total": 1
+              }
+            ],
+            "path": "",
+            "root_id": "<r:1>",
+            "truncated": false
+          },
+          "meta": {}
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/browse?root_id=<r:1>"
+      },
+      "name": "browse_root"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": {
+            "files": [
+              {
+                "compliance_reasons": [],
+                "compliance_state": "clean",
+                "converted_kept": false,
+                "desired_action": "none",
+                "discovery_state": "present",
+                "display_path": "Movie/film.mp4",
+                "embed_sidecars": [],
+                "fix_status": null,
+                "id": "<m:1>",
+                "kind": "video",
+                "last_seen_at": "<ts>",
+                "mtime_ns": 4,
+                "needs_reencode": false,
+                "pending_sidecars": 0,
+                "root_id": "<r:1>",
+                "size": 123,
+                "suffix": ".mp4",
+                "workflow_state": "idle"
+              }
+            ],
+            "truncated": false
+          },
+          "meta": {}
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/browse/below?root_id=<r:1>"
+      },
+      "name": "browse_below"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": [
+            {
+              "finished_at": null,
+              "generation": 1,
+              "id": "<s:1>",
+              "root_id": "<r:1>",
+              "started_at": "<ts>",
+              "status": "succeeded"
+            }
+          ],
+          "meta": {
+            "current_cursor": null,
+            "current_sequence": null,
+            "facets": {},
+            "limit": 50,
+            "next_cursor": null,
+            "truncated": false
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/scans"
+      },
+      "name": "scans"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": [
+            {
+              "action": "verify",
+              "cancelled_count": 0,
+              "delete_confirmed": false,
+              "failed_count": 0,
+              "finished_at": null,
+              "id": "<j:1>",
+              "origin_job_id": null,
+              "progress": 0,
+              "requested_at": "<ts>",
+              "started_at": null,
+              "status": "queued",
+              "subject": "Movie/film.mp4",
+              "succeeded_count": 0,
+              "total_count": 1,
+              "trigger": "manual"
+            }
+          ],
+          "meta": {
+            "current_cursor": null,
+            "current_sequence": null,
+            "facets": {},
+            "limit": 50,
+            "next_cursor": null,
+            "truncated": false
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/jobs"
+      },
+      "name": "jobs"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": {
+            "action": "verify",
+            "cancelled_count": 0,
+            "delete_confirmed": false,
+            "failed_count": 0,
+            "finished_at": null,
+            "id": "<j:1>",
+            "origin_job_id": null,
+            "progress": 0,
+            "requested_at": "<ts>",
+            "started_at": null,
+            "status": "queued",
+            "subject": "Movie/film.mp4",
+            "succeeded_count": 0,
+            "total_count": 1,
+            "trigger": "manual"
+          },
+          "meta": {
+            "current_cursor": null,
+            "current_sequence": null,
+            "facets": {},
+            "limit": null,
+            "next_cursor": null,
+            "truncated": false
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/jobs/<j:1>"
+      },
+      "name": "job_detail"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": [
+            {
+              "action": "verify",
+              "attempt": 0,
+              "delete_confirmed": false,
+              "display_path": "Movie/film.mp4",
+              "error_code": null,
+              "error_detail": null,
+              "finished_at": null,
+              "id": "<i:1>",
+              "job_id": "<j:1>",
+              "media_id": "<m:1>",
+              "output_media_id": null,
+              "position": 0,
+              "progress": null,
+              "started_at": null,
+              "status": "queued"
+            }
+          ],
+          "meta": {
+            "current_cursor": null,
+            "current_sequence": null,
+            "facets": {},
+            "limit": 50,
+            "next_cursor": null,
+            "truncated": false
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/jobs/<j:1>/items"
+      },
+      "name": "job_items"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": {
+            "item_id": "<i:1>",
+            "log_tail": "processed",
+            "status": "queued"
+          },
+          "meta": {
+            "current_cursor": null,
+            "current_sequence": null,
+            "facets": {},
+            "limit": null,
+            "next_cursor": null,
+            "truncated": false
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/job-items/<i:1>/log"
+      },
+      "name": "item_log"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": [
+            {
+              "action": "verify",
+              "cancelled_count": 0,
+              "delete_confirmed": false,
+              "failed_count": 0,
+              "finished_at": null,
+              "id": "<j:1>",
+              "origin_job_id": null,
+              "progress": 0,
+              "requested_at": "<ts>",
+              "started_at": null,
+              "status": "queued",
+              "subject": "Movie/film.mp4",
+              "succeeded_count": 0,
+              "total_count": 1,
+              "trigger": "manual"
+            }
+          ],
+          "meta": {
+            "current_cursor": null,
+            "current_sequence": null,
+            "facets": {},
+            "limit": 50,
+            "next_cursor": null,
+            "truncated": false
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/files/<m:1>/jobs"
+      },
+      "name": "file_jobs"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": {
+            "compliance_reasons": [],
+            "compliance_state": "clean",
+            "converted_kept": false,
+            "desired_action": "none",
+            "discovery_state": "present",
+            "display_path": "Movie/film.mp4",
+            "embed_sidecars": [],
+            "fix_status": null,
+            "has_error": false,
+            "id": "<m:1>",
+            "inspection_available": true,
+            "kind": "video",
+            "last_seen_at": "<ts>",
+            "last_success_at": null,
+            "mtime_ns": 4,
+            "needs_reencode": false,
+            "pending_sidecars": 0,
+            "root_id": "<r:1>",
+            "sidecar_count": 1,
+            "size": 123,
+            "status_version": 0,
+            "suffix": ".mp4",
+            "workflow_state": "idle"
+          },
+          "meta": {
+            "current_cursor": null,
+            "current_sequence": null,
+            "facets": {},
+            "limit": null,
+            "next_cursor": null,
+            "truncated": false
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/files/<m:1>"
+      },
+      "name": "file_detail"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": [
+            {
+              "created_at": "<ts>",
+              "fingerprint": "sidecar",
+              "id": "<c:1>",
+              "language": "eng",
+              "media_id": "<m:1>",
+              "mtime_ns": 9,
+              "name": "film.en.srt",
+              "size": 42,
+              "state": "unchecked"
+            }
+          ],
+          "meta": {
+            "current_cursor": null,
+            "current_sequence": null,
+            "facets": {},
+            "limit": 50,
+            "next_cursor": null,
+            "truncated": false
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/files/<m:1>/sidecars"
+      },
+      "name": "sidecars"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": [
+            {
+              "created_at": "<ts>",
+              "id": "<n:1>",
+              "media_id": "<m:1>",
+              "result": {
+                "nested": [
+                  {
+                    "password": "<redacted>"
+                  }
+                ],
+                "ok": true,
+                "path": "<path>"
+              },
+              "tool_name": "ffprobe",
+              "tool_version": "1"
+            }
+          ],
+          "meta": {
+            "current_cursor": null,
+            "current_sequence": null,
+            "facets": {},
+            "limit": 50,
+            "next_cursor": null,
+            "truncated": false
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/files/<m:1>/inspections"
+      },
+      "name": "inspections"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": [
+            {
+              "created_at": "<ts>",
+              "entity_id": "<j:1>",
+              "entity_type": "job",
+              "id": "<e:1>",
+              "item_id": null,
+              "job_id": "<j:1>",
+              "payload": {},
+              "sequence": 1,
+              "topic": "job.created"
+            }
+          ],
+          "meta": {
+            "current_cursor": "<cursor:events:1>",
+            "current_sequence": 1,
+            "facets": {},
+            "limit": 100,
+            "next_cursor": null,
+            "truncated": false
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/events"
+      },
+      "name": "events"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": [
+            {
+              "created_at": "<ts>",
+              "entity_id": "<j:1>",
+              "entity_type": "job",
+              "id": "<e:1>",
+              "item_id": null,
+              "job_id": "<j:1>",
+              "payload": {},
+              "sequence": 1,
+              "topic": "job.created"
+            }
+          ],
+          "meta": {
+            "current_cursor": null,
+            "current_sequence": null,
+            "facets": {},
+            "limit": 100,
+            "next_cursor": null,
+            "truncated": false
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/jobs/<j:1>/events"
+      },
+      "name": "job_events"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": [
+            {
+              "action": "verify",
+              "compliance_state": null,
+              "days": [
+                0,
+                2
+              ],
+              "enabled": false,
+              "id": "<sc:1>",
+              "last_job_id": null,
+              "last_result": null,
+              "last_run_at": null,
+              "matching": 1,
+              "max_files": 25,
+              "name": "Weekly",
+              "next_run_at": null,
+              "root_id": "<r:1>",
+              "root_name": "Movies",
+              "time": "12:30"
+            }
+          ],
+          "meta": {}
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/schedules"
+      },
+      "name": "schedules"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": {
+            "revision": 1,
+            "settings": [
+              {
+                "default_value": false,
+                "effective_revision": 1,
+                "key": "auto_apply_new_sidecars",
+                "last_changed_revision": null,
+                "revision": 0,
+                "source": "default",
+                "value": false
+              },
+              {
+                "default_value": true,
+                "effective_revision": 1,
+                "key": "auto_check_new_files",
+                "last_changed_revision": null,
+                "revision": 0,
+                "source": "default",
+                "value": true
+              },
+              {
+                "default_value": false,
+                "effective_revision": 1,
+                "key": "auto_fix_mp4",
+                "last_changed_revision": null,
+                "revision": 0,
+                "source": "default",
+                "value": false
+              },
+              {
+                "default_value": true,
+                "effective_revision": 1,
+                "key": "auto_recheck_new_subtitles",
+                "last_changed_revision": null,
+                "revision": 0,
+                "source": "default",
+                "value": true
+              },
+              {
+                "default_value": false,
+                "effective_revision": 1,
+                "key": "auto_transcode",
+                "last_changed_revision": null,
+                "revision": 0,
+                "source": "default",
+                "value": false
+              },
+              {
+                "default_value": false,
+                "effective_revision": 1,
+                "key": "delete_original",
+                "last_changed_revision": null,
+                "revision": 0,
+                "source": "default",
+                "value": false
+              },
+              {
+                "default_value": 7,
+                "effective_revision": 1,
+                "key": "event_retention_days",
+                "last_changed_revision": null,
+                "revision": 0,
+                "source": "default",
+                "value": 7
+              },
+              {
+                "default_value": 7,
+                "effective_revision": 1,
+                "key": "job_retention_days",
+                "last_changed_revision": null,
+                "revision": 0,
+                "source": "default",
+                "value": 7
+              },
+              {
+                "default_value": 7,
+                "effective_revision": 1,
+                "key": "log_retention_days",
+                "last_changed_revision": null,
+                "revision": 0,
+                "source": "default",
+                "value": 7
+              },
+              {
+                "default_value": 1,
+                "effective_revision": 1,
+                "key": "max_ffmpeg_workers",
+                "last_changed_revision": null,
+                "revision": 0,
+                "source": "default",
+                "value": 1
+              },
+              {
+                "default_value": 2,
+                "effective_revision": 1,
+                "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                "key": "max_probe_workers",
+                "last_changed_revision": 1,
+                "read_only": false,
+                "restart_required": false,
+                "revision": 1,
+                "source": "db_override",
+                "value": 3
+              },
+              {
+                "default_value": [],
+                "effective_revision": 1,
+                "key": "scan_exclude_dirs",
+                "last_changed_revision": null,
+                "revision": 0,
+                "source": "default",
+                "value": []
+              },
+              {
+                "default_value": 3600,
+                "effective_revision": 1,
+                "key": "scan_interval_seconds",
+                "last_changed_revision": null,
+                "revision": 0,
+                "source": "default",
+                "value": 3600
+              },
+              {
+                "default_value": 120,
+                "effective_revision": 1,
+                "key": "settle_seconds",
+                "last_changed_revision": null,
+                "revision": 0,
+                "source": "default",
+                "value": 120
+              },
+              {
+                "default_value": null,
+                "effective_revision": 1,
+                "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                "key": "library_roots",
+                "last_changed_revision": null,
+                "read_only": true,
+                "restart_required": true,
+                "revision": 0,
+                "source": "default",
+                "value": [
+                  "<path>",
+                  "<path>"
+                ]
+              },
+              {
+                "default_value": null,
+                "effective_revision": 1,
+                "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                "key": "state_dir",
+                "last_changed_revision": null,
+                "read_only": true,
+                "restart_required": true,
+                "revision": 0,
+                "source": "default",
+                "value": "<path>"
+              },
+              {
+                "default_value": null,
+                "effective_revision": 1,
+                "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                "key": "database_path",
+                "last_changed_revision": null,
+                "read_only": true,
+                "restart_required": true,
+                "revision": 0,
+                "source": "default",
+                "value": "<path>"
+              },
+              {
+                "default_value": null,
+                "effective_revision": 1,
+                "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                "key": "bind_host",
+                "last_changed_revision": null,
+                "read_only": true,
+                "restart_required": true,
+                "revision": 0,
+                "source": "default",
+                "value": "127.0.0.1"
+              },
+              {
+                "default_value": null,
+                "effective_revision": 1,
+                "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                "key": "bind_port",
+                "last_changed_revision": null,
+                "read_only": true,
+                "restart_required": true,
+                "revision": 0,
+                "source": "default",
+                "value": 8765
+              },
+              {
+                "default_value": null,
+                "effective_revision": 1,
+                "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                "key": "atvprep_command",
+                "last_changed_revision": null,
+                "read_only": true,
+                "restart_required": true,
+                "revision": 0,
+                "source": "default",
+                "value": [
+                  "atvprep"
+                ]
+              },
+              {
+                "default_value": null,
+                "effective_revision": 1,
+                "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                "key": "fix_extra_args",
+                "last_changed_revision": null,
+                "read_only": true,
+                "restart_required": true,
+                "revision": 0,
+                "source": "default",
+                "value": []
+              },
+              {
+                "default_value": null,
+                "effective_revision": 1,
+                "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                "key": "convert_extra_args",
+                "last_changed_revision": null,
+                "read_only": true,
+                "restart_required": true,
+                "revision": 0,
+                "source": "default",
+                "value": []
+              },
+              {
+                "default_value": null,
+                "effective_revision": 1,
+                "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                "key": "quarantine_dir",
+                "last_changed_revision": null,
+                "read_only": true,
+                "restart_required": true,
+                "revision": 0,
+                "source": "default",
+                "value": null
+              },
+              {
+                "default_value": null,
+                "effective_revision": 1,
+                "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                "key": "log_tail_bytes",
+                "last_changed_revision": null,
+                "read_only": true,
+                "restart_required": true,
+                "revision": 0,
+                "source": "default",
+                "value": 16384
+              },
+              {
+                "default_value": null,
+                "effective_revision": 1,
+                "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                "key": "session_absolute_ttl_seconds",
+                "last_changed_revision": null,
+                "read_only": true,
+                "restart_required": true,
+                "revision": 0,
+                "source": "default",
+                "value": 28800
+              },
+              {
+                "default_value": null,
+                "effective_revision": 1,
+                "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                "key": "session_idle_ttl_seconds",
+                "last_changed_revision": null,
+                "read_only": true,
+                "restart_required": true,
+                "revision": 0,
+                "source": "default",
+                "value": 3600
+              },
+              {
+                "default_value": null,
+                "effective_revision": 1,
+                "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                "key": "csrf_ttl_seconds",
+                "last_changed_revision": null,
+                "read_only": true,
+                "restart_required": true,
+                "revision": 0,
+                "source": "default",
+                "value": 900
+              },
+              {
+                "default_value": null,
+                "effective_revision": 1,
+                "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",
+                "key": "session_cookie_secure",
+                "last_changed_revision": null,
+                "read_only": true,
+                "restart_required": true,
+                "revision": 0,
+                "source": "default",
+                "value": true
+              }
+            ],
+            "truncated": false
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/settings"
+      },
+      "name": "settings"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": {
+            "active_items": 0,
+            "active_scans": 0,
+            "changed_at": "<ts>",
+            "changed_by_kind": null,
+            "generation": 0,
+            "healthy": true,
+            "mode": "open",
+            "open_permits": [],
+            "permits": 0,
+            "phase": "steady",
+            "quiesced": false,
+            "reason": null,
+            "workers": {
+              "media": {
+                "alive": false,
+                "expires_in_seconds": null
+              },
+              "scheduler": {
+                "alive": false,
+                "expires_in_seconds": null
+              }
+            }
+          },
+          "meta": {}
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/deployment"
+      },
+      "name": "deployment"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": {
+            "convert": 0,
+            "converted": 0,
+            "delete_original": false,
+            "files": {
+              "clean": 1
+            },
+            "jobs": {
+              "queued": 1
+            },
+            "missing": 0,
+            "reencode": 0,
+            "scans": {
+              "succeeded": 1
+            }
+          },
+          "meta": {}
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/dashboard"
+      },
+      "name": "dashboard"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": {
+            "jobs": [
+              {
+                "action": "verify",
+                "cancelled_count": 0,
+                "delete_confirmed": false,
+                "failed_count": 0,
+                "finished_at": null,
+                "id": "<j:1>",
+                "origin_job_id": null,
+                "progress": 0,
+                "requested_at": "<ts>",
+                "started_at": null,
+                "status": "queued",
+                "subject": "Movie/film.mp4",
+                "succeeded_count": 0,
+                "total_count": 1,
+                "trigger": "manual"
+              }
+            ],
+            "total": 1
+          },
+          "meta": {
+            "current_cursor": null,
+            "current_sequence": null,
+            "facets": {},
+            "limit": 10,
+            "next_cursor": null,
+            "truncated": false
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/dashboard/queue"
+      },
+      "name": "queue"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": [
+            {
+              "created_at": "<ts>",
+              "id": "<e:1>",
+              "kind": "job_event",
+              "topic": "job.created"
+            }
+          ],
+          "meta": {
+            "current_cursor": null,
+            "current_sequence": null,
+            "facets": {},
+            "limit": 20,
+            "next_cursor": null,
+            "truncated": false
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/dashboard/activity"
+      },
+      "name": "activity"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": {
+            "action": "verify",
+            "compliance_state": null,
+            "days": [
+              0,
+              2
+            ],
+            "enabled": true,
+            "id": "<sc:2>",
+            "last_job_id": null,
+            "last_result": null,
+            "last_run_at": null,
+            "matching": 1,
+            "max_files": 25,
+            "name": "New",
+            "next_run_at": "<ts>",
+            "root_id": null,
+            "root_name": null,
+            "time": "12:30"
+          }
+        },
+        "status": 201
+      },
+      "input": {
+        "authenticated": true,
+        "body_json": "{\"name\":\"New\",\"action\":\"verify\",\"days\":[0,2],\"time\":\"12:30\"}",
+        "csrf_action": "create-schedule",
+        "idempotency_key": "create-schedule",
+        "method": "POST",
+        "origin": "http://testserver",
+        "path": "/api/v1/schedules"
+      },
+      "name": "schedule_create"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": {
+            "action": "verify",
+            "compliance_state": null,
+            "days": [
+              1,
+              4
+            ],
+            "enabled": true,
+            "id": "<sc:1>",
+            "last_job_id": null,
+            "last_result": null,
+            "last_run_at": null,
+            "matching": 1,
+            "max_files": 25,
+            "name": "Updated",
+            "next_run_at": "<ts>",
+            "root_id": null,
+            "root_name": null,
+            "time": "12:30"
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "body_json": "{\"name\":\"Updated\",\"days\":[1,4],\"enabled\":true,\"clear_root\":true}",
+        "csrf_action": "update-schedule",
+        "idempotency_key": "schedule_update",
+        "method": "PATCH",
+        "origin": "http://testserver",
+        "path": "/api/v1/schedules/<sc:1>"
+      },
+      "name": "schedule_update"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": {
+            "action": "verify",
+            "compliance_state": null,
+            "days": [
+              1,
+              4
+            ],
+            "enabled": true,
+            "id": "<sc:1>",
+            "last_job_id": "<j:2>",
+            "last_result": "Queued 1 file",
+            "last_run_at": "<ts>",
+            "matching": 1,
+            "max_files": 25,
+            "name": "Updated",
+            "next_run_at": "<ts>",
+            "root_id": null,
+            "root_name": null,
+            "time": "12:30"
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "csrf_action": "run-schedule",
+        "idempotency_key": "schedule_run",
+        "method": "POST",
+        "origin": "http://testserver",
+        "path": "/api/v1/schedules/<sc:1>/run"
+      },
+      "name": "schedule_run"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": {
+            "deleted": true
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "csrf_action": "delete-schedule",
+        "idempotency_key": "schedule_delete",
+        "method": "DELETE",
+        "origin": "http://testserver",
+        "path": "/api/v1/schedules/<sc:1>"
+      },
+      "name": "schedule_delete"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": {
+            "revision": 2,
+            "settings": [
+              {
+                "default_value": 3600,
+                "effective_revision": 2,
+                "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                "key": "scan_interval_seconds",
+                "last_changed_revision": 2,
+                "read_only": false,
+                "restart_required": false,
+                "revision": 2,
+                "source": "db_override",
+                "value": 600
+              },
+              {
+                "default_value": false,
+                "effective_revision": 2,
+                "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                "key": "auto_transcode",
+                "last_changed_revision": 2,
+                "read_only": false,
+                "restart_required": false,
+                "revision": 2,
+                "source": "db_override",
+                "value": true
+              }
+            ]
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "body_json": "{\"settings\":{\"scan_interval_seconds\":600,\"auto_transcode\":true},\"expected_revision\":1}",
+        "csrf_action": "settings",
+        "idempotency_key": "settings_patch",
+        "method": "PATCH",
+        "origin": "http://testserver",
+        "path": "/api/v1/settings"
+      },
+      "name": "settings_patch"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": {
+            "default_value": 2,
+            "effective_revision": 3,
+            "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+            "key": "max_probe_workers",
+            "last_changed_revision": 3,
+            "read_only": false,
+            "restart_required": false,
+            "revision": 3,
+            "source": "db_override",
+            "value": 4
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "body_json": "{\"value\":4,\"expected_revision\":2}",
+        "csrf_action": "settings",
+        "idempotency_key": "settings_put",
+        "method": "PUT",
+        "origin": "http://testserver",
+        "path": "/api/v1/settings/max_probe_workers"
+      },
+      "name": "settings_put"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": [
+            {
+              "actor": "session:1",
+              "key": "scan_interval_seconds",
+              "new_value": 600,
+              "old_value": null,
+              "revision": 2
+            },
+            {
+              "actor": "session:1",
+              "key": "auto_transcode",
+              "new_value": true,
+              "old_value": null,
+              "revision": 2
+            },
+            {
+              "actor": "session:1",
+              "key": "max_probe_workers",
+              "new_value": 4,
+              "old_value": 3,
+              "revision": 3
+            }
+          ],
+          "meta": {
+            "current_cursor": null,
+            "current_sequence": null,
+            "facets": {},
+            "limit": 50,
+            "next_cursor": null,
+            "truncated": false
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "method": "GET",
+        "origin": "http://testserver",
+        "path": "/api/v1/settings/audit"
+      },
+      "name": "settings_audit"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": {
+            "id": "<s:2>",
+            "status": "queued"
+          }
+        },
+        "status": 201
+      },
+      "input": {
+        "authenticated": true,
+        "body_json": "{\"root_id\":\"<r:1>\"}",
+        "csrf_action": "scan",
+        "idempotency_key": "scan_create",
+        "method": "POST",
+        "origin": "http://testserver",
+        "path": "/api/v1/scans"
+      },
+      "name": "scan_create"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": {
+            "removed": 0
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "csrf_action": "dismiss-missing",
+        "idempotency_key": "dismiss_missing",
+        "method": "POST",
+        "origin": "http://testserver",
+        "path": "/api/v1/files/dismiss-missing"
+      },
+      "name": "dismiss_missing"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": {
+            "id": "<j:3>",
+            "status": "queued"
+          }
+        },
+        "status": 201
+      },
+      "input": {
+        "authenticated": true,
+        "csrf_action": "inspect",
+        "idempotency_key": "inspect_file",
+        "method": "POST",
+        "origin": "http://testserver",
+        "path": "/api/v1/files/<m:1>/inspect"
+      },
+      "name": "inspect_file"
+    },
+    {
+      "expected": {
+        "body": {
+          "data": {
+            "cleared": 0
+          }
+        },
+        "status": 200
+      },
+      "input": {
+        "authenticated": true,
+        "body_json": "{\"statuses\":[\"succeeded\"]}",
+        "csrf_action": "clear-jobs",
+        "idempotency_key": "clear_jobs",
+        "method": "POST",
+        "origin": "http://testserver",
+        "path": "/api/v1/jobs/clear"
+      },
+      "name": "clear_jobs"
+    }
+  ],
+  "suite": "api_read_contract"
+}

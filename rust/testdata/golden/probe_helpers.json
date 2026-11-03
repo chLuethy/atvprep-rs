@@ -1,0 +1,3332 @@
+{
+  "cases": [
+    {
+      "expected": false,
+      "input": {
+        "arg": {},
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: empty"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "color_primaries": "bt709",
+          "color_space": "bt709",
+          "color_transfer": "bt709"
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: sdr"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "color_primaries": "bt2020",
+          "color_space": "bt2020nc",
+          "color_transfer": "smpte2084"
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: hdr10"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "color_transfer": "ARIB-STD-B67"
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: hlg"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "color_space": "BT2020NCL"
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: bt2020 space only"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "color_primaries": null,
+          "color_space": null,
+          "color_transfer": null
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: null colours"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "tags": {
+            "DOVI_CONFIG": "x"
+          }
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: dovi tag key"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "tags": {
+            "title": "Has DOVI inside"
+          }
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: dovi tag value"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "tags": {
+            "x": 5
+          }
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: numeric tag value"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "tags": null
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: null tags"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": 5,
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: dv side data p5"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": 7,
+              "side_data_type": "Dolby Vision RPU"
+            }
+          ]
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: dv side data p7"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": "8",
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: dv side data p8 string"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Dolby Vision RPU"
+            }
+          ]
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: dv side data no profile"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Mastering display metadata"
+            }
+          ]
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: other side data"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Mastering"
+            },
+            {
+              "dv_profile": 5,
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: dv after other side data"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": "Dolby Digital Plus + Dolby Atmos"
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: eac3 atmos profile"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "EAC3",
+          "side_data_list": [
+            {
+              "side_data_type": "JOC"
+            }
+          ]
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: eac3 joc side data"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "tags": {
+            "title": "Atmos 7.1"
+          }
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: eac3 atmos in title only"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "ac3",
+          "profile": "Dolby Atmos"
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: ac3 atmos profile"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": "dependent"
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: eac3 plain"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": null
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: eac3 null profile"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "h264",
+          "pix_fmt": "yuv420p",
+          "profile": "High"
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: h264 high"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "h264",
+          "pix_fmt": "yuv420p10le",
+          "profile": "High 10"
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: h264 high 10"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "100"
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: h264 idc 100"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "profile": "77"
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: h264 idc 77"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "profile": "110"
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: h264 idc 110"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "YUVJ420P",
+          "profile": " Constrained Baseline "
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: h264 padded constrained baseline"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "profile": "Main"
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: h264 no pix_fmt"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv422p",
+          "profile": "High 4:2:2"
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: h264 422"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {},
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: h264 nothing"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Main"
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: hevc main"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10"
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: hevc main 10"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p12le",
+          "profile": "Main 12"
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: hevc main 12"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Rext"
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: hevc rext"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv422p10le",
+          "profile": "Main 10"
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: hevc 422"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Main Still Picture"
+        },
+        "fn": "is_hdr"
+      },
+      "name": "is_hdr: hevc still"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {},
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: empty"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "color_primaries": "bt709",
+          "color_space": "bt709",
+          "color_transfer": "bt709"
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: sdr"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "color_primaries": "bt2020",
+          "color_space": "bt2020nc",
+          "color_transfer": "smpte2084"
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: hdr10"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "color_transfer": "ARIB-STD-B67"
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: hlg"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "color_space": "BT2020NCL"
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: bt2020 space only"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "color_primaries": null,
+          "color_space": null,
+          "color_transfer": null
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: null colours"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "tags": {
+            "DOVI_CONFIG": "x"
+          }
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: dovi tag key"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "tags": {
+            "title": "Has DOVI inside"
+          }
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: dovi tag value"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "tags": {
+            "x": 5
+          }
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: numeric tag value"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "tags": null
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: null tags"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": 5,
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: dv side data p5"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": 7,
+              "side_data_type": "Dolby Vision RPU"
+            }
+          ]
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: dv side data p7"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": "8",
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: dv side data p8 string"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Dolby Vision RPU"
+            }
+          ]
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: dv side data no profile"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Mastering display metadata"
+            }
+          ]
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: other side data"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Mastering"
+            },
+            {
+              "dv_profile": 5,
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: dv after other side data"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": "Dolby Digital Plus + Dolby Atmos"
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: eac3 atmos profile"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "EAC3",
+          "side_data_list": [
+            {
+              "side_data_type": "JOC"
+            }
+          ]
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: eac3 joc side data"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "tags": {
+            "title": "Atmos 7.1"
+          }
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: eac3 atmos in title only"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "ac3",
+          "profile": "Dolby Atmos"
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: ac3 atmos profile"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": "dependent"
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: eac3 plain"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": null
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: eac3 null profile"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "h264",
+          "pix_fmt": "yuv420p",
+          "profile": "High"
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: h264 high"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "h264",
+          "pix_fmt": "yuv420p10le",
+          "profile": "High 10"
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: h264 high 10"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "100"
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: h264 idc 100"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "profile": "77"
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: h264 idc 77"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "profile": "110"
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: h264 idc 110"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "YUVJ420P",
+          "profile": " Constrained Baseline "
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: h264 padded constrained baseline"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "profile": "Main"
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: h264 no pix_fmt"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv422p",
+          "profile": "High 4:2:2"
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: h264 422"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {},
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: h264 nothing"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Main"
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: hevc main"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10"
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: hevc main 10"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p12le",
+          "profile": "Main 12"
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: hevc main 12"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Rext"
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: hevc rext"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv422p10le",
+          "profile": "Main 10"
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: hevc 422"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Main Still Picture"
+        },
+        "fn": "is_dolby_vision"
+      },
+      "name": "is_dolby_vision: hevc still"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {},
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: empty"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "color_primaries": "bt709",
+          "color_space": "bt709",
+          "color_transfer": "bt709"
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: sdr"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "color_primaries": "bt2020",
+          "color_space": "bt2020nc",
+          "color_transfer": "smpte2084"
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: hdr10"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "color_transfer": "ARIB-STD-B67"
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: hlg"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "color_space": "BT2020NCL"
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: bt2020 space only"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "color_primaries": null,
+          "color_space": null,
+          "color_transfer": null
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: null colours"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "tags": {
+            "DOVI_CONFIG": "x"
+          }
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: dovi tag key"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "tags": {
+            "title": "Has DOVI inside"
+          }
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: dovi tag value"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "tags": {
+            "x": 5
+          }
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: numeric tag value"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "tags": null
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: null tags"
+    },
+    {
+      "expected": 5,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": 5,
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: dv side data p5"
+    },
+    {
+      "expected": 7,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": 7,
+              "side_data_type": "Dolby Vision RPU"
+            }
+          ]
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: dv side data p7"
+    },
+    {
+      "expected": 8,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": "8",
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: dv side data p8 string"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Dolby Vision RPU"
+            }
+          ]
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: dv side data no profile"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Mastering display metadata"
+            }
+          ]
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: other side data"
+    },
+    {
+      "expected": 5,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Mastering"
+            },
+            {
+              "dv_profile": 5,
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: dv after other side data"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": "Dolby Digital Plus + Dolby Atmos"
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: eac3 atmos profile"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "codec_name": "EAC3",
+          "side_data_list": [
+            {
+              "side_data_type": "JOC"
+            }
+          ]
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: eac3 joc side data"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "tags": {
+            "title": "Atmos 7.1"
+          }
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: eac3 atmos in title only"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "codec_name": "ac3",
+          "profile": "Dolby Atmos"
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: ac3 atmos profile"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": "dependent"
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: eac3 plain"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": null
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: eac3 null profile"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "codec_name": "h264",
+          "pix_fmt": "yuv420p",
+          "profile": "High"
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: h264 high"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "codec_name": "h264",
+          "pix_fmt": "yuv420p10le",
+          "profile": "High 10"
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: h264 high 10"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "100"
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: h264 idc 100"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "profile": "77"
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: h264 idc 77"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "profile": "110"
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: h264 idc 110"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "pix_fmt": "YUVJ420P",
+          "profile": " Constrained Baseline "
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: h264 padded constrained baseline"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "profile": "Main"
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: h264 no pix_fmt"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv422p",
+          "profile": "High 4:2:2"
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: h264 422"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {},
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: h264 nothing"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Main"
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: hevc main"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10"
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: hevc main 10"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p12le",
+          "profile": "Main 12"
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: hevc main 12"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Rext"
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: hevc rext"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv422p10le",
+          "profile": "Main 10"
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: hevc 422"
+    },
+    {
+      "expected": null,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Main Still Picture"
+        },
+        "fn": "dolby_vision_profile"
+      },
+      "name": "dolby_vision_profile: hevc still"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {},
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: empty"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "color_primaries": "bt709",
+          "color_space": "bt709",
+          "color_transfer": "bt709"
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: sdr"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "color_primaries": "bt2020",
+          "color_space": "bt2020nc",
+          "color_transfer": "smpte2084"
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: hdr10"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "color_transfer": "ARIB-STD-B67"
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: hlg"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "color_space": "BT2020NCL"
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: bt2020 space only"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "color_primaries": null,
+          "color_space": null,
+          "color_transfer": null
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: null colours"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "tags": {
+            "DOVI_CONFIG": "x"
+          }
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: dovi tag key"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "tags": {
+            "title": "Has DOVI inside"
+          }
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: dovi tag value"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "tags": {
+            "x": 5
+          }
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: numeric tag value"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "tags": null
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: null tags"
+    },
+    {
+      "expected": "dvh1",
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": 5,
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: dv side data p5"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": 7,
+              "side_data_type": "Dolby Vision RPU"
+            }
+          ]
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: dv side data p7"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": "8",
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: dv side data p8 string"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Dolby Vision RPU"
+            }
+          ]
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: dv side data no profile"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Mastering display metadata"
+            }
+          ]
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: other side data"
+    },
+    {
+      "expected": "dvh1",
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Mastering"
+            },
+            {
+              "dv_profile": 5,
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: dv after other side data"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": "Dolby Digital Plus + Dolby Atmos"
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: eac3 atmos profile"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "codec_name": "EAC3",
+          "side_data_list": [
+            {
+              "side_data_type": "JOC"
+            }
+          ]
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: eac3 joc side data"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "tags": {
+            "title": "Atmos 7.1"
+          }
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: eac3 atmos in title only"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "codec_name": "ac3",
+          "profile": "Dolby Atmos"
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: ac3 atmos profile"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": "dependent"
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: eac3 plain"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": null
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: eac3 null profile"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "codec_name": "h264",
+          "pix_fmt": "yuv420p",
+          "profile": "High"
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: h264 high"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "codec_name": "h264",
+          "pix_fmt": "yuv420p10le",
+          "profile": "High 10"
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: h264 high 10"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "100"
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: h264 idc 100"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "profile": "77"
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: h264 idc 77"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "profile": "110"
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: h264 idc 110"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "pix_fmt": "YUVJ420P",
+          "profile": " Constrained Baseline "
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: h264 padded constrained baseline"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "profile": "Main"
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: h264 no pix_fmt"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv422p",
+          "profile": "High 4:2:2"
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: h264 422"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {},
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: h264 nothing"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Main"
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: hevc main"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10"
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: hevc main 10"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p12le",
+          "profile": "Main 12"
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: hevc main 12"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Rext"
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: hevc rext"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv422p10le",
+          "profile": "Main 10"
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: hevc 422"
+    },
+    {
+      "expected": "hvc1",
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Main Still Picture"
+        },
+        "fn": "hevc_sample_tag"
+      },
+      "name": "hevc_sample_tag: hevc still"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {},
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: empty"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "color_primaries": "bt709",
+          "color_space": "bt709",
+          "color_transfer": "bt709"
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: sdr"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "color_primaries": "bt2020",
+          "color_space": "bt2020nc",
+          "color_transfer": "smpte2084"
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: hdr10"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "color_transfer": "ARIB-STD-B67"
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: hlg"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "color_space": "BT2020NCL"
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: bt2020 space only"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "color_primaries": null,
+          "color_space": null,
+          "color_transfer": null
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: null colours"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "tags": {
+            "DOVI_CONFIG": "x"
+          }
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: dovi tag key"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "tags": {
+            "title": "Has DOVI inside"
+          }
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: dovi tag value"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "tags": {
+            "x": 5
+          }
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: numeric tag value"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "tags": null
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: null tags"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": 5,
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: dv side data p5"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": 7,
+              "side_data_type": "Dolby Vision RPU"
+            }
+          ]
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: dv side data p7"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": "8",
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: dv side data p8 string"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Dolby Vision RPU"
+            }
+          ]
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: dv side data no profile"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Mastering display metadata"
+            }
+          ]
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: other side data"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Mastering"
+            },
+            {
+              "dv_profile": 5,
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: dv after other side data"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": "Dolby Digital Plus + Dolby Atmos"
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: eac3 atmos profile"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "codec_name": "EAC3",
+          "side_data_list": [
+            {
+              "side_data_type": "JOC"
+            }
+          ]
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: eac3 joc side data"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "tags": {
+            "title": "Atmos 7.1"
+          }
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: eac3 atmos in title only"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "ac3",
+          "profile": "Dolby Atmos"
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: ac3 atmos profile"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": "dependent"
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: eac3 plain"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": null
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: eac3 null profile"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "h264",
+          "pix_fmt": "yuv420p",
+          "profile": "High"
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: h264 high"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "h264",
+          "pix_fmt": "yuv420p10le",
+          "profile": "High 10"
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: h264 high 10"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "100"
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: h264 idc 100"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "profile": "77"
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: h264 idc 77"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "profile": "110"
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: h264 idc 110"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "YUVJ420P",
+          "profile": " Constrained Baseline "
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: h264 padded constrained baseline"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "profile": "Main"
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: h264 no pix_fmt"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv422p",
+          "profile": "High 4:2:2"
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: h264 422"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {},
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: h264 nothing"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Main"
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: hevc main"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10"
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: hevc main 10"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p12le",
+          "profile": "Main 12"
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: hevc main 12"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Rext"
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: hevc rext"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv422p10le",
+          "profile": "Main 10"
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: hevc 422"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Main Still Picture"
+        },
+        "fn": "is_atmos_audio"
+      },
+      "name": "is_atmos_audio: hevc still"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {},
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: empty"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "color_primaries": "bt709",
+          "color_space": "bt709",
+          "color_transfer": "bt709"
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: sdr"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "color_primaries": "bt2020",
+          "color_space": "bt2020nc",
+          "color_transfer": "smpte2084"
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: hdr10"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "color_transfer": "ARIB-STD-B67"
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: hlg"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "color_space": "BT2020NCL"
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: bt2020 space only"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "color_primaries": null,
+          "color_space": null,
+          "color_transfer": null
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: null colours"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "tags": {
+            "DOVI_CONFIG": "x"
+          }
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: dovi tag key"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "tags": {
+            "title": "Has DOVI inside"
+          }
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: dovi tag value"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "tags": {
+            "x": 5
+          }
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: numeric tag value"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "tags": null
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: null tags"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": 5,
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: dv side data p5"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": 7,
+              "side_data_type": "Dolby Vision RPU"
+            }
+          ]
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: dv side data p7"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": "8",
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: dv side data p8 string"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Dolby Vision RPU"
+            }
+          ]
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: dv side data no profile"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Mastering display metadata"
+            }
+          ]
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: other side data"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Mastering"
+            },
+            {
+              "dv_profile": 5,
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: dv after other side data"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": "Dolby Digital Plus + Dolby Atmos"
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: eac3 atmos profile"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "codec_name": "EAC3",
+          "side_data_list": [
+            {
+              "side_data_type": "JOC"
+            }
+          ]
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: eac3 joc side data"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "tags": {
+            "title": "Atmos 7.1"
+          }
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: eac3 atmos in title only"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "ac3",
+          "profile": "Dolby Atmos"
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: ac3 atmos profile"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": "dependent"
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: eac3 plain"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": null
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: eac3 null profile"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "codec_name": "h264",
+          "pix_fmt": "yuv420p",
+          "profile": "High"
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: h264 high"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "h264",
+          "pix_fmt": "yuv420p10le",
+          "profile": "High 10"
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: h264 high 10"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "100"
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: h264 idc 100"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "profile": "77"
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: h264 idc 77"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "profile": "110"
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: h264 idc 110"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "pix_fmt": "YUVJ420P",
+          "profile": " Constrained Baseline "
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: h264 padded constrained baseline"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "profile": "Main"
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: h264 no pix_fmt"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv422p",
+          "profile": "High 4:2:2"
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: h264 422"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {},
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: h264 nothing"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Main"
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: hevc main"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10"
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: hevc main 10"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p12le",
+          "profile": "Main 12"
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: hevc main 12"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Rext"
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: hevc rext"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv422p10le",
+          "profile": "Main 10"
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: hevc 422"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Main Still Picture"
+        },
+        "fn": "h264_is_atv_compatible"
+      },
+      "name": "h264_is_atv_compatible: hevc still"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {},
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: empty"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "color_primaries": "bt709",
+          "color_space": "bt709",
+          "color_transfer": "bt709"
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: sdr"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "color_primaries": "bt2020",
+          "color_space": "bt2020nc",
+          "color_transfer": "smpte2084"
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: hdr10"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "color_transfer": "ARIB-STD-B67"
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: hlg"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "color_space": "BT2020NCL"
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: bt2020 space only"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "color_primaries": null,
+          "color_space": null,
+          "color_transfer": null
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: null colours"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "tags": {
+            "DOVI_CONFIG": "x"
+          }
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: dovi tag key"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "tags": {
+            "title": "Has DOVI inside"
+          }
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: dovi tag value"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "tags": {
+            "x": 5
+          }
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: numeric tag value"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "tags": null
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: null tags"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": 5,
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: dv side data p5"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": 7,
+              "side_data_type": "Dolby Vision RPU"
+            }
+          ]
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: dv side data p7"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "dv_profile": "8",
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: dv side data p8 string"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Dolby Vision RPU"
+            }
+          ]
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: dv side data no profile"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Mastering display metadata"
+            }
+          ]
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: other side data"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "side_data_list": [
+            {
+              "side_data_type": "Mastering"
+            },
+            {
+              "dv_profile": 5,
+              "side_data_type": "DOVI configuration record"
+            }
+          ]
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: dv after other side data"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": "Dolby Digital Plus + Dolby Atmos"
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: eac3 atmos profile"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "codec_name": "EAC3",
+          "side_data_list": [
+            {
+              "side_data_type": "JOC"
+            }
+          ]
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: eac3 joc side data"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "tags": {
+            "title": "Atmos 7.1"
+          }
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: eac3 atmos in title only"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "ac3",
+          "profile": "Dolby Atmos"
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: ac3 atmos profile"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": "dependent"
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: eac3 plain"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "codec_name": "eac3",
+          "profile": null
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: eac3 null profile"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "h264",
+          "pix_fmt": "yuv420p",
+          "profile": "High"
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: h264 high"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "codec_name": "h264",
+          "pix_fmt": "yuv420p10le",
+          "profile": "High 10"
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: h264 high 10"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "100"
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: h264 idc 100"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "profile": "77"
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: h264 idc 77"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "profile": "110"
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: h264 idc 110"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "YUVJ420P",
+          "profile": " Constrained Baseline "
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: h264 padded constrained baseline"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "profile": "Main"
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: h264 no pix_fmt"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv422p",
+          "profile": "High 4:2:2"
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: h264 422"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {},
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: h264 nothing"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Main"
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: hevc main"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10"
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: hevc main 10"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p12le",
+          "profile": "Main 12"
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: hevc main 12"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Rext"
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: hevc rext"
+    },
+    {
+      "expected": false,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv422p10le",
+          "profile": "Main 10"
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: hevc 422"
+    },
+    {
+      "expected": true,
+      "input": {
+        "arg": {
+          "pix_fmt": "yuv420p",
+          "profile": "Main Still Picture"
+        },
+        "fn": "hevc_is_atv_compatible"
+      },
+      "name": "hevc_is_atv_compatible: hevc still"
+    },
+    {
+      "expected": [],
+      "input": {
+        "arg": {},
+        "fn": "subtitle_infos"
+      },
+      "name": "subtitle_infos: no streams"
+    },
+    {
+      "expected": [
+        [
+          "deu",
+          false,
+          false
+        ]
+      ],
+      "input": {
+        "arg": {
+          "streams": [
+            {
+              "codec_type": "video"
+            },
+            {
+              "codec_type": "audio"
+            },
+            {
+              "codec_type": "subtitle",
+              "disposition": {},
+              "tags": {
+                "language": "de"
+              }
+            }
+          ]
+        },
+        "fn": "subtitle_infos"
+      },
+      "name": "subtitle_infos: mixed streams"
+    },
+    {
+      "expected": [
+        [
+          "eng",
+          true,
+          false
+        ],
+        [
+          "eng",
+          true,
+          false
+        ],
+        [
+          "eng",
+          true,
+          false
+        ],
+        [
+          "deu",
+          true,
+          false
+        ],
+        [
+          "eng",
+          false,
+          false
+        ]
+      ],
+      "input": {
+        "arg": {
+          "streams": [
+            {
+              "codec_type": "subtitle",
+              "disposition": {},
+              "tags": {
+                "language": "eng",
+                "title": "English SDH"
+              }
+            },
+            {
+              "codec_type": "subtitle",
+              "disposition": {},
+              "tags": {
+                "language": "eng",
+                "title": "English HI x"
+              }
+            },
+            {
+              "codec_type": "subtitle",
+              "disposition": {},
+              "tags": {
+                "language": "eng",
+                "title": "English (hearing)"
+              }
+            },
+            {
+              "codec_type": "subtitle",
+              "disposition": {},
+              "tags": {
+                "language": "deu",
+                "title": "Hörgeschädigt"
+              }
+            },
+            {
+              "codec_type": "subtitle",
+              "disposition": {},
+              "tags": {
+                "language": "eng",
+                "title": "English"
+              }
+            }
+          ]
+        },
+        "fn": "subtitle_infos"
+      },
+      "name": "subtitle_infos: sdh titles"
+    },
+    {
+      "expected": [
+        [
+          "eng",
+          true,
+          false
+        ],
+        [
+          "eng",
+          false,
+          false
+        ]
+      ],
+      "input": {
+        "arg": {
+          "streams": [
+            {
+              "codec_type": "subtitle",
+              "disposition": {
+                "hearing_impaired": 1
+              },
+              "tags": {
+                "language": "eng"
+              }
+            },
+            {
+              "codec_type": "subtitle",
+              "disposition": {
+                "hearing_impaired": 0
+              },
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        },
+        "fn": "subtitle_infos"
+      },
+      "name": "subtitle_infos: hearing impaired flag"
+    },
+    {
+      "expected": [
+        [
+          "deu",
+          false,
+          true
+        ],
+        [
+          "deu",
+          false,
+          true
+        ],
+        [
+          "deu",
+          false,
+          false
+        ]
+      ],
+      "input": {
+        "arg": {
+          "streams": [
+            {
+              "codec_type": "subtitle",
+              "disposition": {
+                "forced": 0
+              },
+              "tags": {
+                "language": "deu",
+                "title": "Forced"
+              }
+            },
+            {
+              "codec_type": "subtitle",
+              "disposition": {
+                "forced": 1
+              },
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "codec_type": "subtitle",
+              "disposition": {},
+              "tags": {
+                "language": "deu",
+                "title": "Non-Forced"
+              }
+            }
+          ]
+        },
+        "fn": "subtitle_infos"
+      },
+      "name": "subtitle_infos: forced"
+    },
+    {
+      "expected": [
+        [
+          "und",
+          false,
+          false
+        ]
+      ],
+      "input": {
+        "arg": {
+          "streams": [
+            {
+              "codec_type": "subtitle",
+              "disposition": null,
+              "tags": null
+            }
+          ]
+        },
+        "fn": "subtitle_infos"
+      },
+      "name": "subtitle_infos: null tags"
+    },
+    {
+      "expected": [
+        [
+          "deu",
+          false,
+          false
+        ],
+        [
+          "pt-br",
+          false,
+          false
+        ],
+        [
+          "und",
+          false,
+          false
+        ],
+        [
+          "und",
+          false,
+          false
+        ]
+      ],
+      "input": {
+        "arg": {
+          "streams": [
+            {
+              "codec_type": "subtitle",
+              "disposition": {},
+              "tags": {
+                "language": "DE "
+              }
+            },
+            {
+              "codec_type": "subtitle",
+              "disposition": {},
+              "tags": {
+                "language": "pt-BR"
+              }
+            },
+            {
+              "codec_type": "subtitle",
+              "disposition": {},
+              "tags": {
+                "language": ""
+              }
+            },
+            {
+              "codec_type": "subtitle",
+              "disposition": {},
+              "tags": {}
+            }
+          ]
+        },
+        "fn": "subtitle_infos"
+      },
+      "name": "subtitle_infos: language spellings"
+    }
+  ],
+  "suite": "probe_helpers"
+}

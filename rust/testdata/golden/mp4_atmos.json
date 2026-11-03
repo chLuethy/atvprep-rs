@@ -1,0 +1,456 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "bsids": [],
+        "ext": 0
+      },
+      "input": {
+        "hex": "",
+        "kind": "parse"
+      },
+      "name": "parse empty"
+    },
+    {
+      "expected": "0000000864656333",
+      "input": {
+        "hex": "0000000864656333",
+        "kind": "patch"
+      },
+      "name": "patch empty"
+    },
+    {
+      "expected": {
+        "bsids": [],
+        "ext": 0
+      },
+      "input": {
+        "hex": "12",
+        "kind": "parse"
+      },
+      "name": "parse one byte"
+    },
+    {
+      "expected": "000000096465633312",
+      "input": {
+        "hex": "000000096465633312",
+        "kind": "patch"
+      },
+      "name": "patch one byte"
+    },
+    {
+      "expected": {
+        "bsids": [
+          0
+        ],
+        "ext": 0
+      },
+      "input": {
+        "hex": "0000",
+        "kind": "parse"
+      },
+      "name": "parse two zero bytes"
+    },
+    {
+      "expected": "0000000a646563330000",
+      "input": {
+        "hex": "0000000a646563330000",
+        "kind": "patch"
+      },
+      "name": "patch two zero bytes"
+    },
+    {
+      "expected": {
+        "bsids": [
+          16
+        ],
+        "ext": 6
+      },
+      "input": {
+        "hex": "1800200f0000",
+        "kind": "parse"
+      },
+      "name": "parse plain ddp bsid 16 flag clear"
+    },
+    {
+      "expected": "0000000f646563331800200f000110",
+      "input": {
+        "hex": "0000000e646563331800200f0000",
+        "kind": "patch"
+      },
+      "name": "patch plain ddp bsid 16 flag clear"
+    },
+    {
+      "expected": {
+        "bsids": [
+          16
+        ],
+        "ext": 6
+      },
+      "input": {
+        "hex": "1800200f0001",
+        "kind": "parse"
+      },
+      "name": "parse plain ddp bsid 16 flag set"
+    },
+    {
+      "expected": "0000000e646563331800200f0001",
+      "input": {
+        "hex": "0000000e646563331800200f0001",
+        "kind": "patch"
+      },
+      "name": "patch plain ddp bsid 16 flag set"
+    },
+    {
+      "expected": {
+        "bsids": [
+          6
+        ],
+        "ext": 6
+      },
+      "input": {
+        "hex": "18000c0f0000",
+        "kind": "parse"
+      },
+      "name": "parse non atmos bsid 6"
+    },
+    {
+      "expected": "0000000e6465633318000c0f0000",
+      "input": {
+        "hex": "0000000e6465633318000c0f0000",
+        "kind": "patch"
+      },
+      "name": "patch non atmos bsid 6"
+    },
+    {
+      "expected": {
+        "bsids": [
+          16
+        ],
+        "ext": 7
+      },
+      "input": {
+        "hex": "1800200f01d580",
+        "kind": "parse"
+      },
+      "name": "parse bsid 16 with dependent substream"
+    },
+    {
+      "expected": "00000010646563331800200f01d58110",
+      "input": {
+        "hex": "0000000f646563331800200f01d580",
+        "kind": "patch"
+      },
+      "name": "patch bsid 16 with dependent substream"
+    },
+    {
+      "expected": {
+        "bsids": [
+          6,
+          16
+        ],
+        "ext": 9
+      },
+      "input": {
+        "hex": "18010c0f0010078000",
+        "kind": "parse"
+      },
+      "name": "parse two substreams one atmos"
+    },
+    {
+      "expected": "000000126465633318010c0f001007800110",
+      "input": {
+        "hex": "000000116465633318010c0f0010078000",
+        "kind": "patch"
+      },
+      "name": "patch two substreams one atmos"
+    },
+    {
+      "expected": {
+        "bsids": [
+          16,
+          16,
+          16,
+          16,
+          16,
+          16,
+          16,
+          16
+        ],
+        "ext": 0
+      },
+      "input": {
+        "hex": "1807200f001007800803c00401e00200f001007800803c00401e00",
+        "kind": "parse"
+      },
+      "name": "parse byte aligned no slot"
+    },
+    {
+      "expected": "00000023646563331807200f001007800803c00401e00200f001007800803c00401e00",
+      "input": {
+        "hex": "00000023646563331807200f001007800803c00401e00200f001007800803c00401e00",
+        "kind": "patch"
+      },
+      "name": "patch byte aligned no slot"
+    },
+    {
+      "expected": {
+        "bsids": [
+          16
+        ],
+        "ext": 0
+      },
+      "input": {
+        "hex": "180020",
+        "kind": "parse"
+      },
+      "name": "parse truncated mid stream"
+    },
+    {
+      "expected": "0000000b64656333180020",
+      "input": {
+        "hex": "0000000b64656333180020",
+        "kind": "patch"
+      },
+      "name": "patch truncated mid stream"
+    },
+    {
+      "expected": {
+        "bsids": [
+          16
+        ],
+        "ext": 6
+      },
+      "input": {
+        "hex": "1800200f000110",
+        "kind": "parse"
+      },
+      "name": "parse already patched"
+    },
+    {
+      "expected": "0000000f646563331800200f000110",
+      "input": {
+        "hex": "0000000f646563331800200f000110",
+        "kind": "patch"
+      },
+      "name": "patch already patched"
+    },
+    {
+      "expected": {
+        "changed": false,
+        "len": 1882,
+        "sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878"
+      },
+      "input": {
+        "file": "plain_faststart.mp4",
+        "kind": "moov"
+      },
+      "name": "moov plain_faststart.mp4"
+    },
+    {
+      "expected": {
+        "changed": false,
+        "len": 1882,
+        "sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464"
+      },
+      "input": {
+        "file": "plain_moov_last.mp4",
+        "kind": "moov"
+      },
+      "name": "moov plain_moov_last.mp4"
+    },
+    {
+      "expected": {
+        "changed": false,
+        "len": 4776,
+        "sha": "60a54e885005748a32adba6155f1d81b0fef8a7035b1f6f439237e83fee96080"
+      },
+      "input": {
+        "file": "stereo_surround_subs.mp4",
+        "kind": "moov"
+      },
+      "name": "moov stereo_surround_subs.mp4"
+    },
+    {
+      "expected": {
+        "changed": true,
+        "len": 1729,
+        "sha": "645ac447e29134f0aed714ae5103c1c18f70f1d54c0007203b328bc39106f184"
+      },
+      "input": {
+        "file": "atmos_dec3.mp4",
+        "kind": "moov"
+      },
+      "name": "moov atmos_dec3.mp4"
+    },
+    {
+      "expected": {
+        "changed": false,
+        "len": 1882,
+        "sha": "c014ea0664feab875e97ea643cf5397feb34d055aa9a95086a70a629de173bbb"
+      },
+      "input": {
+        "file": "dby1.mp4",
+        "kind": "moov"
+      },
+      "name": "moov dby1.mp4"
+    },
+    {
+      "expected": {
+        "changed": false,
+        "len": 7895,
+        "sha": "6f35d72c20fcb743c9f038035d4f1616a014a0a869692bd4d43d85d353f211a3"
+      },
+      "input": {
+        "file": "chapters.mp4",
+        "kind": "moov"
+      },
+      "name": "moov chapters.mp4"
+    },
+    {
+      "expected": {
+        "changed": false,
+        "len": 1248,
+        "sha": "9a96cdb43b61be99e9f7f58d7be4fb77cfdd9d364a9c8e06f4e1947610c371a3"
+      },
+      "input": {
+        "file": "syn_basic.mp4",
+        "kind": "moov"
+      },
+      "name": "moov syn_basic.mp4"
+    },
+    {
+      "expected": {
+        "changed": false,
+        "len": 702,
+        "sha": "d8b94e157aeb6b9e9df2d05e1838d9d3bab9bdcb869e35718f767e839f6b1a5b"
+      },
+      "input": {
+        "file": "syn_free_before_moov.mp4",
+        "kind": "moov"
+      },
+      "name": "moov syn_free_before_moov.mp4"
+    },
+    {
+      "expected": {
+        "changed": false,
+        "len": 1248,
+        "sha": "9d79c4721b4dfb8d6a69977349803453cb0eeca37b471a40dddf9a6f04c44543"
+      },
+      "input": {
+        "file": "syn_moov_last.mp4",
+        "kind": "moov"
+      },
+      "name": "moov syn_moov_last.mp4"
+    },
+    {
+      "expected": {
+        "changed": false,
+        "len": 714,
+        "sha": "a6a5a92fbeaeab5d8a9df0d4143b696d6a5e95a8d774ea7bc6a1f491fbe019c8"
+      },
+      "input": {
+        "file": "syn_co64.mp4",
+        "kind": "moov"
+      },
+      "name": "moov syn_co64.mp4"
+    },
+    {
+      "expected": {
+        "changed": false,
+        "len": 702,
+        "sha": "7e88694e95f2cddbfb5cbd3769cb2c5f6604f82f56de1e82a358b1f44a985379"
+      },
+      "input": {
+        "file": "syn_stco_overflow.mp4",
+        "kind": "moov"
+      },
+      "name": "moov syn_stco_overflow.mp4"
+    },
+    {
+      "expected": {
+        "changed": false,
+        "len": 702,
+        "sha": "ce87a5c50b4e388c2789f908be238a620f39360de1c9c9f01288bf7ea716be76"
+      },
+      "input": {
+        "file": "syn_size0_mdat.mp4",
+        "kind": "moov"
+      },
+      "name": "moov syn_size0_mdat.mp4"
+    },
+    {
+      "expected": {
+        "changed": false,
+        "len": 702,
+        "sha": "a42123e2be50cc6aa62a842e5ccb13655c6e752214d15d8a23ef222a29bfb4ea"
+      },
+      "input": {
+        "file": "syn_box64_mdat.mp4",
+        "kind": "moov"
+      },
+      "name": "moov syn_box64_mdat.mp4"
+    },
+    {
+      "expected": {
+        "changed": false,
+        "len": 710,
+        "sha": "cbb6e189345eb33cf4a21ba6b7be84d52aed2f0abb4b9d03a893dfc89618d5aa"
+      },
+      "input": {
+        "file": "syn_zero_size_box.mp4",
+        "kind": "moov"
+      },
+      "name": "moov syn_zero_size_box.mp4"
+    },
+    {
+      "expected": {
+        "changed": false,
+        "len": 702,
+        "sha": "ac98473038cf8b1742245a4df1f6561eb5fd12f3bae7d91aed5d2ecd5fed912e"
+      },
+      "input": {
+        "file": "syn_huge_entry_count.mp4",
+        "kind": "moov"
+      },
+      "name": "moov syn_huge_entry_count.mp4"
+    },
+    {
+      "expected": {
+        "changed": false,
+        "len": 723,
+        "sha": "8eef1e5499feb03de25ce7dc3b4c426b25a653e0b82635699e57100978536467"
+      },
+      "input": {
+        "file": "syn_pad_3.mp4",
+        "kind": "moov"
+      },
+      "name": "moov syn_pad_3.mp4"
+    },
+    {
+      "expected": {
+        "changed": false,
+        "len": 1278,
+        "sha": "cfed6a69f66c158c6f50e432c7bf33ae84c357761d457e282c04196c79ba5a1a"
+      },
+      "input": {
+        "file": "syn_chapters.mp4",
+        "kind": "moov"
+      },
+      "name": "moov syn_chapters.mp4"
+    },
+    {
+      "expected": {
+        "changed": false,
+        "len": 742,
+        "sha": "6575ac7c9ab8957f35c3dd6a9c2e557c6d029aaad8cd067cb2596e58dd8dcd48"
+      },
+      "input": {
+        "file": "syn_fragmented.mp4",
+        "kind": "moov"
+      },
+      "name": "moov syn_fragmented.mp4"
+    }
+  ],
+  "suite": "mp4_atmos"
+}

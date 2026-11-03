@@ -1,0 +1,641 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "sha256": "b78216e1690bc5c76823c6be73305b9460b02ebc9dd55460f54f7494902ffd6a",
+        "size": 111407,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            32
+          ],
+          [
+            "moov",
+            32,
+            1882
+          ],
+          [
+            "free",
+            1914,
+            8
+          ],
+          [
+            "mdat",
+            1922,
+            109485
+          ]
+        ]
+      },
+      "input": {
+        "file": "plain_faststart.mp4"
+      },
+      "name": "plain_faststart"
+    },
+    {
+      "expected": {
+        "sha256": "a6fdf166daea2e333fc2005f3cfe5d70e09643af48756676b5ed47a020d07dcd",
+        "size": 111519,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            32
+          ],
+          [
+            "free",
+            32,
+            8
+          ],
+          [
+            "mdat",
+            40,
+            109597
+          ],
+          [
+            "moov",
+            109637,
+            1882
+          ]
+        ]
+      },
+      "input": {
+        "file": "plain_moov_last.mp4"
+      },
+      "name": "plain_moov_last"
+    },
+    {
+      "expected": {
+        "sha256": "c5c74bbacdc2532a36bc5090d5505dc453d4074ad8d1865f76b0ed5581e0ea1d",
+        "size": 163580,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            36
+          ],
+          [
+            "moov",
+            36,
+            4776
+          ],
+          [
+            "free",
+            4812,
+            8
+          ],
+          [
+            "mdat",
+            4820,
+            158760
+          ]
+        ]
+      },
+      "input": {
+        "file": "stereo_surround_subs.mp4"
+      },
+      "name": "stereo_surround_subs"
+    },
+    {
+      "expected": {
+        "sha256": "f99011ffc2af859eb23ea10a704bdabf62c0883b20dbcd21f8249573a7fd3a89",
+        "size": 144153,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            36
+          ],
+          [
+            "moov",
+            36,
+            1728
+          ],
+          [
+            "free",
+            1764,
+            8
+          ],
+          [
+            "mdat",
+            1772,
+            142381
+          ]
+        ]
+      },
+      "input": {
+        "file": "atmos_dec3.mp4"
+      },
+      "name": "atmos_dec3"
+    },
+    {
+      "expected": {
+        "sha256": "b219e2c9b498f0e93531448ff4deec42202a941664bbf293439ccccb6de0b761",
+        "size": 111445,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            36
+          ],
+          [
+            "moov",
+            36,
+            1882
+          ],
+          [
+            "free",
+            1918,
+            8
+          ],
+          [
+            "mdat",
+            1926,
+            109519
+          ]
+        ]
+      },
+      "input": {
+        "file": "dby1.mp4"
+      },
+      "name": "dby1"
+    },
+    {
+      "expected": {
+        "sha256": "e8f754c2d79df0962e8d49d7b7b5e6a3bb7c3cd86e681e92fec9c1546893a494",
+        "size": 446707,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            36
+          ],
+          [
+            "free",
+            36,
+            8
+          ],
+          [
+            "mdat",
+            44,
+            438768
+          ],
+          [
+            "moov",
+            438812,
+            7895
+          ]
+        ]
+      },
+      "input": {
+        "file": "chapters.mp4"
+      },
+      "name": "chapters"
+    },
+    {
+      "expected": {
+        "sha256": "bf099dd962d5448f02868ac37b3c8db2b61dce3840703cc550246e72ce62a55e",
+        "size": 5384,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            32
+          ],
+          [
+            "moov",
+            32,
+            1248
+          ],
+          [
+            "mdat",
+            1280,
+            4104
+          ]
+        ]
+      },
+      "input": {
+        "file": "syn_basic.mp4"
+      },
+      "name": "syn_basic"
+    },
+    {
+      "expected": {
+        "sha256": "39d8ee600d135bc89ecdb8398ed4cf8a7c6d3389417c365d9a325614ac21568f",
+        "size": 4902,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            32
+          ],
+          [
+            "free",
+            32,
+            64
+          ],
+          [
+            "moov",
+            96,
+            702
+          ],
+          [
+            "mdat",
+            798,
+            4104
+          ]
+        ]
+      },
+      "input": {
+        "file": "syn_free_before_moov.mp4"
+      },
+      "name": "syn_free_before_moov"
+    },
+    {
+      "expected": {
+        "sha256": "36d532d6022ba176ab77c62efd91ab891f1db0eea0fc640ce7068e8bb8bee511",
+        "size": 5384,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            32
+          ],
+          [
+            "mdat",
+            32,
+            4104
+          ],
+          [
+            "moov",
+            4136,
+            1248
+          ]
+        ]
+      },
+      "input": {
+        "file": "syn_moov_last.mp4"
+      },
+      "name": "syn_moov_last"
+    },
+    {
+      "expected": {
+        "sha256": "b5ed0843515d551bcfaa33a00594fb3b74bcc5c4481c58664da39b2e27d92f1b",
+        "size": 4850,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            32
+          ],
+          [
+            "moov",
+            32,
+            714
+          ],
+          [
+            "mdat",
+            746,
+            4104
+          ]
+        ]
+      },
+      "input": {
+        "file": "syn_co64.mp4"
+      },
+      "name": "syn_co64"
+    },
+    {
+      "expected": {
+        "sha256": "2bf8f3031214b77852c7eaaa20f4ef453c6583643a47bf583e8d170c7f23bc27",
+        "size": 4838,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            32
+          ],
+          [
+            "mdat",
+            32,
+            4104
+          ],
+          [
+            "moov",
+            4136,
+            702
+          ]
+        ]
+      },
+      "input": {
+        "file": "syn_stco_overflow.mp4"
+      },
+      "name": "syn_stco_overflow"
+    },
+    {
+      "expected": {
+        "sha256": "c471f15a2c512c923a272078abf324a3776a6b6cd1635c27bbca10d6659ac188",
+        "size": 4838,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            32
+          ],
+          [
+            "moov",
+            32,
+            702
+          ],
+          [
+            "mdat",
+            734,
+            0
+          ]
+        ]
+      },
+      "input": {
+        "file": "syn_size0_mdat.mp4"
+      },
+      "name": "syn_size0_mdat"
+    },
+    {
+      "expected": {
+        "sha256": "840d9d4717a12cebc67ba2c8d6055cca2eebcce1f6fa2b4a2696a030cd3fe410",
+        "size": 4846,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            32
+          ],
+          [
+            "moov",
+            32,
+            702
+          ],
+          [
+            "mdat",
+            734,
+            1
+          ]
+        ]
+      },
+      "input": {
+        "file": "syn_box64_mdat.mp4"
+      },
+      "name": "syn_box64_mdat"
+    },
+    {
+      "expected": {
+        "sha256": "49a0ce6c72d53bbf3caa81b322b8348727b00e7594a53d7ae491bb82f6668229",
+        "size": 4846,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            32
+          ],
+          [
+            "moov",
+            32,
+            1
+          ]
+        ]
+      },
+      "input": {
+        "file": "syn_moov64.mp4"
+      },
+      "name": "syn_moov64"
+    },
+    {
+      "expected": {
+        "sha256": "dd17dfeca012e4b82db06ea05110433a17e4d21fbd47287c981ed05acf2d32ba",
+        "size": 186,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            32
+          ],
+          [
+            "moov",
+            32,
+            1248
+          ]
+        ]
+      },
+      "input": {
+        "file": "syn_truncated_moov.mp4"
+      },
+      "name": "syn_truncated_moov"
+    },
+    {
+      "expected": {
+        "sha256": "b8d997936ffa5c1c62541bb5c63e6447712f65689dce93aa98b2af4a3c33c8bf",
+        "size": 2692,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            32
+          ],
+          [
+            "moov",
+            32,
+            1248
+          ],
+          [
+            "mdat",
+            1280,
+            4104
+          ]
+        ]
+      },
+      "input": {
+        "file": "syn_truncated_file.mp4"
+      },
+      "name": "syn_truncated_file"
+    },
+    {
+      "expected": {
+        "sha256": "3915623c81ee08373eb033f9d503929411d4dd102c21fe9160614edd14f29ee9",
+        "size": 4846,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            32
+          ],
+          [
+            "moov",
+            32,
+            710
+          ],
+          [
+            "mdat",
+            742,
+            4104
+          ]
+        ]
+      },
+      "input": {
+        "file": "syn_zero_size_box.mp4"
+      },
+      "name": "syn_zero_size_box"
+    },
+    {
+      "expected": {
+        "sha256": "70d94fb745271df780958ff3aa2bcd179645fdf88865d23cc6426a836451c732",
+        "size": 4846,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            32
+          ],
+          [
+            "moov",
+            32,
+            710
+          ],
+          [
+            "mdat",
+            742,
+            4104
+          ]
+        ]
+      },
+      "input": {
+        "file": "syn_tiny_size_box.mp4"
+      },
+      "name": "syn_tiny_size_box"
+    },
+    {
+      "expected": {
+        "sha256": "233d2d14c0f7c65435887a3ecb17de7f3fe8681e6406a4bf3ed034120c1b566a",
+        "size": 4838,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            32
+          ],
+          [
+            "moov",
+            32,
+            702
+          ],
+          [
+            "mdat",
+            734,
+            4104
+          ]
+        ]
+      },
+      "input": {
+        "file": "syn_huge_entry_count.mp4"
+      },
+      "name": "syn_huge_entry_count"
+    },
+    {
+      "expected": {
+        "sha256": "685bd0d6cc5343e3c12d5b45f2d35da101a0f79996797efc31181f20bbfe0469",
+        "size": 4859,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            32
+          ],
+          [
+            "moov",
+            32,
+            723
+          ],
+          [
+            "mdat",
+            755,
+            4104
+          ]
+        ]
+      },
+      "input": {
+        "file": "syn_pad_3.mp4"
+      },
+      "name": "syn_pad_3"
+    },
+    {
+      "expected": {
+        "sha256": "07ec1ef6c38384a067dc2f1f35d133052b525c3eace16c0ab27960cd7ddefdfc",
+        "size": 5414,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            32
+          ],
+          [
+            "moov",
+            32,
+            1278
+          ],
+          [
+            "mdat",
+            1310,
+            4104
+          ]
+        ]
+      },
+      "input": {
+        "file": "syn_chapters.mp4"
+      },
+      "name": "syn_chapters"
+    },
+    {
+      "expected": {
+        "sha256": "898ccefc886fef27d032e34322c4f02c2f8608f3a3c40420cc0cdbb0a12fab61",
+        "size": 4878,
+        "top_level": [
+          [
+            "ftyp",
+            0,
+            32
+          ],
+          [
+            "moov",
+            32,
+            742
+          ],
+          [
+            "mdat",
+            774,
+            4104
+          ]
+        ]
+      },
+      "input": {
+        "file": "syn_fragmented.mp4"
+      },
+      "name": "syn_fragmented"
+    },
+    {
+      "expected": {
+        "sha256": "c76d022a2f4f31dc1bceb22c675addfb2b8578fdb57cdc50d98ea20417662c35",
+        "size": 150,
+        "top_level": [
+          [
+            " is ",
+            0,
+            1952999795
+          ]
+        ]
+      },
+      "input": {
+        "file": "syn_not_mp4.mp4"
+      },
+      "name": "syn_not_mp4"
+    }
+  ],
+  "suite": "mp4_fixtures"
+}

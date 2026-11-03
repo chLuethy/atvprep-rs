@@ -1,0 +1,92 @@
+{
+  "cases": [
+    {
+      "expected": "{\n  \"files_checked\": 0,\n  \"files_passed\": 0,\n  \"files_failed\": 0,\n  \"total_blockers\": 0,\n  \"total_warnings\": 0,\n  \"reports\": []\n}",
+      "input": [],
+      "name": "empty"
+    },
+    {
+      "expected": "{\n  \"files_checked\": 1,\n  \"files_passed\": 1,\n  \"files_failed\": 0,\n  \"total_blockers\": 0,\n  \"total_warnings\": 0,\n  \"reports\": [\n    {\n      \"path\": \"/media/Film.mp4\",\n      \"passed\": true,\n      \"violations\": []\n    }\n  ]\n}",
+      "input": [
+        {
+          "path": "/media/Film.mp4",
+          "violations": []
+        }
+      ],
+      "name": "one clean"
+    },
+    {
+      "expected": "{\n  \"files_checked\": 2,\n  \"files_passed\": 1,\n  \"files_failed\": 1,\n  \"total_blockers\": 1,\n  \"total_warnings\": 1,\n  \"reports\": [\n    {\n      \"path\": \"/media/Film.mp4\",\n      \"passed\": true,\n      \"violations\": []\n    },\n    {\n      \"path\": \"/media/Bad.mp4\",\n      \"passed\": false,\n      \"violations\": [\n        {\n          \"rule\": \"fast-start\",\n          \"severity\": \"warning\",\n          \"message\": \"moov after mdat\",\n          \"track_id\": null\n        },\n        {\n          \"rule\": \"no-fragments\",\n          \"severity\": \"blocker\",\n          \"message\": \"fragmented\",\n          \"track_id\": 2\n        }\n      ]\n    }\n  ]\n}",
+      "input": [
+        {
+          "path": "/media/Film.mp4",
+          "violations": []
+        },
+        {
+          "path": "/media/Bad.mp4",
+          "violations": [
+            [
+              "fast-start",
+              "warning",
+              "moov after mdat",
+              null
+            ],
+            [
+              "no-fragments",
+              "blocker",
+              "fragmented",
+              2
+            ]
+          ]
+        }
+      ],
+      "name": "mixed"
+    },
+    {
+      "expected": "{\n  \"files_checked\": 2,\n  \"files_passed\": 1,\n  \"files_failed\": 1,\n  \"total_blockers\": 1,\n  \"total_warnings\": 1,\n  \"reports\": [\n    {\n      \"path\": \"/media/M\\u00fcller & S\\u00f6hne (2020).mp4\",\n      \"passed\": false,\n      \"violations\": [\n        {\n          \"rule\": \"x\",\n          \"severity\": \"blocker\",\n          \"message\": \"Gr\\u00f6\\u00dfe \\u2014 emoji \\ud83d\\ude00 \\\"quoted\\\" \\\\ back\\tslash\\n\",\n          \"track_id\": 3\n        }\n      ]\n    },\n    {\n      \"path\": \"/media/\\u65e5\\u672c\\u8a9e/emoji \\ud83d\\ude00.mp4\",\n      \"passed\": true,\n      \"violations\": [\n        {\n          \"rule\": \"y\",\n          \"severity\": \"warning\",\n          \"message\": \"bell\\u0007 del\\u007f\",\n          \"track_id\": null\n        }\n      ]\n    }\n  ]\n}",
+      "input": [
+        {
+          "path": "/media/Müller & Söhne (2020).mp4",
+          "violations": [
+            [
+              "x",
+              "blocker",
+              "Größe — emoji 😀 \"quoted\" \\ back\tslash\n",
+              3
+            ]
+          ]
+        },
+        {
+          "path": "/media/日本語/emoji 😀.mp4",
+          "violations": [
+            [
+              "y",
+              "warning",
+              "bell\u0007 del",
+              null
+            ]
+          ]
+        }
+      ],
+      "name": "non ascii"
+    },
+    {
+      "expected": "{\n  \"files_checked\": 1,\n  \"files_passed\": 1,\n  \"files_failed\": 0,\n  \"total_blockers\": 0,\n  \"total_warnings\": 1,\n  \"reports\": [\n    {\n      \"path\": \"/media/W.mp4\",\n      \"passed\": true,\n      \"violations\": [\n        {\n          \"rule\": \"w\",\n          \"severity\": \"warning\",\n          \"message\": \"just a warning\",\n          \"track_id\": 1\n        }\n      ]\n    }\n  ]\n}",
+      "input": [
+        {
+          "path": "/media/W.mp4",
+          "violations": [
+            [
+              "w",
+              "warning",
+              "just a warning",
+              1
+            ]
+          ]
+        }
+      ],
+      "name": "warnings only"
+    }
+  ],
+  "suite": "cli_verify_json"
+}

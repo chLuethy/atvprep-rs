@@ -1,0 +1,5120 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "idempotent": true,
+        "links_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "needs_patch": false,
+        "patched_len": 1882,
+        "patched_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "summary_after": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "plain_faststart.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "plain_faststart.mp4 none"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "idempotent": true,
+        "links_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "needs_patch": false,
+        "patched_len": 1882,
+        "patched_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "summary_after": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "plain_faststart.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "plain_faststart.mp4 match"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "idempotent": true,
+        "links_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "needs_patch": false,
+        "patched_len": 1882,
+        "patched_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "summary_after": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "plain_faststart.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "plain_faststart.mp4 first forced only"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "idempotent": true,
+        "links_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "needs_patch": false,
+        "patched_len": 1882,
+        "patched_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "summary_after": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "plain_faststart.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            false,
+            false
+          ]
+        ]
+      },
+      "name": "plain_faststart.mp4 too few"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "idempotent": true,
+        "links_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "needs_patch": false,
+        "patched_len": 1882,
+        "patched_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "summary_after": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "plain_faststart.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            true,
+            true
+          ]
+        ]
+      },
+      "name": "plain_faststart.mp4 too many"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "idempotent": true,
+        "links_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "needs_patch": false,
+        "patched_len": 1882,
+        "patched_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "summary_after": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "plain_faststart.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "plain_faststart.mp4 all forced"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "idempotent": true,
+        "links_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "needs_patch": false,
+        "patched_len": 1882,
+        "patched_sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878",
+        "summary_after": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "plain_faststart.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "plain_faststart.mp4 all sdh"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "idempotent": true,
+        "links_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "needs_patch": false,
+        "patched_len": 1882,
+        "patched_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "summary_after": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "plain_moov_last.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "plain_moov_last.mp4 none"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "idempotent": true,
+        "links_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "needs_patch": false,
+        "patched_len": 1882,
+        "patched_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "summary_after": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "plain_moov_last.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "plain_moov_last.mp4 match"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "idempotent": true,
+        "links_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "needs_patch": false,
+        "patched_len": 1882,
+        "patched_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "summary_after": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "plain_moov_last.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "plain_moov_last.mp4 first forced only"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "idempotent": true,
+        "links_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "needs_patch": false,
+        "patched_len": 1882,
+        "patched_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "summary_after": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "plain_moov_last.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            false,
+            false
+          ]
+        ]
+      },
+      "name": "plain_moov_last.mp4 too few"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "idempotent": true,
+        "links_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "needs_patch": false,
+        "patched_len": 1882,
+        "patched_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "summary_after": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "plain_moov_last.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            true,
+            true
+          ]
+        ]
+      },
+      "name": "plain_moov_last.mp4 too many"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "idempotent": true,
+        "links_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "needs_patch": false,
+        "patched_len": 1882,
+        "patched_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "summary_after": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "plain_moov_last.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "plain_moov_last.mp4 all forced"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "idempotent": true,
+        "links_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "needs_patch": false,
+        "patched_len": 1882,
+        "patched_sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464",
+        "summary_after": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "plain_moov_last.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "plain_moov_last.mp4 all sdh"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "af65f9cad67cb940b23f665997bd4ed9c21a56b6213ada437190744831b8c570",
+        "idempotent": true,
+        "links_sha": "d80ad64c0082cea4b160099345c70ae5f304cedabb4067c060d39992bc302bf2",
+        "needs_patch": true,
+        "patched_len": 4832,
+        "patched_sha": "f41d0f7a1de52ef812a1fda37af24d877a59d2282ab859a9fe696cfda9fb32a3",
+        "summary_after": {
+          "elng": 2,
+          "fall": 1,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "stereo_surround_subs.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "stereo_surround_subs.mp4 none"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "21708b97afec6712c90bf15c9022d37a70aacd3727dd2d791bc3c3a343473efe",
+        "idempotent": true,
+        "links_sha": "9b43b41fe9e5cb5b68ae14069393520490a66747cbf8375e42f026eff2650a34",
+        "needs_patch": true,
+        "patched_len": 5210,
+        "patched_sha": "2776e49614f3743119eb2c997b0760f1d2ba879c0dc33849b533f598529f89ab",
+        "summary_after": {
+          "elng": 6,
+          "fall": 1,
+          "folw": 2,
+          "forc": 2,
+          "forced_flags": 2
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "stereo_surround_subs.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ],
+          [
+            "eng",
+            true,
+            false
+          ],
+          [
+            "fra",
+            false,
+            false
+          ],
+          [
+            "xxx",
+            true,
+            true
+          ]
+        ]
+      },
+      "name": "stereo_surround_subs.mp4 match"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "28c3ca5039978357406931e3792150443a7ebfe2c767e0f38f95cb9e9106c24c",
+        "idempotent": true,
+        "links_sha": "3e6bd091af33f77735260cbb13c0c12291c847712631c0089de821794c12dae1",
+        "needs_patch": true,
+        "patched_len": 4954,
+        "patched_sha": "c1a886ae956421ec64146f28b61288fc8aa74fbd9eb838939556c2f6aa0bd884",
+        "summary_after": {
+          "elng": 6,
+          "fall": 1,
+          "folw": 2,
+          "forc": 1,
+          "forced_flags": 1
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "stereo_surround_subs.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ],
+          [
+            "eng",
+            false,
+            false
+          ],
+          [
+            "fra",
+            false,
+            false
+          ],
+          [
+            "xxx",
+            false,
+            false
+          ]
+        ]
+      },
+      "name": "stereo_surround_subs.mp4 first forced only"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "6e3e48397fb6d2a98ef9a7a24765eafa8e18c8b1e22f1c2f572f381664e522a6",
+        "idempotent": true,
+        "links_sha": "d80ad64c0082cea4b160099345c70ae5f304cedabb4067c060d39992bc302bf2",
+        "needs_patch": true,
+        "patched_len": 5004,
+        "patched_sha": "135a34547619c0ecc02d15fd2702c18ed7225e3e8b321f59ae82823c75fa2129",
+        "summary_after": {
+          "elng": 5,
+          "fall": 1,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 1
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "stereo_surround_subs.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ],
+          [
+            "eng",
+            true,
+            false
+          ],
+          [
+            "fra",
+            false,
+            false
+          ]
+        ]
+      },
+      "name": "stereo_surround_subs.mp4 too few"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "21708b97afec6712c90bf15c9022d37a70aacd3727dd2d791bc3c3a343473efe",
+        "idempotent": true,
+        "links_sha": "d80ad64c0082cea4b160099345c70ae5f304cedabb4067c060d39992bc302bf2",
+        "needs_patch": true,
+        "patched_len": 5138,
+        "patched_sha": "4c9143f4d4a4c8fe1981500fe345ad5a1221ae5e668b6608a6975457b94cddc3",
+        "summary_after": {
+          "elng": 6,
+          "fall": 1,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 2
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "stereo_surround_subs.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ],
+          [
+            "eng",
+            true,
+            false
+          ],
+          [
+            "fra",
+            false,
+            false
+          ],
+          [
+            "xxx",
+            true,
+            true
+          ],
+          [
+            "eng",
+            true,
+            true
+          ]
+        ]
+      },
+      "name": "stereo_surround_subs.mp4 too many"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "14216588d2f0aae6eb02e8be7cee0449ca8688768bc27e7af0ceb806b226f602",
+        "idempotent": true,
+        "links_sha": "80c24b3d92f5e7498b47140540574f87a1bdc1d5c4efb982a5a1e865646f1d71",
+        "needs_patch": true,
+        "patched_len": 4934,
+        "patched_sha": "d0cd2f500cb67bf901ccce950056d2e0770a3899a80acc0edb699953aff9b3b7",
+        "summary_after": {
+          "elng": 6,
+          "fall": 1,
+          "folw": 2,
+          "forc": 0,
+          "forced_flags": 4
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "stereo_surround_subs.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ],
+          [
+            "eng",
+            false,
+            true
+          ],
+          [
+            "fra",
+            false,
+            true
+          ],
+          [
+            "xxx",
+            false,
+            true
+          ]
+        ]
+      },
+      "name": "stereo_surround_subs.mp4 all forced"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "e6f744bc376d0e7c218b391bc105d8c43943198a17502e9c9c7f783b3195c616",
+        "idempotent": true,
+        "links_sha": "d80ad64c0082cea4b160099345c70ae5f304cedabb4067c060d39992bc302bf2",
+        "needs_patch": true,
+        "patched_len": 5390,
+        "patched_sha": "969b7462fc8a0a61486122e99ac9b9ac465490042263d9aa7c7437f810afd30b",
+        "summary_after": {
+          "elng": 6,
+          "fall": 1,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "stereo_surround_subs.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            true,
+            false
+          ],
+          [
+            "eng",
+            true,
+            false
+          ],
+          [
+            "fra",
+            true,
+            false
+          ],
+          [
+            "xxx",
+            true,
+            false
+          ]
+        ]
+      },
+      "name": "stereo_surround_subs.mp4 all sdh"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "3507ea39a139e58a759aa52a1c19215968f7d329fea21cd2fa9420a914df1b7c",
+        "idempotent": true,
+        "links_sha": "e32d57b4edce1850843f1f87ec1fc2a9fd581ff894ab20605e368b7e9049efa0",
+        "needs_patch": true,
+        "patched_len": 1746,
+        "patched_sha": "3507ea39a139e58a759aa52a1c19215968f7d329fea21cd2fa9420a914df1b7c",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "atmos_dec3.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "atmos_dec3.mp4 none"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "3507ea39a139e58a759aa52a1c19215968f7d329fea21cd2fa9420a914df1b7c",
+        "idempotent": true,
+        "links_sha": "e32d57b4edce1850843f1f87ec1fc2a9fd581ff894ab20605e368b7e9049efa0",
+        "needs_patch": true,
+        "patched_len": 1746,
+        "patched_sha": "3507ea39a139e58a759aa52a1c19215968f7d329fea21cd2fa9420a914df1b7c",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "atmos_dec3.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "atmos_dec3.mp4 match"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "3507ea39a139e58a759aa52a1c19215968f7d329fea21cd2fa9420a914df1b7c",
+        "idempotent": true,
+        "links_sha": "e32d57b4edce1850843f1f87ec1fc2a9fd581ff894ab20605e368b7e9049efa0",
+        "needs_patch": true,
+        "patched_len": 1746,
+        "patched_sha": "3507ea39a139e58a759aa52a1c19215968f7d329fea21cd2fa9420a914df1b7c",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "atmos_dec3.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "atmos_dec3.mp4 first forced only"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "3507ea39a139e58a759aa52a1c19215968f7d329fea21cd2fa9420a914df1b7c",
+        "idempotent": true,
+        "links_sha": "e32d57b4edce1850843f1f87ec1fc2a9fd581ff894ab20605e368b7e9049efa0",
+        "needs_patch": true,
+        "patched_len": 1746,
+        "patched_sha": "3507ea39a139e58a759aa52a1c19215968f7d329fea21cd2fa9420a914df1b7c",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "atmos_dec3.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            false,
+            false
+          ]
+        ]
+      },
+      "name": "atmos_dec3.mp4 too few"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "3507ea39a139e58a759aa52a1c19215968f7d329fea21cd2fa9420a914df1b7c",
+        "idempotent": true,
+        "links_sha": "e32d57b4edce1850843f1f87ec1fc2a9fd581ff894ab20605e368b7e9049efa0",
+        "needs_patch": true,
+        "patched_len": 1746,
+        "patched_sha": "3507ea39a139e58a759aa52a1c19215968f7d329fea21cd2fa9420a914df1b7c",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "atmos_dec3.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            true,
+            true
+          ]
+        ]
+      },
+      "name": "atmos_dec3.mp4 too many"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "3507ea39a139e58a759aa52a1c19215968f7d329fea21cd2fa9420a914df1b7c",
+        "idempotent": true,
+        "links_sha": "e32d57b4edce1850843f1f87ec1fc2a9fd581ff894ab20605e368b7e9049efa0",
+        "needs_patch": true,
+        "patched_len": 1746,
+        "patched_sha": "3507ea39a139e58a759aa52a1c19215968f7d329fea21cd2fa9420a914df1b7c",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "atmos_dec3.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "atmos_dec3.mp4 all forced"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "3507ea39a139e58a759aa52a1c19215968f7d329fea21cd2fa9420a914df1b7c",
+        "idempotent": true,
+        "links_sha": "e32d57b4edce1850843f1f87ec1fc2a9fd581ff894ab20605e368b7e9049efa0",
+        "needs_patch": true,
+        "patched_len": 1746,
+        "patched_sha": "3507ea39a139e58a759aa52a1c19215968f7d329fea21cd2fa9420a914df1b7c",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "atmos_dec3.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "atmos_dec3.mp4 all sdh"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "20a5e8f5d898beb8af14b30cfea83db15840c16444eae52bcb3f7d3cec5ce357",
+        "idempotent": true,
+        "links_sha": "c014ea0664feab875e97ea643cf5397feb34d055aa9a95086a70a629de173bbb",
+        "needs_patch": true,
+        "patched_len": 1900,
+        "patched_sha": "20a5e8f5d898beb8af14b30cfea83db15840c16444eae52bcb3f7d3cec5ce357",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "dby1.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "dby1.mp4 none"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "20a5e8f5d898beb8af14b30cfea83db15840c16444eae52bcb3f7d3cec5ce357",
+        "idempotent": true,
+        "links_sha": "c014ea0664feab875e97ea643cf5397feb34d055aa9a95086a70a629de173bbb",
+        "needs_patch": true,
+        "patched_len": 1900,
+        "patched_sha": "20a5e8f5d898beb8af14b30cfea83db15840c16444eae52bcb3f7d3cec5ce357",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "dby1.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "dby1.mp4 match"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "20a5e8f5d898beb8af14b30cfea83db15840c16444eae52bcb3f7d3cec5ce357",
+        "idempotent": true,
+        "links_sha": "c014ea0664feab875e97ea643cf5397feb34d055aa9a95086a70a629de173bbb",
+        "needs_patch": true,
+        "patched_len": 1900,
+        "patched_sha": "20a5e8f5d898beb8af14b30cfea83db15840c16444eae52bcb3f7d3cec5ce357",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "dby1.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "dby1.mp4 first forced only"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "20a5e8f5d898beb8af14b30cfea83db15840c16444eae52bcb3f7d3cec5ce357",
+        "idempotent": true,
+        "links_sha": "c014ea0664feab875e97ea643cf5397feb34d055aa9a95086a70a629de173bbb",
+        "needs_patch": true,
+        "patched_len": 1900,
+        "patched_sha": "20a5e8f5d898beb8af14b30cfea83db15840c16444eae52bcb3f7d3cec5ce357",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "dby1.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            false,
+            false
+          ]
+        ]
+      },
+      "name": "dby1.mp4 too few"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "20a5e8f5d898beb8af14b30cfea83db15840c16444eae52bcb3f7d3cec5ce357",
+        "idempotent": true,
+        "links_sha": "c014ea0664feab875e97ea643cf5397feb34d055aa9a95086a70a629de173bbb",
+        "needs_patch": true,
+        "patched_len": 1900,
+        "patched_sha": "20a5e8f5d898beb8af14b30cfea83db15840c16444eae52bcb3f7d3cec5ce357",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "dby1.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            true,
+            true
+          ]
+        ]
+      },
+      "name": "dby1.mp4 too many"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "20a5e8f5d898beb8af14b30cfea83db15840c16444eae52bcb3f7d3cec5ce357",
+        "idempotent": true,
+        "links_sha": "c014ea0664feab875e97ea643cf5397feb34d055aa9a95086a70a629de173bbb",
+        "needs_patch": true,
+        "patched_len": 1900,
+        "patched_sha": "20a5e8f5d898beb8af14b30cfea83db15840c16444eae52bcb3f7d3cec5ce357",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "dby1.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "dby1.mp4 all forced"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "20a5e8f5d898beb8af14b30cfea83db15840c16444eae52bcb3f7d3cec5ce357",
+        "idempotent": true,
+        "links_sha": "c014ea0664feab875e97ea643cf5397feb34d055aa9a95086a70a629de173bbb",
+        "needs_patch": true,
+        "patched_len": 1900,
+        "patched_sha": "20a5e8f5d898beb8af14b30cfea83db15840c16444eae52bcb3f7d3cec5ce357",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "dby1.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "dby1.mp4 all sdh"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "f906713ef1f0ee3cb558c253893c937f7a474c7c6d4af1f8b297a3618620d0d4",
+        "idempotent": true,
+        "links_sha": "a9b9164fedd9d0cd81d63997d9ac092aa527f897adff67251862f745a549ffd0",
+        "needs_patch": true,
+        "patched_len": 8001,
+        "patched_sha": "3ca5156eab9af15ddadb020ca3e5d6c22d0f9142866960eaf2cdcf2b2f77f6f3",
+        "summary_after": {
+          "elng": 4,
+          "fall": 2,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "chapters.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "chapters.mp4 none"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "66a189c8404851b08c295d85a74a9ed3afa807f5b0a31dffda8377a11ac05d8b",
+        "idempotent": true,
+        "links_sha": "3a49cb6e608bb9922d1d3050c85fb4d9d35507229468be28570c3c2d3fabd86b",
+        "needs_patch": true,
+        "patched_len": 8435,
+        "patched_sha": "3905801cb9b8aab5b1403cc8fb9982bb9b4c7d699dc190e4fbb921edc921ae71",
+        "summary_after": {
+          "elng": 9,
+          "fall": 2,
+          "folw": 4,
+          "forc": 2,
+          "forced_flags": 2
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "chapters.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ],
+          [
+            "eng",
+            true,
+            false
+          ],
+          [
+            "fra",
+            false,
+            false
+          ],
+          [
+            "xxx",
+            true,
+            true
+          ],
+          [
+            "und",
+            false,
+            false
+          ]
+        ]
+      },
+      "name": "chapters.mp4 match"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "36fb720d46980882d7b5e4b741bca01fbd3357e1c951727716a3e1984190cb05",
+        "idempotent": true,
+        "links_sha": "f919b32beefdd10361504e363e76d86c96dcbfe0aa39bb6b1a55306587071fe4",
+        "needs_patch": true,
+        "patched_len": 8139,
+        "patched_sha": "8d4e59e7ec1d7cebf8fc1091ed71732e8158abf47bb4d4e634026beca43baca6",
+        "summary_after": {
+          "elng": 9,
+          "fall": 2,
+          "folw": 2,
+          "forc": 1,
+          "forced_flags": 1
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "chapters.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ],
+          [
+            "eng",
+            false,
+            false
+          ],
+          [
+            "fra",
+            false,
+            false
+          ],
+          [
+            "xxx",
+            false,
+            false
+          ],
+          [
+            "und",
+            false,
+            false
+          ]
+        ]
+      },
+      "name": "chapters.mp4 first forced only"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "f0e8a3e90d94f824ceb53a2aaf64172a6b8efd7d95dee187eb31eadcaa5fc71d",
+        "idempotent": true,
+        "links_sha": "a9b9164fedd9d0cd81d63997d9ac092aa527f897adff67251862f745a549ffd0",
+        "needs_patch": true,
+        "patched_len": 8315,
+        "patched_sha": "1e17b0fc9b1397dc16dea54f59bb82bed80d6e0ae2b6a1dafae00aecb1dcfeba",
+        "summary_after": {
+          "elng": 8,
+          "fall": 2,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 2
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "chapters.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ],
+          [
+            "eng",
+            true,
+            false
+          ],
+          [
+            "fra",
+            false,
+            false
+          ],
+          [
+            "xxx",
+            true,
+            true
+          ]
+        ]
+      },
+      "name": "chapters.mp4 too few"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "66a189c8404851b08c295d85a74a9ed3afa807f5b0a31dffda8377a11ac05d8b",
+        "idempotent": true,
+        "links_sha": "a9b9164fedd9d0cd81d63997d9ac092aa527f897adff67251862f745a549ffd0",
+        "needs_patch": true,
+        "patched_len": 8331,
+        "patched_sha": "8d7efc4465da0b4ad55d86b743cd056002e4526fafc62bb361a2d206e33b104e",
+        "summary_after": {
+          "elng": 9,
+          "fall": 2,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 2
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "chapters.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ],
+          [
+            "eng",
+            true,
+            false
+          ],
+          [
+            "fra",
+            false,
+            false
+          ],
+          [
+            "xxx",
+            true,
+            true
+          ],
+          [
+            "und",
+            false,
+            false
+          ],
+          [
+            "eng",
+            true,
+            true
+          ]
+        ]
+      },
+      "name": "chapters.mp4 too many"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "0db6746618e8c0940db6e58f71be776e288182a1ab6a6ae9f76644d0361ad760",
+        "idempotent": true,
+        "links_sha": "cfee367a769d6b3cc5247a920402dac0e64fae8de133ff0a82d71663fcc4753d",
+        "needs_patch": true,
+        "patched_len": 8151,
+        "patched_sha": "4ade19ed566a6284750e6d9ba62e834d800e8fa271243dbb04290230e55267a9",
+        "summary_after": {
+          "elng": 9,
+          "fall": 2,
+          "folw": 4,
+          "forc": 0,
+          "forced_flags": 5
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "chapters.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ],
+          [
+            "eng",
+            false,
+            true
+          ],
+          [
+            "fra",
+            false,
+            true
+          ],
+          [
+            "xxx",
+            false,
+            true
+          ],
+          [
+            "und",
+            false,
+            true
+          ]
+        ]
+      },
+      "name": "chapters.mp4 all forced"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "d71a0d9526cd783e880417246448b3a69103c0aa9602a32f08b86871abe39d67",
+        "idempotent": true,
+        "links_sha": "a9b9164fedd9d0cd81d63997d9ac092aa527f897adff67251862f745a549ffd0",
+        "needs_patch": true,
+        "patched_len": 8701,
+        "patched_sha": "018fadf47854c81edfa2ea8f61e1dd807a770818b2cf6c84b96446caedd0a97a",
+        "summary_after": {
+          "elng": 9,
+          "fall": 2,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "chapters.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            true,
+            false
+          ],
+          [
+            "eng",
+            true,
+            false
+          ],
+          [
+            "fra",
+            true,
+            false
+          ],
+          [
+            "xxx",
+            true,
+            false
+          ],
+          [
+            "und",
+            true,
+            false
+          ]
+        ]
+      },
+      "name": "chapters.mp4 all sdh"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "d6547402e249766aefbee87e0956a3e5327ed4f56272f840521cfea84818133f",
+        "idempotent": true,
+        "links_sha": "41434a896f378fc5245729d492b68326a07b2ad5ac10a3808d19e67342efa2c4",
+        "needs_patch": true,
+        "patched_len": 1304,
+        "patched_sha": "575cbe5bdf026ddb121a43a6810708b07339d14cde5d302731f28ff6423e51b5",
+        "summary_after": {
+          "elng": 2,
+          "fall": 1,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_basic.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_basic.mp4 none"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "fdcb6a03b90d7a69279b61bccde68f911cfcd947aa2b1998c8dd1e4de1677a00",
+        "idempotent": true,
+        "links_sha": "6c4c3837e174f723af13c40639e18a9c862f5e158e8ceaac4114a1566fe76995",
+        "needs_patch": true,
+        "patched_len": 1354,
+        "patched_sha": "5db61f016e2fca27fe991f010157fee7ce5a63468f601247ce9d708c23a31e95",
+        "summary_after": {
+          "elng": 3,
+          "fall": 1,
+          "folw": 2,
+          "forc": 0,
+          "forced_flags": 1
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_basic.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ]
+        ]
+      },
+      "name": "syn_basic.mp4 match"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "fdcb6a03b90d7a69279b61bccde68f911cfcd947aa2b1998c8dd1e4de1677a00",
+        "idempotent": true,
+        "links_sha": "6c4c3837e174f723af13c40639e18a9c862f5e158e8ceaac4114a1566fe76995",
+        "needs_patch": true,
+        "patched_len": 1354,
+        "patched_sha": "5db61f016e2fca27fe991f010157fee7ce5a63468f601247ce9d708c23a31e95",
+        "summary_after": {
+          "elng": 3,
+          "fall": 1,
+          "folw": 2,
+          "forc": 0,
+          "forced_flags": 1
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_basic.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ]
+        ]
+      },
+      "name": "syn_basic.mp4 first forced only"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "d6547402e249766aefbee87e0956a3e5327ed4f56272f840521cfea84818133f",
+        "idempotent": true,
+        "links_sha": "41434a896f378fc5245729d492b68326a07b2ad5ac10a3808d19e67342efa2c4",
+        "needs_patch": true,
+        "patched_len": 1304,
+        "patched_sha": "575cbe5bdf026ddb121a43a6810708b07339d14cde5d302731f28ff6423e51b5",
+        "summary_after": {
+          "elng": 2,
+          "fall": 1,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_basic.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_basic.mp4 too few"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "fdcb6a03b90d7a69279b61bccde68f911cfcd947aa2b1998c8dd1e4de1677a00",
+        "idempotent": true,
+        "links_sha": "41434a896f378fc5245729d492b68326a07b2ad5ac10a3808d19e67342efa2c4",
+        "needs_patch": true,
+        "patched_len": 1322,
+        "patched_sha": "02f48e511a8ad0cf87cd9a1fe7bbbd4722f96e4236e5846536315c12714e2165",
+        "summary_after": {
+          "elng": 3,
+          "fall": 1,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 1
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_basic.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ],
+          [
+            "eng",
+            true,
+            true
+          ]
+        ]
+      },
+      "name": "syn_basic.mp4 too many"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "fdcb6a03b90d7a69279b61bccde68f911cfcd947aa2b1998c8dd1e4de1677a00",
+        "idempotent": true,
+        "links_sha": "6c4c3837e174f723af13c40639e18a9c862f5e158e8ceaac4114a1566fe76995",
+        "needs_patch": true,
+        "patched_len": 1354,
+        "patched_sha": "5db61f016e2fca27fe991f010157fee7ce5a63468f601247ce9d708c23a31e95",
+        "summary_after": {
+          "elng": 3,
+          "fall": 1,
+          "folw": 2,
+          "forc": 0,
+          "forced_flags": 1
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_basic.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ]
+        ]
+      },
+      "name": "syn_basic.mp4 all forced"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "48b4aea9928fa50012fcab958c653c32aa386abfed6e091cdf1bfef83e52044a",
+        "idempotent": true,
+        "links_sha": "41434a896f378fc5245729d492b68326a07b2ad5ac10a3808d19e67342efa2c4",
+        "needs_patch": true,
+        "patched_len": 1448,
+        "patched_sha": "3876b036096f7613c4f647f07584da5ef70efd9e0756421e4897f51013fad4f7",
+        "summary_after": {
+          "elng": 3,
+          "fall": 1,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_basic.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            true,
+            false
+          ]
+        ]
+      },
+      "name": "syn_basic.mp4 all sdh"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "9868bb0371730c49b7d6a166d00396689d4f092b7a34b08b1c7530c46547c1ea",
+        "idempotent": true,
+        "links_sha": "d8b94e157aeb6b9e9df2d05e1838d9d3bab9bdcb869e35718f767e839f6b1a5b",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "9868bb0371730c49b7d6a166d00396689d4f092b7a34b08b1c7530c46547c1ea",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_free_before_moov.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_free_before_moov.mp4 none"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "9868bb0371730c49b7d6a166d00396689d4f092b7a34b08b1c7530c46547c1ea",
+        "idempotent": true,
+        "links_sha": "d8b94e157aeb6b9e9df2d05e1838d9d3bab9bdcb869e35718f767e839f6b1a5b",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "9868bb0371730c49b7d6a166d00396689d4f092b7a34b08b1c7530c46547c1ea",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_free_before_moov.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_free_before_moov.mp4 match"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "9868bb0371730c49b7d6a166d00396689d4f092b7a34b08b1c7530c46547c1ea",
+        "idempotent": true,
+        "links_sha": "d8b94e157aeb6b9e9df2d05e1838d9d3bab9bdcb869e35718f767e839f6b1a5b",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "9868bb0371730c49b7d6a166d00396689d4f092b7a34b08b1c7530c46547c1ea",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_free_before_moov.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_free_before_moov.mp4 first forced only"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "9868bb0371730c49b7d6a166d00396689d4f092b7a34b08b1c7530c46547c1ea",
+        "idempotent": true,
+        "links_sha": "d8b94e157aeb6b9e9df2d05e1838d9d3bab9bdcb869e35718f767e839f6b1a5b",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "9868bb0371730c49b7d6a166d00396689d4f092b7a34b08b1c7530c46547c1ea",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_free_before_moov.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            false,
+            false
+          ]
+        ]
+      },
+      "name": "syn_free_before_moov.mp4 too few"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "9868bb0371730c49b7d6a166d00396689d4f092b7a34b08b1c7530c46547c1ea",
+        "idempotent": true,
+        "links_sha": "d8b94e157aeb6b9e9df2d05e1838d9d3bab9bdcb869e35718f767e839f6b1a5b",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "9868bb0371730c49b7d6a166d00396689d4f092b7a34b08b1c7530c46547c1ea",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_free_before_moov.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            true,
+            true
+          ]
+        ]
+      },
+      "name": "syn_free_before_moov.mp4 too many"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "9868bb0371730c49b7d6a166d00396689d4f092b7a34b08b1c7530c46547c1ea",
+        "idempotent": true,
+        "links_sha": "d8b94e157aeb6b9e9df2d05e1838d9d3bab9bdcb869e35718f767e839f6b1a5b",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "9868bb0371730c49b7d6a166d00396689d4f092b7a34b08b1c7530c46547c1ea",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_free_before_moov.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_free_before_moov.mp4 all forced"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "9868bb0371730c49b7d6a166d00396689d4f092b7a34b08b1c7530c46547c1ea",
+        "idempotent": true,
+        "links_sha": "d8b94e157aeb6b9e9df2d05e1838d9d3bab9bdcb869e35718f767e839f6b1a5b",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "9868bb0371730c49b7d6a166d00396689d4f092b7a34b08b1c7530c46547c1ea",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_free_before_moov.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_free_before_moov.mp4 all sdh"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "229316f009b4c6b0c137017d7a52c6dff76c8aebecdd0e927ffcdd1c44d6b9ee",
+        "idempotent": true,
+        "links_sha": "499acb7ffef3084b1ae2e5cb2ef83ef6a3aec0659c8a2f45d67f10e370d01632",
+        "needs_patch": true,
+        "patched_len": 1304,
+        "patched_sha": "1a778d7a924534c79bf3a67bebefc66113ee924f151bc4720395e5272558c588",
+        "summary_after": {
+          "elng": 2,
+          "fall": 1,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_moov_last.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_moov_last.mp4 none"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b2a3c574ad21e2d41ca700926721aa0f740a92a3fda8a7525a10fa8120b93f96",
+        "idempotent": true,
+        "links_sha": "f074bb01f171636c1fd87b70c2fd5206ae6175d2ec657885534c82fc523ff6bd",
+        "needs_patch": true,
+        "patched_len": 1354,
+        "patched_sha": "e463d5115336e445ab434ca7a7523fd8aa87b00f4100ac9fc7607f174da860a3",
+        "summary_after": {
+          "elng": 3,
+          "fall": 1,
+          "folw": 2,
+          "forc": 0,
+          "forced_flags": 1
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_moov_last.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ]
+        ]
+      },
+      "name": "syn_moov_last.mp4 match"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b2a3c574ad21e2d41ca700926721aa0f740a92a3fda8a7525a10fa8120b93f96",
+        "idempotent": true,
+        "links_sha": "f074bb01f171636c1fd87b70c2fd5206ae6175d2ec657885534c82fc523ff6bd",
+        "needs_patch": true,
+        "patched_len": 1354,
+        "patched_sha": "e463d5115336e445ab434ca7a7523fd8aa87b00f4100ac9fc7607f174da860a3",
+        "summary_after": {
+          "elng": 3,
+          "fall": 1,
+          "folw": 2,
+          "forc": 0,
+          "forced_flags": 1
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_moov_last.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ]
+        ]
+      },
+      "name": "syn_moov_last.mp4 first forced only"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "229316f009b4c6b0c137017d7a52c6dff76c8aebecdd0e927ffcdd1c44d6b9ee",
+        "idempotent": true,
+        "links_sha": "499acb7ffef3084b1ae2e5cb2ef83ef6a3aec0659c8a2f45d67f10e370d01632",
+        "needs_patch": true,
+        "patched_len": 1304,
+        "patched_sha": "1a778d7a924534c79bf3a67bebefc66113ee924f151bc4720395e5272558c588",
+        "summary_after": {
+          "elng": 2,
+          "fall": 1,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_moov_last.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_moov_last.mp4 too few"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b2a3c574ad21e2d41ca700926721aa0f740a92a3fda8a7525a10fa8120b93f96",
+        "idempotent": true,
+        "links_sha": "499acb7ffef3084b1ae2e5cb2ef83ef6a3aec0659c8a2f45d67f10e370d01632",
+        "needs_patch": true,
+        "patched_len": 1322,
+        "patched_sha": "ad212d293e482f9b2fdcb6f726ca9637d31b94516c6dba505132d0f262d011d0",
+        "summary_after": {
+          "elng": 3,
+          "fall": 1,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 1
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_moov_last.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ],
+          [
+            "eng",
+            true,
+            true
+          ]
+        ]
+      },
+      "name": "syn_moov_last.mp4 too many"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b2a3c574ad21e2d41ca700926721aa0f740a92a3fda8a7525a10fa8120b93f96",
+        "idempotent": true,
+        "links_sha": "f074bb01f171636c1fd87b70c2fd5206ae6175d2ec657885534c82fc523ff6bd",
+        "needs_patch": true,
+        "patched_len": 1354,
+        "patched_sha": "e463d5115336e445ab434ca7a7523fd8aa87b00f4100ac9fc7607f174da860a3",
+        "summary_after": {
+          "elng": 3,
+          "fall": 1,
+          "folw": 2,
+          "forc": 0,
+          "forced_flags": 1
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_moov_last.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ]
+        ]
+      },
+      "name": "syn_moov_last.mp4 all forced"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "f14c3019d7e9bafc3b9d9dcf917f405da66538656ca7fd0873cd7e44589bb395",
+        "idempotent": true,
+        "links_sha": "499acb7ffef3084b1ae2e5cb2ef83ef6a3aec0659c8a2f45d67f10e370d01632",
+        "needs_patch": true,
+        "patched_len": 1448,
+        "patched_sha": "13139de105cb941e992fd86627f74e41dd9bd6b20bda934f7af3954b9de2ba49",
+        "summary_after": {
+          "elng": 3,
+          "fall": 1,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_moov_last.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            true,
+            false
+          ]
+        ]
+      },
+      "name": "syn_moov_last.mp4 all sdh"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b00deaa723a7e1c0238f1614b6dcc21017a39f50d3002eb218862135db8b80ec",
+        "idempotent": true,
+        "links_sha": "a6a5a92fbeaeab5d8a9df0d4143b696d6a5e95a8d774ea7bc6a1f491fbe019c8",
+        "needs_patch": true,
+        "patched_len": 732,
+        "patched_sha": "b00deaa723a7e1c0238f1614b6dcc21017a39f50d3002eb218862135db8b80ec",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_co64.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_co64.mp4 none"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b00deaa723a7e1c0238f1614b6dcc21017a39f50d3002eb218862135db8b80ec",
+        "idempotent": true,
+        "links_sha": "a6a5a92fbeaeab5d8a9df0d4143b696d6a5e95a8d774ea7bc6a1f491fbe019c8",
+        "needs_patch": true,
+        "patched_len": 732,
+        "patched_sha": "b00deaa723a7e1c0238f1614b6dcc21017a39f50d3002eb218862135db8b80ec",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_co64.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_co64.mp4 match"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b00deaa723a7e1c0238f1614b6dcc21017a39f50d3002eb218862135db8b80ec",
+        "idempotent": true,
+        "links_sha": "a6a5a92fbeaeab5d8a9df0d4143b696d6a5e95a8d774ea7bc6a1f491fbe019c8",
+        "needs_patch": true,
+        "patched_len": 732,
+        "patched_sha": "b00deaa723a7e1c0238f1614b6dcc21017a39f50d3002eb218862135db8b80ec",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_co64.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_co64.mp4 first forced only"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b00deaa723a7e1c0238f1614b6dcc21017a39f50d3002eb218862135db8b80ec",
+        "idempotent": true,
+        "links_sha": "a6a5a92fbeaeab5d8a9df0d4143b696d6a5e95a8d774ea7bc6a1f491fbe019c8",
+        "needs_patch": true,
+        "patched_len": 732,
+        "patched_sha": "b00deaa723a7e1c0238f1614b6dcc21017a39f50d3002eb218862135db8b80ec",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_co64.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            false,
+            false
+          ]
+        ]
+      },
+      "name": "syn_co64.mp4 too few"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b00deaa723a7e1c0238f1614b6dcc21017a39f50d3002eb218862135db8b80ec",
+        "idempotent": true,
+        "links_sha": "a6a5a92fbeaeab5d8a9df0d4143b696d6a5e95a8d774ea7bc6a1f491fbe019c8",
+        "needs_patch": true,
+        "patched_len": 732,
+        "patched_sha": "b00deaa723a7e1c0238f1614b6dcc21017a39f50d3002eb218862135db8b80ec",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_co64.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            true,
+            true
+          ]
+        ]
+      },
+      "name": "syn_co64.mp4 too many"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b00deaa723a7e1c0238f1614b6dcc21017a39f50d3002eb218862135db8b80ec",
+        "idempotent": true,
+        "links_sha": "a6a5a92fbeaeab5d8a9df0d4143b696d6a5e95a8d774ea7bc6a1f491fbe019c8",
+        "needs_patch": true,
+        "patched_len": 732,
+        "patched_sha": "b00deaa723a7e1c0238f1614b6dcc21017a39f50d3002eb218862135db8b80ec",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_co64.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_co64.mp4 all forced"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b00deaa723a7e1c0238f1614b6dcc21017a39f50d3002eb218862135db8b80ec",
+        "idempotent": true,
+        "links_sha": "a6a5a92fbeaeab5d8a9df0d4143b696d6a5e95a8d774ea7bc6a1f491fbe019c8",
+        "needs_patch": true,
+        "patched_len": 732,
+        "patched_sha": "b00deaa723a7e1c0238f1614b6dcc21017a39f50d3002eb218862135db8b80ec",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_co64.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_co64.mp4 all sdh"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "f0cc4d568f77139b04b2c9bd6bc10f80e197f35c6e37704f0bca604927f5e8aa",
+        "idempotent": true,
+        "links_sha": "7e88694e95f2cddbfb5cbd3769cb2c5f6604f82f56de1e82a358b1f44a985379",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "f0cc4d568f77139b04b2c9bd6bc10f80e197f35c6e37704f0bca604927f5e8aa",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_stco_overflow.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_stco_overflow.mp4 none"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "f0cc4d568f77139b04b2c9bd6bc10f80e197f35c6e37704f0bca604927f5e8aa",
+        "idempotent": true,
+        "links_sha": "7e88694e95f2cddbfb5cbd3769cb2c5f6604f82f56de1e82a358b1f44a985379",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "f0cc4d568f77139b04b2c9bd6bc10f80e197f35c6e37704f0bca604927f5e8aa",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_stco_overflow.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_stco_overflow.mp4 match"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "f0cc4d568f77139b04b2c9bd6bc10f80e197f35c6e37704f0bca604927f5e8aa",
+        "idempotent": true,
+        "links_sha": "7e88694e95f2cddbfb5cbd3769cb2c5f6604f82f56de1e82a358b1f44a985379",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "f0cc4d568f77139b04b2c9bd6bc10f80e197f35c6e37704f0bca604927f5e8aa",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_stco_overflow.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_stco_overflow.mp4 first forced only"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "f0cc4d568f77139b04b2c9bd6bc10f80e197f35c6e37704f0bca604927f5e8aa",
+        "idempotent": true,
+        "links_sha": "7e88694e95f2cddbfb5cbd3769cb2c5f6604f82f56de1e82a358b1f44a985379",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "f0cc4d568f77139b04b2c9bd6bc10f80e197f35c6e37704f0bca604927f5e8aa",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_stco_overflow.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            false,
+            false
+          ]
+        ]
+      },
+      "name": "syn_stco_overflow.mp4 too few"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "f0cc4d568f77139b04b2c9bd6bc10f80e197f35c6e37704f0bca604927f5e8aa",
+        "idempotent": true,
+        "links_sha": "7e88694e95f2cddbfb5cbd3769cb2c5f6604f82f56de1e82a358b1f44a985379",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "f0cc4d568f77139b04b2c9bd6bc10f80e197f35c6e37704f0bca604927f5e8aa",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_stco_overflow.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            true,
+            true
+          ]
+        ]
+      },
+      "name": "syn_stco_overflow.mp4 too many"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "f0cc4d568f77139b04b2c9bd6bc10f80e197f35c6e37704f0bca604927f5e8aa",
+        "idempotent": true,
+        "links_sha": "7e88694e95f2cddbfb5cbd3769cb2c5f6604f82f56de1e82a358b1f44a985379",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "f0cc4d568f77139b04b2c9bd6bc10f80e197f35c6e37704f0bca604927f5e8aa",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_stco_overflow.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_stco_overflow.mp4 all forced"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "f0cc4d568f77139b04b2c9bd6bc10f80e197f35c6e37704f0bca604927f5e8aa",
+        "idempotent": true,
+        "links_sha": "7e88694e95f2cddbfb5cbd3769cb2c5f6604f82f56de1e82a358b1f44a985379",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "f0cc4d568f77139b04b2c9bd6bc10f80e197f35c6e37704f0bca604927f5e8aa",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_stco_overflow.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_stco_overflow.mp4 all sdh"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "865d5ba82537cf4b894484d350b2ea9c0847b79a7fceeb8b63b2031b8613e856",
+        "idempotent": true,
+        "links_sha": "ce87a5c50b4e388c2789f908be238a620f39360de1c9c9f01288bf7ea716be76",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "865d5ba82537cf4b894484d350b2ea9c0847b79a7fceeb8b63b2031b8613e856",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_size0_mdat.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_size0_mdat.mp4 none"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "865d5ba82537cf4b894484d350b2ea9c0847b79a7fceeb8b63b2031b8613e856",
+        "idempotent": true,
+        "links_sha": "ce87a5c50b4e388c2789f908be238a620f39360de1c9c9f01288bf7ea716be76",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "865d5ba82537cf4b894484d350b2ea9c0847b79a7fceeb8b63b2031b8613e856",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_size0_mdat.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_size0_mdat.mp4 match"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "865d5ba82537cf4b894484d350b2ea9c0847b79a7fceeb8b63b2031b8613e856",
+        "idempotent": true,
+        "links_sha": "ce87a5c50b4e388c2789f908be238a620f39360de1c9c9f01288bf7ea716be76",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "865d5ba82537cf4b894484d350b2ea9c0847b79a7fceeb8b63b2031b8613e856",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_size0_mdat.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_size0_mdat.mp4 first forced only"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "865d5ba82537cf4b894484d350b2ea9c0847b79a7fceeb8b63b2031b8613e856",
+        "idempotent": true,
+        "links_sha": "ce87a5c50b4e388c2789f908be238a620f39360de1c9c9f01288bf7ea716be76",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "865d5ba82537cf4b894484d350b2ea9c0847b79a7fceeb8b63b2031b8613e856",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_size0_mdat.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            false,
+            false
+          ]
+        ]
+      },
+      "name": "syn_size0_mdat.mp4 too few"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "865d5ba82537cf4b894484d350b2ea9c0847b79a7fceeb8b63b2031b8613e856",
+        "idempotent": true,
+        "links_sha": "ce87a5c50b4e388c2789f908be238a620f39360de1c9c9f01288bf7ea716be76",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "865d5ba82537cf4b894484d350b2ea9c0847b79a7fceeb8b63b2031b8613e856",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_size0_mdat.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            true,
+            true
+          ]
+        ]
+      },
+      "name": "syn_size0_mdat.mp4 too many"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "865d5ba82537cf4b894484d350b2ea9c0847b79a7fceeb8b63b2031b8613e856",
+        "idempotent": true,
+        "links_sha": "ce87a5c50b4e388c2789f908be238a620f39360de1c9c9f01288bf7ea716be76",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "865d5ba82537cf4b894484d350b2ea9c0847b79a7fceeb8b63b2031b8613e856",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_size0_mdat.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_size0_mdat.mp4 all forced"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "865d5ba82537cf4b894484d350b2ea9c0847b79a7fceeb8b63b2031b8613e856",
+        "idempotent": true,
+        "links_sha": "ce87a5c50b4e388c2789f908be238a620f39360de1c9c9f01288bf7ea716be76",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "865d5ba82537cf4b894484d350b2ea9c0847b79a7fceeb8b63b2031b8613e856",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_size0_mdat.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_size0_mdat.mp4 all sdh"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b0176ad5148df786f1981572195ba63cd3941a44eea4d329518525c362654976",
+        "idempotent": true,
+        "links_sha": "a42123e2be50cc6aa62a842e5ccb13655c6e752214d15d8a23ef222a29bfb4ea",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "b0176ad5148df786f1981572195ba63cd3941a44eea4d329518525c362654976",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_box64_mdat.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_box64_mdat.mp4 none"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b0176ad5148df786f1981572195ba63cd3941a44eea4d329518525c362654976",
+        "idempotent": true,
+        "links_sha": "a42123e2be50cc6aa62a842e5ccb13655c6e752214d15d8a23ef222a29bfb4ea",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "b0176ad5148df786f1981572195ba63cd3941a44eea4d329518525c362654976",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_box64_mdat.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_box64_mdat.mp4 match"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b0176ad5148df786f1981572195ba63cd3941a44eea4d329518525c362654976",
+        "idempotent": true,
+        "links_sha": "a42123e2be50cc6aa62a842e5ccb13655c6e752214d15d8a23ef222a29bfb4ea",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "b0176ad5148df786f1981572195ba63cd3941a44eea4d329518525c362654976",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_box64_mdat.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_box64_mdat.mp4 first forced only"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b0176ad5148df786f1981572195ba63cd3941a44eea4d329518525c362654976",
+        "idempotent": true,
+        "links_sha": "a42123e2be50cc6aa62a842e5ccb13655c6e752214d15d8a23ef222a29bfb4ea",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "b0176ad5148df786f1981572195ba63cd3941a44eea4d329518525c362654976",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_box64_mdat.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            false,
+            false
+          ]
+        ]
+      },
+      "name": "syn_box64_mdat.mp4 too few"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b0176ad5148df786f1981572195ba63cd3941a44eea4d329518525c362654976",
+        "idempotent": true,
+        "links_sha": "a42123e2be50cc6aa62a842e5ccb13655c6e752214d15d8a23ef222a29bfb4ea",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "b0176ad5148df786f1981572195ba63cd3941a44eea4d329518525c362654976",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_box64_mdat.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            true,
+            true
+          ]
+        ]
+      },
+      "name": "syn_box64_mdat.mp4 too many"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b0176ad5148df786f1981572195ba63cd3941a44eea4d329518525c362654976",
+        "idempotent": true,
+        "links_sha": "a42123e2be50cc6aa62a842e5ccb13655c6e752214d15d8a23ef222a29bfb4ea",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "b0176ad5148df786f1981572195ba63cd3941a44eea4d329518525c362654976",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_box64_mdat.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_box64_mdat.mp4 all forced"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "b0176ad5148df786f1981572195ba63cd3941a44eea4d329518525c362654976",
+        "idempotent": true,
+        "links_sha": "a42123e2be50cc6aa62a842e5ccb13655c6e752214d15d8a23ef222a29bfb4ea",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "b0176ad5148df786f1981572195ba63cd3941a44eea4d329518525c362654976",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_box64_mdat.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_box64_mdat.mp4 all sdh"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "8d7963cea0edc9f3cd5b6d8de0aadcebe62a0622058f53cbf71eadbd7dc5b0b2",
+        "idempotent": true,
+        "links_sha": "cbb6e189345eb33cf4a21ba6b7be84d52aed2f0abb4b9d03a893dfc89618d5aa",
+        "needs_patch": true,
+        "patched_len": 728,
+        "patched_sha": "8d7963cea0edc9f3cd5b6d8de0aadcebe62a0622058f53cbf71eadbd7dc5b0b2",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_zero_size_box.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_zero_size_box.mp4 none"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "8d7963cea0edc9f3cd5b6d8de0aadcebe62a0622058f53cbf71eadbd7dc5b0b2",
+        "idempotent": true,
+        "links_sha": "cbb6e189345eb33cf4a21ba6b7be84d52aed2f0abb4b9d03a893dfc89618d5aa",
+        "needs_patch": true,
+        "patched_len": 728,
+        "patched_sha": "8d7963cea0edc9f3cd5b6d8de0aadcebe62a0622058f53cbf71eadbd7dc5b0b2",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_zero_size_box.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_zero_size_box.mp4 match"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "8d7963cea0edc9f3cd5b6d8de0aadcebe62a0622058f53cbf71eadbd7dc5b0b2",
+        "idempotent": true,
+        "links_sha": "cbb6e189345eb33cf4a21ba6b7be84d52aed2f0abb4b9d03a893dfc89618d5aa",
+        "needs_patch": true,
+        "patched_len": 728,
+        "patched_sha": "8d7963cea0edc9f3cd5b6d8de0aadcebe62a0622058f53cbf71eadbd7dc5b0b2",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_zero_size_box.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_zero_size_box.mp4 first forced only"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "8d7963cea0edc9f3cd5b6d8de0aadcebe62a0622058f53cbf71eadbd7dc5b0b2",
+        "idempotent": true,
+        "links_sha": "cbb6e189345eb33cf4a21ba6b7be84d52aed2f0abb4b9d03a893dfc89618d5aa",
+        "needs_patch": true,
+        "patched_len": 728,
+        "patched_sha": "8d7963cea0edc9f3cd5b6d8de0aadcebe62a0622058f53cbf71eadbd7dc5b0b2",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_zero_size_box.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            false,
+            false
+          ]
+        ]
+      },
+      "name": "syn_zero_size_box.mp4 too few"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "8d7963cea0edc9f3cd5b6d8de0aadcebe62a0622058f53cbf71eadbd7dc5b0b2",
+        "idempotent": true,
+        "links_sha": "cbb6e189345eb33cf4a21ba6b7be84d52aed2f0abb4b9d03a893dfc89618d5aa",
+        "needs_patch": true,
+        "patched_len": 728,
+        "patched_sha": "8d7963cea0edc9f3cd5b6d8de0aadcebe62a0622058f53cbf71eadbd7dc5b0b2",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_zero_size_box.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            true,
+            true
+          ]
+        ]
+      },
+      "name": "syn_zero_size_box.mp4 too many"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "8d7963cea0edc9f3cd5b6d8de0aadcebe62a0622058f53cbf71eadbd7dc5b0b2",
+        "idempotent": true,
+        "links_sha": "cbb6e189345eb33cf4a21ba6b7be84d52aed2f0abb4b9d03a893dfc89618d5aa",
+        "needs_patch": true,
+        "patched_len": 728,
+        "patched_sha": "8d7963cea0edc9f3cd5b6d8de0aadcebe62a0622058f53cbf71eadbd7dc5b0b2",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_zero_size_box.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_zero_size_box.mp4 all forced"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "8d7963cea0edc9f3cd5b6d8de0aadcebe62a0622058f53cbf71eadbd7dc5b0b2",
+        "idempotent": true,
+        "links_sha": "cbb6e189345eb33cf4a21ba6b7be84d52aed2f0abb4b9d03a893dfc89618d5aa",
+        "needs_patch": true,
+        "patched_len": 728,
+        "patched_sha": "8d7963cea0edc9f3cd5b6d8de0aadcebe62a0622058f53cbf71eadbd7dc5b0b2",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_zero_size_box.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_zero_size_box.mp4 all sdh"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "4ba82cbd700e9505daacf2a8913bc63b84d7cbd52cc106ced637a08f66ca41df",
+        "idempotent": true,
+        "links_sha": "ac98473038cf8b1742245a4df1f6561eb5fd12f3bae7d91aed5d2ecd5fed912e",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "4ba82cbd700e9505daacf2a8913bc63b84d7cbd52cc106ced637a08f66ca41df",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_huge_entry_count.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_huge_entry_count.mp4 none"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "4ba82cbd700e9505daacf2a8913bc63b84d7cbd52cc106ced637a08f66ca41df",
+        "idempotent": true,
+        "links_sha": "ac98473038cf8b1742245a4df1f6561eb5fd12f3bae7d91aed5d2ecd5fed912e",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "4ba82cbd700e9505daacf2a8913bc63b84d7cbd52cc106ced637a08f66ca41df",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_huge_entry_count.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_huge_entry_count.mp4 match"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "4ba82cbd700e9505daacf2a8913bc63b84d7cbd52cc106ced637a08f66ca41df",
+        "idempotent": true,
+        "links_sha": "ac98473038cf8b1742245a4df1f6561eb5fd12f3bae7d91aed5d2ecd5fed912e",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "4ba82cbd700e9505daacf2a8913bc63b84d7cbd52cc106ced637a08f66ca41df",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_huge_entry_count.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_huge_entry_count.mp4 first forced only"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "4ba82cbd700e9505daacf2a8913bc63b84d7cbd52cc106ced637a08f66ca41df",
+        "idempotent": true,
+        "links_sha": "ac98473038cf8b1742245a4df1f6561eb5fd12f3bae7d91aed5d2ecd5fed912e",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "4ba82cbd700e9505daacf2a8913bc63b84d7cbd52cc106ced637a08f66ca41df",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_huge_entry_count.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            false,
+            false
+          ]
+        ]
+      },
+      "name": "syn_huge_entry_count.mp4 too few"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "4ba82cbd700e9505daacf2a8913bc63b84d7cbd52cc106ced637a08f66ca41df",
+        "idempotent": true,
+        "links_sha": "ac98473038cf8b1742245a4df1f6561eb5fd12f3bae7d91aed5d2ecd5fed912e",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "4ba82cbd700e9505daacf2a8913bc63b84d7cbd52cc106ced637a08f66ca41df",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_huge_entry_count.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            true,
+            true
+          ]
+        ]
+      },
+      "name": "syn_huge_entry_count.mp4 too many"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "4ba82cbd700e9505daacf2a8913bc63b84d7cbd52cc106ced637a08f66ca41df",
+        "idempotent": true,
+        "links_sha": "ac98473038cf8b1742245a4df1f6561eb5fd12f3bae7d91aed5d2ecd5fed912e",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "4ba82cbd700e9505daacf2a8913bc63b84d7cbd52cc106ced637a08f66ca41df",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_huge_entry_count.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_huge_entry_count.mp4 all forced"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "4ba82cbd700e9505daacf2a8913bc63b84d7cbd52cc106ced637a08f66ca41df",
+        "idempotent": true,
+        "links_sha": "ac98473038cf8b1742245a4df1f6561eb5fd12f3bae7d91aed5d2ecd5fed912e",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "4ba82cbd700e9505daacf2a8913bc63b84d7cbd52cc106ced637a08f66ca41df",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_huge_entry_count.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_huge_entry_count.mp4 all sdh"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "c58e2baef0f5510ae90eb4d2d66d75736570e03d86305aac7924853c0feed61a",
+        "idempotent": true,
+        "links_sha": "8eef1e5499feb03de25ce7dc3b4c426b25a653e0b82635699e57100978536467",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "c58e2baef0f5510ae90eb4d2d66d75736570e03d86305aac7924853c0feed61a",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_pad_3.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_pad_3.mp4 none"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "c58e2baef0f5510ae90eb4d2d66d75736570e03d86305aac7924853c0feed61a",
+        "idempotent": true,
+        "links_sha": "8eef1e5499feb03de25ce7dc3b4c426b25a653e0b82635699e57100978536467",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "c58e2baef0f5510ae90eb4d2d66d75736570e03d86305aac7924853c0feed61a",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_pad_3.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_pad_3.mp4 match"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "c58e2baef0f5510ae90eb4d2d66d75736570e03d86305aac7924853c0feed61a",
+        "idempotent": true,
+        "links_sha": "8eef1e5499feb03de25ce7dc3b4c426b25a653e0b82635699e57100978536467",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "c58e2baef0f5510ae90eb4d2d66d75736570e03d86305aac7924853c0feed61a",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_pad_3.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_pad_3.mp4 first forced only"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "c58e2baef0f5510ae90eb4d2d66d75736570e03d86305aac7924853c0feed61a",
+        "idempotent": true,
+        "links_sha": "8eef1e5499feb03de25ce7dc3b4c426b25a653e0b82635699e57100978536467",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "c58e2baef0f5510ae90eb4d2d66d75736570e03d86305aac7924853c0feed61a",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_pad_3.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            false,
+            false
+          ]
+        ]
+      },
+      "name": "syn_pad_3.mp4 too few"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "c58e2baef0f5510ae90eb4d2d66d75736570e03d86305aac7924853c0feed61a",
+        "idempotent": true,
+        "links_sha": "8eef1e5499feb03de25ce7dc3b4c426b25a653e0b82635699e57100978536467",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "c58e2baef0f5510ae90eb4d2d66d75736570e03d86305aac7924853c0feed61a",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_pad_3.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            true,
+            true
+          ]
+        ]
+      },
+      "name": "syn_pad_3.mp4 too many"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "c58e2baef0f5510ae90eb4d2d66d75736570e03d86305aac7924853c0feed61a",
+        "idempotent": true,
+        "links_sha": "8eef1e5499feb03de25ce7dc3b4c426b25a653e0b82635699e57100978536467",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "c58e2baef0f5510ae90eb4d2d66d75736570e03d86305aac7924853c0feed61a",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_pad_3.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_pad_3.mp4 all forced"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "c58e2baef0f5510ae90eb4d2d66d75736570e03d86305aac7924853c0feed61a",
+        "idempotent": true,
+        "links_sha": "8eef1e5499feb03de25ce7dc3b4c426b25a653e0b82635699e57100978536467",
+        "needs_patch": true,
+        "patched_len": 720,
+        "patched_sha": "c58e2baef0f5510ae90eb4d2d66d75736570e03d86305aac7924853c0feed61a",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_pad_3.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_pad_3.mp4 all sdh"
+    },
+    {
+      "expected": {
+        "chapters": [
+          5
+        ],
+        "elng_sha": "4d6d4817a8a5adccfc0e85f79be3e09e1041a4d9100ff525e9e780ff716dc7de",
+        "idempotent": true,
+        "links_sha": "cfed6a69f66c158c6f50e432c7bf33ae84c357761d457e282c04196c79ba5a1a",
+        "needs_patch": true,
+        "patched_len": 1296,
+        "patched_sha": "4d6d4817a8a5adccfc0e85f79be3e09e1041a4d9100ff525e9e780ff716dc7de",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_chapters.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_chapters.mp4 none"
+    },
+    {
+      "expected": {
+        "chapters": [
+          5
+        ],
+        "elng_sha": "2697cfc594dff53cc18de64faa489995ea9c1c052506135537a750f817fde36e",
+        "idempotent": true,
+        "links_sha": "88560933e9ee22dfdf5860a2a987a3ecd5ab0dc568e291ed2e02cd356891399b",
+        "needs_patch": true,
+        "patched_len": 1326,
+        "patched_sha": "2328eb19b7d181f470394fca9f092e4d8731d8343af9dc7a9571cd3a7670d0a8",
+        "summary_after": {
+          "elng": 2,
+          "fall": 0,
+          "folw": 1,
+          "forc": 0,
+          "forced_flags": 1
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_chapters.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ]
+        ]
+      },
+      "name": "syn_chapters.mp4 match"
+    },
+    {
+      "expected": {
+        "chapters": [
+          5
+        ],
+        "elng_sha": "2697cfc594dff53cc18de64faa489995ea9c1c052506135537a750f817fde36e",
+        "idempotent": true,
+        "links_sha": "88560933e9ee22dfdf5860a2a987a3ecd5ab0dc568e291ed2e02cd356891399b",
+        "needs_patch": true,
+        "patched_len": 1326,
+        "patched_sha": "2328eb19b7d181f470394fca9f092e4d8731d8343af9dc7a9571cd3a7670d0a8",
+        "summary_after": {
+          "elng": 2,
+          "fall": 0,
+          "folw": 1,
+          "forc": 0,
+          "forced_flags": 1
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_chapters.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ]
+        ]
+      },
+      "name": "syn_chapters.mp4 first forced only"
+    },
+    {
+      "expected": {
+        "chapters": [
+          5
+        ],
+        "elng_sha": "4d6d4817a8a5adccfc0e85f79be3e09e1041a4d9100ff525e9e780ff716dc7de",
+        "idempotent": true,
+        "links_sha": "cfed6a69f66c158c6f50e432c7bf33ae84c357761d457e282c04196c79ba5a1a",
+        "needs_patch": true,
+        "patched_len": 1296,
+        "patched_sha": "4d6d4817a8a5adccfc0e85f79be3e09e1041a4d9100ff525e9e780ff716dc7de",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_chapters.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_chapters.mp4 too few"
+    },
+    {
+      "expected": {
+        "chapters": [
+          5
+        ],
+        "elng_sha": "2697cfc594dff53cc18de64faa489995ea9c1c052506135537a750f817fde36e",
+        "idempotent": true,
+        "links_sha": "cfed6a69f66c158c6f50e432c7bf33ae84c357761d457e282c04196c79ba5a1a",
+        "needs_patch": true,
+        "patched_len": 1314,
+        "patched_sha": "2697cfc594dff53cc18de64faa489995ea9c1c052506135537a750f817fde36e",
+        "summary_after": {
+          "elng": 2,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 1
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_chapters.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ],
+          [
+            "eng",
+            true,
+            true
+          ]
+        ]
+      },
+      "name": "syn_chapters.mp4 too many"
+    },
+    {
+      "expected": {
+        "chapters": [
+          5
+        ],
+        "elng_sha": "2697cfc594dff53cc18de64faa489995ea9c1c052506135537a750f817fde36e",
+        "idempotent": true,
+        "links_sha": "88560933e9ee22dfdf5860a2a987a3ecd5ab0dc568e291ed2e02cd356891399b",
+        "needs_patch": true,
+        "patched_len": 1326,
+        "patched_sha": "2328eb19b7d181f470394fca9f092e4d8731d8343af9dc7a9571cd3a7670d0a8",
+        "summary_after": {
+          "elng": 2,
+          "fall": 0,
+          "folw": 1,
+          "forc": 0,
+          "forced_flags": 1
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_chapters.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            false,
+            true
+          ]
+        ]
+      },
+      "name": "syn_chapters.mp4 all forced"
+    },
+    {
+      "expected": {
+        "chapters": [
+          5
+        ],
+        "elng_sha": "a853bc9a710ab9de797896de01084aeef01e2946c358c3e7017e8d81c8be44a7",
+        "idempotent": true,
+        "links_sha": "cfed6a69f66c158c6f50e432c7bf33ae84c357761d457e282c04196c79ba5a1a",
+        "needs_patch": true,
+        "patched_len": 1440,
+        "patched_sha": "a853bc9a710ab9de797896de01084aeef01e2946c358c3e7017e8d81c8be44a7",
+        "summary_after": {
+          "elng": 2,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_chapters.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "deu",
+            true,
+            false
+          ]
+        ]
+      },
+      "name": "syn_chapters.mp4 all sdh"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "ff28cfbdd6a3006c08b18c347ef5d22da6988ae612c8f281e3abab7708bd27d8",
+        "idempotent": true,
+        "links_sha": "6575ac7c9ab8957f35c3dd6a9c2e557c6d029aaad8cd067cb2596e58dd8dcd48",
+        "needs_patch": true,
+        "patched_len": 760,
+        "patched_sha": "ff28cfbdd6a3006c08b18c347ef5d22da6988ae612c8f281e3abab7708bd27d8",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_fragmented.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_fragmented.mp4 none"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "ff28cfbdd6a3006c08b18c347ef5d22da6988ae612c8f281e3abab7708bd27d8",
+        "idempotent": true,
+        "links_sha": "6575ac7c9ab8957f35c3dd6a9c2e557c6d029aaad8cd067cb2596e58dd8dcd48",
+        "needs_patch": true,
+        "patched_len": 760,
+        "patched_sha": "ff28cfbdd6a3006c08b18c347ef5d22da6988ae612c8f281e3abab7708bd27d8",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_fragmented.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_fragmented.mp4 match"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "ff28cfbdd6a3006c08b18c347ef5d22da6988ae612c8f281e3abab7708bd27d8",
+        "idempotent": true,
+        "links_sha": "6575ac7c9ab8957f35c3dd6a9c2e557c6d029aaad8cd067cb2596e58dd8dcd48",
+        "needs_patch": true,
+        "patched_len": 760,
+        "patched_sha": "ff28cfbdd6a3006c08b18c347ef5d22da6988ae612c8f281e3abab7708bd27d8",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_fragmented.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_fragmented.mp4 first forced only"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "ff28cfbdd6a3006c08b18c347ef5d22da6988ae612c8f281e3abab7708bd27d8",
+        "idempotent": true,
+        "links_sha": "6575ac7c9ab8957f35c3dd6a9c2e557c6d029aaad8cd067cb2596e58dd8dcd48",
+        "needs_patch": true,
+        "patched_len": 760,
+        "patched_sha": "ff28cfbdd6a3006c08b18c347ef5d22da6988ae612c8f281e3abab7708bd27d8",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_fragmented.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            false,
+            false
+          ]
+        ]
+      },
+      "name": "syn_fragmented.mp4 too few"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "ff28cfbdd6a3006c08b18c347ef5d22da6988ae612c8f281e3abab7708bd27d8",
+        "idempotent": true,
+        "links_sha": "6575ac7c9ab8957f35c3dd6a9c2e557c6d029aaad8cd067cb2596e58dd8dcd48",
+        "needs_patch": true,
+        "patched_len": 760,
+        "patched_sha": "ff28cfbdd6a3006c08b18c347ef5d22da6988ae612c8f281e3abab7708bd27d8",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_fragmented.mp4",
+        "kind": "moov",
+        "sub_infos": [
+          [
+            "eng",
+            true,
+            true
+          ]
+        ]
+      },
+      "name": "syn_fragmented.mp4 too many"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "ff28cfbdd6a3006c08b18c347ef5d22da6988ae612c8f281e3abab7708bd27d8",
+        "idempotent": true,
+        "links_sha": "6575ac7c9ab8957f35c3dd6a9c2e557c6d029aaad8cd067cb2596e58dd8dcd48",
+        "needs_patch": true,
+        "patched_len": 760,
+        "patched_sha": "ff28cfbdd6a3006c08b18c347ef5d22da6988ae612c8f281e3abab7708bd27d8",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_fragmented.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_fragmented.mp4 all forced"
+    },
+    {
+      "expected": {
+        "chapters": [],
+        "elng_sha": "ff28cfbdd6a3006c08b18c347ef5d22da6988ae612c8f281e3abab7708bd27d8",
+        "idempotent": true,
+        "links_sha": "6575ac7c9ab8957f35c3dd6a9c2e557c6d029aaad8cd067cb2596e58dd8dcd48",
+        "needs_patch": true,
+        "patched_len": 760,
+        "patched_sha": "ff28cfbdd6a3006c08b18c347ef5d22da6988ae612c8f281e3abab7708bd27d8",
+        "summary_after": {
+          "elng": 1,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        },
+        "summary_before": {
+          "elng": 0,
+          "fall": 0,
+          "folw": 0,
+          "forc": 0,
+          "forced_flags": 0
+        }
+      },
+      "input": {
+        "file": "syn_fragmented.mp4",
+        "kind": "moov",
+        "sub_infos": []
+      },
+      "name": "syn_fragmented.mp4 all sdh"
+    },
+    {
+      "expected": "en-US",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "eng"
+      },
+      "name": "elng_tag 'eng'"
+    },
+    {
+      "expected": "de-DE",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "deu"
+      },
+      "name": "elng_tag 'deu'"
+    },
+    {
+      "expected": "de-DE",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "ger"
+      },
+      "name": "elng_tag 'ger'"
+    },
+    {
+      "expected": "fr-FR",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "fra"
+      },
+      "name": "elng_tag 'fra'"
+    },
+    {
+      "expected": "fr-FR",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "fre"
+      },
+      "name": "elng_tag 'fre'"
+    },
+    {
+      "expected": "es-419",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "spa"
+      },
+      "name": "elng_tag 'spa'"
+    },
+    {
+      "expected": "it-IT",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "ita"
+      },
+      "name": "elng_tag 'ita'"
+    },
+    {
+      "expected": "ja",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "jpn"
+      },
+      "name": "elng_tag 'jpn'"
+    },
+    {
+      "expected": "ko",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "kor"
+      },
+      "name": "elng_tag 'kor'"
+    },
+    {
+      "expected": "cmn-Hans",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "zho"
+      },
+      "name": "elng_tag 'zho'"
+    },
+    {
+      "expected": "cmn-Hans",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "chi"
+      },
+      "name": "elng_tag 'chi'"
+    },
+    {
+      "expected": "pt-BR",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "por"
+      },
+      "name": "elng_tag 'por'"
+    },
+    {
+      "expected": "ar",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "ara"
+      },
+      "name": "elng_tag 'ara'"
+    },
+    {
+      "expected": "bg",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "bul"
+      },
+      "name": "elng_tag 'bul'"
+    },
+    {
+      "expected": "cs",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "ces"
+      },
+      "name": "elng_tag 'ces'"
+    },
+    {
+      "expected": "cs",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "cze"
+      },
+      "name": "elng_tag 'cze'"
+    },
+    {
+      "expected": "da",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "dan"
+      },
+      "name": "elng_tag 'dan'"
+    },
+    {
+      "expected": "el",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "ell"
+      },
+      "name": "elng_tag 'ell'"
+    },
+    {
+      "expected": "el",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "gre"
+      },
+      "name": "elng_tag 'gre'"
+    },
+    {
+      "expected": "et",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "est"
+      },
+      "name": "elng_tag 'est'"
+    },
+    {
+      "expected": "fi",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "fin"
+      },
+      "name": "elng_tag 'fin'"
+    },
+    {
+      "expected": "he",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "heb"
+      },
+      "name": "elng_tag 'heb'"
+    },
+    {
+      "expected": "hi",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "hin"
+      },
+      "name": "elng_tag 'hin'"
+    },
+    {
+      "expected": "hr",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "hrv"
+      },
+      "name": "elng_tag 'hrv'"
+    },
+    {
+      "expected": "hu",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "hun"
+      },
+      "name": "elng_tag 'hun'"
+    },
+    {
+      "expected": "id",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "ind"
+      },
+      "name": "elng_tag 'ind'"
+    },
+    {
+      "expected": "is",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "isl"
+      },
+      "name": "elng_tag 'isl'"
+    },
+    {
+      "expected": "is",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "ice"
+      },
+      "name": "elng_tag 'ice'"
+    },
+    {
+      "expected": "lt",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "lit"
+      },
+      "name": "elng_tag 'lit'"
+    },
+    {
+      "expected": "lv",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "lav"
+      },
+      "name": "elng_tag 'lav'"
+    },
+    {
+      "expected": "ms",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "msa"
+      },
+      "name": "elng_tag 'msa'"
+    },
+    {
+      "expected": "ms",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "may"
+      },
+      "name": "elng_tag 'may'"
+    },
+    {
+      "expected": "nl",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "nld"
+      },
+      "name": "elng_tag 'nld'"
+    },
+    {
+      "expected": "nl",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "dut"
+      },
+      "name": "elng_tag 'dut'"
+    },
+    {
+      "expected": "no",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "nor"
+      },
+      "name": "elng_tag 'nor'"
+    },
+    {
+      "expected": "pl",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "pol"
+      },
+      "name": "elng_tag 'pol'"
+    },
+    {
+      "expected": "ro",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "ron"
+      },
+      "name": "elng_tag 'ron'"
+    },
+    {
+      "expected": "ro",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "rum"
+      },
+      "name": "elng_tag 'rum'"
+    },
+    {
+      "expected": "ru",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "rus"
+      },
+      "name": "elng_tag 'rus'"
+    },
+    {
+      "expected": "sk",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "slk"
+      },
+      "name": "elng_tag 'slk'"
+    },
+    {
+      "expected": "sk",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "slo"
+      },
+      "name": "elng_tag 'slo'"
+    },
+    {
+      "expected": "sl",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "slv"
+      },
+      "name": "elng_tag 'slv'"
+    },
+    {
+      "expected": "sr-Latn",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "srp"
+      },
+      "name": "elng_tag 'srp'"
+    },
+    {
+      "expected": "sv",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "swe"
+      },
+      "name": "elng_tag 'swe'"
+    },
+    {
+      "expected": "ta",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "tam"
+      },
+      "name": "elng_tag 'tam'"
+    },
+    {
+      "expected": "te",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "tel"
+      },
+      "name": "elng_tag 'tel'"
+    },
+    {
+      "expected": "th",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "tha"
+      },
+      "name": "elng_tag 'tha'"
+    },
+    {
+      "expected": "tr",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "tur"
+      },
+      "name": "elng_tag 'tur'"
+    },
+    {
+      "expected": "uk",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "ukr"
+      },
+      "name": "elng_tag 'ukr'"
+    },
+    {
+      "expected": "vi",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "vie"
+      },
+      "name": "elng_tag 'vie'"
+    },
+    {
+      "expected": "yue-Hant",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "yue"
+      },
+      "name": "elng_tag 'yue'"
+    },
+    {
+      "expected": null,
+      "input": {
+        "kind": "elng_tag",
+        "lang": "und"
+      },
+      "name": "elng_tag 'und'"
+    },
+    {
+      "expected": null,
+      "input": {
+        "kind": "elng_tag",
+        "lang": ""
+      },
+      "name": "elng_tag ''"
+    },
+    {
+      "expected": "xxx",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "xxx"
+      },
+      "name": "elng_tag 'xxx'"
+    },
+    {
+      "expected": "eng ",
+      "input": {
+        "kind": "elng_tag",
+        "lang": "eng "
+      },
+      "name": "elng_tag 'eng '"
+    },
+    {
+      "expected": [
+        [
+          "ara",
+          "ar"
+        ],
+        [
+          "bul",
+          "bg"
+        ],
+        [
+          "ces",
+          "cs"
+        ],
+        [
+          "chi",
+          "cmn-Hans"
+        ],
+        [
+          "cze",
+          "cs"
+        ],
+        [
+          "dan",
+          "da"
+        ],
+        [
+          "deu",
+          "de-DE"
+        ],
+        [
+          "dut",
+          "nl"
+        ],
+        [
+          "ell",
+          "el"
+        ],
+        [
+          "eng",
+          "en-US"
+        ],
+        [
+          "est",
+          "et"
+        ],
+        [
+          "fin",
+          "fi"
+        ],
+        [
+          "fra",
+          "fr-FR"
+        ],
+        [
+          "fre",
+          "fr-FR"
+        ],
+        [
+          "ger",
+          "de-DE"
+        ],
+        [
+          "gre",
+          "el"
+        ],
+        [
+          "heb",
+          "he"
+        ],
+        [
+          "hin",
+          "hi"
+        ],
+        [
+          "hrv",
+          "hr"
+        ],
+        [
+          "hun",
+          "hu"
+        ],
+        [
+          "ice",
+          "is"
+        ],
+        [
+          "ind",
+          "id"
+        ],
+        [
+          "isl",
+          "is"
+        ],
+        [
+          "ita",
+          "it-IT"
+        ],
+        [
+          "jpn",
+          "ja"
+        ],
+        [
+          "kor",
+          "ko"
+        ],
+        [
+          "lav",
+          "lv"
+        ],
+        [
+          "lit",
+          "lt"
+        ],
+        [
+          "may",
+          "ms"
+        ],
+        [
+          "msa",
+          "ms"
+        ],
+        [
+          "nld",
+          "nl"
+        ],
+        [
+          "nor",
+          "no"
+        ],
+        [
+          "pol",
+          "pl"
+        ],
+        [
+          "por",
+          "pt-BR"
+        ],
+        [
+          "ron",
+          "ro"
+        ],
+        [
+          "rum",
+          "ro"
+        ],
+        [
+          "rus",
+          "ru"
+        ],
+        [
+          "slk",
+          "sk"
+        ],
+        [
+          "slo",
+          "sk"
+        ],
+        [
+          "slv",
+          "sl"
+        ],
+        [
+          "spa",
+          "es-419"
+        ],
+        [
+          "srp",
+          "sr-Latn"
+        ],
+        [
+          "swe",
+          "sv"
+        ],
+        [
+          "tam",
+          "ta"
+        ],
+        [
+          "tel",
+          "te"
+        ],
+        [
+          "tha",
+          "th"
+        ],
+        [
+          "tur",
+          "tr"
+        ],
+        [
+          "ukr",
+          "uk"
+        ],
+        [
+          "vie",
+          "vi"
+        ],
+        [
+          "yue",
+          "yue-Hant"
+        ],
+        [
+          "zho",
+          "cmn-Hans"
+        ]
+      ],
+      "input": {
+        "kind": "table"
+      },
+      "name": "bcp47 table"
+    }
+  ],
+  "suite": "mp4_tags"
+}

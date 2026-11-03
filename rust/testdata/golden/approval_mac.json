@@ -1,0 +1,31 @@
+{
+  "cases": [
+    {
+      "expected": "4da9da9fdf8a915e047a210537075dc2dbf3eae8b273845d3635307b7fa487ff",
+      "input": {
+        "action": "fix",
+        "identity": [
+          1,
+          2,
+          3,
+          "abc"
+        ]
+      },
+      "name": "ordinary"
+    },
+    {
+      "expected": "c30c0e81554dcd64a3b34e978b572fad4c63cb93c8fb7f607a1fd7de86515829",
+      "input": {
+        "action": "prépare😀",
+        "identity": [
+          10,
+          20,
+          30,
+          "ä😀"
+        ]
+      },
+      "name": "unicode"
+    }
+  ],
+  "suite": "approval_mac"
+}

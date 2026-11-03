@@ -1,0 +1,20 @@
+[package]
+name = "atvprep-core"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+regex = "1"
+rustix = { version = "1.1.6", features = ["fs", "process"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+tempfile = "3"
+atvprep-testkit = { path = "../atvprep-testkit" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

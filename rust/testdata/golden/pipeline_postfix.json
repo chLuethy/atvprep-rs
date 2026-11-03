@@ -1,0 +1,1624 @@
+{
+  "cases": [
+    {
+      "expected": "Film.mp4",
+      "input": {
+        "existing": [],
+        "kind": "resolve",
+        "name": "Film.mp4"
+      },
+      "name": "resolve free"
+    },
+    {
+      "expected": "Film-1.mp4",
+      "input": {
+        "existing": [
+          "Film.mp4"
+        ],
+        "kind": "resolve",
+        "name": "Film.mp4"
+      },
+      "name": "resolve taken"
+    },
+    {
+      "expected": "Film-2.mp4",
+      "input": {
+        "existing": [
+          "Film.mp4",
+          "Film-1.mp4"
+        ],
+        "kind": "resolve",
+        "name": "Film.mp4"
+      },
+      "name": "resolve taken twice"
+    },
+    {
+      "expected": "Film-1.mp4",
+      "input": {
+        "existing": [
+          "Film.mp4",
+          "Film-2.mp4"
+        ],
+        "kind": "resolve",
+        "name": "Film.mp4"
+      },
+      "name": "resolve gap"
+    },
+    {
+      "expected": "Film-1",
+      "input": {
+        "existing": [
+          "Film"
+        ],
+        "kind": "resolve",
+        "name": "Film"
+      },
+      "name": "resolve no suffix"
+    },
+    {
+      "expected": "a.b-1.mp4",
+      "input": {
+        "existing": [
+          "a.b.mp4"
+        ],
+        "kind": "resolve",
+        "name": "a.b.mp4"
+      },
+      "name": "resolve many dots"
+    },
+    {
+      "expected": "{\n  \"path\": \"/media/Film.mp4\",\n  \"passed\": true,\n  \"violations\": []\n}\n",
+      "input": {
+        "kind": "sidecar",
+        "original": "/media/Film.mp4",
+        "violations": []
+      },
+      "name": "sidecar no violations /media/Film.mp4"
+    },
+    {
+      "expected": "{\n  \"path\": \"/media/M\\u00fcller & S\\u00f6hne (2020).mp4\",\n  \"passed\": true,\n  \"violations\": []\n}\n",
+      "input": {
+        "kind": "sidecar",
+        "original": "/media/Müller & Söhne (2020).mp4",
+        "violations": []
+      },
+      "name": "sidecar no violations /media/Müller & Söhne (2020).mp4"
+    },
+    {
+      "expected": "{\n  \"path\": \"/media/\\u65e5\\u672c\\u8a9e.mp4\",\n  \"passed\": true,\n  \"violations\": []\n}\n",
+      "input": {
+        "kind": "sidecar",
+        "original": "/media/日本語.mp4",
+        "violations": []
+      },
+      "name": "sidecar no violations /media/日本語.mp4"
+    },
+    {
+      "expected": "{\n  \"path\": \"/media/emoji \\ud83d\\ude00.mp4\",\n  \"passed\": true,\n  \"violations\": []\n}\n",
+      "input": {
+        "kind": "sidecar",
+        "original": "/media/emoji 😀.mp4",
+        "violations": []
+      },
+      "name": "sidecar no violations /media/emoji 😀.mp4"
+    },
+    {
+      "expected": "{\n  \"path\": \"/media/Film.mp4\",\n  \"passed\": false,\n  \"violations\": [\n    {\n      \"rule\": \"fast-start\",\n      \"severity\": \"warning\",\n      \"message\": \"moov after mdat\",\n      \"track_id\": null\n    },\n    {\n      \"rule\": \"no-fragments\",\n      \"severity\": \"blocker\",\n      \"message\": \"fragmented\",\n      \"track_id\": 2\n    }\n  ]\n}\n",
+      "input": {
+        "kind": "sidecar",
+        "original": "/media/Film.mp4",
+        "violations": [
+          [
+            "fast-start",
+            "warning",
+            "moov after mdat",
+            null
+          ],
+          [
+            "no-fragments",
+            "blocker",
+            "fragmented",
+            2
+          ]
+        ]
+      },
+      "name": "sidecar blocker and warning /media/Film.mp4"
+    },
+    {
+      "expected": "{\n  \"path\": \"/media/M\\u00fcller & S\\u00f6hne (2020).mp4\",\n  \"passed\": false,\n  \"violations\": [\n    {\n      \"rule\": \"fast-start\",\n      \"severity\": \"warning\",\n      \"message\": \"moov after mdat\",\n      \"track_id\": null\n    },\n    {\n      \"rule\": \"no-fragments\",\n      \"severity\": \"blocker\",\n      \"message\": \"fragmented\",\n      \"track_id\": 2\n    }\n  ]\n}\n",
+      "input": {
+        "kind": "sidecar",
+        "original": "/media/Müller & Söhne (2020).mp4",
+        "violations": [
+          [
+            "fast-start",
+            "warning",
+            "moov after mdat",
+            null
+          ],
+          [
+            "no-fragments",
+            "blocker",
+            "fragmented",
+            2
+          ]
+        ]
+      },
+      "name": "sidecar blocker and warning /media/Müller & Söhne (2020).mp4"
+    },
+    {
+      "expected": "{\n  \"path\": \"/media/\\u65e5\\u672c\\u8a9e.mp4\",\n  \"passed\": false,\n  \"violations\": [\n    {\n      \"rule\": \"fast-start\",\n      \"severity\": \"warning\",\n      \"message\": \"moov after mdat\",\n      \"track_id\": null\n    },\n    {\n      \"rule\": \"no-fragments\",\n      \"severity\": \"blocker\",\n      \"message\": \"fragmented\",\n      \"track_id\": 2\n    }\n  ]\n}\n",
+      "input": {
+        "kind": "sidecar",
+        "original": "/media/日本語.mp4",
+        "violations": [
+          [
+            "fast-start",
+            "warning",
+            "moov after mdat",
+            null
+          ],
+          [
+            "no-fragments",
+            "blocker",
+            "fragmented",
+            2
+          ]
+        ]
+      },
+      "name": "sidecar blocker and warning /media/日本語.mp4"
+    },
+    {
+      "expected": "{\n  \"path\": \"/media/emoji \\ud83d\\ude00.mp4\",\n  \"passed\": false,\n  \"violations\": [\n    {\n      \"rule\": \"fast-start\",\n      \"severity\": \"warning\",\n      \"message\": \"moov after mdat\",\n      \"track_id\": null\n    },\n    {\n      \"rule\": \"no-fragments\",\n      \"severity\": \"blocker\",\n      \"message\": \"fragmented\",\n      \"track_id\": 2\n    }\n  ]\n}\n",
+      "input": {
+        "kind": "sidecar",
+        "original": "/media/emoji 😀.mp4",
+        "violations": [
+          [
+            "fast-start",
+            "warning",
+            "moov after mdat",
+            null
+          ],
+          [
+            "no-fragments",
+            "blocker",
+            "fragmented",
+            2
+          ]
+        ]
+      },
+      "name": "sidecar blocker and warning /media/emoji 😀.mp4"
+    },
+    {
+      "expected": "{\n  \"path\": \"/media/Film.mp4\",\n  \"passed\": false,\n  \"violations\": [\n    {\n      \"rule\": \"x\",\n      \"severity\": \"blocker\",\n      \"message\": \"Gr\\u00f6\\u00dfe \\u2014 emoji \\ud83d\\ude00 \\\"quoted\\\" \\\\ back\\tslash\\n\",\n      \"track_id\": null\n    }\n  ]\n}\n",
+      "input": {
+        "kind": "sidecar",
+        "original": "/media/Film.mp4",
+        "violations": [
+          [
+            "x",
+            "blocker",
+            "Größe — emoji 😀 \"quoted\" \\ back\tslash\n",
+            null
+          ]
+        ]
+      },
+      "name": "sidecar non ascii /media/Film.mp4"
+    },
+    {
+      "expected": "{\n  \"path\": \"/media/M\\u00fcller & S\\u00f6hne (2020).mp4\",\n  \"passed\": false,\n  \"violations\": [\n    {\n      \"rule\": \"x\",\n      \"severity\": \"blocker\",\n      \"message\": \"Gr\\u00f6\\u00dfe \\u2014 emoji \\ud83d\\ude00 \\\"quoted\\\" \\\\ back\\tslash\\n\",\n      \"track_id\": null\n    }\n  ]\n}\n",
+      "input": {
+        "kind": "sidecar",
+        "original": "/media/Müller & Söhne (2020).mp4",
+        "violations": [
+          [
+            "x",
+            "blocker",
+            "Größe — emoji 😀 \"quoted\" \\ back\tslash\n",
+            null
+          ]
+        ]
+      },
+      "name": "sidecar non ascii /media/Müller & Söhne (2020).mp4"
+    },
+    {
+      "expected": "{\n  \"path\": \"/media/\\u65e5\\u672c\\u8a9e.mp4\",\n  \"passed\": false,\n  \"violations\": [\n    {\n      \"rule\": \"x\",\n      \"severity\": \"blocker\",\n      \"message\": \"Gr\\u00f6\\u00dfe \\u2014 emoji \\ud83d\\ude00 \\\"quoted\\\" \\\\ back\\tslash\\n\",\n      \"track_id\": null\n    }\n  ]\n}\n",
+      "input": {
+        "kind": "sidecar",
+        "original": "/media/日本語.mp4",
+        "violations": [
+          [
+            "x",
+            "blocker",
+            "Größe — emoji 😀 \"quoted\" \\ back\tslash\n",
+            null
+          ]
+        ]
+      },
+      "name": "sidecar non ascii /media/日本語.mp4"
+    },
+    {
+      "expected": "{\n  \"path\": \"/media/emoji \\ud83d\\ude00.mp4\",\n  \"passed\": false,\n  \"violations\": [\n    {\n      \"rule\": \"x\",\n      \"severity\": \"blocker\",\n      \"message\": \"Gr\\u00f6\\u00dfe \\u2014 emoji \\ud83d\\ude00 \\\"quoted\\\" \\\\ back\\tslash\\n\",\n      \"track_id\": null\n    }\n  ]\n}\n",
+      "input": {
+        "kind": "sidecar",
+        "original": "/media/emoji 😀.mp4",
+        "violations": [
+          [
+            "x",
+            "blocker",
+            "Größe — emoji 😀 \"quoted\" \\ back\tslash\n",
+            null
+          ]
+        ]
+      },
+      "name": "sidecar non ascii /media/emoji 😀.mp4"
+    },
+    {
+      "expected": "{\n  \"path\": \"/media/Film.mp4\",\n  \"passed\": true,\n  \"violations\": [\n    {\n      \"rule\": \"y\",\n      \"severity\": \"warning\",\n      \"message\": \"bell\\u0007 del\\u007f\",\n      \"track_id\": 7\n    }\n  ]\n}\n",
+      "input": {
+        "kind": "sidecar",
+        "original": "/media/Film.mp4",
+        "violations": [
+          [
+            "y",
+            "warning",
+            "bell\u0007 del",
+            7
+          ]
+        ]
+      },
+      "name": "sidecar control chars /media/Film.mp4"
+    },
+    {
+      "expected": "{\n  \"path\": \"/media/M\\u00fcller & S\\u00f6hne (2020).mp4\",\n  \"passed\": true,\n  \"violations\": [\n    {\n      \"rule\": \"y\",\n      \"severity\": \"warning\",\n      \"message\": \"bell\\u0007 del\\u007f\",\n      \"track_id\": 7\n    }\n  ]\n}\n",
+      "input": {
+        "kind": "sidecar",
+        "original": "/media/Müller & Söhne (2020).mp4",
+        "violations": [
+          [
+            "y",
+            "warning",
+            "bell\u0007 del",
+            7
+          ]
+        ]
+      },
+      "name": "sidecar control chars /media/Müller & Söhne (2020).mp4"
+    },
+    {
+      "expected": "{\n  \"path\": \"/media/\\u65e5\\u672c\\u8a9e.mp4\",\n  \"passed\": true,\n  \"violations\": [\n    {\n      \"rule\": \"y\",\n      \"severity\": \"warning\",\n      \"message\": \"bell\\u0007 del\\u007f\",\n      \"track_id\": 7\n    }\n  ]\n}\n",
+      "input": {
+        "kind": "sidecar",
+        "original": "/media/日本語.mp4",
+        "violations": [
+          [
+            "y",
+            "warning",
+            "bell\u0007 del",
+            7
+          ]
+        ]
+      },
+      "name": "sidecar control chars /media/日本語.mp4"
+    },
+    {
+      "expected": "{\n  \"path\": \"/media/emoji \\ud83d\\ude00.mp4\",\n  \"passed\": true,\n  \"violations\": [\n    {\n      \"rule\": \"y\",\n      \"severity\": \"warning\",\n      \"message\": \"bell\\u0007 del\\u007f\",\n      \"track_id\": 7\n    }\n  ]\n}\n",
+      "input": {
+        "kind": "sidecar",
+        "original": "/media/emoji 😀.mp4",
+        "violations": [
+          [
+            "y",
+            "warning",
+            "bell\u0007 del",
+            7
+          ]
+        ]
+      },
+      "name": "sidecar control chars /media/emoji 😀.mp4"
+    },
+    {
+      "expected": {
+        "files": {
+          "out.mp4": "9d41decf945522934d62983934abfd80f7841453b0f461551a0c901b4d7c4a81"
+        },
+        "listing": [
+          "work/out.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "printed": [
+          "  → postfix: ftyp=1 dec3=0 tkhd=0 hdlr=0",
+          "  ✗ verify failed <base>/work/out.mp4 — 1 blocker(s)",
+          "     ftyp-dby1-requires-atmos: ftyp compatible_brands contains 'dby1' but no audio track reports real Dolby Atmos (JOC); AVPlayer will route via Dolby MAT and deliver silence on Atmos-capable AVRs."
+        ],
+        "sidecars": {},
+        "violations": [
+          [
+            "ftyp-dby1-requires-atmos",
+            "blocker",
+            "ftyp compatible_brands contains 'dby1' but no audio track reports real Dolby Atmos (JOC); AVPlayer will route via Dolby MAT and deliver silence on Atmos-capable AVRs.",
+            null
+          ],
+          [
+            "apple-tags",
+            "warning",
+            "1 track lacks an elng tag",
+            null
+          ]
+        ]
+      },
+      "input": {
+        "atmos": false,
+        "dump": "dby1.mp4 dump recorded",
+        "file": "dby1.mp4",
+        "info": "dby1.mp4 info recorded",
+        "kind": "finalize",
+        "probe": {
+          "format": {
+            "bit_rate": "891560",
+            "duration": "1.000000",
+            "filename": "/Users/chl/gitea-repositories/atvprep-rs/rust/testdata/mp4/dby1.mp4",
+            "format_long_name": "QuickTime / MOV",
+            "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+            "nb_programs": 0,
+            "nb_stream_groups": 0,
+            "nb_streams": 2,
+            "probe_score": 100,
+            "size": "111445",
+            "start_time": "0.000000",
+            "tags": {
+              "compatible_brands": "isomiso2avc1mp41dby1",
+              "encoder": "Lavf62.3.100",
+              "major_brand": "isom",
+              "minor_version": "512"
+            }
+          },
+          "streams": [
+            {
+              "avg_frame_rate": "24/1",
+              "bit_rate": "745768",
+              "bits_per_raw_sample": "8",
+              "chroma_location": "left",
+              "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+              "codec_name": "h264",
+              "codec_tag": "0x31637661",
+              "codec_tag_string": "avc1",
+              "codec_type": "video",
+              "coded_height": 240,
+              "coded_width": 320,
+              "display_aspect_ratio": "4:3",
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 1,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "duration": "1.000000",
+              "duration_ts": 12288,
+              "extradata_size": 37,
+              "field_order": "progressive",
+              "has_b_frames": 0,
+              "height": 240,
+              "id": "0x1",
+              "index": 0,
+              "is_avc": "true",
+              "level": 13,
+              "nal_length_size": "4",
+              "nb_frames": "24",
+              "pix_fmt": "yuv420p",
+              "profile": "Constrained Baseline",
+              "r_frame_rate": "24/1",
+              "refs": 1,
+              "sample_aspect_ratio": "1:1",
+              "start_pts": 0,
+              "start_time": "0.000000",
+              "tags": {
+                "encoder": "Lavc62.11.100 libx264",
+                "handler_name": "VideoHandler",
+                "language": "und",
+                "vendor_id": "[0][0][0][0]"
+              },
+              "time_base": "1/12288",
+              "width": 320
+            },
+            {
+              "avg_frame_rate": "0/0",
+              "bit_rate": "127597",
+              "bits_per_sample": 0,
+              "channel_layout": "stereo",
+              "channels": 2,
+              "codec_long_name": "AAC (Advanced Audio Coding)",
+              "codec_name": "aac",
+              "codec_tag": "0x6134706d",
+              "codec_tag_string": "mp4a",
+              "codec_type": "audio",
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 1,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "duration": "1.000000",
+              "duration_ts": 48000,
+              "extradata_size": 5,
+              "id": "0x2",
+              "index": 1,
+              "initial_padding": 0,
+              "nb_frames": "48",
+              "profile": "LC",
+              "r_frame_rate": "0/0",
+              "sample_fmt": "fltp",
+              "sample_rate": "48000",
+              "start_pts": 0,
+              "start_time": "0.000000",
+              "tags": {
+                "handler_name": "SoundHandler",
+                "language": "eng",
+                "vendor_id": "[0][0][0][0]"
+              },
+              "time_base": "1/48000"
+            }
+          ]
+        },
+        "quarantine": false,
+        "verbose": false
+      },
+      "name": "finalize dby1.mp4 fixes the brand"
+    },
+    {
+      "expected": {
+        "files": {
+          "out.mp4": "9d41decf945522934d62983934abfd80f7841453b0f461551a0c901b4d7c4a81"
+        },
+        "listing": [
+          "work/out.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "printed": [
+          "  → postfix: ftyp=1 dec3=0 tkhd=0 hdlr=0",
+          "  ✗ verify failed <base>/work/out.mp4 — 1 blocker(s)",
+          "     ftyp-dby1-requires-atmos: ftyp compatible_brands contains 'dby1' but no audio track reports real Dolby Atmos (JOC); AVPlayer will route via Dolby MAT and deliver silence on Atmos-capable AVRs."
+        ],
+        "sidecars": {},
+        "violations": [
+          [
+            "ftyp-dby1-requires-atmos",
+            "blocker",
+            "ftyp compatible_brands contains 'dby1' but no audio track reports real Dolby Atmos (JOC); AVPlayer will route via Dolby MAT and deliver silence on Atmos-capable AVRs.",
+            null
+          ],
+          [
+            "apple-tags",
+            "warning",
+            "1 track lacks an elng tag",
+            null
+          ]
+        ]
+      },
+      "input": {
+        "atmos": false,
+        "dump": "dby1.mp4 dump recorded",
+        "file": "dby1.mp4",
+        "info": "dby1.mp4 info recorded",
+        "kind": "finalize",
+        "probe": {
+          "format": {
+            "bit_rate": "891560",
+            "duration": "1.000000",
+            "filename": "/Users/chl/gitea-repositories/atvprep-rs/rust/testdata/mp4/dby1.mp4",
+            "format_long_name": "QuickTime / MOV",
+            "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+            "nb_programs": 0,
+            "nb_stream_groups": 0,
+            "nb_streams": 2,
+            "probe_score": 100,
+            "size": "111445",
+            "start_time": "0.000000",
+            "tags": {
+              "compatible_brands": "isomiso2avc1mp41dby1",
+              "encoder": "Lavf62.3.100",
+              "major_brand": "isom",
+              "minor_version": "512"
+            }
+          },
+          "streams": [
+            {
+              "avg_frame_rate": "24/1",
+              "bit_rate": "745768",
+              "bits_per_raw_sample": "8",
+              "chroma_location": "left",
+              "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+              "codec_name": "h264",
+              "codec_tag": "0x31637661",
+              "codec_tag_string": "avc1",
+              "codec_type": "video",
+              "coded_height": 240,
+              "coded_width": 320,
+              "display_aspect_ratio": "4:3",
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 1,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "duration": "1.000000",
+              "duration_ts": 12288,
+              "extradata_size": 37,
+              "field_order": "progressive",
+              "has_b_frames": 0,
+              "height": 240,
+              "id": "0x1",
+              "index": 0,
+              "is_avc": "true",
+              "level": 13,
+              "nal_length_size": "4",
+              "nb_frames": "24",
+              "pix_fmt": "yuv420p",
+              "profile": "Constrained Baseline",
+              "r_frame_rate": "24/1",
+              "refs": 1,
+              "sample_aspect_ratio": "1:1",
+              "start_pts": 0,
+              "start_time": "0.000000",
+              "tags": {
+                "encoder": "Lavc62.11.100 libx264",
+                "handler_name": "VideoHandler",
+                "language": "und",
+                "vendor_id": "[0][0][0][0]"
+              },
+              "time_base": "1/12288",
+              "width": 320
+            },
+            {
+              "avg_frame_rate": "0/0",
+              "bit_rate": "127597",
+              "bits_per_sample": 0,
+              "channel_layout": "stereo",
+              "channels": 2,
+              "codec_long_name": "AAC (Advanced Audio Coding)",
+              "codec_name": "aac",
+              "codec_tag": "0x6134706d",
+              "codec_tag_string": "mp4a",
+              "codec_type": "audio",
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 1,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "duration": "1.000000",
+              "duration_ts": 48000,
+              "extradata_size": 5,
+              "id": "0x2",
+              "index": 1,
+              "initial_padding": 0,
+              "nb_frames": "48",
+              "profile": "LC",
+              "r_frame_rate": "0/0",
+              "sample_fmt": "fltp",
+              "sample_rate": "48000",
+              "start_pts": 0,
+              "start_time": "0.000000",
+              "tags": {
+                "handler_name": "SoundHandler",
+                "language": "eng",
+                "vendor_id": "[0][0][0][0]"
+              },
+              "time_base": "1/48000"
+            }
+          ]
+        },
+        "quarantine": false,
+        "verbose": true
+      },
+      "name": "finalize dby1.mp4 verbose"
+    },
+    {
+      "expected": {
+        "files": {
+          "out.mp4": "b78216e1690bc5c76823c6be73305b9460b02ebc9dd55460f54f7494902ffd6a"
+        },
+        "listing": [
+          "work/out.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "printed": [
+          "  verified: ok"
+        ],
+        "sidecars": {},
+        "violations": []
+      },
+      "input": {
+        "atmos": false,
+        "dump": "plain_faststart.mp4 dump recorded",
+        "file": "plain_faststart.mp4",
+        "info": "plain_faststart.mp4 info recorded",
+        "kind": "finalize",
+        "probe": {
+          "format": {
+            "bit_rate": "891256",
+            "duration": "1.000000",
+            "filename": "/Users/chl/gitea-repositories/atvprep-rs/rust/testdata/mp4/plain_faststart.mp4",
+            "format_long_name": "QuickTime / MOV",
+            "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+            "nb_programs": 0,
+            "nb_stream_groups": 0,
+            "nb_streams": 2,
+            "probe_score": 100,
+            "size": "111407",
+            "start_time": "0.000000",
+            "tags": {
+              "compatible_brands": "isomiso2avc1mp41",
+              "encoder": "Lavf62.3.100",
+              "major_brand": "isom",
+              "minor_version": "512"
+            }
+          },
+          "streams": [
+            {
+              "avg_frame_rate": "24/1",
+              "bit_rate": "745768",
+              "bits_per_raw_sample": "8",
+              "chroma_location": "left",
+              "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+              "codec_name": "h264",
+              "codec_tag": "0x31637661",
+              "codec_tag_string": "avc1",
+              "codec_type": "video",
+              "coded_height": 240,
+              "coded_width": 320,
+              "display_aspect_ratio": "4:3",
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 1,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "duration": "1.000000",
+              "duration_ts": 12288,
+              "extradata_size": 37,
+              "field_order": "progressive",
+              "has_b_frames": 0,
+              "height": 240,
+              "id": "0x1",
+              "index": 0,
+              "is_avc": "true",
+              "level": 13,
+              "nal_length_size": "4",
+              "nb_frames": "24",
+              "pix_fmt": "yuv420p",
+              "profile": "Constrained Baseline",
+              "r_frame_rate": "24/1",
+              "refs": 1,
+              "sample_aspect_ratio": "1:1",
+              "start_pts": 0,
+              "start_time": "0.000000",
+              "tags": {
+                "encoder": "Lavc62.11.100 libx264",
+                "handler_name": "VideoHandler",
+                "language": "und",
+                "vendor_id": "[0][0][0][0]"
+              },
+              "time_base": "1/12288",
+              "width": 320
+            },
+            {
+              "avg_frame_rate": "0/0",
+              "bit_rate": "127331",
+              "bits_per_sample": 0,
+              "channel_layout": "stereo",
+              "channels": 2,
+              "codec_long_name": "AAC (Advanced Audio Coding)",
+              "codec_name": "aac",
+              "codec_tag": "0x6134706d",
+              "codec_tag_string": "mp4a",
+              "codec_type": "audio",
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 1,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "duration": "1.000000",
+              "duration_ts": 48000,
+              "extradata_size": 5,
+              "id": "0x2",
+              "index": 1,
+              "initial_padding": 0,
+              "nb_frames": "48",
+              "profile": "LC",
+              "r_frame_rate": "0/0",
+              "sample_fmt": "fltp",
+              "sample_rate": "48000",
+              "start_pts": 0,
+              "start_time": "0.000000",
+              "tags": {
+                "handler_name": "SoundHandler",
+                "language": "und",
+                "vendor_id": "[0][0][0][0]"
+              },
+              "time_base": "1/48000"
+            }
+          ]
+        },
+        "quarantine": false,
+        "verbose": true
+      },
+      "name": "finalize plain_faststart.mp4 clean verbose"
+    },
+    {
+      "expected": {
+        "files": {
+          "out.mp4": "b78216e1690bc5c76823c6be73305b9460b02ebc9dd55460f54f7494902ffd6a"
+        },
+        "listing": [
+          "work/out.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "printed": [],
+        "sidecars": {},
+        "violations": []
+      },
+      "input": {
+        "atmos": false,
+        "dump": "plain_faststart.mp4 dump recorded",
+        "file": "plain_faststart.mp4",
+        "info": "plain_faststart.mp4 info recorded",
+        "kind": "finalize",
+        "probe": {
+          "format": {
+            "bit_rate": "891256",
+            "duration": "1.000000",
+            "filename": "/Users/chl/gitea-repositories/atvprep-rs/rust/testdata/mp4/plain_faststart.mp4",
+            "format_long_name": "QuickTime / MOV",
+            "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+            "nb_programs": 0,
+            "nb_stream_groups": 0,
+            "nb_streams": 2,
+            "probe_score": 100,
+            "size": "111407",
+            "start_time": "0.000000",
+            "tags": {
+              "compatible_brands": "isomiso2avc1mp41",
+              "encoder": "Lavf62.3.100",
+              "major_brand": "isom",
+              "minor_version": "512"
+            }
+          },
+          "streams": [
+            {
+              "avg_frame_rate": "24/1",
+              "bit_rate": "745768",
+              "bits_per_raw_sample": "8",
+              "chroma_location": "left",
+              "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+              "codec_name": "h264",
+              "codec_tag": "0x31637661",
+              "codec_tag_string": "avc1",
+              "codec_type": "video",
+              "coded_height": 240,
+              "coded_width": 320,
+              "display_aspect_ratio": "4:3",
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 1,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "duration": "1.000000",
+              "duration_ts": 12288,
+              "extradata_size": 37,
+              "field_order": "progressive",
+              "has_b_frames": 0,
+              "height": 240,
+              "id": "0x1",
+              "index": 0,
+              "is_avc": "true",
+              "level": 13,
+              "nal_length_size": "4",
+              "nb_frames": "24",
+              "pix_fmt": "yuv420p",
+              "profile": "Constrained Baseline",
+              "r_frame_rate": "24/1",
+              "refs": 1,
+              "sample_aspect_ratio": "1:1",
+              "start_pts": 0,
+              "start_time": "0.000000",
+              "tags": {
+                "encoder": "Lavc62.11.100 libx264",
+                "handler_name": "VideoHandler",
+                "language": "und",
+                "vendor_id": "[0][0][0][0]"
+              },
+              "time_base": "1/12288",
+              "width": 320
+            },
+            {
+              "avg_frame_rate": "0/0",
+              "bit_rate": "127331",
+              "bits_per_sample": 0,
+              "channel_layout": "stereo",
+              "channels": 2,
+              "codec_long_name": "AAC (Advanced Audio Coding)",
+              "codec_name": "aac",
+              "codec_tag": "0x6134706d",
+              "codec_tag_string": "mp4a",
+              "codec_type": "audio",
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 1,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "duration": "1.000000",
+              "duration_ts": 48000,
+              "extradata_size": 5,
+              "id": "0x2",
+              "index": 1,
+              "initial_padding": 0,
+              "nb_frames": "48",
+              "profile": "LC",
+              "r_frame_rate": "0/0",
+              "sample_fmt": "fltp",
+              "sample_rate": "48000",
+              "start_pts": 0,
+              "start_time": "0.000000",
+              "tags": {
+                "handler_name": "SoundHandler",
+                "language": "und",
+                "vendor_id": "[0][0][0][0]"
+              },
+              "time_base": "1/48000"
+            }
+          ]
+        },
+        "quarantine": false,
+        "verbose": false
+      },
+      "name": "finalize plain_faststart.mp4 clean quiet"
+    },
+    {
+      "expected": {
+        "files": {
+          "out.mp4": "898ccefc886fef27d032e34322c4f02c2f8608f3a3c40420cc0cdbb0a12fab61"
+        },
+        "listing": [
+          "work/out.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "printed": [
+          "  ✗ verify failed <base>/work/out.mp4 — 1 blocker(s)",
+          "     no-fragments: file is fragmented (mvex atom found in moov) -- AVPlayer on tvOS mishandles fragmented MP4 over progressive HTTP"
+        ],
+        "sidecars": {},
+        "violations": [
+          [
+            "no-fragments",
+            "blocker",
+            "file is fragmented (mvex atom found in moov) -- AVPlayer on tvOS mishandles fragmented MP4 over progressive HTTP",
+            null
+          ],
+          [
+            "apple-tags",
+            "warning",
+            "1 track lacks an elng tag",
+            null
+          ]
+        ]
+      },
+      "input": {
+        "atmos": false,
+        "dump": "syn_fragmented.mp4 dump recorded",
+        "file": "syn_fragmented.mp4",
+        "info": "syn_fragmented.mp4 info recorded",
+        "kind": "finalize",
+        "probe": {
+          "format": {
+            "filename": "/Users/chl/gitea-repositories/atvprep-rs/rust/testdata/mp4/syn_fragmented.mp4",
+            "format_long_name": "QuickTime / MOV",
+            "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+            "nb_programs": 0,
+            "nb_stream_groups": 0,
+            "nb_streams": 2,
+            "probe_score": 100,
+            "size": "4878",
+            "tags": {
+              "compatible_brands": "isomiso2avc1mp41",
+              "major_brand": "isom",
+              "minor_version": "512"
+            }
+          },
+          "streams": [
+            {
+              "avg_frame_rate": "0/0",
+              "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+              "codec_name": "h264",
+              "codec_tag": "0x31637661",
+              "codec_tag_string": "avc1",
+              "codec_type": "video",
+              "coded_height": 240,
+              "coded_width": 320,
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 1,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "duration": "0.000000",
+              "duration_ts": 0,
+              "has_b_frames": 0,
+              "height": 240,
+              "id": "0x1",
+              "index": 0,
+              "is_avc": "false",
+              "level": -99,
+              "nal_length_size": "0",
+              "r_frame_rate": "90000/1",
+              "refs": 1,
+              "tags": {
+                "handler_name": "Handler",
+                "language": "und",
+                "vendor_id": "[0][0][0][0]"
+              },
+              "time_base": "1/90000",
+              "width": 320
+            },
+            {
+              "avg_frame_rate": "0/0",
+              "bits_per_sample": 0,
+              "channel_layout": "stereo",
+              "channels": 2,
+              "codec_long_name": "AAC (Advanced Audio Coding)",
+              "codec_name": "aac",
+              "codec_tag": "0x6134706d",
+              "codec_tag_string": "mp4a",
+              "codec_type": "audio",
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 1,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "duration": "0.000000",
+              "duration_ts": 0,
+              "id": "0x2",
+              "index": 1,
+              "initial_padding": 0,
+              "r_frame_rate": "0/0",
+              "sample_fmt": "fltp",
+              "sample_rate": "48000",
+              "tags": {
+                "handler_name": "Handler",
+                "language": "eng",
+                "vendor_id": "[0][0][0][0]"
+              },
+              "time_base": "1/90000"
+            }
+          ]
+        },
+        "quarantine": false,
+        "verbose": false
+      },
+      "name": "finalize syn_fragmented.mp4 fragmented without quarantine"
+    },
+    {
+      "expected": {
+        "files": {
+          "out.mp4": "898ccefc886fef27d032e34322c4f02c2f8608f3a3c40420cc0cdbb0a12fab61"
+        },
+        "listing": [
+          "q/out.mp4",
+          "q/out.mp4.verify.json"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "printed": [
+          "  ✗ quarantined <base>/q/out.mp4 — 1 blocker(s)"
+        ],
+        "sidecars": {
+          "q/out.mp4.verify.json": "{\n  \"path\": \"<base>/work/out.mp4\",\n  \"passed\": false,\n  \"violations\": [\n    {\n      \"rule\": \"no-fragments\",\n      \"severity\": \"blocker\",\n      \"message\": \"file is fragmented (mvex atom found in moov) -- AVPlayer on tvOS mishandles fragmented MP4 over progressive HTTP\",\n      \"track_id\": null\n    },\n    {\n      \"rule\": \"apple-tags\",\n      \"severity\": \"warning\",\n      \"message\": \"1 track lacks an elng tag\",\n      \"track_id\": null\n    }\n  ]\n}\n"
+        },
+        "violations": [
+          [
+            "no-fragments",
+            "blocker",
+            "file is fragmented (mvex atom found in moov) -- AVPlayer on tvOS mishandles fragmented MP4 over progressive HTTP",
+            null
+          ],
+          [
+            "apple-tags",
+            "warning",
+            "1 track lacks an elng tag",
+            null
+          ]
+        ]
+      },
+      "input": {
+        "atmos": false,
+        "dump": "syn_fragmented.mp4 dump recorded",
+        "file": "syn_fragmented.mp4",
+        "info": "syn_fragmented.mp4 info recorded",
+        "kind": "finalize",
+        "probe": {
+          "format": {
+            "filename": "/Users/chl/gitea-repositories/atvprep-rs/rust/testdata/mp4/syn_fragmented.mp4",
+            "format_long_name": "QuickTime / MOV",
+            "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+            "nb_programs": 0,
+            "nb_stream_groups": 0,
+            "nb_streams": 2,
+            "probe_score": 100,
+            "size": "4878",
+            "tags": {
+              "compatible_brands": "isomiso2avc1mp41",
+              "major_brand": "isom",
+              "minor_version": "512"
+            }
+          },
+          "streams": [
+            {
+              "avg_frame_rate": "0/0",
+              "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+              "codec_name": "h264",
+              "codec_tag": "0x31637661",
+              "codec_tag_string": "avc1",
+              "codec_type": "video",
+              "coded_height": 240,
+              "coded_width": 320,
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 1,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "duration": "0.000000",
+              "duration_ts": 0,
+              "has_b_frames": 0,
+              "height": 240,
+              "id": "0x1",
+              "index": 0,
+              "is_avc": "false",
+              "level": -99,
+              "nal_length_size": "0",
+              "r_frame_rate": "90000/1",
+              "refs": 1,
+              "tags": {
+                "handler_name": "Handler",
+                "language": "und",
+                "vendor_id": "[0][0][0][0]"
+              },
+              "time_base": "1/90000",
+              "width": 320
+            },
+            {
+              "avg_frame_rate": "0/0",
+              "bits_per_sample": 0,
+              "channel_layout": "stereo",
+              "channels": 2,
+              "codec_long_name": "AAC (Advanced Audio Coding)",
+              "codec_name": "aac",
+              "codec_tag": "0x6134706d",
+              "codec_tag_string": "mp4a",
+              "codec_type": "audio",
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 1,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "duration": "0.000000",
+              "duration_ts": 0,
+              "id": "0x2",
+              "index": 1,
+              "initial_padding": 0,
+              "r_frame_rate": "0/0",
+              "sample_fmt": "fltp",
+              "sample_rate": "48000",
+              "tags": {
+                "handler_name": "Handler",
+                "language": "eng",
+                "vendor_id": "[0][0][0][0]"
+              },
+              "time_base": "1/90000"
+            }
+          ]
+        },
+        "quarantine": true,
+        "verbose": false
+      },
+      "name": "finalize syn_fragmented.mp4 fragmented with quarantine"
+    },
+    {
+      "expected": {
+        "files": {
+          "out.mp4": "f99011ffc2af859eb23ea10a704bdabf62c0883b20dbcd21f8249573a7fd3a89"
+        },
+        "listing": [
+          "work/out.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "printed": [
+          "  ✗ verify failed <base>/work/out.mp4 — 1 blocker(s)",
+          "     ftyp-dby1-requires-atmos: ftyp compatible_brands contains 'dby1' but no audio track reports real Dolby Atmos (JOC); AVPlayer will route via Dolby MAT and deliver silence on Atmos-capable AVRs."
+        ],
+        "sidecars": {},
+        "violations": [
+          [
+            "ftyp-dby1-requires-atmos",
+            "blocker",
+            "ftyp compatible_brands contains 'dby1' but no audio track reports real Dolby Atmos (JOC); AVPlayer will route via Dolby MAT and deliver silence on Atmos-capable AVRs.",
+            null
+          ],
+          [
+            "apple-tags",
+            "warning",
+            "1 track lacks an elng tag",
+            null
+          ],
+          [
+            "stereo-twin",
+            "warning",
+            "no stereo track for eng",
+            null
+          ]
+        ]
+      },
+      "input": {
+        "atmos": true,
+        "dump": "atmos_dec3.mp4 dump recorded",
+        "file": "atmos_dec3.mp4",
+        "info": "atmos_dec3.mp4 info recorded",
+        "kind": "finalize",
+        "probe": {
+          "format": {
+            "bit_rate": "1153224",
+            "duration": "1.000000",
+            "filename": "/Users/chl/gitea-repositories/atvprep-rs/rust/testdata/mp4/atmos_dec3.mp4",
+            "format_long_name": "QuickTime / MOV",
+            "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+            "nb_programs": 0,
+            "nb_stream_groups": 0,
+            "nb_streams": 2,
+            "probe_score": 100,
+            "size": "144153",
+            "start_time": "0.000000",
+            "tags": {
+              "compatible_brands": "isomdby1iso2avc1mp41",
+              "encoder": "Lavf62.3.100",
+              "major_brand": "isom",
+              "minor_version": "512"
+            }
+          },
+          "streams": [
+            {
+              "avg_frame_rate": "24/1",
+              "bit_rate": "745768",
+              "bits_per_raw_sample": "8",
+              "chroma_location": "left",
+              "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+              "codec_name": "h264",
+              "codec_tag": "0x31637661",
+              "codec_tag_string": "avc1",
+              "codec_type": "video",
+              "coded_height": 240,
+              "coded_width": 320,
+              "display_aspect_ratio": "4:3",
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 1,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "duration": "1.000000",
+              "duration_ts": 12288,
+              "extradata_size": 37,
+              "field_order": "progressive",
+              "has_b_frames": 0,
+              "height": 240,
+              "id": "0x1",
+              "index": 0,
+              "is_avc": "true",
+              "level": 13,
+              "nal_length_size": "4",
+              "nb_frames": "24",
+              "pix_fmt": "yuv420p",
+              "profile": "Constrained Baseline",
+              "r_frame_rate": "24/1",
+              "refs": 1,
+              "sample_aspect_ratio": "1:1",
+              "start_pts": 0,
+              "start_time": "0.000000",
+              "tags": {
+                "encoder": "Lavc62.11.100 libx264",
+                "handler_name": "VideoHandler",
+                "language": "und",
+                "vendor_id": "[0][0][0][0]"
+              },
+              "time_base": "1/12288",
+              "width": 320
+            },
+            {
+              "avg_frame_rate": "0/0",
+              "bit_rate": "384000",
+              "bits_per_sample": 0,
+              "channel_layout": "5.1(side)",
+              "channels": 6,
+              "codec_long_name": "ATSC A/52B (AC-3, E-AC-3)",
+              "codec_name": "eac3",
+              "codec_tag": "0x332d6365",
+              "codec_tag_string": "ec-3",
+              "codec_type": "audio",
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 1,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "dmix_mode": "0",
+              "duration": "0.994000",
+              "duration_ts": 47712,
+              "id": "0x2",
+              "index": 1,
+              "initial_padding": 0,
+              "loro_cmixlev": "0.000000",
+              "loro_surmixlev": "0.000000",
+              "ltrt_cmixlev": "0.000000",
+              "ltrt_surmixlev": "0.000000",
+              "nb_frames": "32",
+              "r_frame_rate": "0/0",
+              "sample_fmt": "fltp",
+              "sample_rate": "48000",
+              "side_data_list": [
+                {
+                  "service_type": 0,
+                  "side_data_type": "Audio Service Type"
+                }
+              ],
+              "start_pts": 0,
+              "start_time": "0.000000",
+              "tags": {
+                "handler_name": "SoundHandler",
+                "language": "eng",
+                "vendor_id": "[0][0][0][0]"
+              },
+              "time_base": "1/48000"
+            }
+          ]
+        },
+        "quarantine": false,
+        "verbose": false
+      },
+      "name": "finalize atmos_dec3.mp4 atmos kept"
+    }
+  ],
+  "suite": "pipeline_postfix"
+}

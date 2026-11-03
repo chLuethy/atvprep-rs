@@ -1,0 +1,3921 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1920
+        }
+      },
+      "name": "h264 high 1080p prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1920
+        }
+      },
+      "name": "h264 high 1080p prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1920
+        }
+      },
+      "name": "h264 high 1080p prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1920
+        }
+      },
+      "name": "h264 high 1080p prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Main",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Main",
+          "width": 1920
+        }
+      },
+      "name": "h264 main prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Main",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Main",
+          "width": 1920
+        }
+      },
+      "name": "h264 main prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Main",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Main",
+          "width": 1920
+        }
+      },
+      "name": "h264 main prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Main",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Main",
+          "width": 1920
+        }
+      },
+      "name": "h264 main prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Constrained Baseline",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Constrained Baseline",
+          "width": 1920
+        }
+      },
+      "name": "h264 baseline prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Constrained Baseline",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Constrained Baseline",
+          "width": 1920
+        }
+      },
+      "name": "h264 baseline prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Constrained Baseline",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Constrained Baseline",
+          "width": 1920
+        }
+      },
+      "name": "h264 baseline prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Constrained Baseline",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Constrained Baseline",
+          "width": 1920
+        }
+      },
+      "name": "h264 baseline prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 2160,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 3840
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 2160,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 3840
+        }
+      },
+      "name": "h264 4k prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 2160,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 3840
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 2160,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 3840
+        }
+      },
+      "name": "h264 4k prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 2160,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 3840
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 2160,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 3840
+        }
+      },
+      "name": "h264 4k prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 2160,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 3840
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 2160,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 3840
+        }
+      },
+      "name": "h264 4k prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 800,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 3840
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 800,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 3840
+        }
+      },
+      "name": "h264 width only 4k prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 800,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 3840
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 800,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 3840
+        }
+      },
+      "name": "h264 width only 4k prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 800,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 3840
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 800,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 3840
+        }
+      },
+      "name": "h264 width only 4k prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 800,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 3840
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 800,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 3840
+        }
+      },
+      "name": "h264 width only 4k prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 2160,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 1000
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 2160,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1000
+        }
+      },
+      "name": "h264 height only 4k prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 2160,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 1000
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 2160,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1000
+        }
+      },
+      "name": "h264 height only 4k prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 2160,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 1000
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 2160,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1000
+        }
+      },
+      "name": "h264 height only 4k prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 2160,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 1000
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 2160,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1000
+        }
+      },
+      "name": "h264 height only 4k prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "bt2020",
+        "color_transfer": "smpte2084",
+        "dolby_vision": false,
+        "hdr": true,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "color_primaries": "bt2020",
+          "color_space": "bt2020nc",
+          "color_transfer": "smpte2084",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1920
+        }
+      },
+      "name": "h264 hdr prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "bt2020",
+        "color_transfer": "smpte2084",
+        "dolby_vision": false,
+        "hdr": true,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "color_primaries": "bt2020",
+          "color_space": "bt2020nc",
+          "color_transfer": "smpte2084",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1920
+        }
+      },
+      "name": "h264 hdr prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "bt2020",
+        "color_transfer": "smpte2084",
+        "dolby_vision": false,
+        "hdr": true,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "color_primaries": "bt2020",
+          "color_space": "bt2020nc",
+          "color_transfer": "smpte2084",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1920
+        }
+      },
+      "name": "h264 hdr prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "bt2020",
+        "color_transfer": "smpte2084",
+        "dolby_vision": false,
+        "hdr": true,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "color_primaries": "bt2020",
+          "color_space": "bt2020nc",
+          "color_transfer": "smpte2084",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1920
+        }
+      },
+      "name": "h264 hdr prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p10le",
+        "profile": "High 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p10le",
+          "profile": "High 10",
+          "width": 1920
+        }
+      },
+      "name": "h264 high 10 prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p10le",
+        "profile": "High 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p10le",
+          "profile": "High 10",
+          "width": 1920
+        }
+      },
+      "name": "h264 high 10 prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p10le",
+        "profile": "High 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p10le",
+          "profile": "High 10",
+          "width": 1920
+        }
+      },
+      "name": "h264 high 10 prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p10le",
+        "profile": "High 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p10le",
+          "profile": "High 10",
+          "width": 1920
+        }
+      },
+      "name": "h264 high 10 prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv422p",
+        "profile": "High 4:2:2",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv422p",
+          "profile": "High 4:2:2",
+          "width": 1920
+        }
+      },
+      "name": "h264 high 422 prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv422p",
+        "profile": "High 4:2:2",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv422p",
+          "profile": "High 4:2:2",
+          "width": 1920
+        }
+      },
+      "name": "h264 high 422 prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv422p",
+        "profile": "High 4:2:2",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv422p",
+          "profile": "High 4:2:2",
+          "width": 1920
+        }
+      },
+      "name": "h264 high 422 prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv422p",
+        "profile": "High 4:2:2",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv422p",
+          "profile": "High 4:2:2",
+          "width": 1920
+        }
+      },
+      "name": "h264 high 422 prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "",
+        "profile": "",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": null,
+          "profile": null,
+          "width": 1920
+        }
+      },
+      "name": "h264 no profile prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "",
+        "profile": "",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": null,
+          "profile": null,
+          "width": 1920
+        }
+      },
+      "name": "h264 no profile prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "",
+        "profile": "",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": null,
+          "profile": null,
+          "width": 1920
+        }
+      },
+      "name": "h264 no profile prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "",
+        "profile": "",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": null,
+          "profile": null,
+          "width": 1920
+        }
+      },
+      "name": "h264 no profile prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "H264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1920
+        }
+      },
+      "name": "h264 uppercase codec prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "H264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1920
+        }
+      },
+      "name": "h264 uppercase codec prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "H264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1920
+        }
+      },
+      "name": "h264 uppercase codec prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "H264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1920
+        }
+      },
+      "name": "h264 uppercase codec prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "mpeg4",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Advanced Simple Profile",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "mpeg4",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Advanced Simple Profile",
+          "width": 1920
+        }
+      },
+      "name": "mpeg4 prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "mpeg4",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Advanced Simple Profile",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "mpeg4",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Advanced Simple Profile",
+          "width": 1920
+        }
+      },
+      "name": "mpeg4 prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "mpeg4",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Advanced Simple Profile",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "mpeg4",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Advanced Simple Profile",
+          "width": 1920
+        }
+      },
+      "name": "mpeg4 prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "mpeg4",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Advanced Simple Profile",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "mpeg4",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Advanced Simple Profile",
+          "width": 1920
+        }
+      },
+      "name": "mpeg4 prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "mpeg2video",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Main",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "mpeg2video",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Main",
+          "width": 1920
+        }
+      },
+      "name": "mpeg2 prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "mpeg2video",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Main",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "mpeg2video",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Main",
+          "width": 1920
+        }
+      },
+      "name": "mpeg2 prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "mpeg2video",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Main",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "mpeg2video",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Main",
+          "width": 1920
+        }
+      },
+      "name": "mpeg2 prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "mpeg2video",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Main",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "mpeg2video",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Main",
+          "width": 1920
+        }
+      },
+      "name": "mpeg2 prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Main",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Main",
+          "width": 1920
+        }
+      },
+      "name": "hevc main prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Main",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Main",
+          "width": 1920
+        }
+      },
+      "name": "hevc main prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Main",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Main",
+          "width": 1920
+        }
+      },
+      "name": "hevc main prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Main",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Main",
+          "width": 1920
+        }
+      },
+      "name": "hevc main prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "bt2020",
+        "color_transfer": "smpte2084",
+        "dolby_vision": false,
+        "hdr": true,
+        "height": 1080,
+        "pix_fmt": "yuv420p10le",
+        "profile": "Main 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "color_primaries": "bt2020",
+          "color_space": "bt2020nc",
+          "color_transfer": "smpte2084",
+          "height": 1080,
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10",
+          "width": 1920
+        }
+      },
+      "name": "hevc main 10 prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "bt2020",
+        "color_transfer": "smpte2084",
+        "dolby_vision": false,
+        "hdr": true,
+        "height": 1080,
+        "pix_fmt": "yuv420p10le",
+        "profile": "Main 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "color_primaries": "bt2020",
+          "color_space": "bt2020nc",
+          "color_transfer": "smpte2084",
+          "height": 1080,
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10",
+          "width": 1920
+        }
+      },
+      "name": "hevc main 10 prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "bt2020",
+        "color_transfer": "smpte2084",
+        "dolby_vision": false,
+        "hdr": true,
+        "height": 1080,
+        "pix_fmt": "yuv420p10le",
+        "profile": "Main 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "color_primaries": "bt2020",
+          "color_space": "bt2020nc",
+          "color_transfer": "smpte2084",
+          "height": 1080,
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10",
+          "width": 1920
+        }
+      },
+      "name": "hevc main 10 prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "bt2020",
+        "color_transfer": "smpte2084",
+        "dolby_vision": false,
+        "hdr": true,
+        "height": 1080,
+        "pix_fmt": "yuv420p10le",
+        "profile": "Main 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "color_primaries": "bt2020",
+          "color_space": "bt2020nc",
+          "color_transfer": "smpte2084",
+          "height": 1080,
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10",
+          "width": 1920
+        }
+      },
+      "name": "hevc main 10 prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p12le",
+        "profile": "Main 12",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p12le",
+          "profile": "Main 12",
+          "width": 1920
+        }
+      },
+      "name": "hevc main 12 prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p12le",
+        "profile": "Main 12",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p12le",
+          "profile": "Main 12",
+          "width": 1920
+        }
+      },
+      "name": "hevc main 12 prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p12le",
+        "profile": "Main 12",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p12le",
+          "profile": "Main 12",
+          "width": 1920
+        }
+      },
+      "name": "hevc main 12 prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p12le",
+        "profile": "Main 12",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p12le",
+          "profile": "Main 12",
+          "width": 1920
+        }
+      },
+      "name": "hevc main 12 prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Rext",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Rext",
+          "width": 1920
+        }
+      },
+      "name": "hevc rext prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Rext",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Rext",
+          "width": 1920
+        }
+      },
+      "name": "hevc rext prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Rext",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Rext",
+          "width": 1920
+        }
+      },
+      "name": "hevc rext prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Rext",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Rext",
+          "width": 1920
+        }
+      },
+      "name": "hevc rext prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv422p10le",
+        "profile": "Main 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv422p10le",
+          "profile": "Main 10",
+          "width": 1920
+        }
+      },
+      "name": "hevc 422 prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv422p10le",
+        "profile": "Main 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv422p10le",
+          "profile": "Main 10",
+          "width": 1920
+        }
+      },
+      "name": "hevc 422 prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv422p10le",
+        "profile": "Main 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv422p10le",
+          "profile": "Main 10",
+          "width": 1920
+        }
+      },
+      "name": "hevc 422 prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv422p10le",
+        "profile": "Main 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv422p10le",
+          "profile": "Main 10",
+          "width": 1920
+        }
+      },
+      "name": "hevc 422 prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": true,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p10le",
+        "profile": "Main 10",
+        "tag": "dvh1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10",
+          "side_data_list": [
+            {
+              "dv_profile": 5,
+              "side_data_type": "DOVI configuration record"
+            }
+          ],
+          "width": 1920
+        }
+      },
+      "name": "hevc dv p5 prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": true,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p10le",
+        "profile": "Main 10",
+        "tag": "dvh1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10",
+          "side_data_list": [
+            {
+              "dv_profile": 5,
+              "side_data_type": "DOVI configuration record"
+            }
+          ],
+          "width": 1920
+        }
+      },
+      "name": "hevc dv p5 prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": true,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p10le",
+        "profile": "Main 10",
+        "tag": "dvh1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10",
+          "side_data_list": [
+            {
+              "dv_profile": 5,
+              "side_data_type": "DOVI configuration record"
+            }
+          ],
+          "width": 1920
+        }
+      },
+      "name": "hevc dv p5 prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": true,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p10le",
+        "profile": "Main 10",
+        "tag": "dvh1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10",
+          "side_data_list": [
+            {
+              "dv_profile": 5,
+              "side_data_type": "DOVI configuration record"
+            }
+          ],
+          "width": 1920
+        }
+      },
+      "name": "hevc dv p5 prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": true,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p10le",
+        "profile": "Main 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10",
+          "side_data_list": [
+            {
+              "dv_profile": 7,
+              "side_data_type": "DOVI configuration record"
+            }
+          ],
+          "width": 1920
+        }
+      },
+      "name": "hevc dv p7 prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": true,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p10le",
+        "profile": "Main 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10",
+          "side_data_list": [
+            {
+              "dv_profile": 7,
+              "side_data_type": "DOVI configuration record"
+            }
+          ],
+          "width": 1920
+        }
+      },
+      "name": "hevc dv p7 prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": true,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p10le",
+        "profile": "Main 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10",
+          "side_data_list": [
+            {
+              "dv_profile": 7,
+              "side_data_type": "DOVI configuration record"
+            }
+          ],
+          "width": 1920
+        }
+      },
+      "name": "hevc dv p7 prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": true,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p10le",
+        "profile": "Main 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10",
+          "side_data_list": [
+            {
+              "dv_profile": 7,
+              "side_data_type": "DOVI configuration record"
+            }
+          ],
+          "width": 1920
+        }
+      },
+      "name": "hevc dv p7 prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": true,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Main 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Main 10",
+          "tags": {
+            "DOVI": "1"
+          },
+          "width": 1920
+        }
+      },
+      "name": "hevc dv tag prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": true,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Main 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Main 10",
+          "tags": {
+            "DOVI": "1"
+          },
+          "width": 1920
+        }
+      },
+      "name": "hevc dv tag prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": true,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Main 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Main 10",
+          "tags": {
+            "DOVI": "1"
+          },
+          "width": 1920
+        }
+      },
+      "name": "hevc dv tag prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": true,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Main 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Main 10",
+          "tags": {
+            "DOVI": "1"
+          },
+          "width": 1920
+        }
+      },
+      "name": "hevc dv tag prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": true,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "side_data_list": [
+            {
+              "dv_profile": 7,
+              "side_data_type": "DOVI configuration record"
+            }
+          ],
+          "width": 1920
+        }
+      },
+      "name": "h264 dv prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": true,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "side_data_list": [
+            {
+              "dv_profile": 7,
+              "side_data_type": "DOVI configuration record"
+            }
+          ],
+          "width": 1920
+        }
+      },
+      "name": "h264 dv prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": true,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "side_data_list": [
+            {
+              "dv_profile": 7,
+              "side_data_type": "DOVI configuration record"
+            }
+          ],
+          "width": 1920
+        }
+      },
+      "name": "h264 dv prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": true,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "side_data_list": [
+            {
+              "dv_profile": 7,
+              "side_data_type": "DOVI configuration record"
+            }
+          ],
+          "width": 1920
+        }
+      },
+      "name": "h264 dv prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "av1",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Main",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "av1",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Main",
+          "width": 1920
+        }
+      },
+      "name": "av1 main prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "av1",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Main",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "av1",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Main",
+          "width": 1920
+        }
+      },
+      "name": "av1 main prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "av1",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Main",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "av1",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Main",
+          "width": 1920
+        }
+      },
+      "name": "av1 main prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "av1",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Main",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "av1",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Main",
+          "width": 1920
+        }
+      },
+      "name": "av1 main prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "av1",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "av1",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": null,
+          "width": 1920
+        }
+      },
+      "name": "av1 no profile prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "av1",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "av1",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": null,
+          "width": 1920
+        }
+      },
+      "name": "av1 no profile prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "av1",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "av1",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": null,
+          "width": 1920
+        }
+      },
+      "name": "av1 no profile prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "av1",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "av1",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": null,
+          "width": 1920
+        }
+      },
+      "name": "av1 no profile prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "av1",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "av1",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1920
+        }
+      },
+      "name": "av1 high prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "av1",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "av1",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1920
+        }
+      },
+      "name": "av1 high prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "av1",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "av1",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1920
+        }
+      },
+      "name": "av1 high prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "av1",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "av1",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1920
+        }
+      },
+      "name": "av1 high prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "vp9",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Profile 0",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "vp9",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Profile 0",
+          "width": 1920
+        }
+      },
+      "name": "vp9 prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "vp9",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Profile 0",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "vp9",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Profile 0",
+          "width": 1920
+        }
+      },
+      "name": "vp9 prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "vp9",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Profile 0",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "vp9",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Profile 0",
+          "width": 1920
+        }
+      },
+      "name": "vp9 prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "vp9",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Profile 0",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "vp9",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Profile 0",
+          "width": 1920
+        }
+      },
+      "name": "vp9 prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "vc1",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Advanced",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "vc1",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Advanced",
+          "width": 1920
+        }
+      },
+      "name": "vc1 prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "vc1",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Advanced",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "vc1",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Advanced",
+          "width": 1920
+        }
+      },
+      "name": "vc1 prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "vc1",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Advanced",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "vc1",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Advanced",
+          "width": 1920
+        }
+      },
+      "name": "vc1 prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "vc1",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "Advanced",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "vc1",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "Advanced",
+          "width": 1920
+        }
+      },
+      "name": "vc1 prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "prores",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "HQ",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "prores",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "HQ",
+          "width": 1920
+        }
+      },
+      "name": "unknown codec prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "prores",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "HQ",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "prores",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "HQ",
+          "width": 1920
+        }
+      },
+      "name": "unknown codec prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "prores",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "HQ",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "prores",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "HQ",
+          "width": 1920
+        }
+      },
+      "name": "unknown codec prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "prores",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "HQ",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "prores",
+          "codec_type": "video",
+          "height": 1080,
+          "pix_fmt": "yuv420p",
+          "profile": "HQ",
+          "width": 1920
+        }
+      },
+      "name": "unknown codec prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 0,
+        "pix_fmt": "",
+        "profile": "",
+        "tag": null,
+        "width": 0
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": null,
+          "codec_type": "video",
+          "height": null,
+          "pix_fmt": null,
+          "profile": null,
+          "width": null
+        }
+      },
+      "name": "null codec prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 0,
+        "pix_fmt": "",
+        "profile": "",
+        "tag": "hvc1",
+        "width": 0
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": null,
+          "codec_type": "video",
+          "height": null,
+          "pix_fmt": null,
+          "profile": null,
+          "width": null
+        }
+      },
+      "name": "null codec prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 0,
+        "pix_fmt": "",
+        "profile": "",
+        "tag": null,
+        "width": 0
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": null,
+          "codec_type": "video",
+          "height": null,
+          "pix_fmt": null,
+          "profile": null,
+          "width": null
+        }
+      },
+      "name": "null codec prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 0,
+        "pix_fmt": "",
+        "profile": "",
+        "tag": "hvc1",
+        "width": 0
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": null,
+          "codec_type": "video",
+          "height": null,
+          "pix_fmt": null,
+          "profile": null,
+          "width": null
+        }
+      },
+      "name": "null codec prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 2160,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 3840
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": "2160",
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": "3840"
+        }
+      },
+      "name": "string dimensions prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 2160,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 3840
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": "2160",
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": "3840"
+        }
+      },
+      "name": "string dimensions prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 2160,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 3840
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": "2160",
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": "3840"
+        }
+      },
+      "name": "string dimensions prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 2160,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 3840
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": "2160",
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": "3840"
+        }
+      },
+      "name": "string dimensions prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080.9,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1920.0
+        }
+      },
+      "name": "float dimensions prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080.9,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1920.0
+        }
+      },
+      "name": "float dimensions prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": null,
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080.9,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1920.0
+        }
+      },
+      "name": "float dimensions prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "h264",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 1080,
+        "pix_fmt": "yuv420p",
+        "profile": "High",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "height": 1080.9,
+          "pix_fmt": "yuv420p",
+          "profile": "High",
+          "width": 1920.0
+        }
+      },
+      "name": "float dimensions prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "bt2020",
+        "color_transfer": "arib-std-b67",
+        "dolby_vision": false,
+        "hdr": true,
+        "height": 1080,
+        "pix_fmt": "yuv420p10le",
+        "profile": "Main 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "color_primaries": "BT2020",
+          "color_transfer": "ARIB-STD-B67",
+          "height": 1080,
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10",
+          "width": 1920
+        }
+      },
+      "name": "hlg prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "bt2020",
+        "color_transfer": "arib-std-b67",
+        "dolby_vision": false,
+        "hdr": true,
+        "height": 1080,
+        "pix_fmt": "yuv420p10le",
+        "profile": "Main 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "color_primaries": "BT2020",
+          "color_transfer": "ARIB-STD-B67",
+          "height": 1080,
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10",
+          "width": 1920
+        }
+      },
+      "name": "hlg prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "bt2020",
+        "color_transfer": "arib-std-b67",
+        "dolby_vision": false,
+        "hdr": true,
+        "height": 1080,
+        "pix_fmt": "yuv420p10le",
+        "profile": "Main 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "color_primaries": "BT2020",
+          "color_transfer": "ARIB-STD-B67",
+          "height": 1080,
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10",
+          "width": 1920
+        }
+      },
+      "name": "hlg prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "hevc",
+        "color_primaries": "bt2020",
+        "color_transfer": "arib-std-b67",
+        "dolby_vision": false,
+        "hdr": true,
+        "height": 1080,
+        "pix_fmt": "yuv420p10le",
+        "profile": "Main 10",
+        "tag": "hvc1",
+        "width": 1920
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "color_primaries": "BT2020",
+          "color_transfer": "ARIB-STD-B67",
+          "height": 1080,
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10",
+          "width": 1920
+        }
+      },
+      "name": "hlg prefer=True keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 0,
+        "pix_fmt": "",
+        "profile": "",
+        "tag": null,
+        "width": 0
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "stream": {}
+      },
+      "name": "empty prefer=False keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 0,
+        "pix_fmt": "",
+        "profile": "",
+        "tag": "hvc1",
+        "width": 0
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "stream": {}
+      },
+      "name": "empty prefer=True keep_av1=False"
+    },
+    {
+      "expected": {
+        "action": "copy",
+        "codec": "",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 0,
+        "pix_fmt": "",
+        "profile": "",
+        "tag": null,
+        "width": 0
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "stream": {}
+      },
+      "name": "empty prefer=False keep_av1=True"
+    },
+    {
+      "expected": {
+        "action": "transcode",
+        "codec": "",
+        "color_primaries": "",
+        "color_transfer": "",
+        "dolby_vision": false,
+        "hdr": false,
+        "height": 0,
+        "pix_fmt": "",
+        "profile": "",
+        "tag": "hvc1",
+        "width": 0
+      },
+      "input": {
+        "crf": 18,
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "stream": {}
+      },
+      "name": "empty prefer=True keep_av1=True"
+    }
+  ],
+  "suite": "analyze_video"
+}

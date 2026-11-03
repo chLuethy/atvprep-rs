@@ -1,0 +1,17 @@
+name: Build release binaries
+on:
+  push:
+    tags:
+      - 'v*'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build unsigned Linux binaries
+        run: ./rust/release/build.sh "$RUNNER_TEMP/atvprep-release"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: atvprep-linux-unsigned
+          path: ${{ runner.temp }}/atvprep-release/
+          if-no-files-found: error

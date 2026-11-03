@@ -1,0 +1,2010 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "add": {
+          "len": 1882,
+          "sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878"
+        },
+        "shift": {
+          "len": 1882,
+          "sha": "306888e028042353222b36498e36f423e75fa344781c0779a241fe7b1f092878"
+        }
+      },
+      "input": {
+        "delta": 0,
+        "file": "plain_faststart.mp4"
+      },
+      "name": "plain_faststart.mp4 delta=0"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 1882,
+          "sha": "b22b3a62d8b7793aaf580e3f2c3cc5a32c034a65149e3bc56cef158fc4b7c2d6"
+        },
+        "shift": {
+          "len": 1882,
+          "sha": "b22b3a62d8b7793aaf580e3f2c3cc5a32c034a65149e3bc56cef158fc4b7c2d6"
+        }
+      },
+      "input": {
+        "delta": 1,
+        "file": "plain_faststart.mp4"
+      },
+      "name": "plain_faststart.mp4 delta=1"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 1882,
+          "sha": "b5cda00fdf3088e0170d4cbea16b0bc6be39f923c9cee28c3958729bc7d80e8d"
+        },
+        "shift": {
+          "len": 1882,
+          "sha": "b5cda00fdf3088e0170d4cbea16b0bc6be39f923c9cee28c3958729bc7d80e8d"
+        }
+      },
+      "input": {
+        "delta": 1000,
+        "file": "plain_faststart.mp4"
+      },
+      "name": "plain_faststart.mp4 delta=1000"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 2078,
+          "sha": "7259824020b357a18e7cb6030696c546411667a0972697b10e62dfda6b1c88ea"
+        }
+      },
+      "input": {
+        "delta": 4294967295,
+        "file": "plain_faststart.mp4"
+      },
+      "name": "plain_faststart.mp4 delta=4294967295"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 2078,
+          "sha": "f7dba4e8c0b0dd6eae0b86ec99c97ad4234bf410a667ac7e56d2db1c958c2331"
+        }
+      },
+      "input": {
+        "delta": 4294967296,
+        "file": "plain_faststart.mp4"
+      },
+      "name": "plain_faststart.mp4 delta=4294967296"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 2078,
+          "sha": "13e7ceaedd5f72bcfed79fdf30812599716c1e4a818f8698a8c786647e616d92"
+        }
+      },
+      "input": {
+        "delta": 8589934597,
+        "file": "plain_faststart.mp4"
+      },
+      "name": "plain_faststart.mp4 delta=8589934597"
+    },
+    {
+      "expected": {
+        "front": {
+          "len": 1882,
+          "sha": "492b62f4157e9fd2c8fdd5ff4dbe2eb3dfcc809b700d038dd3509e306ff44275"
+        }
+      },
+      "input": {
+        "delta": null,
+        "file": "plain_faststart.mp4"
+      },
+      "name": "plain_faststart.mp4 front"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 1882,
+          "sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464"
+        },
+        "shift": {
+          "len": 1882,
+          "sha": "b8f5ad5810f8f631826f2c63c102239c4dba3c5155b895e3007401500a8a1464"
+        }
+      },
+      "input": {
+        "delta": 0,
+        "file": "plain_moov_last.mp4"
+      },
+      "name": "plain_moov_last.mp4 delta=0"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 1882,
+          "sha": "36c9d13f03bd4cd4770c3ea60bdc95d26d3380043526c0d17fbd41f7f79eaaa5"
+        },
+        "shift": {
+          "len": 1882,
+          "sha": "36c9d13f03bd4cd4770c3ea60bdc95d26d3380043526c0d17fbd41f7f79eaaa5"
+        }
+      },
+      "input": {
+        "delta": 1,
+        "file": "plain_moov_last.mp4"
+      },
+      "name": "plain_moov_last.mp4 delta=1"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 1882,
+          "sha": "86f4ecf3ae01323282378720f7a6b85bffa561ba9102a77b45b32bfdd403ec57"
+        },
+        "shift": {
+          "len": 1882,
+          "sha": "86f4ecf3ae01323282378720f7a6b85bffa561ba9102a77b45b32bfdd403ec57"
+        }
+      },
+      "input": {
+        "delta": 1000,
+        "file": "plain_moov_last.mp4"
+      },
+      "name": "plain_moov_last.mp4 delta=1000"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 2078,
+          "sha": "21b804fbc51b47c2efaea4608f3e90aff7f079a3f0e5f7f70d5e698a1cbcbdaf"
+        }
+      },
+      "input": {
+        "delta": 4294967295,
+        "file": "plain_moov_last.mp4"
+      },
+      "name": "plain_moov_last.mp4 delta=4294967295"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 2078,
+          "sha": "cea0421a782ea5c5fa0df8cc10e294a30f75f27236aa4a66400cb8c855162c46"
+        }
+      },
+      "input": {
+        "delta": 4294967296,
+        "file": "plain_moov_last.mp4"
+      },
+      "name": "plain_moov_last.mp4 delta=4294967296"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 2078,
+          "sha": "3214668e3967176bd726bf675754cf45441f314148fd42f43689f4bd1aafaf08"
+        }
+      },
+      "input": {
+        "delta": 8589934597,
+        "file": "plain_moov_last.mp4"
+      },
+      "name": "plain_moov_last.mp4 delta=8589934597"
+    },
+    {
+      "expected": {
+        "front": {
+          "len": 1882,
+          "sha": "570761f86e5ae2427af5d6ab7ba68ea1c2b7e9e26fb77d7d7821f031d3327bef"
+        }
+      },
+      "input": {
+        "delta": null,
+        "file": "plain_moov_last.mp4"
+      },
+      "name": "plain_moov_last.mp4 front"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 4776,
+          "sha": "60a54e885005748a32adba6155f1d81b0fef8a7035b1f6f439237e83fee96080"
+        },
+        "shift": {
+          "len": 4776,
+          "sha": "60a54e885005748a32adba6155f1d81b0fef8a7035b1f6f439237e83fee96080"
+        }
+      },
+      "input": {
+        "delta": 0,
+        "file": "stereo_surround_subs.mp4"
+      },
+      "name": "stereo_surround_subs.mp4 delta=0"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 4776,
+          "sha": "cefa67aced99c4a7909e542237455d1c26903d04ac9b06d36848f307cd501ebf"
+        },
+        "shift": {
+          "len": 4776,
+          "sha": "cefa67aced99c4a7909e542237455d1c26903d04ac9b06d36848f307cd501ebf"
+        }
+      },
+      "input": {
+        "delta": 1,
+        "file": "stereo_surround_subs.mp4"
+      },
+      "name": "stereo_surround_subs.mp4 delta=1"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 4776,
+          "sha": "1938048979aa39bcc1d0038e4ea64b31b2373471e161936a908024ed37db550b"
+        },
+        "shift": {
+          "len": 4776,
+          "sha": "1938048979aa39bcc1d0038e4ea64b31b2373471e161936a908024ed37db550b"
+        }
+      },
+      "input": {
+        "delta": 1000,
+        "file": "stereo_surround_subs.mp4"
+      },
+      "name": "stereo_surround_subs.mp4 delta=1000"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 5196,
+          "sha": "f1f90a06a47a2647104bdd3f182cd9b9e729eeda41820a90d8508e09a88c8fe4"
+        }
+      },
+      "input": {
+        "delta": 4294967295,
+        "file": "stereo_surround_subs.mp4"
+      },
+      "name": "stereo_surround_subs.mp4 delta=4294967295"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 5196,
+          "sha": "837a1c4f840e0dcacd9c7014d87083e21f79c9d7c4410ea9a360ff7bc69058da"
+        }
+      },
+      "input": {
+        "delta": 4294967296,
+        "file": "stereo_surround_subs.mp4"
+      },
+      "name": "stereo_surround_subs.mp4 delta=4294967296"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 5196,
+          "sha": "c704f771fe15f1c5711d8130cdd2d89a2b7d92702f257c9c0b8f4925c8e9455c"
+        }
+      },
+      "input": {
+        "delta": 8589934597,
+        "file": "stereo_surround_subs.mp4"
+      },
+      "name": "stereo_surround_subs.mp4 delta=8589934597"
+    },
+    {
+      "expected": {
+        "front": {
+          "len": 4776,
+          "sha": "c788374dbffe6e72b2854e544bd7891d015078b676386be595c94223dc450bbd"
+        }
+      },
+      "input": {
+        "delta": null,
+        "file": "stereo_surround_subs.mp4"
+      },
+      "name": "stereo_surround_subs.mp4 front"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 1728,
+          "sha": "e32d57b4edce1850843f1f87ec1fc2a9fd581ff894ab20605e368b7e9049efa0"
+        },
+        "shift": {
+          "len": 1728,
+          "sha": "e32d57b4edce1850843f1f87ec1fc2a9fd581ff894ab20605e368b7e9049efa0"
+        }
+      },
+      "input": {
+        "delta": 0,
+        "file": "atmos_dec3.mp4"
+      },
+      "name": "atmos_dec3.mp4 delta=0"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 1728,
+          "sha": "43f8beceb0511d5edea3c719530c3e299779d3fbeb79f83e1e407c879b77b198"
+        },
+        "shift": {
+          "len": 1728,
+          "sha": "43f8beceb0511d5edea3c719530c3e299779d3fbeb79f83e1e407c879b77b198"
+        }
+      },
+      "input": {
+        "delta": 1,
+        "file": "atmos_dec3.mp4"
+      },
+      "name": "atmos_dec3.mp4 delta=1"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 1728,
+          "sha": "ca944ed063460e283cac67fbb91d5925613c3f25043b0e48cce0b07288412cbd"
+        },
+        "shift": {
+          "len": 1728,
+          "sha": "ca944ed063460e283cac67fbb91d5925613c3f25043b0e48cce0b07288412cbd"
+        }
+      },
+      "input": {
+        "delta": 1000,
+        "file": "atmos_dec3.mp4"
+      },
+      "name": "atmos_dec3.mp4 delta=1000"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 1924,
+          "sha": "6a2c24e0419f49938e4c8389fa0a488cec5825029ecfd1123c628d5cb23ce491"
+        }
+      },
+      "input": {
+        "delta": 4294967295,
+        "file": "atmos_dec3.mp4"
+      },
+      "name": "atmos_dec3.mp4 delta=4294967295"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 1924,
+          "sha": "5d09da9b196b75c1a0552abbaa6327acb59c33facadc5bb35556708ba0597b5d"
+        }
+      },
+      "input": {
+        "delta": 4294967296,
+        "file": "atmos_dec3.mp4"
+      },
+      "name": "atmos_dec3.mp4 delta=4294967296"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 1924,
+          "sha": "fd98d05a68f1ab8e2f9e6fbedf7c29099eb1b06423156d4869b7aabbf5a2c083"
+        }
+      },
+      "input": {
+        "delta": 8589934597,
+        "file": "atmos_dec3.mp4"
+      },
+      "name": "atmos_dec3.mp4 delta=8589934597"
+    },
+    {
+      "expected": {
+        "front": {
+          "len": 1728,
+          "sha": "d07f653fc5624b5c956fad8de859cee7a8e16acb6ac061ba2d1b557bce75dfc9"
+        }
+      },
+      "input": {
+        "delta": null,
+        "file": "atmos_dec3.mp4"
+      },
+      "name": "atmos_dec3.mp4 front"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 1882,
+          "sha": "c014ea0664feab875e97ea643cf5397feb34d055aa9a95086a70a629de173bbb"
+        },
+        "shift": {
+          "len": 1882,
+          "sha": "c014ea0664feab875e97ea643cf5397feb34d055aa9a95086a70a629de173bbb"
+        }
+      },
+      "input": {
+        "delta": 0,
+        "file": "dby1.mp4"
+      },
+      "name": "dby1.mp4 delta=0"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 1882,
+          "sha": "d39192aa0e81e886ca29542605f98820e8e8bf8cbba7f7afc6da2d43a7aa1156"
+        },
+        "shift": {
+          "len": 1882,
+          "sha": "d39192aa0e81e886ca29542605f98820e8e8bf8cbba7f7afc6da2d43a7aa1156"
+        }
+      },
+      "input": {
+        "delta": 1,
+        "file": "dby1.mp4"
+      },
+      "name": "dby1.mp4 delta=1"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 1882,
+          "sha": "2c5275a816d4a7d86241cde5be0c2d7a166248742a82f78ec4b65806bcc1ec69"
+        },
+        "shift": {
+          "len": 1882,
+          "sha": "2c5275a816d4a7d86241cde5be0c2d7a166248742a82f78ec4b65806bcc1ec69"
+        }
+      },
+      "input": {
+        "delta": 1000,
+        "file": "dby1.mp4"
+      },
+      "name": "dby1.mp4 delta=1000"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 2078,
+          "sha": "1f6317a0d115ae4b47cce12588bded6d6c6563236764b4b15c455bfc4aab4886"
+        }
+      },
+      "input": {
+        "delta": 4294967295,
+        "file": "dby1.mp4"
+      },
+      "name": "dby1.mp4 delta=4294967295"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 2078,
+          "sha": "57c02e79cc6022e97e483b41d5182ec6112831cd063767de1cb67cb00a02ef24"
+        }
+      },
+      "input": {
+        "delta": 4294967296,
+        "file": "dby1.mp4"
+      },
+      "name": "dby1.mp4 delta=4294967296"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 2078,
+          "sha": "0db167431e04ac5a8e4b724aa2d97c920ed7f71d74169841b318bc0e7e9d243d"
+        }
+      },
+      "input": {
+        "delta": 8589934597,
+        "file": "dby1.mp4"
+      },
+      "name": "dby1.mp4 delta=8589934597"
+    },
+    {
+      "expected": {
+        "front": {
+          "len": 1882,
+          "sha": "94b43d2b9cb9bdc788e108bb2b2c7930f6566e2e8d1b62ed70ea8085be326a25"
+        }
+      },
+      "input": {
+        "delta": null,
+        "file": "dby1.mp4"
+      },
+      "name": "dby1.mp4 front"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 7895,
+          "sha": "6f35d72c20fcb743c9f038035d4f1616a014a0a869692bd4d43d85d353f211a3"
+        },
+        "shift": {
+          "len": 7895,
+          "sha": "6f35d72c20fcb743c9f038035d4f1616a014a0a869692bd4d43d85d353f211a3"
+        }
+      },
+      "input": {
+        "delta": 0,
+        "file": "chapters.mp4"
+      },
+      "name": "chapters.mp4 delta=0"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 7895,
+          "sha": "290ecdd3485a1744897a2aefba66f35847acab650cd1b59db4121ce73a80319c"
+        },
+        "shift": {
+          "len": 7895,
+          "sha": "290ecdd3485a1744897a2aefba66f35847acab650cd1b59db4121ce73a80319c"
+        }
+      },
+      "input": {
+        "delta": 1,
+        "file": "chapters.mp4"
+      },
+      "name": "chapters.mp4 delta=1"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 7895,
+          "sha": "165d9d0bece823e324ba63c17b18fe6b926cd31bcf3df0bdff24d9258bf44fc9"
+        },
+        "shift": {
+          "len": 7895,
+          "sha": "165d9d0bece823e324ba63c17b18fe6b926cd31bcf3df0bdff24d9258bf44fc9"
+        }
+      },
+      "input": {
+        "delta": 1000,
+        "file": "chapters.mp4"
+      },
+      "name": "chapters.mp4 delta=1000"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 9391,
+          "sha": "2670ef544785930f57a0b71de9fc735dc809036014abbf50754cb8fd0099865d"
+        }
+      },
+      "input": {
+        "delta": 4294967295,
+        "file": "chapters.mp4"
+      },
+      "name": "chapters.mp4 delta=4294967295"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 9391,
+          "sha": "bb326d8bb61335c5d53d8a7c918150e62cd9a00d67e3616c400d895c4f6efc55"
+        }
+      },
+      "input": {
+        "delta": 4294967296,
+        "file": "chapters.mp4"
+      },
+      "name": "chapters.mp4 delta=4294967296"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 9391,
+          "sha": "08e1c7d28d6583593582937d4cc61eb03043a0b6eade4d4e270a08aac1377be9"
+        }
+      },
+      "input": {
+        "delta": 8589934597,
+        "file": "chapters.mp4"
+      },
+      "name": "chapters.mp4 delta=8589934597"
+    },
+    {
+      "expected": {
+        "front": {
+          "len": 7895,
+          "sha": "d7a03a22f696438ed5707818f3f0ec1f08cb7fdad517216000548fe60c213efb"
+        }
+      },
+      "input": {
+        "delta": null,
+        "file": "chapters.mp4"
+      },
+      "name": "chapters.mp4 front"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 1248,
+          "sha": "9a96cdb43b61be99e9f7f58d7be4fb77cfdd9d364a9c8e06f4e1947610c371a3"
+        },
+        "shift": {
+          "len": 1248,
+          "sha": "9a96cdb43b61be99e9f7f58d7be4fb77cfdd9d364a9c8e06f4e1947610c371a3"
+        }
+      },
+      "input": {
+        "delta": 0,
+        "file": "syn_basic.mp4"
+      },
+      "name": "syn_basic.mp4 delta=0"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 1248,
+          "sha": "ea79c4ee3bca44aa38def922a90ed03d89b615e499da32c169385f8326cf022c"
+        },
+        "shift": {
+          "len": 1248,
+          "sha": "ea79c4ee3bca44aa38def922a90ed03d89b615e499da32c169385f8326cf022c"
+        }
+      },
+      "input": {
+        "delta": 1,
+        "file": "syn_basic.mp4"
+      },
+      "name": "syn_basic.mp4 delta=1"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 1248,
+          "sha": "d8df588cddfade7756e3e674496847b21a94ba269dba8730e60b40d432b9eda5"
+        },
+        "shift": {
+          "len": 1248,
+          "sha": "d8df588cddfade7756e3e674496847b21a94ba269dba8730e60b40d432b9eda5"
+        }
+      },
+      "input": {
+        "delta": 1000,
+        "file": "syn_basic.mp4"
+      },
+      "name": "syn_basic.mp4 delta=1000"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 1264,
+          "sha": "6dc7898b48ced837f8d8e70f80a9802717830f2160f177d24b98ebd14906f2e6"
+        }
+      },
+      "input": {
+        "delta": 4294967295,
+        "file": "syn_basic.mp4"
+      },
+      "name": "syn_basic.mp4 delta=4294967295"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 1264,
+          "sha": "77b3072d052238f2ca4fa528b065933d46557e78eeef6ae5af0656a24d3de543"
+        }
+      },
+      "input": {
+        "delta": 4294967296,
+        "file": "syn_basic.mp4"
+      },
+      "name": "syn_basic.mp4 delta=4294967296"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 1264,
+          "sha": "d7fb07d3d08071f12754aba47d22da334bf7536598c82f97f52073b60bd5604d"
+        }
+      },
+      "input": {
+        "delta": 8589934597,
+        "file": "syn_basic.mp4"
+      },
+      "name": "syn_basic.mp4 delta=8589934597"
+    },
+    {
+      "expected": {
+        "front": {
+          "len": 1248,
+          "sha": "9e3a41c5b136f1ba8d968515c2c248603ae4d69626f748fc6ab3c9133168bf54"
+        }
+      },
+      "input": {
+        "delta": null,
+        "file": "syn_basic.mp4"
+      },
+      "name": "syn_basic.mp4 front"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 702,
+          "sha": "d8b94e157aeb6b9e9df2d05e1838d9d3bab9bdcb869e35718f767e839f6b1a5b"
+        },
+        "shift": {
+          "len": 702,
+          "sha": "d8b94e157aeb6b9e9df2d05e1838d9d3bab9bdcb869e35718f767e839f6b1a5b"
+        }
+      },
+      "input": {
+        "delta": 0,
+        "file": "syn_free_before_moov.mp4"
+      },
+      "name": "syn_free_before_moov.mp4 delta=0"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 702,
+          "sha": "778cd466acbabf7759685f859ad5ef65ed85c4c6cc9c23b5c90c3972f276b604"
+        },
+        "shift": {
+          "len": 702,
+          "sha": "778cd466acbabf7759685f859ad5ef65ed85c4c6cc9c23b5c90c3972f276b604"
+        }
+      },
+      "input": {
+        "delta": 1,
+        "file": "syn_free_before_moov.mp4"
+      },
+      "name": "syn_free_before_moov.mp4 delta=1"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 702,
+          "sha": "90d57442f606b62d65f1cc623526382774bef6fb43ecdbb9a597523432e61236"
+        },
+        "shift": {
+          "len": 702,
+          "sha": "90d57442f606b62d65f1cc623526382774bef6fb43ecdbb9a597523432e61236"
+        }
+      },
+      "input": {
+        "delta": 1000,
+        "file": "syn_free_before_moov.mp4"
+      },
+      "name": "syn_free_before_moov.mp4 delta=1000"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 710,
+          "sha": "715599112702f52742649227c4fa45f27fa304d1731e27afe16febada18e1c3a"
+        }
+      },
+      "input": {
+        "delta": 4294967295,
+        "file": "syn_free_before_moov.mp4"
+      },
+      "name": "syn_free_before_moov.mp4 delta=4294967295"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 710,
+          "sha": "cb1685c0170d571dfdfbde6e8bd7d864393831a12ec6fb54cc295131d43d7873"
+        }
+      },
+      "input": {
+        "delta": 4294967296,
+        "file": "syn_free_before_moov.mp4"
+      },
+      "name": "syn_free_before_moov.mp4 delta=4294967296"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 710,
+          "sha": "ed415f03bcaac4152591e1cb66adfb9577bdc1ed3862d91e97c19baf66b49e48"
+        }
+      },
+      "input": {
+        "delta": 8589934597,
+        "file": "syn_free_before_moov.mp4"
+      },
+      "name": "syn_free_before_moov.mp4 delta=8589934597"
+    },
+    {
+      "expected": {
+        "front": {
+          "len": 702,
+          "sha": "0ed6b5e8568b0477196a1e7b299e45d45cab7c3ddbd363675ba072e4ef4760b3"
+        }
+      },
+      "input": {
+        "delta": null,
+        "file": "syn_free_before_moov.mp4"
+      },
+      "name": "syn_free_before_moov.mp4 front"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 1248,
+          "sha": "9d79c4721b4dfb8d6a69977349803453cb0eeca37b471a40dddf9a6f04c44543"
+        },
+        "shift": {
+          "len": 1248,
+          "sha": "9d79c4721b4dfb8d6a69977349803453cb0eeca37b471a40dddf9a6f04c44543"
+        }
+      },
+      "input": {
+        "delta": 0,
+        "file": "syn_moov_last.mp4"
+      },
+      "name": "syn_moov_last.mp4 delta=0"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 1248,
+          "sha": "934ecf0849e5add19424194de1b1ea5a061745e73c1f5dbdf65eabeb3d134230"
+        },
+        "shift": {
+          "len": 1248,
+          "sha": "934ecf0849e5add19424194de1b1ea5a061745e73c1f5dbdf65eabeb3d134230"
+        }
+      },
+      "input": {
+        "delta": 1,
+        "file": "syn_moov_last.mp4"
+      },
+      "name": "syn_moov_last.mp4 delta=1"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 1248,
+          "sha": "eef9639c766adaab9978954115afbfd19ec1babb76d35be1f274ab872fa9a643"
+        },
+        "shift": {
+          "len": 1248,
+          "sha": "eef9639c766adaab9978954115afbfd19ec1babb76d35be1f274ab872fa9a643"
+        }
+      },
+      "input": {
+        "delta": 1000,
+        "file": "syn_moov_last.mp4"
+      },
+      "name": "syn_moov_last.mp4 delta=1000"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 1264,
+          "sha": "0499be35299db771015966eadebd134221065e741385d77f0cf1e65098261d00"
+        }
+      },
+      "input": {
+        "delta": 4294967295,
+        "file": "syn_moov_last.mp4"
+      },
+      "name": "syn_moov_last.mp4 delta=4294967295"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 1264,
+          "sha": "0f47ee99bbea00bc1dc8dd02af8e2403b427657217d31f6ce1154326578f3a52"
+        }
+      },
+      "input": {
+        "delta": 4294967296,
+        "file": "syn_moov_last.mp4"
+      },
+      "name": "syn_moov_last.mp4 delta=4294967296"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 1264,
+          "sha": "5a02d3b24df37c4ee56c08e11e74ab2f0f066550e22ccfae3d671de13a0e3502"
+        }
+      },
+      "input": {
+        "delta": 8589934597,
+        "file": "syn_moov_last.mp4"
+      },
+      "name": "syn_moov_last.mp4 delta=8589934597"
+    },
+    {
+      "expected": {
+        "front": {
+          "len": 1248,
+          "sha": "9a96cdb43b61be99e9f7f58d7be4fb77cfdd9d364a9c8e06f4e1947610c371a3"
+        }
+      },
+      "input": {
+        "delta": null,
+        "file": "syn_moov_last.mp4"
+      },
+      "name": "syn_moov_last.mp4 front"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 714,
+          "sha": "a6a5a92fbeaeab5d8a9df0d4143b696d6a5e95a8d774ea7bc6a1f491fbe019c8"
+        },
+        "shift": {
+          "len": 714,
+          "sha": "a6a5a92fbeaeab5d8a9df0d4143b696d6a5e95a8d774ea7bc6a1f491fbe019c8"
+        }
+      },
+      "input": {
+        "delta": 0,
+        "file": "syn_co64.mp4"
+      },
+      "name": "syn_co64.mp4 delta=0"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 714,
+          "sha": "27c234129a4c64b2a6c03b3a94d8e20d43ac83a41c1472202f299bdbbf71d154"
+        },
+        "shift": {
+          "len": 714,
+          "sha": "27c234129a4c64b2a6c03b3a94d8e20d43ac83a41c1472202f299bdbbf71d154"
+        }
+      },
+      "input": {
+        "delta": 1,
+        "file": "syn_co64.mp4"
+      },
+      "name": "syn_co64.mp4 delta=1"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 714,
+          "sha": "61d4a32982a969dd8c60bd552b31f4aa5cc1fe8472dfc70a5997351c00fd07bd"
+        },
+        "shift": {
+          "len": 714,
+          "sha": "61d4a32982a969dd8c60bd552b31f4aa5cc1fe8472dfc70a5997351c00fd07bd"
+        }
+      },
+      "input": {
+        "delta": 1000,
+        "file": "syn_co64.mp4"
+      },
+      "name": "syn_co64.mp4 delta=1000"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 718,
+          "sha": "056eccd912432f2ad8145d1582983bdf97ead000cd7e9920ff44ec5edd7c315d"
+        }
+      },
+      "input": {
+        "delta": 4294967295,
+        "file": "syn_co64.mp4"
+      },
+      "name": "syn_co64.mp4 delta=4294967295"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 718,
+          "sha": "afb500b05dfeba675371b62c450027a930ed1ef2b4971b0b8db0979b606b0a12"
+        }
+      },
+      "input": {
+        "delta": 4294967296,
+        "file": "syn_co64.mp4"
+      },
+      "name": "syn_co64.mp4 delta=4294967296"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 718,
+          "sha": "e052f7d35728f1b18b9981a37ec8bac3cf13dcc9841b3a0e8df052478c15fd3a"
+        }
+      },
+      "input": {
+        "delta": 8589934597,
+        "file": "syn_co64.mp4"
+      },
+      "name": "syn_co64.mp4 delta=8589934597"
+    },
+    {
+      "expected": {
+        "front": {
+          "len": 714,
+          "sha": "ffa620b859e9bcc85542e17ae8611fcb644de2362cfd5d253c0d83106a4e011c"
+        }
+      },
+      "input": {
+        "delta": null,
+        "file": "syn_co64.mp4"
+      },
+      "name": "syn_co64.mp4 front"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 702,
+          "sha": "7e88694e95f2cddbfb5cbd3769cb2c5f6604f82f56de1e82a358b1f44a985379"
+        },
+        "shift": {
+          "len": 702,
+          "sha": "7e88694e95f2cddbfb5cbd3769cb2c5f6604f82f56de1e82a358b1f44a985379"
+        }
+      },
+      "input": {
+        "delta": 0,
+        "file": "syn_stco_overflow.mp4"
+      },
+      "name": "syn_stco_overflow.mp4 delta=0"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 702,
+          "sha": "f32fc6e8c0de249cd4678e82f21d00843c64903b500496a6cb9454bbe6569925"
+        },
+        "shift": {
+          "len": 702,
+          "sha": "f32fc6e8c0de249cd4678e82f21d00843c64903b500496a6cb9454bbe6569925"
+        }
+      },
+      "input": {
+        "delta": 1,
+        "file": "syn_stco_overflow.mp4"
+      },
+      "name": "syn_stco_overflow.mp4 delta=1"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 706,
+          "sha": "193ef825e0b273fe07c6dbed2b5108cb67e6d75bc6b8fd360a2ddb02913412e7"
+        }
+      },
+      "input": {
+        "delta": 1000,
+        "file": "syn_stco_overflow.mp4"
+      },
+      "name": "syn_stco_overflow.mp4 delta=1000"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 710,
+          "sha": "718f74669fa9ad1e0234779461c7a74dd2021dd2275c005c4b3b0a0aff446aad"
+        }
+      },
+      "input": {
+        "delta": 4294967295,
+        "file": "syn_stco_overflow.mp4"
+      },
+      "name": "syn_stco_overflow.mp4 delta=4294967295"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 710,
+          "sha": "fbec172dca9c0700b2c0bcd501e44055b8b6772c338c8ec54527ccae63eb3942"
+        }
+      },
+      "input": {
+        "delta": 4294967296,
+        "file": "syn_stco_overflow.mp4"
+      },
+      "name": "syn_stco_overflow.mp4 delta=4294967296"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 710,
+          "sha": "760650bafb2d408a0c4a1283087959ce31985d68f5cc731f29490445ae8a6f9d"
+        }
+      },
+      "input": {
+        "delta": 8589934597,
+        "file": "syn_stco_overflow.mp4"
+      },
+      "name": "syn_stco_overflow.mp4 delta=8589934597"
+    },
+    {
+      "expected": {
+        "front": {
+          "len": 706,
+          "sha": "a1d148b2714d9faae9fa01705fac132735f00b84ab596d25eeb19a00a73f5a3c"
+        }
+      },
+      "input": {
+        "delta": null,
+        "file": "syn_stco_overflow.mp4"
+      },
+      "name": "syn_stco_overflow.mp4 front"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 702,
+          "sha": "ce87a5c50b4e388c2789f908be238a620f39360de1c9c9f01288bf7ea716be76"
+        },
+        "shift": {
+          "len": 702,
+          "sha": "ce87a5c50b4e388c2789f908be238a620f39360de1c9c9f01288bf7ea716be76"
+        }
+      },
+      "input": {
+        "delta": 0,
+        "file": "syn_size0_mdat.mp4"
+      },
+      "name": "syn_size0_mdat.mp4 delta=0"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 702,
+          "sha": "15b11842e7da46b930325385f6ec01fb3f4cf60b6f273c7a8d4391eef67ebd77"
+        },
+        "shift": {
+          "len": 702,
+          "sha": "15b11842e7da46b930325385f6ec01fb3f4cf60b6f273c7a8d4391eef67ebd77"
+        }
+      },
+      "input": {
+        "delta": 1,
+        "file": "syn_size0_mdat.mp4"
+      },
+      "name": "syn_size0_mdat.mp4 delta=1"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 702,
+          "sha": "c59ad6fa8a430197e2e1296fd8603345b8e4cf3d94625cdcbcace732099a9241"
+        },
+        "shift": {
+          "len": 702,
+          "sha": "c59ad6fa8a430197e2e1296fd8603345b8e4cf3d94625cdcbcace732099a9241"
+        }
+      },
+      "input": {
+        "delta": 1000,
+        "file": "syn_size0_mdat.mp4"
+      },
+      "name": "syn_size0_mdat.mp4 delta=1000"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 710,
+          "sha": "0ca5542ba0123bc78a5d2bf0faa12abdc7c8f03a7a05e9ab210abd6c26899623"
+        }
+      },
+      "input": {
+        "delta": 4294967295,
+        "file": "syn_size0_mdat.mp4"
+      },
+      "name": "syn_size0_mdat.mp4 delta=4294967295"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 710,
+          "sha": "9e85cd8d10859f4d083941bb1089304f4f30dfe81975304ed479a494905048f2"
+        }
+      },
+      "input": {
+        "delta": 4294967296,
+        "file": "syn_size0_mdat.mp4"
+      },
+      "name": "syn_size0_mdat.mp4 delta=4294967296"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 710,
+          "sha": "7d5da2726f0aba8e8b45863c0cafa814485a5e188f2e55eb64d06b43303acec5"
+        }
+      },
+      "input": {
+        "delta": 8589934597,
+        "file": "syn_size0_mdat.mp4"
+      },
+      "name": "syn_size0_mdat.mp4 delta=8589934597"
+    },
+    {
+      "expected": {
+        "front": {
+          "len": 702,
+          "sha": "b27ad66f5b90906e2120f093f8cb9c74e3c4b62401c08af7c1a7eca8951de86d"
+        }
+      },
+      "input": {
+        "delta": null,
+        "file": "syn_size0_mdat.mp4"
+      },
+      "name": "syn_size0_mdat.mp4 front"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 702,
+          "sha": "a42123e2be50cc6aa62a842e5ccb13655c6e752214d15d8a23ef222a29bfb4ea"
+        },
+        "shift": {
+          "len": 702,
+          "sha": "a42123e2be50cc6aa62a842e5ccb13655c6e752214d15d8a23ef222a29bfb4ea"
+        }
+      },
+      "input": {
+        "delta": 0,
+        "file": "syn_box64_mdat.mp4"
+      },
+      "name": "syn_box64_mdat.mp4 delta=0"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 702,
+          "sha": "94accea0f295d27a28ee00f6bb7cb4aaebd393cceb2112cfc2d9e39901d72fcb"
+        },
+        "shift": {
+          "len": 702,
+          "sha": "94accea0f295d27a28ee00f6bb7cb4aaebd393cceb2112cfc2d9e39901d72fcb"
+        }
+      },
+      "input": {
+        "delta": 1,
+        "file": "syn_box64_mdat.mp4"
+      },
+      "name": "syn_box64_mdat.mp4 delta=1"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 702,
+          "sha": "327223c0ff6f4871a41186b1e0cd1af21bf8c956e1eaaa5fe53ef0df1bf5d224"
+        },
+        "shift": {
+          "len": 702,
+          "sha": "327223c0ff6f4871a41186b1e0cd1af21bf8c956e1eaaa5fe53ef0df1bf5d224"
+        }
+      },
+      "input": {
+        "delta": 1000,
+        "file": "syn_box64_mdat.mp4"
+      },
+      "name": "syn_box64_mdat.mp4 delta=1000"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 710,
+          "sha": "752cbd8f74055528b4e7ca44fb982b2f158d9b4cae56ccceb2e8468a8d70f69a"
+        }
+      },
+      "input": {
+        "delta": 4294967295,
+        "file": "syn_box64_mdat.mp4"
+      },
+      "name": "syn_box64_mdat.mp4 delta=4294967295"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 710,
+          "sha": "1fe1d89ccee6b6b59b8d2f8d4fed2b3d95d84fa0d68b8abb8fe7e4075e23fec7"
+        }
+      },
+      "input": {
+        "delta": 4294967296,
+        "file": "syn_box64_mdat.mp4"
+      },
+      "name": "syn_box64_mdat.mp4 delta=4294967296"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 710,
+          "sha": "cd52e03542d30c37c6b8f935963543b035da48cf286905e1630ed131eb7499a3"
+        }
+      },
+      "input": {
+        "delta": 8589934597,
+        "file": "syn_box64_mdat.mp4"
+      },
+      "name": "syn_box64_mdat.mp4 delta=8589934597"
+    },
+    {
+      "expected": {
+        "front": {
+          "len": 702,
+          "sha": "d7e2860b9552f3bc3935c092ba4d32d02b95267275c5d411bfda0a8b9d3989fd"
+        }
+      },
+      "input": {
+        "delta": null,
+        "file": "syn_box64_mdat.mp4"
+      },
+      "name": "syn_box64_mdat.mp4 front"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 710,
+          "sha": "cbb6e189345eb33cf4a21ba6b7be84d52aed2f0abb4b9d03a893dfc89618d5aa"
+        },
+        "shift": {
+          "len": 710,
+          "sha": "cbb6e189345eb33cf4a21ba6b7be84d52aed2f0abb4b9d03a893dfc89618d5aa"
+        }
+      },
+      "input": {
+        "delta": 0,
+        "file": "syn_zero_size_box.mp4"
+      },
+      "name": "syn_zero_size_box.mp4 delta=0"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 710,
+          "sha": "5c60c1ae8e6e8cea202cb1429985c25a7baabf37cdccf378917ad1279e611b12"
+        },
+        "shift": {
+          "len": 710,
+          "sha": "5c60c1ae8e6e8cea202cb1429985c25a7baabf37cdccf378917ad1279e611b12"
+        }
+      },
+      "input": {
+        "delta": 1,
+        "file": "syn_zero_size_box.mp4"
+      },
+      "name": "syn_zero_size_box.mp4 delta=1"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 710,
+          "sha": "c63a8a66af75a3f84412217d448198201c031709464ed444086b44b9914b109e"
+        },
+        "shift": {
+          "len": 710,
+          "sha": "c63a8a66af75a3f84412217d448198201c031709464ed444086b44b9914b109e"
+        }
+      },
+      "input": {
+        "delta": 1000,
+        "file": "syn_zero_size_box.mp4"
+      },
+      "name": "syn_zero_size_box.mp4 delta=1000"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 718,
+          "sha": "c4d52f9a524f5f1cc1f3b097d7a15b8e2baaea70304e2102b40336f61a743757"
+        }
+      },
+      "input": {
+        "delta": 4294967295,
+        "file": "syn_zero_size_box.mp4"
+      },
+      "name": "syn_zero_size_box.mp4 delta=4294967295"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 718,
+          "sha": "dea4cc96f8507fda1e4fa7d1a621032c0398f5e7ecd2fdf696fc58f7b257070d"
+        }
+      },
+      "input": {
+        "delta": 4294967296,
+        "file": "syn_zero_size_box.mp4"
+      },
+      "name": "syn_zero_size_box.mp4 delta=4294967296"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 718,
+          "sha": "23833c7664637db80d0b41bdd8659b0fab277c873c446e63d6194c5951c2763d"
+        }
+      },
+      "input": {
+        "delta": 8589934597,
+        "file": "syn_zero_size_box.mp4"
+      },
+      "name": "syn_zero_size_box.mp4 delta=8589934597"
+    },
+    {
+      "expected": {
+        "front": {
+          "len": 710,
+          "sha": "0b89f0a4e7904736f6e25b003c3854968b1d4b4ee500169fa39a27f307ab05e6"
+        }
+      },
+      "input": {
+        "delta": null,
+        "file": "syn_zero_size_box.mp4"
+      },
+      "name": "syn_zero_size_box.mp4 front"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "raises": true
+        }
+      },
+      "input": {
+        "delta": 0,
+        "file": "syn_huge_entry_count.mp4"
+      },
+      "name": "syn_huge_entry_count.mp4 delta=0"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "raises": true
+        }
+      },
+      "input": {
+        "delta": 1,
+        "file": "syn_huge_entry_count.mp4"
+      },
+      "name": "syn_huge_entry_count.mp4 delta=1"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "raises": true
+        }
+      },
+      "input": {
+        "delta": 1000,
+        "file": "syn_huge_entry_count.mp4"
+      },
+      "name": "syn_huge_entry_count.mp4 delta=1000"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "raises": true
+        }
+      },
+      "input": {
+        "delta": 4294967295,
+        "file": "syn_huge_entry_count.mp4"
+      },
+      "name": "syn_huge_entry_count.mp4 delta=4294967295"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "raises": true
+        }
+      },
+      "input": {
+        "delta": 4294967296,
+        "file": "syn_huge_entry_count.mp4"
+      },
+      "name": "syn_huge_entry_count.mp4 delta=4294967296"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "raises": true
+        }
+      },
+      "input": {
+        "delta": 8589934597,
+        "file": "syn_huge_entry_count.mp4"
+      },
+      "name": "syn_huge_entry_count.mp4 delta=8589934597"
+    },
+    {
+      "expected": {
+        "front": {
+          "raises": true
+        }
+      },
+      "input": {
+        "delta": null,
+        "file": "syn_huge_entry_count.mp4"
+      },
+      "name": "syn_huge_entry_count.mp4 front"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 723,
+          "sha": "8eef1e5499feb03de25ce7dc3b4c426b25a653e0b82635699e57100978536467"
+        },
+        "shift": {
+          "len": 723,
+          "sha": "8eef1e5499feb03de25ce7dc3b4c426b25a653e0b82635699e57100978536467"
+        }
+      },
+      "input": {
+        "delta": 0,
+        "file": "syn_pad_3.mp4"
+      },
+      "name": "syn_pad_3.mp4 delta=0"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 723,
+          "sha": "b5bd8756cb59171129b752bb74a38e5667dc26758f32ad7e1da9b68f8e721e75"
+        },
+        "shift": {
+          "len": 723,
+          "sha": "b5bd8756cb59171129b752bb74a38e5667dc26758f32ad7e1da9b68f8e721e75"
+        }
+      },
+      "input": {
+        "delta": 1,
+        "file": "syn_pad_3.mp4"
+      },
+      "name": "syn_pad_3.mp4 delta=1"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 723,
+          "sha": "07296b61eb450c85a5313e5353ac524ff692bc20ea2cfa8b3a6ca94056a96e6d"
+        },
+        "shift": {
+          "len": 723,
+          "sha": "07296b61eb450c85a5313e5353ac524ff692bc20ea2cfa8b3a6ca94056a96e6d"
+        }
+      },
+      "input": {
+        "delta": 1000,
+        "file": "syn_pad_3.mp4"
+      },
+      "name": "syn_pad_3.mp4 delta=1000"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 731,
+          "sha": "8c08d9d8a04329ef01b5ecabce75654cb5f25eca9808006d7c294681eb59209a"
+        }
+      },
+      "input": {
+        "delta": 4294967295,
+        "file": "syn_pad_3.mp4"
+      },
+      "name": "syn_pad_3.mp4 delta=4294967295"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 731,
+          "sha": "e7df697a0e97d552ebf7620fb54d8d5015cb16cb13b3feaa4ecac05f8b6934ec"
+        }
+      },
+      "input": {
+        "delta": 4294967296,
+        "file": "syn_pad_3.mp4"
+      },
+      "name": "syn_pad_3.mp4 delta=4294967296"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 731,
+          "sha": "f2e5da1d0924f840ba2c7d9c595c4dcd2b70c50f6d0d041e1613ec2ea97f2636"
+        }
+      },
+      "input": {
+        "delta": 8589934597,
+        "file": "syn_pad_3.mp4"
+      },
+      "name": "syn_pad_3.mp4 delta=8589934597"
+    },
+    {
+      "expected": {
+        "front": {
+          "len": 723,
+          "sha": "87185cf9a7fed0331c4067e16850179e4ea0e354441c42f8de229fed47e63d4b"
+        }
+      },
+      "input": {
+        "delta": null,
+        "file": "syn_pad_3.mp4"
+      },
+      "name": "syn_pad_3.mp4 front"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 1278,
+          "sha": "cfed6a69f66c158c6f50e432c7bf33ae84c357761d457e282c04196c79ba5a1a"
+        },
+        "shift": {
+          "len": 1278,
+          "sha": "cfed6a69f66c158c6f50e432c7bf33ae84c357761d457e282c04196c79ba5a1a"
+        }
+      },
+      "input": {
+        "delta": 0,
+        "file": "syn_chapters.mp4"
+      },
+      "name": "syn_chapters.mp4 delta=0"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 1278,
+          "sha": "3ec1008111f3b540a0c0371269f9b88379aa79b3615397cfa245de54315844f9"
+        },
+        "shift": {
+          "len": 1278,
+          "sha": "3ec1008111f3b540a0c0371269f9b88379aa79b3615397cfa245de54315844f9"
+        }
+      },
+      "input": {
+        "delta": 1,
+        "file": "syn_chapters.mp4"
+      },
+      "name": "syn_chapters.mp4 delta=1"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 1278,
+          "sha": "c1662d8abf45152c50ee4ceaf78f8b3d462972862194a17b7052886804ca868c"
+        },
+        "shift": {
+          "len": 1278,
+          "sha": "c1662d8abf45152c50ee4ceaf78f8b3d462972862194a17b7052886804ca868c"
+        }
+      },
+      "input": {
+        "delta": 1000,
+        "file": "syn_chapters.mp4"
+      },
+      "name": "syn_chapters.mp4 delta=1000"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 1294,
+          "sha": "320f3f5f6750856aa7d1ce54d5125efd2348a2142174bfd720c1d60d26609980"
+        }
+      },
+      "input": {
+        "delta": 4294967295,
+        "file": "syn_chapters.mp4"
+      },
+      "name": "syn_chapters.mp4 delta=4294967295"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 1294,
+          "sha": "f197f765b6b95257f8a0b4eca89d70d664cbe5d35d8685a379548bbc15de40cf"
+        }
+      },
+      "input": {
+        "delta": 4294967296,
+        "file": "syn_chapters.mp4"
+      },
+      "name": "syn_chapters.mp4 delta=4294967296"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 1294,
+          "sha": "f793f5e1277ddfccb13e2359fc1eafd2fd27d08a62afe4ec0dea028d55f9ae0c"
+        }
+      },
+      "input": {
+        "delta": 8589934597,
+        "file": "syn_chapters.mp4"
+      },
+      "name": "syn_chapters.mp4 delta=8589934597"
+    },
+    {
+      "expected": {
+        "front": {
+          "len": 1278,
+          "sha": "8a5b3e81c3cf2219bf9062ab1b301bea7341cc81aecab0d7e734f144cb4219c1"
+        }
+      },
+      "input": {
+        "delta": null,
+        "file": "syn_chapters.mp4"
+      },
+      "name": "syn_chapters.mp4 front"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 742,
+          "sha": "6575ac7c9ab8957f35c3dd6a9c2e557c6d029aaad8cd067cb2596e58dd8dcd48"
+        },
+        "shift": {
+          "len": 742,
+          "sha": "6575ac7c9ab8957f35c3dd6a9c2e557c6d029aaad8cd067cb2596e58dd8dcd48"
+        }
+      },
+      "input": {
+        "delta": 0,
+        "file": "syn_fragmented.mp4"
+      },
+      "name": "syn_fragmented.mp4 delta=0"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 742,
+          "sha": "0ad69807881a29c47593e3c8e67285bf0d1f02264066dfdf410afd5773d5842f"
+        },
+        "shift": {
+          "len": 742,
+          "sha": "0ad69807881a29c47593e3c8e67285bf0d1f02264066dfdf410afd5773d5842f"
+        }
+      },
+      "input": {
+        "delta": 1,
+        "file": "syn_fragmented.mp4"
+      },
+      "name": "syn_fragmented.mp4 delta=1"
+    },
+    {
+      "expected": {
+        "add": {
+          "len": 742,
+          "sha": "a173bb860d8d542ae631c33cd26aa3e4c4c1b2faa81521fca9bddd5b19655fc6"
+        },
+        "shift": {
+          "len": 742,
+          "sha": "a173bb860d8d542ae631c33cd26aa3e4c4c1b2faa81521fca9bddd5b19655fc6"
+        }
+      },
+      "input": {
+        "delta": 1000,
+        "file": "syn_fragmented.mp4"
+      },
+      "name": "syn_fragmented.mp4 delta=1000"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 750,
+          "sha": "f6e9fcd42d42a1c4a9ec1cecb0dab11a82f120df870e261694991cd7836bda0b"
+        }
+      },
+      "input": {
+        "delta": 4294967295,
+        "file": "syn_fragmented.mp4"
+      },
+      "name": "syn_fragmented.mp4 delta=4294967295"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 750,
+          "sha": "5c943d73064063c81912115a44dcc0bce17201d8e1b636b83877e74e833bc09a"
+        }
+      },
+      "input": {
+        "delta": 4294967296,
+        "file": "syn_fragmented.mp4"
+      },
+      "name": "syn_fragmented.mp4 delta=4294967296"
+    },
+    {
+      "expected": {
+        "add": {
+          "raises": true
+        },
+        "shift": {
+          "len": 750,
+          "sha": "2c945937975dd57e429f4864ac23b19034c91ccab1d9af79eddb0f3c47a21ccf"
+        }
+      },
+      "input": {
+        "delta": 8589934597,
+        "file": "syn_fragmented.mp4"
+      },
+      "name": "syn_fragmented.mp4 delta=8589934597"
+    },
+    {
+      "expected": {
+        "front": {
+          "len": 742,
+          "sha": "4d94fb85263c2b8bfef6dabae3a2af3b982c173d5be037b09c51aa578b6d60b9"
+        }
+      },
+      "input": {
+        "delta": null,
+        "file": "syn_fragmented.mp4"
+      },
+      "name": "syn_fragmented.mp4 front"
+    }
+  ],
+  "suite": "mp4_offsets"
+}

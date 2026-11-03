@@ -1,0 +1,365 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "compatible_brands": [
+          "isom",
+          "iso2",
+          "avc1",
+          "mp41"
+        ],
+        "major_brand": "isom",
+        "tracks": [
+          {
+            "handler_type": null,
+            "is_enabled": true,
+            "language": "eng",
+            "media_type": "audio"
+          }
+        ]
+      },
+      "input": {
+        "audio": [
+          {
+            "action": "copy",
+            "channels": 6,
+            "codec": "eac3",
+            "index": 1,
+            "is_atmos": false,
+            "is_default": true,
+            "is_transcoded": false,
+            "lang": "eng"
+          }
+        ],
+        "subs": [],
+        "video": null
+      },
+      "name": "no video"
+    },
+    {
+      "expected": {
+        "compatible_brands": [
+          "isom",
+          "iso2",
+          "avc1",
+          "mp41"
+        ],
+        "major_brand": "isom",
+        "tracks": [
+          {
+            "handler_type": null,
+            "is_enabled": true,
+            "language": "und",
+            "media_type": "video"
+          }
+        ]
+      },
+      "input": {
+        "audio": [],
+        "subs": [],
+        "video": {
+          "action": "copy",
+          "codec": "hevc",
+          "color_primaries": "bt2020",
+          "color_transfer": "smpte2084",
+          "dolby_vision": false,
+          "hdr": true,
+          "height": 2160,
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10",
+          "tag": "hvc1",
+          "width": 3840
+        }
+      },
+      "name": "no audio"
+    },
+    {
+      "expected": {
+        "compatible_brands": [
+          "isom",
+          "iso2",
+          "avc1",
+          "mp41",
+          "dby1"
+        ],
+        "major_brand": "isom",
+        "tracks": [
+          {
+            "handler_type": null,
+            "is_enabled": true,
+            "language": "und",
+            "media_type": "video"
+          },
+          {
+            "handler_type": null,
+            "is_enabled": true,
+            "language": "eng",
+            "media_type": "audio"
+          },
+          {
+            "handler_type": null,
+            "is_enabled": false,
+            "language": "deu",
+            "media_type": "audio"
+          }
+        ]
+      },
+      "input": {
+        "audio": [
+          {
+            "action": "copy",
+            "channels": 6,
+            "codec": "eac3",
+            "index": 1,
+            "is_atmos": true,
+            "is_default": true,
+            "is_transcoded": false,
+            "lang": "eng"
+          },
+          {
+            "action": "copy",
+            "channels": 6,
+            "codec": "eac3",
+            "index": 2,
+            "is_atmos": false,
+            "is_default": false,
+            "is_transcoded": false,
+            "lang": "deu"
+          }
+        ],
+        "subs": [],
+        "video": {
+          "action": "copy",
+          "codec": "hevc",
+          "color_primaries": "bt2020",
+          "color_transfer": "smpte2084",
+          "dolby_vision": false,
+          "hdr": true,
+          "height": 2160,
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10",
+          "tag": "hvc1",
+          "width": 3840
+        }
+      },
+      "name": "atmos adds dby1"
+    },
+    {
+      "expected": {
+        "compatible_brands": [
+          "isom",
+          "iso2",
+          "avc1",
+          "mp41"
+        ],
+        "major_brand": "isom",
+        "tracks": [
+          {
+            "handler_type": null,
+            "is_enabled": true,
+            "language": "und",
+            "media_type": "video"
+          },
+          {
+            "handler_type": null,
+            "is_enabled": true,
+            "language": "eng",
+            "media_type": "audio"
+          }
+        ]
+      },
+      "input": {
+        "audio": [
+          {
+            "action": "copy",
+            "channels": 6,
+            "codec": "eac3",
+            "index": 1,
+            "is_atmos": false,
+            "is_default": true,
+            "is_transcoded": false,
+            "lang": "eng"
+          }
+        ],
+        "subs": [
+          {
+            "action": "skip",
+            "codec": "subrip",
+            "forced": false,
+            "input_idx": 0,
+            "is_default": false,
+            "lang": "eng",
+            "sdh": false,
+            "source": "internal",
+            "stream_idx": 0
+          }
+        ],
+        "video": {
+          "action": "copy",
+          "codec": "hevc",
+          "color_primaries": "bt2020",
+          "color_transfer": "smpte2084",
+          "dolby_vision": false,
+          "hdr": true,
+          "height": 2160,
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10",
+          "tag": "hvc1",
+          "width": 3840
+        }
+      },
+      "name": "only skipped subs"
+    },
+    {
+      "expected": {
+        "compatible_brands": [
+          "isom",
+          "iso2",
+          "avc1",
+          "mp41"
+        ],
+        "major_brand": "isom",
+        "tracks": [
+          {
+            "handler_type": null,
+            "is_enabled": true,
+            "language": "und",
+            "media_type": "video"
+          },
+          {
+            "handler_type": null,
+            "is_enabled": true,
+            "language": "eng",
+            "media_type": "audio"
+          },
+          {
+            "handler_type": null,
+            "is_enabled": false,
+            "language": "deu",
+            "media_type": "audio"
+          },
+          {
+            "handler_type": null,
+            "is_enabled": false,
+            "language": "fra",
+            "media_type": "audio"
+          },
+          {
+            "handler_type": "sbtl",
+            "is_enabled": true,
+            "language": "deu",
+            "media_type": "subtitle"
+          },
+          {
+            "handler_type": "sbtl",
+            "is_enabled": false,
+            "language": "eng",
+            "media_type": "subtitle"
+          }
+        ]
+      },
+      "input": {
+        "audio": [
+          {
+            "action": "copy",
+            "channels": 6,
+            "codec": "eac3",
+            "index": 1,
+            "is_atmos": false,
+            "is_default": true,
+            "is_transcoded": false,
+            "lang": "eng"
+          },
+          {
+            "action": "copy",
+            "channels": 6,
+            "codec": "eac3",
+            "index": 2,
+            "is_atmos": false,
+            "is_default": false,
+            "is_transcoded": false,
+            "lang": "deu"
+          },
+          {
+            "action": "copy",
+            "channels": 6,
+            "codec": "eac3",
+            "index": 3,
+            "is_atmos": false,
+            "is_default": false,
+            "is_transcoded": false,
+            "lang": "fra"
+          }
+        ],
+        "subs": [
+          {
+            "action": "skip",
+            "codec": "subrip",
+            "forced": false,
+            "input_idx": 0,
+            "is_default": false,
+            "lang": "eng",
+            "sdh": false,
+            "source": "internal",
+            "stream_idx": 0
+          },
+          {
+            "action": "mov_text",
+            "codec": "subrip",
+            "forced": false,
+            "input_idx": 0,
+            "is_default": false,
+            "lang": "deu",
+            "sdh": false,
+            "source": "internal",
+            "stream_idx": 1
+          },
+          {
+            "action": "mov_text",
+            "codec": "subrip",
+            "forced": false,
+            "input_idx": 0,
+            "is_default": false,
+            "lang": "eng",
+            "sdh": false,
+            "source": "internal",
+            "stream_idx": 2
+          }
+        ],
+        "video": {
+          "action": "copy",
+          "codec": "hevc",
+          "color_primaries": "bt2020",
+          "color_transfer": "smpte2084",
+          "dolby_vision": false,
+          "hdr": true,
+          "height": 2160,
+          "pix_fmt": "yuv420p10le",
+          "profile": "Main 10",
+          "tag": "hvc1",
+          "width": 3840
+        }
+      },
+      "name": "first of many subs"
+    },
+    {
+      "expected": {
+        "compatible_brands": [
+          "isom",
+          "iso2",
+          "avc1",
+          "mp41"
+        ],
+        "major_brand": "isom",
+        "tracks": []
+      },
+      "input": {
+        "audio": [],
+        "subs": [],
+        "video": null
+      },
+      "name": "nothing at all"
+    }
+  ],
+  "suite": "container_spec"
+}

@@ -1,0 +1,14 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "sha256": "e51748a9e9d960577cb531d11af5e1fb86071a265a2c2e3a1f0f789eed575650"
+      },
+      "input": {
+        "unicode_version": "15.1.0"
+      },
+      "name": "all_unicode_scalars"
+    }
+  ],
+  "suite": "casefold"
+}

@@ -1,0 +1,608 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "completed": 20
+      },
+      "input": {
+        "steps": [
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":4,\"expected_revision\":1}",
+              "idempotency_key": "one",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "detail": "CSRF validation failed",
+                "error": {
+                  "code": "request_error",
+                  "message": "CSRF validation failed"
+                },
+                "instance": "/api/v1/settings/max_probe_workers",
+                "status": 403,
+                "title": "CSRF validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 403
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":4,\"expected_revision\":1}",
+              "csrf_invalid": true,
+              "idempotency_key": "one",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "detail": "CSRF validation failed",
+                "error": {
+                  "code": "request_error",
+                  "message": "CSRF validation failed"
+                },
+                "instance": "/api/v1/settings/max_probe_workers",
+                "status": 403,
+                "title": "CSRF validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 403
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":4,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "one",
+              "idempotency_key": "one",
+              "method": "PUT",
+              "origin": "http://foreign",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "detail": "origin not allowed",
+                "error": {
+                  "code": "request_error",
+                  "message": "origin not allowed"
+                },
+                "instance": "/api/v1/settings/max_probe_workers",
+                "status": 403,
+                "title": "origin not allowed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 403
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":4,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "one",
+              "idempotency_key": "one",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "default_value": 2,
+                  "effective_revision": 2,
+                  "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                  "key": "max_probe_workers",
+                  "last_changed_revision": 2,
+                  "read_only": false,
+                  "restart_required": false,
+                  "revision": 2,
+                  "source": "db_override",
+                  "value": 4
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":4,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "one",
+              "idempotency_key": "one",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "default_value": 2,
+                  "effective_revision": 2,
+                  "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                  "key": "max_probe_workers",
+                  "last_changed_revision": 2,
+                  "read_only": false,
+                  "restart_required": false,
+                  "revision": 2,
+                  "source": "db_override",
+                  "value": 4
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":5,\"expected_revision\":2}",
+              "csrf_action": "settings",
+              "csrf_alias": "two",
+              "idempotency_key": "one",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "detail": "idempotency key conflicts with request body",
+                "error": {
+                  "code": "request_error",
+                  "message": "idempotency key conflicts with request body"
+                },
+                "instance": "/api/v1/settings/max_probe_workers",
+                "status": 409,
+                "title": "idempotency key conflicts with request body",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 409
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":4,\"expected_revision\":1}",
+              "csrf_action": "settings",
+              "csrf_alias": "one",
+              "idempotency_key": "two",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "detail": "CSRF validation failed",
+                "error": {
+                  "code": "request_error",
+                  "message": "CSRF validation failed"
+                },
+                "instance": "/api/v1/settings/max_probe_workers",
+                "status": 403,
+                "title": "CSRF validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 403
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":5,\"expected_revision\":2}",
+              "csrf_action": "settings",
+              "csrf_alias": "two",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "detail": "Idempotency-Key is required",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "Idempotency-Key is required"
+                },
+                "instance": "/api/v1/settings/max_probe_workers",
+                "status": 400,
+                "title": "Idempotency-Key is required",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 400
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":5,\"expected_revision\":2}",
+              "csrf_action": "settings",
+              "csrf_alias": "two",
+              "idempotency_key": "two",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "default_value": 2,
+                  "effective_revision": 3,
+                  "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                  "key": "max_probe_workers",
+                  "last_changed_revision": 3,
+                  "read_only": false,
+                  "restart_required": false,
+                  "revision": 3,
+                  "source": "db_override",
+                  "value": 5
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"root_id\":\"<r:1>\"}",
+              "csrf_action": "scan",
+              "csrf_alias": "live-scan",
+              "idempotency_key": "live-scan",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/scans"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "id": "<s:2>",
+                  "status": "queued"
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 201
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"reason\":\"contract\"}",
+              "csrf_action": "close-gate",
+              "csrf_alias": "close",
+              "idempotency_key": "close",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/deployment/close"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "active_items": 0,
+                  "active_scans": 0,
+                  "changed_at": "<ts>",
+                  "changed_by_kind": "admin-session",
+                  "generation": 1,
+                  "healthy": true,
+                  "mode": "maintenance",
+                  "open_permits": [],
+                  "permits": 0,
+                  "phase": "steady",
+                  "quiesced": true,
+                  "reason": "contract"
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"root_id\":\"<r:1>\"}",
+              "csrf_action": "scan",
+              "csrf_alias": "live-scan",
+              "idempotency_key": "live-scan",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/scans"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "id": "<s:2>",
+                  "status": "queued"
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 201
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"root_id\":\"<r:1>\"}",
+              "csrf_action": "scan",
+              "csrf_alias": "blocked-scan",
+              "idempotency_key": "blocked-scan",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/scans"
+            },
+            "response": {
+              "body": {
+                "detail": "maintenance: new work is not accepted right now",
+                "error": {
+                  "code": "request_error",
+                  "message": "maintenance: new work is not accepted right now"
+                },
+                "instance": "/api/v1/scans",
+                "status": 503,
+                "title": "maintenance: new work is not accepted right now",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store",
+                "retry-after": "60"
+              },
+              "status": 503
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":6,\"expected_revision\":3}",
+              "csrf_action": "settings",
+              "csrf_alias": "three",
+              "idempotency_key": "three",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "default_value": 2,
+                  "effective_revision": 4,
+                  "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                  "key": "max_probe_workers",
+                  "last_changed_revision": 4,
+                  "read_only": false,
+                  "restart_required": false,
+                  "revision": 4,
+                  "source": "db_override",
+                  "value": 6
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":5,\"expected_revision\":2}",
+              "csrf_action": "settings",
+              "csrf_alias": "two",
+              "idempotency_key": "two",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "default_value": 2,
+                  "effective_revision": 3,
+                  "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                  "key": "max_probe_workers",
+                  "last_changed_revision": 3,
+                  "read_only": false,
+                  "restart_required": false,
+                  "revision": 3,
+                  "source": "db_override",
+                  "value": 5
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"expected_generation\":1}",
+              "csrf_action": "open-gate",
+              "csrf_alias": "open",
+              "idempotency_key": "open",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/deployment/open"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "active_items": 0,
+                  "active_scans": 0,
+                  "changed_at": "<ts>",
+                  "changed_by_kind": "admin-session",
+                  "generation": 2,
+                  "healthy": true,
+                  "mode": "open",
+                  "open_permits": [],
+                  "permits": 0,
+                  "phase": "steady",
+                  "quiesced": false,
+                  "reason": null
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"root_id\":\"<r:1>\"}",
+              "csrf_action": "scan",
+              "csrf_alias": "blocked-scan",
+              "idempotency_key": "blocked-scan",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/scans"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "id": "<s:2>",
+                  "status": "queued"
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 201
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":6,\"expected_revision\":3}",
+              "csrf_action": "settings",
+              "csrf_alias": "three",
+              "idempotency_key": "three",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "default_value": 2,
+                  "effective_revision": 4,
+                  "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                  "key": "max_probe_workers",
+                  "last_changed_revision": 4,
+                  "read_only": false,
+                  "restart_required": false,
+                  "revision": 4,
+                  "source": "db_override",
+                  "value": 6
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":7,\"expected_revision\":0}",
+              "csrf_action": "settings",
+              "csrf_alias": "four",
+              "idempotency_key": "four",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "detail": "settings revision conflict",
+                "error": {
+                  "code": "request_error",
+                  "message": "settings revision conflict"
+                },
+                "instance": "/api/v1/settings/max_probe_workers",
+                "status": 409,
+                "title": "settings revision conflict",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 409
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"value\":6,\"expected_revision\":3}",
+              "csrf_action": "settings",
+              "csrf_alias": "three",
+              "idempotency_key": "three",
+              "method": "PUT",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings/max_probe_workers"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "default_value": 2,
+                  "effective_revision": 4,
+                  "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+                  "key": "max_probe_workers",
+                  "last_changed_revision": 4,
+                  "read_only": false,
+                  "restart_required": false,
+                  "revision": 4,
+                  "source": "db_override",
+                  "value": 6
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          }
+        ]
+      },
+      "name": "mutation-http-sequence"
+    }
+  ],
+  "suite": "api_mutation_contract"
+}

@@ -1,0 +1,211 @@
+{
+  "cases": [
+    {
+      "expected": null,
+      "input": {
+        "kind": "output",
+        "output": null,
+        "source": "a.mp4"
+      },
+      "name": "output a.mp4 -> None"
+    },
+    {
+      "expected": "out/a.mp4",
+      "input": {
+        "kind": "output",
+        "output": "out",
+        "source": "a.mp4"
+      },
+      "name": "output a.mp4 -> out"
+    },
+    {
+      "expected": "newdir/a.mp4",
+      "input": {
+        "kind": "output",
+        "output": "newdir",
+        "source": "a.mp4"
+      },
+      "name": "output a.mp4 -> newdir"
+    },
+    {
+      "expected": "x.mp4",
+      "input": {
+        "kind": "output",
+        "output": "x.mp4",
+        "source": "a.mp4"
+      },
+      "name": "output a.mp4 -> x.mp4"
+    },
+    {
+      "expected": null,
+      "input": {
+        "kind": "output",
+        "output": "a.mp4",
+        "source": "a.mp4"
+      },
+      "name": "output a.mp4 -> a.mp4"
+    },
+    {
+      "expected": null,
+      "input": {
+        "kind": "output",
+        "output": "link.mp4",
+        "source": "a.mp4"
+      },
+      "name": "output a.mp4 -> link.mp4"
+    },
+    {
+      "expected": null,
+      "input": {
+        "kind": "output",
+        "output": ".",
+        "source": "a.mp4"
+      },
+      "name": "output a.mp4 -> ."
+    },
+    {
+      "expected": "out/a.mp4",
+      "input": {
+        "kind": "output",
+        "output": "out/",
+        "source": "a.mp4"
+      },
+      "name": "output a.mp4 -> out/"
+    },
+    {
+      "expected": "out/deeper/dir/a.mp4",
+      "input": {
+        "kind": "output",
+        "output": "out/deeper/dir",
+        "source": "a.mp4"
+      },
+      "name": "output a.mp4 -> out/deeper/dir"
+    },
+    {
+      "expected": null,
+      "input": {
+        "kind": "output",
+        "output": "b.mp4",
+        "source": "b.mkv"
+      },
+      "name": "output b.mkv -> b.mp4"
+    },
+    {
+      "expected": "out/b.mp4",
+      "input": {
+        "kind": "output",
+        "output": "out",
+        "source": "b.mkv"
+      },
+      "name": "output b.mkv -> out"
+    },
+    {
+      "expected": "c.mp4",
+      "input": {
+        "kind": "output",
+        "output": "c.mp4",
+        "source": "b.mkv"
+      },
+      "name": "output b.mkv -> c.mp4"
+    },
+    {
+      "expected": null,
+      "input": {
+        "kind": "output",
+        "output": ".",
+        "source": "b.mkv"
+      },
+      "name": "output b.mkv -> ."
+    },
+    {
+      "expected": null,
+      "input": {
+        "kind": "output",
+        "output": "c.mp4",
+        "source": "c.mkv"
+      },
+      "name": "output c.mkv -> c.mp4"
+    },
+    {
+      "expected": "newdir/c.mp4",
+      "input": {
+        "kind": "output",
+        "output": "newdir/c.mp4",
+        "source": "c.mkv"
+      },
+      "name": "output c.mkv -> newdir/c.mp4"
+    },
+    {
+      "expected": null,
+      "input": {
+        "kind": "output",
+        "output": "b.mkv",
+        "source": "b.mkv"
+      },
+      "name": "output b.mkv -> b.mkv"
+    },
+    {
+      "expected": [
+        "a.en.srt"
+      ],
+      "input": {
+        "extra": [],
+        "kind": "sidecars",
+        "source": "a.mp4"
+      },
+      "name": "sidecars a.mp4 + []"
+    },
+    {
+      "expected": [
+        "a.en.srt",
+        "extra/a.nl.srt"
+      ],
+      "input": {
+        "extra": [
+          "extra/a.nl.srt"
+        ],
+        "kind": "sidecars",
+        "source": "a.mp4"
+      },
+      "name": "sidecars a.mp4 + ['extra/a.nl.srt']"
+    },
+    {
+      "expected": [
+        "a.en.srt",
+        "extra/a.nl.srt"
+      ],
+      "input": {
+        "extra": [
+          "extra/a.en.srt",
+          "extra/a.nl.srt"
+        ],
+        "kind": "sidecars",
+        "source": "a.mp4"
+      },
+      "name": "sidecars a.mp4 + ['extra/a.en.srt', 'extra/a.nl.srt']"
+    },
+    {
+      "expected": [],
+      "input": {
+        "extra": [],
+        "kind": "sidecars",
+        "source": "b.mkv"
+      },
+      "name": "sidecars b.mkv + []"
+    },
+    {
+      "expected": [
+        "extra/a.nl.srt"
+      ],
+      "input": {
+        "extra": [
+          "extra/a.nl.srt"
+        ],
+        "kind": "sidecars",
+        "source": "c.mkv"
+      },
+      "name": "sidecars c.mkv + ['extra/a.nl.srt']"
+    }
+  ],
+  "suite": "prepare_helpers"
+}

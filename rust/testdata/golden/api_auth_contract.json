@@ -1,0 +1,534 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "completed": 22
+      },
+      "input": {
+        "steps": [
+          {
+            "request": {
+              "authenticated": false,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/auth/session"
+            },
+            "response": {
+              "body": {
+                "detail": "authentication required",
+                "error": {
+                  "code": "unauthorized",
+                  "message": "authentication required"
+                },
+                "instance": "/api/v1/auth/session",
+                "status": 401,
+                "title": "authentication required",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 401
+            }
+          },
+          {
+            "request": {
+              "authenticated": false,
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/auth/session"
+            },
+            "response": {
+              "body": {
+                "detail": "authentication required",
+                "error": {
+                  "code": "unauthorized",
+                  "message": "authentication required"
+                },
+                "instance": "/api/v1/auth/session",
+                "status": 401,
+                "title": "authentication required",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 401
+            }
+          },
+          {
+            "request": {
+              "authenticated": false,
+              "authorization": {
+                "credential": "<invalid>",
+                "scheme": "Bearer"
+              },
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/auth/session"
+            },
+            "response": {
+              "body": {
+                "detail": "authentication required",
+                "error": {
+                  "code": "unauthorized",
+                  "message": "authentication required"
+                },
+                "instance": "/api/v1/auth/session",
+                "status": 401,
+                "title": "authentication required",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 401
+            }
+          },
+          {
+            "request": {
+              "authenticated": false,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/auth/csrf?method=POST"
+            },
+            "response": {
+              "body": {
+                "detail": "request validation failed",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "request validation failed"
+                },
+                "instance": "/api/v1/auth/csrf",
+                "status": 422,
+                "title": "request validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": false,
+              "method": "PATCH",
+              "origin": "http://testserver",
+              "path": "/api/v1/auth/session"
+            },
+            "response": {
+              "body": {
+                "detail": "Method Not Allowed"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 405
+            }
+          },
+          {
+            "request": {
+              "authenticated": false,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/auth/session?p%61ge=1"
+            },
+            "response": {
+              "body": {
+                "detail": "page and offset pagination are not supported",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "page and offset pagination are not supported"
+                },
+                "instance": "/api/v1/auth/session",
+                "status": 422,
+                "title": "page and offset pagination are not supported",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": false,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/does-not-exist"
+            },
+            "response": {
+              "body": {
+                "detail": "resource not found",
+                "error": {
+                  "code": "not_found",
+                  "message": "resource not found"
+                },
+                "instance": "/api/v1/does-not-exist",
+                "status": 404,
+                "title": "Not Found",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 404
+            }
+          },
+          {
+            "request": {
+              "authenticated": false,
+              "body_json": "{",
+              "method": "PATCH",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings"
+            },
+            "response": {
+              "body": {
+                "detail": "request validation failed",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "request validation failed"
+                },
+                "instance": "/api/v1/settings",
+                "status": 422,
+                "title": "request validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": false,
+              "body_json": "[]",
+              "method": "PATCH",
+              "origin": "http://testserver",
+              "path": "/api/v1/settings"
+            },
+            "response": {
+              "body": {
+                "detail": "request validation failed",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "request validation failed"
+                },
+                "instance": "/api/v1/settings",
+                "status": 422,
+                "title": "request validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": false,
+              "authorization": {
+                "credential": "<master>",
+                "scheme": "Bearer"
+              },
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/auth/session"
+            },
+            "response": {
+              "body": {
+                "csrf_token": "<csrf>"
+              },
+              "cookie": {
+                "http_only": true,
+                "name": "__Host-atvprep_session",
+                "path": "/",
+                "same_site": "strict",
+                "secure": true,
+                "value": "<cookie>"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/auth/session"
+            },
+            "response": {
+              "body": {
+                "csrf_token": "<csrf>"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://foreign",
+              "path": "/api/v1/auth/session"
+            },
+            "response": {
+              "body": {
+                "detail": "origin not allowed",
+                "error": {
+                  "code": "request_error",
+                  "message": "origin not allowed"
+                },
+                "instance": "/api/v1/auth/session",
+                "status": 403,
+                "title": "origin not allowed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 403
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/auth/csrf?method=POST&path=/api/v1/settings&action=settings"
+            },
+            "response": {
+              "body": {
+                "csrf_token": "<csrf>"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/auth/csrf?method=GET&path=/api/v1/settings&action=settings"
+            },
+            "response": {
+              "body": {
+                "detail": "authentication required",
+                "error": {
+                  "code": "unauthorized",
+                  "message": "authentication required"
+                },
+                "instance": "/api/v1/auth/csrf",
+                "status": 401,
+                "title": "authentication required",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 401
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/auth/csrf?method=POST&path=/outside&action=settings"
+            },
+            "response": {
+              "body": {
+                "detail": "authentication required",
+                "error": {
+                  "code": "unauthorized",
+                  "message": "authentication required"
+                },
+                "instance": "/api/v1/auth/csrf",
+                "status": 401,
+                "title": "authentication required",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 401
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "path": "/api/v1/auth/session"
+            },
+            "response": {
+              "body": {
+                "detail": "origin not allowed",
+                "error": {
+                  "code": "request_error",
+                  "message": "origin not allowed"
+                },
+                "instance": "/api/v1/auth/session",
+                "status": 403,
+                "title": "origin not allowed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 403
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "fetch_site": "same-origin",
+              "method": "GET",
+              "path": "/api/v1/auth/session"
+            },
+            "response": {
+              "body": {
+                "csrf_token": "<csrf>"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "fetch_site": "none",
+              "method": "GET",
+              "path": "/api/v1/auth/session"
+            },
+            "response": {
+              "body": {
+                "csrf_token": "<csrf>"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "fetch_site": "cross-site",
+              "method": "GET",
+              "path": "/api/v1/auth/session"
+            },
+            "response": {
+              "body": {
+                "detail": "origin not allowed",
+                "error": {
+                  "code": "request_error",
+                  "message": "origin not allowed"
+                },
+                "instance": "/api/v1/auth/session",
+                "status": 403,
+                "title": "origin not allowed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 403
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "DELETE",
+              "origin": "http://testserver",
+              "path": "/api/v1/auth/session"
+            },
+            "response": {
+              "body": {
+                "detail": "authentication required",
+                "error": {
+                  "code": "unauthorized",
+                  "message": "authentication required"
+                },
+                "instance": "/api/v1/auth/session",
+                "status": 401,
+                "title": "authentication required",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 401
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "csrf_action": "auth-session",
+              "method": "DELETE",
+              "origin": "http://testserver",
+              "path": "/api/v1/auth/session"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "revoked": true
+                }
+              },
+              "cookie": {
+                "max_age": 0,
+                "name": "__Host-atvprep_session",
+                "value": ""
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": false,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/auth/session"
+            },
+            "response": {
+              "body": {
+                "detail": "authentication required",
+                "error": {
+                  "code": "unauthorized",
+                  "message": "authentication required"
+                },
+                "instance": "/api/v1/auth/session",
+                "status": 401,
+                "title": "authentication required",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 401
+            }
+          }
+        ]
+      },
+      "name": "auth-http-sequence"
+    }
+  ],
+  "suite": "api_auth_contract"
+}

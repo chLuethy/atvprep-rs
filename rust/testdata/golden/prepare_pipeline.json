@@ -1,0 +1,5654 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/clean.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/clean.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "none",
+          "outcome": "done",
+          "output": null,
+          "reasons": [],
+          "report": null,
+          "report_path": null,
+          "source": "work/clean.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "clean.mp4",
+        "variant": "default"
+      },
+      "name": "clean.mp4 default"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/clean.mp4",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:2",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=eng",
+            "-metadata:s:s:0",
+            "handler_name=English",
+            "-metadata:s:s:0",
+            "title=ENG",
+            "-disposition:s:0",
+            "default",
+            "-map",
+            "0:3",
+            "-c:s:1",
+            "mov_text",
+            "-metadata:s:s:1",
+            "language=eng",
+            "-metadata:s:s:1",
+            "handler_name=English",
+            "-metadata:s:s:1",
+            "title=Forced ENG",
+            "-disposition:s:1",
+            "forced+default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/work/.tmp_fixmeta_clean.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "work/clean.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ]
+            ]
+          }
+        },
+        "listing": [
+          "work/clean.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "work/clean.mp4",
+          "reasons": [],
+          "report": [],
+          "report_path": "work/clean.mp4",
+          "source": "work/clean.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "clean.mp4",
+        "variant": "force"
+      },
+      "name": "clean.mp4 force"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/clean.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/clean.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "none",
+          "outcome": "done",
+          "output": null,
+          "reasons": [],
+          "report": null,
+          "report_path": null,
+          "source": "work/clean.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "clean.mp4",
+        "variant": "dry_run"
+      },
+      "name": "clean.mp4 dry_run"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/clean.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/clean.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "none",
+          "outcome": "done",
+          "output": null,
+          "reasons": [],
+          "report": null,
+          "report_path": null,
+          "source": "work/clean.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "clean.mp4",
+        "variant": "delete_original"
+      },
+      "name": "clean.mp4 delete_original"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/clean.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/clean.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "none",
+          "outcome": "done",
+          "output": null,
+          "reasons": [],
+          "report": null,
+          "report_path": null,
+          "source": "work/clean.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "clean.mp4",
+        "variant": "copy_only"
+      },
+      "name": "clean.mp4 copy_only"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "out/result.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54",
+          "work/clean.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "out/result.mp4",
+          "work/clean.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "none",
+          "outcome": "done",
+          "output": "out/result.mp4",
+          "reasons": [],
+          "report": [],
+          "report_path": "out/result.mp4",
+          "source": "work/clean.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "clean.mp4",
+        "variant": "output_file"
+      },
+      "name": "clean.mp4 output_file"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "out/clean.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54",
+          "work/clean.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "out/clean.mp4",
+          "work/clean.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "none",
+          "outcome": "done",
+          "output": "out/clean.mp4",
+          "reasons": [],
+          "report": [],
+          "report_path": "out/clean.mp4",
+          "source": "work/clean.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "clean.mp4",
+        "variant": "output_dir"
+      },
+      "name": "clean.mp4 output_dir"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "new/sub/clean.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54",
+          "work/clean.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "new/sub/clean.mp4",
+          "work/clean.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "none",
+          "outcome": "done",
+          "output": "new/sub/clean.mp4",
+          "reasons": [],
+          "report": [],
+          "report_path": "new/sub/clean.mp4",
+          "source": "work/clean.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "clean.mp4",
+        "variant": "output_new_dir"
+      },
+      "name": "clean.mp4 output_new_dir"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/clean.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/clean.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "none",
+          "outcome": "done",
+          "output": null,
+          "reasons": [],
+          "report": null,
+          "report_path": null,
+          "source": "work/clean.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "clean.mp4",
+        "variant": "output_self"
+      },
+      "name": "clean.mp4 output_self"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/clean.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/clean.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "none",
+          "outcome": "done",
+          "output": null,
+          "reasons": [],
+          "report": null,
+          "report_path": null,
+          "source": "work/clean.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "clean.mp4",
+        "variant": "quarantine"
+      },
+      "name": "clean.mp4 quarantine"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/clean.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/clean.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "none",
+          "outcome": "done",
+          "output": null,
+          "reasons": [],
+          "report": null,
+          "report_path": null,
+          "source": "work/clean.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "clean.mp4",
+        "variant": "target"
+      },
+      "name": "clean.mp4 target"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/clean.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/clean.mp4"
+        ],
+        "machine": [],
+        "raised": "ValueError: a caller-supplied fix target does not permit quarantine moves"
+      },
+      "input": {
+        "source": "clean.mp4",
+        "variant": "quarantine_target"
+      },
+      "name": "clean.mp4 quarantine_target"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/clean.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/clean.mp4"
+        ],
+        "machine": [],
+        "raised": "ValueError: --delete-original cannot be combined with an output target"
+      },
+      "input": {
+        "source": "clean.mp4",
+        "variant": "delete_with_output"
+      },
+      "name": "clean.mp4 delete_with_output"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/tags.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/tags.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 1",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "in_place",
+          "outcome": "patched",
+          "output": "work/tags.mp4",
+          "reasons": [
+            "default-track-selection: track selection differs from Apple's: enable eng forced subtitle; disable eng full subtitle",
+            "tags: no tags → elng 3 · folw 1 · forc 1 · forced 1"
+          ],
+          "report": [],
+          "report_path": "work/tags.mp4",
+          "source": "work/tags.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "tags.mp4",
+        "variant": "default"
+      },
+      "name": "tags.mp4 default"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/tags.mp4",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:2",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=eng",
+            "-metadata:s:s:0",
+            "handler_name=English",
+            "-metadata:s:s:0",
+            "title=ENG",
+            "-disposition:s:0",
+            "default",
+            "-map",
+            "0:3",
+            "-c:s:1",
+            "mov_text",
+            "-metadata:s:s:1",
+            "language=eng",
+            "-metadata:s:s:1",
+            "handler_name=English",
+            "-metadata:s:s:1",
+            "title=Forced ENG",
+            "-disposition:s:1",
+            "forced+default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/work/.tmp_fixmeta_tags.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "work/tags.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ]
+            ]
+          }
+        },
+        "listing": [
+          "work/tags.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "work/tags.mp4",
+          "reasons": [],
+          "report": [],
+          "report_path": "work/tags.mp4",
+          "source": "work/tags.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "tags.mp4",
+        "variant": "force"
+      },
+      "name": "tags.mp4 force"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/tags.mp4": "cd2a998d0261ff9a40560880a4176c9b5d7984cdcee5301824e42feb215911fd"
+        },
+        "listing": [
+          "work/tags.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "in_place",
+          "outcome": "planned",
+          "output": null,
+          "reasons": [
+            "default-track-selection: track selection differs from Apple's: enable eng forced subtitle; disable eng full subtitle",
+            "tags: no tags → elng 3 · folw 1 · forc 1 · forced 1"
+          ],
+          "report": null,
+          "report_path": null,
+          "source": "work/tags.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "tags.mp4",
+        "variant": "dry_run"
+      },
+      "name": "tags.mp4 dry_run"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/tags.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/tags.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 1",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "in_place",
+          "outcome": "patched",
+          "output": "work/tags.mp4",
+          "reasons": [
+            "default-track-selection: track selection differs from Apple's: enable eng forced subtitle; disable eng full subtitle",
+            "tags: no tags → elng 3 · folw 1 · forc 1 · forced 1"
+          ],
+          "report": [],
+          "report_path": "work/tags.mp4",
+          "source": "work/tags.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "tags.mp4",
+        "variant": "delete_original"
+      },
+      "name": "tags.mp4 delete_original"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/tags.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/tags.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 1",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "in_place",
+          "outcome": "patched",
+          "output": "work/tags.mp4",
+          "reasons": [
+            "default-track-selection: track selection differs from Apple's: enable eng forced subtitle; disable eng full subtitle",
+            "tags: no tags → elng 3 · folw 1 · forc 1 · forced 1"
+          ],
+          "report": [],
+          "report_path": "work/tags.mp4",
+          "source": "work/tags.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "tags.mp4",
+        "variant": "copy_only"
+      },
+      "name": "tags.mp4 copy_only"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "out/result.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54",
+          "work/tags.mp4": "cd2a998d0261ff9a40560880a4176c9b5d7984cdcee5301824e42feb215911fd"
+        },
+        "listing": [
+          "out/result.mp4",
+          "work/tags.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 1",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "in_place",
+          "outcome": "patched",
+          "output": "out/result.mp4",
+          "reasons": [
+            "default-track-selection: track selection differs from Apple's: enable eng forced subtitle; disable eng full subtitle",
+            "tags: no tags → elng 3 · folw 1 · forc 1 · forced 1"
+          ],
+          "report": [],
+          "report_path": "out/result.mp4",
+          "source": "work/tags.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "tags.mp4",
+        "variant": "output_file"
+      },
+      "name": "tags.mp4 output_file"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "out/tags.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54",
+          "work/tags.mp4": "cd2a998d0261ff9a40560880a4176c9b5d7984cdcee5301824e42feb215911fd"
+        },
+        "listing": [
+          "out/tags.mp4",
+          "work/tags.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 1",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "in_place",
+          "outcome": "patched",
+          "output": "out/tags.mp4",
+          "reasons": [
+            "default-track-selection: track selection differs from Apple's: enable eng forced subtitle; disable eng full subtitle",
+            "tags: no tags → elng 3 · folw 1 · forc 1 · forced 1"
+          ],
+          "report": [],
+          "report_path": "out/tags.mp4",
+          "source": "work/tags.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "tags.mp4",
+        "variant": "output_dir"
+      },
+      "name": "tags.mp4 output_dir"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "new/sub/tags.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54",
+          "work/tags.mp4": "cd2a998d0261ff9a40560880a4176c9b5d7984cdcee5301824e42feb215911fd"
+        },
+        "listing": [
+          "new/sub/tags.mp4",
+          "work/tags.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 1",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "in_place",
+          "outcome": "patched",
+          "output": "new/sub/tags.mp4",
+          "reasons": [
+            "default-track-selection: track selection differs from Apple's: enable eng forced subtitle; disable eng full subtitle",
+            "tags: no tags → elng 3 · folw 1 · forc 1 · forced 1"
+          ],
+          "report": [],
+          "report_path": "new/sub/tags.mp4",
+          "source": "work/tags.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "tags.mp4",
+        "variant": "output_new_dir"
+      },
+      "name": "tags.mp4 output_new_dir"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/tags.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/tags.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 1",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "in_place",
+          "outcome": "patched",
+          "output": "work/tags.mp4",
+          "reasons": [
+            "default-track-selection: track selection differs from Apple's: enable eng forced subtitle; disable eng full subtitle",
+            "tags: no tags → elng 3 · folw 1 · forc 1 · forced 1"
+          ],
+          "report": [],
+          "report_path": "work/tags.mp4",
+          "source": "work/tags.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "tags.mp4",
+        "variant": "output_self"
+      },
+      "name": "tags.mp4 output_self"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/tags.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/tags.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 1",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "in_place",
+          "outcome": "patched",
+          "output": "work/tags.mp4",
+          "reasons": [
+            "default-track-selection: track selection differs from Apple's: enable eng forced subtitle; disable eng full subtitle",
+            "tags: no tags → elng 3 · folw 1 · forc 1 · forced 1"
+          ],
+          "report": [],
+          "report_path": "work/tags.mp4",
+          "source": "work/tags.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "tags.mp4",
+        "variant": "quarantine"
+      },
+      "name": "tags.mp4 quarantine"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/tags.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/tags.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 1",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "in_place",
+          "outcome": "patched",
+          "output": "work/tags.mp4",
+          "reasons": [
+            "default-track-selection: track selection differs from Apple's: enable eng forced subtitle; disable eng full subtitle",
+            "tags: no tags → elng 3 · folw 1 · forc 1 · forced 1"
+          ],
+          "report": [],
+          "report_path": "work/tags.mp4",
+          "source": "work/tags.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "tags.mp4",
+        "variant": "target"
+      },
+      "name": "tags.mp4 target"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/tags.mp4": "cd2a998d0261ff9a40560880a4176c9b5d7984cdcee5301824e42feb215911fd"
+        },
+        "listing": [
+          "work/tags.mp4"
+        ],
+        "machine": [],
+        "raised": "ValueError: a caller-supplied fix target does not permit quarantine moves"
+      },
+      "input": {
+        "source": "tags.mp4",
+        "variant": "quarantine_target"
+      },
+      "name": "tags.mp4 quarantine_target"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/tags.mp4": "cd2a998d0261ff9a40560880a4176c9b5d7984cdcee5301824e42feb215911fd"
+        },
+        "listing": [
+          "work/tags.mp4"
+        ],
+        "machine": [],
+        "raised": "ValueError: --delete-original cannot be combined with an output target"
+      },
+      "input": {
+        "source": "tags.mp4",
+        "variant": "delete_with_output"
+      },
+      "name": "tags.mp4 delete_with_output"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/moovlast.mp4",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/work/.tmp_fixmeta_moovlast.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "work/moovlast.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ]
+            ]
+          }
+        },
+        "listing": [
+          "work/moovlast.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "work/moovlast.mp4",
+          "reasons": [
+            "moov after mdat (missing faststart)"
+          ],
+          "report": [],
+          "report_path": "work/moovlast.mp4",
+          "source": "work/moovlast.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "moovlast.mp4",
+        "variant": "default"
+      },
+      "name": "moovlast.mp4 default"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/moovlast.mp4",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/work/.tmp_fixmeta_moovlast.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "work/moovlast.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ]
+            ]
+          }
+        },
+        "listing": [
+          "work/moovlast.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "work/moovlast.mp4",
+          "reasons": [
+            "moov after mdat (missing faststart)"
+          ],
+          "report": [],
+          "report_path": "work/moovlast.mp4",
+          "source": "work/moovlast.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "moovlast.mp4",
+        "variant": "force"
+      },
+      "name": "moovlast.mp4 force"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/moovlast.mp4": "34138f26ae22e58bbfb444c099cba6ef485183c9fca3ce83bfda67703b233ae7"
+        },
+        "listing": [
+          "work/moovlast.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "planned",
+          "output": null,
+          "reasons": [
+            "moov after mdat (missing faststart)"
+          ],
+          "report": null,
+          "report_path": null,
+          "source": "work/moovlast.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "moovlast.mp4",
+        "variant": "dry_run"
+      },
+      "name": "moovlast.mp4 dry_run"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/moovlast.mp4",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/work/.tmp_fixmeta_moovlast.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "work/moovlast.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ]
+            ]
+          }
+        },
+        "listing": [
+          "work/moovlast.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "work/moovlast.mp4",
+          "reasons": [
+            "moov after mdat (missing faststart)"
+          ],
+          "report": [],
+          "report_path": "work/moovlast.mp4",
+          "source": "work/moovlast.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "moovlast.mp4",
+        "variant": "delete_original"
+      },
+      "name": "moovlast.mp4 delete_original"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/moovlast.mp4",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/work/.tmp_fixmeta_moovlast.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "work/moovlast.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ]
+            ]
+          }
+        },
+        "listing": [
+          "work/moovlast.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "work/moovlast.mp4",
+          "reasons": [
+            "moov after mdat (missing faststart)"
+          ],
+          "report": [],
+          "report_path": "work/moovlast.mp4",
+          "source": "work/moovlast.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "moovlast.mp4",
+        "variant": "copy_only"
+      },
+      "name": "moovlast.mp4 copy_only"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/moovlast.mp4",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/out/.tmp_fixmeta_result.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "out/result.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ]
+            ]
+          },
+          "work/moovlast.mp4": "34138f26ae22e58bbfb444c099cba6ef485183c9fca3ce83bfda67703b233ae7"
+        },
+        "listing": [
+          "out/result.mp4",
+          "work/moovlast.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "out/result.mp4",
+          "reasons": [
+            "moov after mdat (missing faststart)"
+          ],
+          "report": [],
+          "report_path": "out/result.mp4",
+          "source": "work/moovlast.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "moovlast.mp4",
+        "variant": "output_file"
+      },
+      "name": "moovlast.mp4 output_file"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/moovlast.mp4",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/out/.tmp_fixmeta_moovlast.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "out/moovlast.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ]
+            ]
+          },
+          "work/moovlast.mp4": "34138f26ae22e58bbfb444c099cba6ef485183c9fca3ce83bfda67703b233ae7"
+        },
+        "listing": [
+          "out/moovlast.mp4",
+          "work/moovlast.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "out/moovlast.mp4",
+          "reasons": [
+            "moov after mdat (missing faststart)"
+          ],
+          "report": [],
+          "report_path": "out/moovlast.mp4",
+          "source": "work/moovlast.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "moovlast.mp4",
+        "variant": "output_dir"
+      },
+      "name": "moovlast.mp4 output_dir"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/moovlast.mp4",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/new/sub/.tmp_fixmeta_moovlast.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "new/sub/moovlast.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ]
+            ]
+          },
+          "work/moovlast.mp4": "34138f26ae22e58bbfb444c099cba6ef485183c9fca3ce83bfda67703b233ae7"
+        },
+        "listing": [
+          "new/sub/moovlast.mp4",
+          "work/moovlast.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "new/sub/moovlast.mp4",
+          "reasons": [
+            "moov after mdat (missing faststart)"
+          ],
+          "report": [],
+          "report_path": "new/sub/moovlast.mp4",
+          "source": "work/moovlast.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "moovlast.mp4",
+        "variant": "output_new_dir"
+      },
+      "name": "moovlast.mp4 output_new_dir"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/moovlast.mp4",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/work/.tmp_fixmeta_moovlast.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "work/moovlast.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ]
+            ]
+          }
+        },
+        "listing": [
+          "work/moovlast.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "work/moovlast.mp4",
+          "reasons": [
+            "moov after mdat (missing faststart)"
+          ],
+          "report": [],
+          "report_path": "work/moovlast.mp4",
+          "source": "work/moovlast.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "moovlast.mp4",
+        "variant": "output_self"
+      },
+      "name": "moovlast.mp4 output_self"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/moovlast.mp4",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/work/.tmp_fixmeta_moovlast.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "work/moovlast.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ]
+            ]
+          }
+        },
+        "listing": [
+          "work/moovlast.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "work/moovlast.mp4",
+          "reasons": [
+            "moov after mdat (missing faststart)"
+          ],
+          "report": [],
+          "report_path": "work/moovlast.mp4",
+          "source": "work/moovlast.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "moovlast.mp4",
+        "variant": "quarantine"
+      },
+      "name": "moovlast.mp4 quarantine"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/moovlast.mp4",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/work/.tmp_fixmeta_moovlast.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "work/moovlast.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ]
+            ]
+          }
+        },
+        "listing": [
+          "work/moovlast.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "work/moovlast.mp4",
+          "reasons": [
+            "moov after mdat (missing faststart)"
+          ],
+          "report": [],
+          "report_path": "work/moovlast.mp4",
+          "source": "work/moovlast.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "moovlast.mp4",
+        "variant": "target"
+      },
+      "name": "moovlast.mp4 target"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/moovlast.mp4": "34138f26ae22e58bbfb444c099cba6ef485183c9fca3ce83bfda67703b233ae7"
+        },
+        "listing": [
+          "work/moovlast.mp4"
+        ],
+        "machine": [],
+        "raised": "ValueError: a caller-supplied fix target does not permit quarantine moves"
+      },
+      "input": {
+        "source": "moovlast.mp4",
+        "variant": "quarantine_target"
+      },
+      "name": "moovlast.mp4 quarantine_target"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/moovlast.mp4": "34138f26ae22e58bbfb444c099cba6ef485183c9fca3ce83bfda67703b233ae7"
+        },
+        "listing": [
+          "work/moovlast.mp4"
+        ],
+        "machine": [],
+        "raised": "ValueError: --delete-original cannot be combined with an output target"
+      },
+      "input": {
+        "source": "moovlast.mp4",
+        "variant": "delete_with_output"
+      },
+      "name": "moovlast.mp4 delete_with_output"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/dby1.mp4": "883cd6b8b0018a0284edc5fd25cbdf0825abe30996052ce1a36c68e35032a0f6"
+        },
+        "listing": [
+          "work/dby1.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "in_place",
+          "outcome": "patched",
+          "output": "work/dby1.mp4",
+          "reasons": [
+            "ftyp-dby1-requires-atmos: ftyp compatible_brands contains 'dby1' but no audio track reports real Dolby Atmos (JOC); AVPlayer will route via Dolby MAT and deliver silence on Atmos-capable AVRs.",
+            "tags: no tags → elng 1"
+          ],
+          "report": [],
+          "report_path": "work/dby1.mp4",
+          "source": "work/dby1.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "dby1.mp4",
+        "variant": "default"
+      },
+      "name": "dby1.mp4 default"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/dby1.mp4",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/work/.tmp_fixmeta_dby1.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "work/dby1.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ]
+            ]
+          }
+        },
+        "listing": [
+          "work/dby1.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "work/dby1.mp4",
+          "reasons": [],
+          "report": [],
+          "report_path": "work/dby1.mp4",
+          "source": "work/dby1.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "dby1.mp4",
+        "variant": "force"
+      },
+      "name": "dby1.mp4 force"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/dby1.mp4": "2c458b13ca83d4952a5eedba65721a0da84a6fddcbff4255ad8cbdc57cd5e6c5"
+        },
+        "listing": [
+          "work/dby1.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "in_place",
+          "outcome": "planned",
+          "output": null,
+          "reasons": [
+            "ftyp-dby1-requires-atmos: ftyp compatible_brands contains 'dby1' but no audio track reports real Dolby Atmos (JOC); AVPlayer will route via Dolby MAT and deliver silence on Atmos-capable AVRs.",
+            "tags: no tags → elng 1"
+          ],
+          "report": null,
+          "report_path": null,
+          "source": "work/dby1.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "dby1.mp4",
+        "variant": "dry_run"
+      },
+      "name": "dby1.mp4 dry_run"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/dby1.mp4": "883cd6b8b0018a0284edc5fd25cbdf0825abe30996052ce1a36c68e35032a0f6"
+        },
+        "listing": [
+          "work/dby1.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "in_place",
+          "outcome": "patched",
+          "output": "work/dby1.mp4",
+          "reasons": [
+            "ftyp-dby1-requires-atmos: ftyp compatible_brands contains 'dby1' but no audio track reports real Dolby Atmos (JOC); AVPlayer will route via Dolby MAT and deliver silence on Atmos-capable AVRs.",
+            "tags: no tags → elng 1"
+          ],
+          "report": [],
+          "report_path": "work/dby1.mp4",
+          "source": "work/dby1.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "dby1.mp4",
+        "variant": "delete_original"
+      },
+      "name": "dby1.mp4 delete_original"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/dby1.mp4": "883cd6b8b0018a0284edc5fd25cbdf0825abe30996052ce1a36c68e35032a0f6"
+        },
+        "listing": [
+          "work/dby1.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "in_place",
+          "outcome": "patched",
+          "output": "work/dby1.mp4",
+          "reasons": [
+            "ftyp-dby1-requires-atmos: ftyp compatible_brands contains 'dby1' but no audio track reports real Dolby Atmos (JOC); AVPlayer will route via Dolby MAT and deliver silence on Atmos-capable AVRs.",
+            "tags: no tags → elng 1"
+          ],
+          "report": [],
+          "report_path": "work/dby1.mp4",
+          "source": "work/dby1.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "dby1.mp4",
+        "variant": "copy_only"
+      },
+      "name": "dby1.mp4 copy_only"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "out/result.mp4": "883cd6b8b0018a0284edc5fd25cbdf0825abe30996052ce1a36c68e35032a0f6",
+          "work/dby1.mp4": "2c458b13ca83d4952a5eedba65721a0da84a6fddcbff4255ad8cbdc57cd5e6c5"
+        },
+        "listing": [
+          "out/result.mp4",
+          "work/dby1.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "in_place",
+          "outcome": "patched",
+          "output": "out/result.mp4",
+          "reasons": [
+            "ftyp-dby1-requires-atmos: ftyp compatible_brands contains 'dby1' but no audio track reports real Dolby Atmos (JOC); AVPlayer will route via Dolby MAT and deliver silence on Atmos-capable AVRs.",
+            "tags: no tags → elng 1"
+          ],
+          "report": [],
+          "report_path": "out/result.mp4",
+          "source": "work/dby1.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "dby1.mp4",
+        "variant": "output_file"
+      },
+      "name": "dby1.mp4 output_file"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "out/dby1.mp4": "883cd6b8b0018a0284edc5fd25cbdf0825abe30996052ce1a36c68e35032a0f6",
+          "work/dby1.mp4": "2c458b13ca83d4952a5eedba65721a0da84a6fddcbff4255ad8cbdc57cd5e6c5"
+        },
+        "listing": [
+          "out/dby1.mp4",
+          "work/dby1.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "in_place",
+          "outcome": "patched",
+          "output": "out/dby1.mp4",
+          "reasons": [
+            "ftyp-dby1-requires-atmos: ftyp compatible_brands contains 'dby1' but no audio track reports real Dolby Atmos (JOC); AVPlayer will route via Dolby MAT and deliver silence on Atmos-capable AVRs.",
+            "tags: no tags → elng 1"
+          ],
+          "report": [],
+          "report_path": "out/dby1.mp4",
+          "source": "work/dby1.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "dby1.mp4",
+        "variant": "output_dir"
+      },
+      "name": "dby1.mp4 output_dir"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "new/sub/dby1.mp4": "883cd6b8b0018a0284edc5fd25cbdf0825abe30996052ce1a36c68e35032a0f6",
+          "work/dby1.mp4": "2c458b13ca83d4952a5eedba65721a0da84a6fddcbff4255ad8cbdc57cd5e6c5"
+        },
+        "listing": [
+          "new/sub/dby1.mp4",
+          "work/dby1.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "in_place",
+          "outcome": "patched",
+          "output": "new/sub/dby1.mp4",
+          "reasons": [
+            "ftyp-dby1-requires-atmos: ftyp compatible_brands contains 'dby1' but no audio track reports real Dolby Atmos (JOC); AVPlayer will route via Dolby MAT and deliver silence on Atmos-capable AVRs.",
+            "tags: no tags → elng 1"
+          ],
+          "report": [],
+          "report_path": "new/sub/dby1.mp4",
+          "source": "work/dby1.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "dby1.mp4",
+        "variant": "output_new_dir"
+      },
+      "name": "dby1.mp4 output_new_dir"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/dby1.mp4": "883cd6b8b0018a0284edc5fd25cbdf0825abe30996052ce1a36c68e35032a0f6"
+        },
+        "listing": [
+          "work/dby1.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "in_place",
+          "outcome": "patched",
+          "output": "work/dby1.mp4",
+          "reasons": [
+            "ftyp-dby1-requires-atmos: ftyp compatible_brands contains 'dby1' but no audio track reports real Dolby Atmos (JOC); AVPlayer will route via Dolby MAT and deliver silence on Atmos-capable AVRs.",
+            "tags: no tags → elng 1"
+          ],
+          "report": [],
+          "report_path": "work/dby1.mp4",
+          "source": "work/dby1.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "dby1.mp4",
+        "variant": "output_self"
+      },
+      "name": "dby1.mp4 output_self"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/dby1.mp4": "883cd6b8b0018a0284edc5fd25cbdf0825abe30996052ce1a36c68e35032a0f6"
+        },
+        "listing": [
+          "work/dby1.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "in_place",
+          "outcome": "patched",
+          "output": "work/dby1.mp4",
+          "reasons": [
+            "ftyp-dby1-requires-atmos: ftyp compatible_brands contains 'dby1' but no audio track reports real Dolby Atmos (JOC); AVPlayer will route via Dolby MAT and deliver silence on Atmos-capable AVRs.",
+            "tags: no tags → elng 1"
+          ],
+          "report": [],
+          "report_path": "work/dby1.mp4",
+          "source": "work/dby1.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "dby1.mp4",
+        "variant": "quarantine"
+      },
+      "name": "dby1.mp4 quarantine"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/dby1.mp4": "883cd6b8b0018a0284edc5fd25cbdf0825abe30996052ce1a36c68e35032a0f6"
+        },
+        "listing": [
+          "work/dby1.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 70",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 72",
+          "ATVPREP-PROGRESS 74",
+          "ATVPREP-PROGRESS 76",
+          "ATVPREP-PROGRESS 78",
+          "ATVPREP-PROGRESS 81",
+          "ATVPREP-PROGRESS 83",
+          "ATVPREP-PROGRESS 85",
+          "ATVPREP-PROGRESS 87",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 92",
+          "ATVPREP-PROGRESS 94",
+          "ATVPREP-PROGRESS 96",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "in_place",
+          "outcome": "patched",
+          "output": "work/dby1.mp4",
+          "reasons": [
+            "ftyp-dby1-requires-atmos: ftyp compatible_brands contains 'dby1' but no audio track reports real Dolby Atmos (JOC); AVPlayer will route via Dolby MAT and deliver silence on Atmos-capable AVRs.",
+            "tags: no tags → elng 1"
+          ],
+          "report": [],
+          "report_path": "work/dby1.mp4",
+          "source": "work/dby1.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "dby1.mp4",
+        "variant": "target"
+      },
+      "name": "dby1.mp4 target"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/dby1.mp4": "2c458b13ca83d4952a5eedba65721a0da84a6fddcbff4255ad8cbdc57cd5e6c5"
+        },
+        "listing": [
+          "work/dby1.mp4"
+        ],
+        "machine": [],
+        "raised": "ValueError: a caller-supplied fix target does not permit quarantine moves"
+      },
+      "input": {
+        "source": "dby1.mp4",
+        "variant": "quarantine_target"
+      },
+      "name": "dby1.mp4 quarantine_target"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/dby1.mp4": "2c458b13ca83d4952a5eedba65721a0da84a6fddcbff4255ad8cbdc57cd5e6c5"
+        },
+        "listing": [
+          "work/dby1.mp4"
+        ],
+        "machine": [],
+        "raised": "ValueError: --delete-original cannot be combined with an output target"
+      },
+      "input": {
+        "source": "dby1.mp4",
+        "variant": "delete_with_output"
+      },
+      "name": "dby1.mp4 delete_with_output"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/high10.mp4": "dfdb4a635ab7f14bc5162d65242dc6f2cb501c40e7821d00db009d9007138f1f"
+        },
+        "listing": [
+          "work/high10.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "reencode",
+          "outcome": "reencode_needed",
+          "output": null,
+          "reasons": [
+            "video h264 (High 10) needs a re-encode to HEVC"
+          ],
+          "report": null,
+          "report_path": null,
+          "source": "work/high10.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "high10.mp4",
+        "variant": "default"
+      },
+      "name": "high10.mp4 default"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/high10.mp4": "dfdb4a635ab7f14bc5162d65242dc6f2cb501c40e7821d00db009d9007138f1f"
+        },
+        "listing": [
+          "work/high10.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "reencode",
+          "outcome": "reencode_needed",
+          "output": null,
+          "reasons": [
+            "video h264 (High 10) needs a re-encode to HEVC"
+          ],
+          "report": null,
+          "report_path": null,
+          "source": "work/high10.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "high10.mp4",
+        "variant": "force"
+      },
+      "name": "high10.mp4 force"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/high10.mp4": "dfdb4a635ab7f14bc5162d65242dc6f2cb501c40e7821d00db009d9007138f1f"
+        },
+        "listing": [
+          "work/high10.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "reencode",
+          "outcome": "reencode_needed",
+          "output": null,
+          "reasons": [
+            "video h264 (High 10) needs a re-encode to HEVC"
+          ],
+          "report": null,
+          "report_path": null,
+          "source": "work/high10.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "high10.mp4",
+        "variant": "dry_run"
+      },
+      "name": "high10.mp4 dry_run"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/high10.mp4",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "libx265",
+            "-pix_fmt",
+            "yuv420p10le",
+            "-x265-params",
+            "crf=18",
+            "-tag:v",
+            "hvc1",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/work/.tmp_fixmeta_high10.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "work/high10.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "hevc",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ]
+            ]
+          }
+        },
+        "listing": [
+          "work/high10.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 86",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "reencode",
+          "outcome": "reencoded",
+          "output": "work/high10.mp4",
+          "reasons": [
+            "video h264 (High 10) needs a re-encode to HEVC"
+          ],
+          "report": [],
+          "report_path": "work/high10.mp4",
+          "source": "work/high10.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "high10.mp4",
+        "variant": "delete_original"
+      },
+      "name": "high10.mp4 delete_original"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/high10.mp4": "dfdb4a635ab7f14bc5162d65242dc6f2cb501c40e7821d00db009d9007138f1f"
+        },
+        "listing": [
+          "work/high10.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": "this fix would need to re-encode the video, which is not allowed here",
+          "error_kind": "transcode",
+          "level": "reencode",
+          "outcome": "failed",
+          "output": null,
+          "reasons": [
+            "video h264 (High 10) needs a re-encode to HEVC"
+          ],
+          "report": null,
+          "report_path": null,
+          "source": "work/high10.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "high10.mp4",
+        "variant": "copy_only"
+      },
+      "name": "high10.mp4 copy_only"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/high10.mp4",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "libx265",
+            "-pix_fmt",
+            "yuv420p10le",
+            "-x265-params",
+            "crf=18",
+            "-tag:v",
+            "hvc1",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/out/.tmp_fixmeta_result.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "out/result.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "hevc",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ]
+            ]
+          },
+          "work/high10.mp4": "dfdb4a635ab7f14bc5162d65242dc6f2cb501c40e7821d00db009d9007138f1f"
+        },
+        "listing": [
+          "out/result.mp4",
+          "work/high10.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 86",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "reencode",
+          "outcome": "reencoded",
+          "output": "out/result.mp4",
+          "reasons": [
+            "video h264 (High 10) needs a re-encode to HEVC"
+          ],
+          "report": [],
+          "report_path": "out/result.mp4",
+          "source": "work/high10.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "high10.mp4",
+        "variant": "output_file"
+      },
+      "name": "high10.mp4 output_file"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/high10.mp4",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "libx265",
+            "-pix_fmt",
+            "yuv420p10le",
+            "-x265-params",
+            "crf=18",
+            "-tag:v",
+            "hvc1",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/out/.tmp_fixmeta_high10.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "out/high10.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "hevc",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ]
+            ]
+          },
+          "work/high10.mp4": "dfdb4a635ab7f14bc5162d65242dc6f2cb501c40e7821d00db009d9007138f1f"
+        },
+        "listing": [
+          "out/high10.mp4",
+          "work/high10.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 86",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "reencode",
+          "outcome": "reencoded",
+          "output": "out/high10.mp4",
+          "reasons": [
+            "video h264 (High 10) needs a re-encode to HEVC"
+          ],
+          "report": [],
+          "report_path": "out/high10.mp4",
+          "source": "work/high10.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "high10.mp4",
+        "variant": "output_dir"
+      },
+      "name": "high10.mp4 output_dir"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/high10.mp4",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "libx265",
+            "-pix_fmt",
+            "yuv420p10le",
+            "-x265-params",
+            "crf=18",
+            "-tag:v",
+            "hvc1",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/new/sub/.tmp_fixmeta_high10.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "new/sub/high10.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "hevc",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ]
+            ]
+          },
+          "work/high10.mp4": "dfdb4a635ab7f14bc5162d65242dc6f2cb501c40e7821d00db009d9007138f1f"
+        },
+        "listing": [
+          "new/sub/high10.mp4",
+          "work/high10.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 86",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "reencode",
+          "outcome": "reencoded",
+          "output": "new/sub/high10.mp4",
+          "reasons": [
+            "video h264 (High 10) needs a re-encode to HEVC"
+          ],
+          "report": [],
+          "report_path": "new/sub/high10.mp4",
+          "source": "work/high10.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "high10.mp4",
+        "variant": "output_new_dir"
+      },
+      "name": "high10.mp4 output_new_dir"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/high10.mp4": "dfdb4a635ab7f14bc5162d65242dc6f2cb501c40e7821d00db009d9007138f1f"
+        },
+        "listing": [
+          "work/high10.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "reencode",
+          "outcome": "reencode_needed",
+          "output": null,
+          "reasons": [
+            "video h264 (High 10) needs a re-encode to HEVC"
+          ],
+          "report": null,
+          "report_path": null,
+          "source": "work/high10.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "high10.mp4",
+        "variant": "output_self"
+      },
+      "name": "high10.mp4 output_self"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/high10.mp4": "dfdb4a635ab7f14bc5162d65242dc6f2cb501c40e7821d00db009d9007138f1f"
+        },
+        "listing": [
+          "work/high10.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "reencode",
+          "outcome": "reencode_needed",
+          "output": null,
+          "reasons": [
+            "video h264 (High 10) needs a re-encode to HEVC"
+          ],
+          "report": null,
+          "report_path": null,
+          "source": "work/high10.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "high10.mp4",
+        "variant": "quarantine"
+      },
+      "name": "high10.mp4 quarantine"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/high10.mp4": "dfdb4a635ab7f14bc5162d65242dc6f2cb501c40e7821d00db009d9007138f1f"
+        },
+        "listing": [
+          "work/high10.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "reencode",
+          "outcome": "reencode_needed",
+          "output": null,
+          "reasons": [
+            "video h264 (High 10) needs a re-encode to HEVC"
+          ],
+          "report": null,
+          "report_path": null,
+          "source": "work/high10.mp4",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "high10.mp4",
+        "variant": "target"
+      },
+      "name": "high10.mp4 target"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/high10.mp4": "dfdb4a635ab7f14bc5162d65242dc6f2cb501c40e7821d00db009d9007138f1f"
+        },
+        "listing": [
+          "work/high10.mp4"
+        ],
+        "machine": [],
+        "raised": "ValueError: a caller-supplied fix target does not permit quarantine moves"
+      },
+      "input": {
+        "source": "high10.mp4",
+        "variant": "quarantine_target"
+      },
+      "name": "high10.mp4 quarantine_target"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/high10.mp4": "dfdb4a635ab7f14bc5162d65242dc6f2cb501c40e7821d00db009d9007138f1f"
+        },
+        "listing": [
+          "work/high10.mp4"
+        ],
+        "machine": [],
+        "raised": "ValueError: --delete-original cannot be combined with an output target"
+      },
+      "input": {
+        "source": "high10.mp4",
+        "variant": "delete_with_output"
+      },
+      "name": "high10.mp4 delete_with_output"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/movie.mkv",
+            "-i",
+            "<dir>/work/movie.nl.srt",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:2",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=eng",
+            "-metadata:s:s:0",
+            "handler_name=English",
+            "-metadata:s:s:0",
+            "title=ENG",
+            "-disposition:s:0",
+            "default",
+            "-map",
+            "0:3",
+            "-c:s:1",
+            "mov_text",
+            "-metadata:s:s:1",
+            "language=eng",
+            "-metadata:s:s:1",
+            "handler_name=English",
+            "-metadata:s:s:1",
+            "title=Forced ENG",
+            "-disposition:s:1",
+            "forced+default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/work/.tmp_fixmeta_movie.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "work/movie.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/movie.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ]
+            ]
+          },
+          "work/movie.nl.srt": "59cc16c7f157333577cfa951ed6f6a24a5ff46ee475405957181a5090899bc0e"
+        },
+        "listing": [
+          "work/movie.mkv",
+          "work/movie.mp4",
+          "work/movie.nl.srt"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "work/movie.mp4",
+          "reasons": [
+            "source is .mkv (must remux to mp4)"
+          ],
+          "report": [],
+          "report_path": "work/movie.mp4",
+          "source": "work/movie.mkv",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "movie.mkv",
+        "variant": "default"
+      },
+      "name": "movie.mkv default"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/movie.mkv",
+            "-i",
+            "<dir>/work/movie.nl.srt",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:2",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=eng",
+            "-metadata:s:s:0",
+            "handler_name=English",
+            "-metadata:s:s:0",
+            "title=ENG",
+            "-disposition:s:0",
+            "default",
+            "-map",
+            "0:3",
+            "-c:s:1",
+            "mov_text",
+            "-metadata:s:s:1",
+            "language=eng",
+            "-metadata:s:s:1",
+            "handler_name=English",
+            "-metadata:s:s:1",
+            "title=Forced ENG",
+            "-disposition:s:1",
+            "forced+default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/work/.tmp_fixmeta_movie.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "work/movie.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/movie.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ]
+            ]
+          },
+          "work/movie.nl.srt": "59cc16c7f157333577cfa951ed6f6a24a5ff46ee475405957181a5090899bc0e"
+        },
+        "listing": [
+          "work/movie.mkv",
+          "work/movie.mp4",
+          "work/movie.nl.srt"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "work/movie.mp4",
+          "reasons": [
+            "source is .mkv (must remux to mp4)"
+          ],
+          "report": [],
+          "report_path": "work/movie.mp4",
+          "source": "work/movie.mkv",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "movie.mkv",
+        "variant": "force"
+      },
+      "name": "movie.mkv force"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/movie.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/movie.nl.srt": "59cc16c7f157333577cfa951ed6f6a24a5ff46ee475405957181a5090899bc0e"
+        },
+        "listing": [
+          "work/movie.mkv",
+          "work/movie.nl.srt"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "planned",
+          "output": null,
+          "reasons": [
+            "source is .mkv (must remux to mp4)"
+          ],
+          "report": null,
+          "report_path": null,
+          "source": "work/movie.mkv",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "movie.mkv",
+        "variant": "dry_run"
+      },
+      "name": "movie.mkv dry_run"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/movie.mkv",
+            "-i",
+            "<dir>/work/movie.nl.srt",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:2",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=eng",
+            "-metadata:s:s:0",
+            "handler_name=English",
+            "-metadata:s:s:0",
+            "title=ENG",
+            "-disposition:s:0",
+            "default",
+            "-map",
+            "0:3",
+            "-c:s:1",
+            "mov_text",
+            "-metadata:s:s:1",
+            "language=eng",
+            "-metadata:s:s:1",
+            "handler_name=English",
+            "-metadata:s:s:1",
+            "title=Forced ENG",
+            "-disposition:s:1",
+            "forced+default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/work/.tmp_fixmeta_movie.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "work/movie.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ]
+            ]
+          },
+          "work/movie.nl.srt": "59cc16c7f157333577cfa951ed6f6a24a5ff46ee475405957181a5090899bc0e"
+        },
+        "listing": [
+          "work/movie.mp4",
+          "work/movie.nl.srt"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "work/movie.mp4",
+          "reasons": [
+            "source is .mkv (must remux to mp4)"
+          ],
+          "report": [],
+          "report_path": "work/movie.mp4",
+          "source": "work/movie.mkv",
+          "source_kept": null,
+          "source_removed": true,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "movie.mkv",
+        "variant": "delete_original"
+      },
+      "name": "movie.mkv delete_original"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/movie.mkv",
+            "-i",
+            "<dir>/work/movie.nl.srt",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:2",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=eng",
+            "-metadata:s:s:0",
+            "handler_name=English",
+            "-metadata:s:s:0",
+            "title=ENG",
+            "-disposition:s:0",
+            "default",
+            "-map",
+            "0:3",
+            "-c:s:1",
+            "mov_text",
+            "-metadata:s:s:1",
+            "language=eng",
+            "-metadata:s:s:1",
+            "handler_name=English",
+            "-metadata:s:s:1",
+            "title=Forced ENG",
+            "-disposition:s:1",
+            "forced+default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/work/.tmp_fixmeta_movie.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "work/movie.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/movie.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ]
+            ]
+          },
+          "work/movie.nl.srt": "59cc16c7f157333577cfa951ed6f6a24a5ff46ee475405957181a5090899bc0e"
+        },
+        "listing": [
+          "work/movie.mkv",
+          "work/movie.mp4",
+          "work/movie.nl.srt"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "work/movie.mp4",
+          "reasons": [
+            "source is .mkv (must remux to mp4)"
+          ],
+          "report": [],
+          "report_path": "work/movie.mp4",
+          "source": "work/movie.mkv",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "movie.mkv",
+        "variant": "copy_only"
+      },
+      "name": "movie.mkv copy_only"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/movie.mkv",
+            "-i",
+            "<dir>/work/movie.nl.srt",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:2",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=eng",
+            "-metadata:s:s:0",
+            "handler_name=English",
+            "-metadata:s:s:0",
+            "title=ENG",
+            "-disposition:s:0",
+            "default",
+            "-map",
+            "0:3",
+            "-c:s:1",
+            "mov_text",
+            "-metadata:s:s:1",
+            "language=eng",
+            "-metadata:s:s:1",
+            "handler_name=English",
+            "-metadata:s:s:1",
+            "title=Forced ENG",
+            "-disposition:s:1",
+            "forced+default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/out/.tmp_fixmeta_result.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "out/result.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ]
+            ]
+          },
+          "work/movie.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/movie.nl.srt": "59cc16c7f157333577cfa951ed6f6a24a5ff46ee475405957181a5090899bc0e"
+        },
+        "listing": [
+          "out/result.mp4",
+          "work/movie.mkv",
+          "work/movie.nl.srt"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "out/result.mp4",
+          "reasons": [
+            "source is .mkv (must remux to mp4)"
+          ],
+          "report": [],
+          "report_path": "out/result.mp4",
+          "source": "work/movie.mkv",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "movie.mkv",
+        "variant": "output_file"
+      },
+      "name": "movie.mkv output_file"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/movie.mkv",
+            "-i",
+            "<dir>/work/movie.nl.srt",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:2",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=eng",
+            "-metadata:s:s:0",
+            "handler_name=English",
+            "-metadata:s:s:0",
+            "title=ENG",
+            "-disposition:s:0",
+            "default",
+            "-map",
+            "0:3",
+            "-c:s:1",
+            "mov_text",
+            "-metadata:s:s:1",
+            "language=eng",
+            "-metadata:s:s:1",
+            "handler_name=English",
+            "-metadata:s:s:1",
+            "title=Forced ENG",
+            "-disposition:s:1",
+            "forced+default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/out/.tmp_fixmeta_movie.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "out/movie.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ]
+            ]
+          },
+          "work/movie.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/movie.nl.srt": "59cc16c7f157333577cfa951ed6f6a24a5ff46ee475405957181a5090899bc0e"
+        },
+        "listing": [
+          "out/movie.mp4",
+          "work/movie.mkv",
+          "work/movie.nl.srt"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "out/movie.mp4",
+          "reasons": [
+            "source is .mkv (must remux to mp4)"
+          ],
+          "report": [],
+          "report_path": "out/movie.mp4",
+          "source": "work/movie.mkv",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "movie.mkv",
+        "variant": "output_dir"
+      },
+      "name": "movie.mkv output_dir"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/movie.mkv",
+            "-i",
+            "<dir>/work/movie.nl.srt",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:2",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=eng",
+            "-metadata:s:s:0",
+            "handler_name=English",
+            "-metadata:s:s:0",
+            "title=ENG",
+            "-disposition:s:0",
+            "default",
+            "-map",
+            "0:3",
+            "-c:s:1",
+            "mov_text",
+            "-metadata:s:s:1",
+            "language=eng",
+            "-metadata:s:s:1",
+            "handler_name=English",
+            "-metadata:s:s:1",
+            "title=Forced ENG",
+            "-disposition:s:1",
+            "forced+default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/new/sub/.tmp_fixmeta_movie.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "new/sub/movie.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ]
+            ]
+          },
+          "work/movie.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/movie.nl.srt": "59cc16c7f157333577cfa951ed6f6a24a5ff46ee475405957181a5090899bc0e"
+        },
+        "listing": [
+          "new/sub/movie.mp4",
+          "work/movie.mkv",
+          "work/movie.nl.srt"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "new/sub/movie.mp4",
+          "reasons": [
+            "source is .mkv (must remux to mp4)"
+          ],
+          "report": [],
+          "report_path": "new/sub/movie.mp4",
+          "source": "work/movie.mkv",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "movie.mkv",
+        "variant": "output_new_dir"
+      },
+      "name": "movie.mkv output_new_dir"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/movie.mkv",
+            "-i",
+            "<dir>/work/movie.nl.srt",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:2",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=eng",
+            "-metadata:s:s:0",
+            "handler_name=English",
+            "-metadata:s:s:0",
+            "title=ENG",
+            "-disposition:s:0",
+            "default",
+            "-map",
+            "0:3",
+            "-c:s:1",
+            "mov_text",
+            "-metadata:s:s:1",
+            "language=eng",
+            "-metadata:s:s:1",
+            "handler_name=English",
+            "-metadata:s:s:1",
+            "title=Forced ENG",
+            "-disposition:s:1",
+            "forced+default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/work/.tmp_fixmeta_movie.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "work/movie.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/movie.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ]
+            ]
+          },
+          "work/movie.nl.srt": "59cc16c7f157333577cfa951ed6f6a24a5ff46ee475405957181a5090899bc0e"
+        },
+        "listing": [
+          "work/movie.mkv",
+          "work/movie.mp4",
+          "work/movie.nl.srt"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "work/movie.mp4",
+          "reasons": [
+            "source is .mkv (must remux to mp4)"
+          ],
+          "report": [],
+          "report_path": "work/movie.mp4",
+          "source": "work/movie.mkv",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "movie.mkv",
+        "variant": "output_self"
+      },
+      "name": "movie.mkv output_self"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/movie.mkv",
+            "-i",
+            "<dir>/work/movie.nl.srt",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:2",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=eng",
+            "-metadata:s:s:0",
+            "handler_name=English",
+            "-metadata:s:s:0",
+            "title=ENG",
+            "-disposition:s:0",
+            "default",
+            "-map",
+            "0:3",
+            "-c:s:1",
+            "mov_text",
+            "-metadata:s:s:1",
+            "language=eng",
+            "-metadata:s:s:1",
+            "handler_name=English",
+            "-metadata:s:s:1",
+            "title=Forced ENG",
+            "-disposition:s:1",
+            "forced+default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/work/.tmp_fixmeta_movie.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "work/movie.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/movie.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ]
+            ]
+          },
+          "work/movie.nl.srt": "59cc16c7f157333577cfa951ed6f6a24a5ff46ee475405957181a5090899bc0e"
+        },
+        "listing": [
+          "work/movie.mkv",
+          "work/movie.mp4",
+          "work/movie.nl.srt"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "work/movie.mp4",
+          "reasons": [
+            "source is .mkv (must remux to mp4)"
+          ],
+          "report": [],
+          "report_path": "work/movie.mp4",
+          "source": "work/movie.mkv",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "movie.mkv",
+        "variant": "quarantine"
+      },
+      "name": "movie.mkv quarantine"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/movie.mkv",
+            "-i",
+            "<dir>/work/movie.nl.srt",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:2",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=eng",
+            "-metadata:s:s:0",
+            "handler_name=English",
+            "-metadata:s:s:0",
+            "title=ENG",
+            "-disposition:s:0",
+            "default",
+            "-map",
+            "0:3",
+            "-c:s:1",
+            "mov_text",
+            "-metadata:s:s:1",
+            "language=eng",
+            "-metadata:s:s:1",
+            "handler_name=English",
+            "-metadata:s:s:1",
+            "title=Forced ENG",
+            "-disposition:s:1",
+            "forced+default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/work/.tmp_fixmeta_movie.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "work/movie.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/movie.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ]
+            ]
+          },
+          "work/movie.nl.srt": "59cc16c7f157333577cfa951ed6f6a24a5ff46ee475405957181a5090899bc0e"
+        },
+        "listing": [
+          "work/movie.mkv",
+          "work/movie.mp4",
+          "work/movie.nl.srt"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "work/movie.mp4",
+          "reasons": [
+            "source is .mkv (must remux to mp4)"
+          ],
+          "report": [],
+          "report_path": "work/movie.mp4",
+          "source": "work/movie.mkv",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "movie.mkv",
+        "variant": "target"
+      },
+      "name": "movie.mkv target"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/movie.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/movie.nl.srt": "59cc16c7f157333577cfa951ed6f6a24a5ff46ee475405957181a5090899bc0e"
+        },
+        "listing": [
+          "work/movie.mkv",
+          "work/movie.nl.srt"
+        ],
+        "machine": [],
+        "raised": "ValueError: a caller-supplied fix target does not permit quarantine moves"
+      },
+      "input": {
+        "source": "movie.mkv",
+        "variant": "quarantine_target"
+      },
+      "name": "movie.mkv quarantine_target"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/movie.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/movie.nl.srt": "59cc16c7f157333577cfa951ed6f6a24a5ff46ee475405957181a5090899bc0e"
+        },
+        "listing": [
+          "work/movie.mkv",
+          "work/movie.nl.srt"
+        ],
+        "machine": [],
+        "raised": "ValueError: --delete-original cannot be combined with an output target"
+      },
+      "input": {
+        "source": "movie.mkv",
+        "variant": "delete_with_output"
+      },
+      "name": "movie.mkv delete_with_output"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/sibling.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/sibling.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/sibling.mkv",
+          "work/sibling.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "none",
+          "outcome": "done",
+          "output": "work/sibling.mp4",
+          "reasons": [],
+          "report": null,
+          "report_path": null,
+          "source": "work/sibling.mkv",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "sibling.mkv",
+        "variant": "default"
+      },
+      "name": "sibling.mkv default"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/sibling.mp4",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:2",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=eng",
+            "-metadata:s:s:0",
+            "handler_name=English",
+            "-metadata:s:s:0",
+            "title=ENG",
+            "-disposition:s:0",
+            "default",
+            "-map",
+            "0:3",
+            "-c:s:1",
+            "mov_text",
+            "-metadata:s:s:1",
+            "language=eng",
+            "-metadata:s:s:1",
+            "handler_name=English",
+            "-metadata:s:s:1",
+            "title=Forced ENG",
+            "-disposition:s:1",
+            "forced+default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/work/.tmp_fixmeta_sibling.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "work/sibling.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/sibling.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ]
+            ]
+          }
+        },
+        "listing": [
+          "work/sibling.mkv",
+          "work/sibling.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "work/sibling.mp4",
+          "reasons": [],
+          "report": [],
+          "report_path": "work/sibling.mp4",
+          "source": "work/sibling.mkv",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "sibling.mkv",
+        "variant": "force"
+      },
+      "name": "sibling.mkv force"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/sibling.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/sibling.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/sibling.mkv",
+          "work/sibling.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "none",
+          "outcome": "done",
+          "output": "work/sibling.mp4",
+          "reasons": [],
+          "report": null,
+          "report_path": null,
+          "source": "work/sibling.mkv",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "sibling.mkv",
+        "variant": "dry_run"
+      },
+      "name": "sibling.mkv dry_run"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/sibling.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/sibling.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/sibling.mkv",
+          "work/sibling.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "none",
+          "outcome": "done",
+          "output": "work/sibling.mp4",
+          "reasons": [],
+          "report": null,
+          "report_path": null,
+          "source": "work/sibling.mkv",
+          "source_kept": "the original was kept: an existing MP4 next to it was used",
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "sibling.mkv",
+        "variant": "delete_original"
+      },
+      "name": "sibling.mkv delete_original"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/sibling.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/sibling.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/sibling.mkv",
+          "work/sibling.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "none",
+          "outcome": "done",
+          "output": "work/sibling.mp4",
+          "reasons": [],
+          "report": null,
+          "report_path": null,
+          "source": "work/sibling.mkv",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "sibling.mkv",
+        "variant": "copy_only"
+      },
+      "name": "sibling.mkv copy_only"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/sibling.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:2",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=eng",
+            "-metadata:s:s:0",
+            "handler_name=English",
+            "-metadata:s:s:0",
+            "title=ENG",
+            "-disposition:s:0",
+            "default",
+            "-map",
+            "0:3",
+            "-c:s:1",
+            "mov_text",
+            "-metadata:s:s:1",
+            "language=eng",
+            "-metadata:s:s:1",
+            "handler_name=English",
+            "-metadata:s:s:1",
+            "title=Forced ENG",
+            "-disposition:s:1",
+            "forced+default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/out/.tmp_fixmeta_result.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "out/result.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ]
+            ]
+          },
+          "work/sibling.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/sibling.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "out/result.mp4",
+          "work/sibling.mkv",
+          "work/sibling.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "out/result.mp4",
+          "reasons": [
+            "source is .mkv (must remux to mp4)"
+          ],
+          "report": [],
+          "report_path": "out/result.mp4",
+          "source": "work/sibling.mkv",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "sibling.mkv",
+        "variant": "output_file"
+      },
+      "name": "sibling.mkv output_file"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/sibling.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:2",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=eng",
+            "-metadata:s:s:0",
+            "handler_name=English",
+            "-metadata:s:s:0",
+            "title=ENG",
+            "-disposition:s:0",
+            "default",
+            "-map",
+            "0:3",
+            "-c:s:1",
+            "mov_text",
+            "-metadata:s:s:1",
+            "language=eng",
+            "-metadata:s:s:1",
+            "handler_name=English",
+            "-metadata:s:s:1",
+            "title=Forced ENG",
+            "-disposition:s:1",
+            "forced+default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/out/.tmp_fixmeta_sibling.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "out/sibling.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ]
+            ]
+          },
+          "work/sibling.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/sibling.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "out/sibling.mp4",
+          "work/sibling.mkv",
+          "work/sibling.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "out/sibling.mp4",
+          "reasons": [
+            "source is .mkv (must remux to mp4)"
+          ],
+          "report": [],
+          "report_path": "out/sibling.mp4",
+          "source": "work/sibling.mkv",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "sibling.mkv",
+        "variant": "output_dir"
+      },
+      "name": "sibling.mkv output_dir"
+    },
+    {
+      "expected": {
+        "argv": [
+          [
+            "-hide_banner",
+            "-y",
+            "-i",
+            "<dir>/work/sibling.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:2",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=eng",
+            "-metadata:s:s:0",
+            "handler_name=English",
+            "-metadata:s:s:0",
+            "title=ENG",
+            "-disposition:s:0",
+            "default",
+            "-map",
+            "0:3",
+            "-c:s:1",
+            "mov_text",
+            "-metadata:s:s:1",
+            "language=eng",
+            "-metadata:s:s:1",
+            "handler_name=English",
+            "-metadata:s:s:1",
+            "title=Forced ENG",
+            "-disposition:s:1",
+            "forced+default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "-nostats",
+            "-progress",
+            "/dev/fd/5",
+            "<dir>/new/sub/.tmp_fixmeta_sibling.<pid>.mp4"
+          ]
+        ],
+        "files": {
+          "new/sub/sibling.mp4": {
+            "severities": [],
+            "signature": [
+              [
+                "video",
+                "h264",
+                "eng",
+                0
+              ],
+              [
+                "audio",
+                "aac",
+                "eng",
+                2
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ],
+              [
+                "subtitle",
+                "mov_text",
+                "eng",
+                0
+              ]
+            ]
+          },
+          "work/sibling.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/sibling.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "new/sub/sibling.mp4",
+          "work/sibling.mkv",
+          "work/sibling.mp4"
+        ],
+        "machine": [
+          "ATVPREP-STAGE encode",
+          "ATVPREP-PROGRESS 90",
+          "ATVPREP-STAGE finalize",
+          "ATVPREP-PROGRESS 97",
+          "ATVPREP-STAGE verify",
+          "ATVPREP-PROGRESS 98",
+          "ATVPREP-PROGRESS 99"
+        ],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "rebuild",
+          "outcome": "rebuilt",
+          "output": "new/sub/sibling.mp4",
+          "reasons": [
+            "source is .mkv (must remux to mp4)"
+          ],
+          "report": [],
+          "report_path": "new/sub/sibling.mp4",
+          "source": "work/sibling.mkv",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "sibling.mkv",
+        "variant": "output_new_dir"
+      },
+      "name": "sibling.mkv output_new_dir"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/sibling.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/sibling.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/sibling.mkv",
+          "work/sibling.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "none",
+          "outcome": "done",
+          "output": "work/sibling.mp4",
+          "reasons": [],
+          "report": null,
+          "report_path": null,
+          "source": "work/sibling.mkv",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "sibling.mkv",
+        "variant": "output_self"
+      },
+      "name": "sibling.mkv output_self"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/sibling.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/sibling.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/sibling.mkv",
+          "work/sibling.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "none",
+          "outcome": "done",
+          "output": "work/sibling.mp4",
+          "reasons": [],
+          "report": null,
+          "report_path": null,
+          "source": "work/sibling.mkv",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "sibling.mkv",
+        "variant": "quarantine"
+      },
+      "name": "sibling.mkv quarantine"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/sibling.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/sibling.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/sibling.mkv",
+          "work/sibling.mp4"
+        ],
+        "machine": [],
+        "raised": null,
+        "result": {
+          "error": null,
+          "error_kind": null,
+          "level": "none",
+          "outcome": "done",
+          "output": "work/sibling.mp4",
+          "reasons": [],
+          "report": null,
+          "report_path": null,
+          "source": "work/sibling.mkv",
+          "source_kept": null,
+          "source_removed": false,
+          "tags_only": false
+        }
+      },
+      "input": {
+        "source": "sibling.mkv",
+        "variant": "target"
+      },
+      "name": "sibling.mkv target"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/sibling.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/sibling.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/sibling.mkv",
+          "work/sibling.mp4"
+        ],
+        "machine": [],
+        "raised": "ValueError: a caller-supplied fix target does not permit quarantine moves"
+      },
+      "input": {
+        "source": "sibling.mkv",
+        "variant": "quarantine_target"
+      },
+      "name": "sibling.mkv quarantine_target"
+    },
+    {
+      "expected": {
+        "argv": [],
+        "files": {
+          "work/sibling.mkv": "4c0b70490aa01fcf446e7adb0e1abac80edd49612430f788de083caa672f0c72",
+          "work/sibling.mp4": "4daf6a5a4c82abf66d96727c51b1297a3c4bc3be1ee30a56b9d3026a71fbce54"
+        },
+        "listing": [
+          "work/sibling.mkv",
+          "work/sibling.mp4"
+        ],
+        "machine": [],
+        "raised": "ValueError: --delete-original cannot be combined with an output target"
+      },
+      "input": {
+        "source": "sibling.mkv",
+        "variant": "delete_with_output"
+      },
+      "name": "sibling.mkv delete_with_output"
+    }
+  ],
+  "suite": "prepare_pipeline"
+}

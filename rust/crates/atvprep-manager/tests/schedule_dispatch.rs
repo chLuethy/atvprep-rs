@@ -1,0 +1,165 @@
+//! Slot dispatch, failure rollback, rotation and selection against actual SQLite.
+use atvprep_manager::{
+    clock::{Clock, FixedClock},
+    db::{Conn, Db},
+    repo::Ctx,
+    schedules::{run_due_schedules, run_schedule},
+    schema,
+};
+use chrono::{DateTime, Duration, Local, Utc};
+use std::sync::{Arc, Barrier};
+const NOW: i64 = 1_700_000_000_000_000;
+fn seed(db: &Db) -> Conn {
+    let mut conn = db.conn().unwrap();
+    schema::migrate(&mut conn).unwrap();
+    conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'test','/library'),(2,'other','/other');
+    INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES
+    (1,1,'one.mp4','video','.mp4',1,1,'one','present','clean','idle','none'),
+    (2,1,'two.m4v','video','.m4v',1,1,'two','present','warning','idle','none'),
+    (3,1,'three.mkv','video','.mkv',1,1,'three','present','warning','idle','none'),
+    (4,2,'four.mov','video','.mov',1,1,'four','present','warning','idle','none'),
+    (5,1,'missing.mp4','video','.mp4',1,1,'missing','missing','warning','idle','none');").unwrap();
+    let time = (DateTime::<Utc>::from_timestamp_micros(NOW)
+        .unwrap()
+        .with_timezone(&Local)
+        - Duration::minutes(30))
+    .format("%H:%M")
+    .to_string();
+    conn.raw().execute("INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,max_files,enabled,armed_at) VALUES(1,'test','verify',1,127,?1,1,1,'2000-01-01')",[time]).unwrap();
+    conn
+}
+#[test]
+fn a_failed_queue_insert_does_not_consume_the_slot() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    conn.raw().execute_batch("CREATE TRIGGER refuse_schedule BEFORE INSERT ON jobs BEGIN SELECT RAISE(ABORT,'queue unavailable'); END;").unwrap();
+    assert!(run_due_schedules(ctx).is_err());
+    assert_eq!(
+        conn.raw()
+            .query_row("SELECT last_slot_at FROM schedules WHERE id=1", [], |row| {
+                row.get::<_, Option<String>>(0)
+            })
+            .unwrap(),
+        None
+    );
+    conn.raw()
+        .execute_batch("DROP TRIGGER refuse_schedule")
+        .unwrap();
+    assert_eq!(run_due_schedules(ctx).unwrap(), 1);
+    assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+}
+#[test]
+fn competing_dispatchers_claim_each_slot_once() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = Db::open(&temp.path().join("schedules.sqlite")).unwrap();
+    let conn = seed(&db);
+    let start = Arc::new(Barrier::new(2));
+    let mut workers = Vec::new();
+    for _ in 0..2 {
+        let db = db.clone();
+        let start = start.clone();
+        workers.push(std::thread::spawn(move || {
+            let conn = db.conn().unwrap();
+            let clock = FixedClock(NOW);
+            start.wait();
+            run_due_schedules(Ctx {
+                conn: conn.raw(),
+                clock: &clock,
+            })
+            .unwrap()
+        }));
+    }
+    assert_eq!(
+        workers
+            .into_iter()
+            .map(|worker| worker.join().unwrap())
+            .sum::<usize>(),
+        1
+    );
+    assert_eq!(
+        conn.raw()
+            .query_row("SELECT count(*) FROM jobs", [], |row| row.get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+}
+#[test]
+fn dispatch_respects_catchup_arming_pause_and_gate() {
+    for mode in ["late", "newly-armed", "paused", "closed"] {
+        let db = Db::memory().unwrap();
+        let conn = seed(&db);
+        let clock = FixedClock(NOW);
+        match mode {
+            "late" => {
+                let time = (DateTime::<Utc>::from_timestamp_micros(NOW)
+                    .unwrap()
+                    .with_timezone(&Local)
+                    - Duration::hours(7))
+                .format("%H:%M")
+                .to_string();
+                conn.raw()
+                    .execute("UPDATE schedules SET time_of_day=?1", [time])
+                    .unwrap();
+            }
+            "newly-armed" => {
+                conn.raw()
+                    .execute("UPDATE schedules SET armed_at=?1", [clock.now()])
+                    .unwrap();
+            }
+            "paused" => {
+                conn.raw()
+                    .execute("UPDATE schedules SET enabled=0", [])
+                    .unwrap();
+            }
+            _ => {
+                conn.raw()
+                    .execute("UPDATE deployment_gate SET mode='maintenance'", [])
+                    .unwrap();
+            }
+        }
+        assert_eq!(
+            run_due_schedules(Ctx {
+                conn: conn.raw(),
+                clock: &clock
+            })
+            .unwrap(),
+            0,
+            "{mode}"
+        );
+        assert_eq!(
+            conn.raw()
+                .query_row("SELECT last_slot_at FROM schedules", [], |row| row
+                    .get::<_, Option<String>>(0))
+                .unwrap(),
+            None
+        );
+    }
+}
+#[test]
+fn runs_rotate_across_present_mp4_files_and_respect_root_state_and_busy_files() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    let mut media = Vec::new();
+    for _ in 0..3 {
+        run_schedule(ctx, 1).unwrap();
+        media.push(conn.raw().query_row("SELECT media_file_id FROM job_items WHERE job_id=(SELECT last_job_id FROM schedules WHERE id=1)",[],|row|row.get::<_,i64>(0)).unwrap());
+    }
+    assert_eq!(media, [1, 2, 1]);
+    conn.raw()
+        .execute("UPDATE schedules SET compliance_state='warning'", [])
+        .unwrap();
+    run_schedule(ctx, 1).unwrap();
+    assert_eq!(conn.raw().query_row("SELECT media_file_id FROM job_items WHERE job_id=(SELECT last_job_id FROM schedules WHERE id=1)",[],|row|row.get::<_,i64>(0)).unwrap(),2);
+    conn.raw().execute_batch("INSERT INTO jobs(id,action,status) VALUES(100,'fix','queued'); INSERT INTO job_items(job_id,media_file_id,action,position,status) VALUES(100,2,'fix',1,'queued');").unwrap();
+    assert_eq!(run_schedule(ctx, 1).unwrap(), "No matching files");
+}

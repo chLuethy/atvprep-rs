@@ -1,0 +1,1719 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "described": [
+          "video",
+          "eng stereo audio",
+          "eng 5.1 audio",
+          "deu stereo audio",
+          "deu 5.1 audio",
+          "eng forced subtitle",
+          "eng full subtitle",
+          "deu forced subtitle",
+          "deu full subtitle",
+          "nld full subtitle"
+        ],
+        "enabled": [
+          1,
+          2,
+          3
+        ],
+        "roles": [
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "und",
+            "media": "video",
+            "track_id": 1
+          },
+          {
+            "channels": 2,
+            "default": true,
+            "forced": false,
+            "lang": "eng",
+            "media": "audio",
+            "track_id": 2
+          },
+          {
+            "channels": 6,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "audio",
+            "track_id": 10
+          },
+          {
+            "channels": 2,
+            "default": false,
+            "forced": false,
+            "lang": "deu",
+            "media": "audio",
+            "track_id": 11
+          },
+          {
+            "channels": 6,
+            "default": false,
+            "forced": false,
+            "lang": "deu",
+            "media": "audio",
+            "track_id": 12
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": true,
+            "lang": "eng",
+            "media": "subtitle",
+            "track_id": 3
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "subtitle",
+            "track_id": 4
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": true,
+            "lang": "deu",
+            "media": "subtitle",
+            "track_id": 5
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "deu",
+            "media": "subtitle",
+            "track_id": 6
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "nld",
+            "media": "subtitle",
+            "track_id": 7
+          }
+        ]
+      },
+      "input": {
+        "streams": [
+          {
+            "codec_type": "video",
+            "disposition": {},
+            "id": "0x1"
+          },
+          {
+            "channels": 2,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 1
+            },
+            "id": "0x2",
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 6,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 0
+            },
+            "id": "0xa",
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 2,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 0
+            },
+            "id": "0xb",
+            "tags": {
+              "language": "deu"
+            }
+          },
+          {
+            "channels": 6,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 0
+            },
+            "id": "0xc",
+            "tags": {
+              "language": "deu"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 1
+            },
+            "id": "0x3",
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0x4",
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 1
+            },
+            "id": "0x5",
+            "tags": {
+              "language": "deu"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0x6",
+            "tags": {
+              "language": "deu"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0x7",
+            "tags": {
+              "language": "nld"
+            }
+          }
+        ]
+      },
+      "name": "apple xmen layout"
+    },
+    {
+      "expected": {
+        "described": [
+          "video",
+          "deu 5.1 audio",
+          "deu stereo audio",
+          "nor 5.1 audio",
+          "nor stereo audio",
+          "deu forced subtitle",
+          "deu forced subtitle",
+          "eng full subtitle",
+          "nor full subtitle",
+          "nor forced subtitle"
+        ],
+        "enabled": [
+          1,
+          3,
+          6
+        ],
+        "roles": [
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "und",
+            "media": "video",
+            "track_id": 1
+          },
+          {
+            "channels": 6,
+            "default": true,
+            "forced": false,
+            "lang": "deu",
+            "media": "audio",
+            "track_id": 2
+          },
+          {
+            "channels": 2,
+            "default": false,
+            "forced": false,
+            "lang": "deu",
+            "media": "audio",
+            "track_id": 3
+          },
+          {
+            "channels": 6,
+            "default": false,
+            "forced": false,
+            "lang": "nor",
+            "media": "audio",
+            "track_id": 4
+          },
+          {
+            "channels": 2,
+            "default": false,
+            "forced": false,
+            "lang": "nor",
+            "media": "audio",
+            "track_id": 5
+          },
+          {
+            "channels": 0,
+            "default": true,
+            "forced": true,
+            "lang": "deu",
+            "media": "subtitle",
+            "track_id": 6
+          },
+          {
+            "channels": 0,
+            "default": true,
+            "forced": true,
+            "lang": "deu",
+            "media": "subtitle",
+            "track_id": 7
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "subtitle",
+            "track_id": 8
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "nor",
+            "media": "subtitle",
+            "track_id": 9
+          },
+          {
+            "channels": 0,
+            "default": true,
+            "forced": true,
+            "lang": "nor",
+            "media": "subtitle",
+            "track_id": 10
+          }
+        ]
+      },
+      "input": {
+        "streams": [
+          {
+            "codec_type": "video",
+            "disposition": {},
+            "id": "0x1"
+          },
+          {
+            "channels": 6,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 1
+            },
+            "id": "0x2",
+            "tags": {
+              "language": "deu"
+            }
+          },
+          {
+            "channels": 2,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 0
+            },
+            "id": "0x3",
+            "tags": {
+              "language": "deu"
+            }
+          },
+          {
+            "channels": 6,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 0
+            },
+            "id": "0x4",
+            "tags": {
+              "language": "nor"
+            }
+          },
+          {
+            "channels": 2,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 0
+            },
+            "id": "0x5",
+            "tags": {
+              "language": "nor"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 1,
+              "forced": 1
+            },
+            "id": "0x6",
+            "tags": {
+              "language": "deu"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 1,
+              "forced": 1
+            },
+            "id": "0x7",
+            "tags": {
+              "language": "deu"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0x8",
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0x9",
+            "tags": {
+              "language": "nor"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 1,
+              "forced": 1
+            },
+            "id": "0xa",
+            "tags": {
+              "language": "nor"
+            }
+          }
+        ]
+      },
+      "name": "home for christmas"
+    },
+    {
+      "expected": {
+        "described": [
+          "video",
+          "eng 5.1 audio",
+          "deu stereo audio"
+        ],
+        "enabled": [
+          1,
+          2
+        ],
+        "roles": [
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "und",
+            "media": "video",
+            "track_id": 1
+          },
+          {
+            "channels": 6,
+            "default": true,
+            "forced": false,
+            "lang": "eng",
+            "media": "audio",
+            "track_id": 2
+          },
+          {
+            "channels": 2,
+            "default": false,
+            "forced": false,
+            "lang": "deu",
+            "media": "audio",
+            "track_id": 3
+          }
+        ]
+      },
+      "input": {
+        "streams": [
+          {
+            "codec_type": "video",
+            "disposition": {},
+            "id": "0x1"
+          },
+          {
+            "channels": 6,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 1
+            },
+            "id": "0x2",
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 2,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 0
+            },
+            "id": "0x3",
+            "tags": {
+              "language": "deu"
+            }
+          }
+        ]
+      },
+      "name": "surround only language"
+    },
+    {
+      "expected": {
+        "described": [
+          "video",
+          "deu stereo audio",
+          "nor forced subtitle",
+          "deu full subtitle"
+        ],
+        "enabled": [
+          1,
+          2
+        ],
+        "roles": [
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "und",
+            "media": "video",
+            "track_id": 1
+          },
+          {
+            "channels": 2,
+            "default": true,
+            "forced": false,
+            "lang": "deu",
+            "media": "audio",
+            "track_id": 2
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": true,
+            "lang": "nor",
+            "media": "subtitle",
+            "track_id": 3
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "deu",
+            "media": "subtitle",
+            "track_id": 4
+          }
+        ]
+      },
+      "input": {
+        "streams": [
+          {
+            "codec_type": "video",
+            "disposition": {},
+            "id": "0x1"
+          },
+          {
+            "channels": 2,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 1
+            },
+            "id": "0x2",
+            "tags": {
+              "language": "deu"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 1
+            },
+            "id": "0x3",
+            "tags": {
+              "language": "nor"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0x4",
+            "tags": {
+              "language": "deu"
+            }
+          }
+        ]
+      },
+      "name": "no forced in audio language"
+    },
+    {
+      "expected": {
+        "described": [
+          "video",
+          "und stereo audio",
+          "und forced subtitle"
+        ],
+        "enabled": [
+          1,
+          2
+        ],
+        "roles": [
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "und",
+            "media": "video",
+            "track_id": 1
+          },
+          {
+            "channels": 2,
+            "default": true,
+            "forced": false,
+            "lang": "und",
+            "media": "audio",
+            "track_id": 2
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": true,
+            "lang": "und",
+            "media": "subtitle",
+            "track_id": 3
+          }
+        ]
+      },
+      "input": {
+        "streams": [
+          {
+            "codec_type": "video",
+            "disposition": {},
+            "id": "0x1"
+          },
+          {
+            "channels": 2,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 1
+            },
+            "id": "0x2",
+            "tags": {
+              "language": "und"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 1
+            },
+            "id": "0x3",
+            "tags": {
+              "language": "und"
+            }
+          }
+        ]
+      },
+      "name": "und audio"
+    },
+    {
+      "expected": {
+        "described": [
+          "video",
+          "fra 5.1 audio",
+          "fra stereo audio",
+          "eng stereo audio",
+          "fra forced subtitle"
+        ],
+        "enabled": [
+          1,
+          3,
+          5
+        ],
+        "roles": [
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "und",
+            "media": "video",
+            "track_id": 1
+          },
+          {
+            "channels": 6,
+            "default": false,
+            "forced": false,
+            "lang": "fra",
+            "media": "audio",
+            "track_id": 2
+          },
+          {
+            "channels": 2,
+            "default": false,
+            "forced": false,
+            "lang": "fra",
+            "media": "audio",
+            "track_id": 3
+          },
+          {
+            "channels": 2,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "audio",
+            "track_id": 4
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": true,
+            "lang": "fra",
+            "media": "subtitle",
+            "track_id": 5
+          }
+        ]
+      },
+      "input": {
+        "streams": [
+          {
+            "codec_type": "video",
+            "disposition": {},
+            "id": "0x1"
+          },
+          {
+            "channels": 6,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 0
+            },
+            "id": "0x2",
+            "tags": {
+              "language": "fra"
+            }
+          },
+          {
+            "channels": 2,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 0
+            },
+            "id": "0x3",
+            "tags": {
+              "language": "fra"
+            }
+          },
+          {
+            "channels": 2,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 0
+            },
+            "id": "0x4",
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 1
+            },
+            "id": "0x5",
+            "tags": {
+              "language": "fra"
+            }
+          }
+        ]
+      },
+      "name": "no default audio"
+    },
+    {
+      "expected": {
+        "described": [
+          "video",
+          "deu stereo audio",
+          "deu forced subtitle"
+        ],
+        "enabled": [
+          7,
+          9,
+          10
+        ],
+        "roles": [
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "und",
+            "media": "video",
+            "track_id": 7
+          },
+          {
+            "channels": 2,
+            "default": true,
+            "forced": false,
+            "lang": "deu",
+            "media": "audio",
+            "track_id": 9
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": true,
+            "lang": "deu",
+            "media": "subtitle",
+            "track_id": 10
+          }
+        ]
+      },
+      "input": {
+        "streams": [
+          {
+            "codec_type": "video",
+            "disposition": {
+              "attached_pic": 0
+            },
+            "id": "0x7"
+          },
+          {
+            "codec_type": "video",
+            "disposition": {
+              "attached_pic": 1
+            },
+            "id": "0x8"
+          },
+          {
+            "channels": 2,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 1
+            },
+            "id": "0x9",
+            "tags": {
+              "language": "de"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0xa",
+            "tags": {
+              "language": "deu",
+              "title": "Forced"
+            }
+          },
+          {
+            "codec_type": "data",
+            "id": "0xb"
+          },
+          {
+            "channels": 2,
+            "codec_type": "audio"
+          }
+        ]
+      },
+      "name": "cover art and odd streams"
+    },
+    {
+      "expected": {
+        "described": [
+          "video",
+          "deu stereo audio",
+          "deu forced subtitle",
+          "deu full subtitle"
+        ],
+        "enabled": [
+          1,
+          2,
+          3
+        ],
+        "roles": [
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "und",
+            "media": "video",
+            "track_id": 1
+          },
+          {
+            "channels": 2,
+            "default": true,
+            "forced": false,
+            "lang": "deu",
+            "media": "audio",
+            "track_id": 2
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": true,
+            "lang": "deu",
+            "media": "subtitle",
+            "track_id": 3
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "deu",
+            "media": "subtitle",
+            "track_id": 4
+          }
+        ]
+      },
+      "input": {
+        "streams": [
+          {
+            "codec_type": "video",
+            "disposition": {},
+            "id": "0x1"
+          },
+          {
+            "channels": 2,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 1
+            },
+            "id": "0x2",
+            "tags": {
+              "language": "deu"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0x3",
+            "tags": {
+              "language": "deu",
+              "title": "Deutsch (gezwungen)"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0x4",
+            "tags": {
+              "language": "deu",
+              "title": "Deutsch"
+            }
+          }
+        ]
+      },
+      "name": "gezwungen title"
+    },
+    {
+      "expected": {
+        "described": [
+          "video",
+          "und stereo audio",
+          "und full subtitle",
+          "und full subtitle"
+        ],
+        "enabled": [
+          1,
+          2
+        ],
+        "roles": [
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "und",
+            "media": "video",
+            "track_id": 1
+          },
+          {
+            "channels": 2,
+            "default": false,
+            "forced": false,
+            "lang": "und",
+            "media": "audio",
+            "track_id": 2
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "und",
+            "media": "subtitle",
+            "track_id": 3
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "und",
+            "media": "subtitle",
+            "track_id": 4
+          }
+        ]
+      },
+      "input": {
+        "streams": [
+          {
+            "codec_type": "video",
+            "disposition": null,
+            "id": "0x1",
+            "tags": null
+          },
+          {
+            "channels": 2,
+            "codec_type": "audio",
+            "disposition": null,
+            "id": "0x2",
+            "tags": null
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": null,
+            "id": "0x3",
+            "tags": null
+          },
+          {
+            "codec_type": "subtitle",
+            "id": "0x4",
+            "tags": {
+              "language": null,
+              "title": null
+            }
+          }
+        ]
+      },
+      "name": "null tags and disposition"
+    },
+    {
+      "expected": {
+        "described": [
+          "video",
+          "video",
+          "video",
+          "eng stereo audio"
+        ],
+        "enabled": [
+          1,
+          32
+        ],
+        "roles": [
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "und",
+            "media": "video",
+            "track_id": 1
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "und",
+            "media": "video",
+            "track_id": 7
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "und",
+            "media": "video",
+            "track_id": 31
+          },
+          {
+            "channels": 2,
+            "default": true,
+            "forced": false,
+            "lang": "eng",
+            "media": "audio",
+            "track_id": 32
+          }
+        ]
+      },
+      "input": {
+        "streams": [
+          {
+            "codec_type": "video",
+            "disposition": {},
+            "id": 1
+          },
+          {
+            "codec_type": "video",
+            "disposition": {},
+            "id": "7"
+          },
+          {
+            "codec_type": "video",
+            "disposition": {},
+            "id": "0X1F"
+          },
+          {
+            "codec_type": "video",
+            "disposition": {},
+            "id": "zz"
+          },
+          {
+            "codec_type": "video",
+            "disposition": {},
+            "id": ""
+          },
+          {
+            "codec_type": "video",
+            "disposition": {},
+            "id": null
+          },
+          {
+            "codec_type": "video",
+            "disposition": {},
+            "id": true
+          },
+          {
+            "codec_type": "video",
+            "disposition": {},
+            "id": 1.5
+          },
+          {
+            "channels": 2,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 1
+            },
+            "id": "0x20",
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "id spellings"
+    },
+    {
+      "expected": {
+        "described": [
+          "eng audio",
+          "eng audio",
+          "eng audio",
+          "eng 7.1 audio",
+          "eng 3-channel audio",
+          "eng audio"
+        ],
+        "enabled": [
+          1
+        ],
+        "roles": [
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "audio",
+            "track_id": 1
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "audio",
+            "track_id": 2
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "audio",
+            "track_id": 3
+          },
+          {
+            "channels": 8,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "audio",
+            "track_id": 4
+          },
+          {
+            "channels": 3,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "audio",
+            "track_id": 5
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "audio",
+            "track_id": 6
+          }
+        ]
+      },
+      "input": {
+        "streams": [
+          {
+            "channels": "2",
+            "codec_type": "audio",
+            "disposition": {
+              "default": 0
+            },
+            "id": "0x1",
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 2.0,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 0
+            },
+            "id": "0x2",
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": null,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 0
+            },
+            "id": "0x3",
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 8,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 0
+            },
+            "id": "0x4",
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 3,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 0
+            },
+            "id": "0x5",
+            "tags": {
+              "language": "eng"
+            }
+          },
+          {
+            "channels": 0,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 0
+            },
+            "id": "0x6",
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "channel types"
+    },
+    {
+      "expected": {
+        "described": [
+          "eng forced subtitle",
+          "eng forced subtitle",
+          "eng forced subtitle",
+          "eng full subtitle",
+          "eng full subtitle",
+          "eng full subtitle",
+          "eng full subtitle",
+          "eng full subtitle",
+          "eng full subtitle",
+          "eng full subtitle",
+          "eng full subtitle",
+          "eng full subtitle",
+          "eng full subtitle",
+          "eng full subtitle",
+          "eng full subtitle"
+        ],
+        "enabled": [],
+        "roles": [
+          {
+            "channels": 0,
+            "default": false,
+            "forced": true,
+            "lang": "eng",
+            "media": "subtitle",
+            "track_id": 1
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": true,
+            "lang": "eng",
+            "media": "subtitle",
+            "track_id": 2
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": true,
+            "lang": "eng",
+            "media": "subtitle",
+            "track_id": 3
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "subtitle",
+            "track_id": 4
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "subtitle",
+            "track_id": 5
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "subtitle",
+            "track_id": 6
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "subtitle",
+            "track_id": 7
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "subtitle",
+            "track_id": 8
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "subtitle",
+            "track_id": 9
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "subtitle",
+            "track_id": 10
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "subtitle",
+            "track_id": 11
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "subtitle",
+            "track_id": 12
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "subtitle",
+            "track_id": 13
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "subtitle",
+            "track_id": 14
+          },
+          {
+            "channels": 0,
+            "default": false,
+            "forced": false,
+            "lang": "eng",
+            "media": "subtitle",
+            "track_id": 15
+          }
+        ]
+      },
+      "input": {
+        "streams": [
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0x1",
+            "tags": {
+              "language": "eng",
+              "title": "Forced"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0x2",
+            "tags": {
+              "language": "eng",
+              "title": "FORCED"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0x3",
+            "tags": {
+              "language": "eng",
+              "title": "English [.f.]"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0x4",
+            "tags": {
+              "language": "eng",
+              "title": "Non-Forced"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0x5",
+            "tags": {
+              "language": "eng",
+              "title": "ohne Forced"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0x6",
+            "tags": {
+              "language": "eng",
+              "title": "Full + Forced"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0x7",
+            "tags": {
+              "language": "eng",
+              "title": "complete forced"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0x8",
+            "tags": {
+              "language": "eng",
+              "title": "Keine gezwungen"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0x9",
+            "tags": {
+              "language": "eng",
+              "title": "not forced"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0xa",
+            "tags": {
+              "language": "eng",
+              "title": "unforced"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0xb",
+            "tags": {
+              "language": "eng",
+              "title": "No_Forced"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0xc",
+            "tags": {
+              "language": "eng",
+              "title": "nicht-gezwungen"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0xd",
+            "tags": {
+              "language": "eng",
+              "title": "Vollständig forced"
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0xe",
+            "tags": {
+              "language": "eng",
+              "title": ""
+            }
+          },
+          {
+            "codec_type": "subtitle",
+            "disposition": {
+              "default": 0,
+              "forced": 0
+            },
+            "id": "0xf",
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ]
+      },
+      "name": "forced title hints"
+    },
+    {
+      "expected": {
+        "described": [
+          "deu stereo audio",
+          "pt-br stereo audio",
+          "und stereo audio",
+          "und stereo audio"
+        ],
+        "enabled": [
+          1
+        ],
+        "roles": [
+          {
+            "channels": 2,
+            "default": false,
+            "forced": false,
+            "lang": "deu",
+            "media": "audio",
+            "track_id": 1
+          },
+          {
+            "channels": 2,
+            "default": false,
+            "forced": false,
+            "lang": "pt-br",
+            "media": "audio",
+            "track_id": 2
+          },
+          {
+            "channels": 2,
+            "default": false,
+            "forced": false,
+            "lang": "und",
+            "media": "audio",
+            "track_id": 3
+          },
+          {
+            "channels": 2,
+            "default": false,
+            "forced": false,
+            "lang": "und",
+            "media": "audio",
+            "track_id": 4
+          }
+        ]
+      },
+      "input": {
+        "streams": [
+          {
+            "channels": 2,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 0
+            },
+            "id": "0x1",
+            "tags": {
+              "language": "DE "
+            }
+          },
+          {
+            "channels": 2,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 0
+            },
+            "id": "0x2",
+            "tags": {
+              "language": "pt-BR"
+            }
+          },
+          {
+            "channels": 2,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 0
+            },
+            "id": "0x3",
+            "tags": {
+              "language": ""
+            }
+          },
+          {
+            "channels": 2,
+            "codec_type": "audio",
+            "disposition": {
+              "default": 0
+            },
+            "id": "0x4"
+          }
+        ]
+      },
+      "name": "language spellings"
+    },
+    {
+      "expected": {
+        "described": [],
+        "enabled": [],
+        "roles": []
+      },
+      "input": {},
+      "name": "no streams key"
+    },
+    {
+      "expected": {
+        "described": [],
+        "enabled": [],
+        "roles": []
+      },
+      "input": {
+        "streams": []
+      },
+      "name": "empty streams"
+    }
+  ],
+  "suite": "track_policy"
+}

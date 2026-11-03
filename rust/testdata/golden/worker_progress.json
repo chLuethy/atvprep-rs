@@ -1,0 +1,209 @@
+{
+  "cases": [
+    {
+      "expected": [
+        {
+          "percent": null,
+          "stage": null
+        },
+        {
+          "percent": 25,
+          "stage": null
+        },
+        {
+          "percent": 50,
+          "stage": null
+        },
+        {
+          "percent": null,
+          "stage": null
+        },
+        {
+          "percent": 99,
+          "stage": null
+        }
+      ],
+      "input": [
+        "Duration: 00:10:00.00, start: 0.0\n",
+        "frame=1 time=00:02:30.00 speed=200x\r",
+        "time=00:05:00.00 bitrate=1\r",
+        "time=00:01:00.00\r",
+        "time=00:12:00.00\r"
+      ],
+      "name": "ffmpeg"
+    },
+    {
+      "expected": [
+        {
+          "percent": null,
+          "stage": null
+        },
+        {
+          "percent": null,
+          "stage": null
+        },
+        {
+          "percent": 40,
+          "stage": null
+        },
+        {
+          "percent": null,
+          "stage": null
+        },
+        {
+          "percent": null,
+          "stage": null
+        }
+      ],
+      "input": [
+        "Duration: 00:00:10",
+        ".00, start: 0\nsize=1 time=00:00:0",
+        "4.00 bitrate=1\r",
+        "nothing\n",
+        "time=N/A\r"
+      ],
+      "name": "split"
+    },
+    {
+      "expected": [
+        {
+          "percent": 12,
+          "stage": null
+        },
+        {
+          "percent": null,
+          "stage": null
+        },
+        {
+          "percent": 42,
+          "stage": null
+        },
+        {
+          "percent": null,
+          "stage": null
+        },
+        {
+          "percent": 99,
+          "stage": null
+        }
+      ],
+      "input": [
+        "ATVPREP-PROGRESS 12\n",
+        "ATVPREP-PRO",
+        "GRESS 42\n",
+        "ATVPREP-PROGRESS 20\n",
+        "ATVPREP-PROGRESS 100\n"
+      ],
+      "name": "announced"
+    },
+    {
+      "expected": [
+        {
+          "percent": null,
+          "stage": null
+        },
+        {
+          "percent": 20,
+          "stage": null
+        },
+        {
+          "percent": 25,
+          "stage": null
+        },
+        {
+          "percent": null,
+          "stage": null
+        }
+      ],
+      "input": [
+        "Duration: 00:00:10.00,\n",
+        "time=00:00:02.00\r",
+        "ATVPREP-PROGRESS 25\n",
+        "time=00:00:08.00\r"
+      ],
+      "name": "preferred"
+    },
+    {
+      "expected": [
+        {
+          "percent": null,
+          "stage": null
+        },
+        {
+          "percent": null,
+          "stage": null
+        },
+        {
+          "percent": null,
+          "stage": "encode"
+        },
+        {
+          "percent": null,
+          "stage": "finalize"
+        },
+        {
+          "percent": null,
+          "stage": "verify"
+        }
+      ],
+      "input": [
+        "ordinary diagnostic\n",
+        "ATVPREP-STAGE enc",
+        "ode\n",
+        "ATVPREP-STAGE finalize\r\n",
+        "ATVPREP-STAGE verify\n"
+      ],
+      "name": "stages"
+    },
+    {
+      "expected": [
+        {
+          "percent": null,
+          "stage": null
+        },
+        {
+          "percent": null,
+          "stage": null
+        },
+        {
+          "percent": 99,
+          "stage": null
+        }
+      ],
+      "input": [
+        "Duration: 00:00:00.00,\n",
+        "time=00:00:05.00\r",
+        "ATVPREP-PROGRESS 999\n"
+      ],
+      "name": "zero_duration"
+    },
+    {
+      "expected": [
+        {
+          "percent": null,
+          "stage": null
+        },
+        {
+          "percent": 51,
+          "stage": null
+        },
+        {
+          "percent": null,
+          "stage": null
+        },
+        {
+          "percent": 99,
+          "stage": null
+        }
+      ],
+      "input": [
+        "ATVPREP-PROGRESS 5",
+        "1\n",
+        "ATVPREP-PROGRESS 12",
+        "0\r\n"
+      ],
+      "name": "incomplete_announcement"
+    }
+  ],
+  "suite": "worker_progress"
+}

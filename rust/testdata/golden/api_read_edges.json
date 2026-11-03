@@ -1,0 +1,1785 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "completed": 60
+      },
+      "input": {
+        "steps": [
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/dashboard/summary"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "convert": 0,
+                  "converted": 0,
+                  "delete_original": false,
+                  "files": {
+                    "clean": 1
+                  },
+                  "jobs": {
+                    "queued": 1
+                  },
+                  "missing": 0,
+                  "reencode": 0,
+                  "scans": {
+                    "succeeded": 1
+                  }
+                },
+                "meta": {}
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/dashboard/queue-preview"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "jobs": [
+                    {
+                      "action": "verify",
+                      "cancelled_count": 0,
+                      "delete_confirmed": false,
+                      "failed_count": 0,
+                      "finished_at": null,
+                      "id": "<j:1>",
+                      "origin_job_id": null,
+                      "progress": 0,
+                      "requested_at": "<ts>",
+                      "started_at": null,
+                      "status": "queued",
+                      "subject": "Movie/film.mp4",
+                      "succeeded_count": 0,
+                      "total_count": 1,
+                      "trigger": "manual"
+                    }
+                  ],
+                  "total": 1
+                },
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {},
+                  "limit": 10,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/dashboard/activity?limit=1"
+            },
+            "response": {
+              "body": {
+                "data": [
+                  {
+                    "created_at": "<ts>",
+                    "id": "<e:1>",
+                    "kind": "job_event",
+                    "topic": "job.created"
+                  }
+                ],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {},
+                  "limit": 1,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?kind=video&suffix=.mp4&has_sidecar=true"
+            },
+            "response": {
+              "body": {
+                "data": [
+                  {
+                    "compliance_reasons": [],
+                    "compliance_state": "clean",
+                    "converted_kept": false,
+                    "desired_action": "none",
+                    "discovery_state": "present",
+                    "display_path": "Movie/film.mp4",
+                    "embed_sidecars": [],
+                    "fix_status": null,
+                    "id": "<m:1>",
+                    "kind": "video",
+                    "last_seen_at": "<ts>",
+                    "mtime_ns": 4,
+                    "needs_reencode": false,
+                    "pending_sidecars": 0,
+                    "root_id": "<r:1>",
+                    "size": 123,
+                    "suffix": ".mp4",
+                    "workflow_state": "idle"
+                  }
+                ],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {
+                    "suffix": [
+                      ".mp4"
+                    ]
+                  },
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?has_sidecar=1"
+            },
+            "response": {
+              "body": {
+                "data": [
+                  {
+                    "compliance_reasons": [],
+                    "compliance_state": "clean",
+                    "converted_kept": false,
+                    "desired_action": "none",
+                    "discovery_state": "present",
+                    "display_path": "Movie/film.mp4",
+                    "embed_sidecars": [],
+                    "fix_status": null,
+                    "id": "<m:1>",
+                    "kind": "video",
+                    "last_seen_at": "<ts>",
+                    "mtime_ns": 4,
+                    "needs_reencode": false,
+                    "pending_sidecars": 0,
+                    "root_id": "<r:1>",
+                    "size": 123,
+                    "suffix": ".mp4",
+                    "workflow_state": "idle"
+                  }
+                ],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {
+                    "suffix": [
+                      ".mp4"
+                    ]
+                  },
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?has_sidecar=0"
+            },
+            "response": {
+              "body": {
+                "data": [],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {
+                    "suffix": []
+                  },
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?has_sidecar=yes"
+            },
+            "response": {
+              "body": {
+                "data": [
+                  {
+                    "compliance_reasons": [],
+                    "compliance_state": "clean",
+                    "converted_kept": false,
+                    "desired_action": "none",
+                    "discovery_state": "present",
+                    "display_path": "Movie/film.mp4",
+                    "embed_sidecars": [],
+                    "fix_status": null,
+                    "id": "<m:1>",
+                    "kind": "video",
+                    "last_seen_at": "<ts>",
+                    "mtime_ns": 4,
+                    "needs_reencode": false,
+                    "pending_sidecars": 0,
+                    "root_id": "<r:1>",
+                    "size": 123,
+                    "suffix": ".mp4",
+                    "workflow_state": "idle"
+                  }
+                ],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {
+                    "suffix": [
+                      ".mp4"
+                    ]
+                  },
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?has_sidecar=no"
+            },
+            "response": {
+              "body": {
+                "data": [],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {
+                    "suffix": []
+                  },
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?discovery_state=missing"
+            },
+            "response": {
+              "body": {
+                "data": [],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {
+                    "suffix": []
+                  },
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?kind=unknown"
+            },
+            "response": {
+              "body": {
+                "data": [],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {
+                    "suffix": []
+                  },
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?q=FILM"
+            },
+            "response": {
+              "body": {
+                "data": [
+                  {
+                    "compliance_reasons": [],
+                    "compliance_state": "clean",
+                    "converted_kept": false,
+                    "desired_action": "none",
+                    "discovery_state": "present",
+                    "display_path": "Movie/film.mp4",
+                    "embed_sidecars": [],
+                    "fix_status": null,
+                    "id": "<m:1>",
+                    "kind": "video",
+                    "last_seen_at": "<ts>",
+                    "mtime_ns": 4,
+                    "needs_reencode": false,
+                    "pending_sidecars": 0,
+                    "root_id": "<r:1>",
+                    "size": 123,
+                    "suffix": ".mp4",
+                    "workflow_state": "idle"
+                  }
+                ],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {
+                    "suffix": [
+                      ".mp4"
+                    ]
+                  },
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?sort=size&dir=desc"
+            },
+            "response": {
+              "body": {
+                "data": [
+                  {
+                    "compliance_reasons": [],
+                    "compliance_state": "clean",
+                    "converted_kept": false,
+                    "desired_action": "none",
+                    "discovery_state": "present",
+                    "display_path": "Movie/film.mp4",
+                    "embed_sidecars": [],
+                    "fix_status": null,
+                    "id": "<m:1>",
+                    "kind": "video",
+                    "last_seen_at": "<ts>",
+                    "mtime_ns": 4,
+                    "needs_reencode": false,
+                    "pending_sidecars": 0,
+                    "root_id": "<r:1>",
+                    "size": 123,
+                    "suffix": ".mp4",
+                    "workflow_state": "idle"
+                  }
+                ],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {
+                    "suffix": [
+                      ".mp4"
+                    ]
+                  },
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?last_seen_from=1970-01-01"
+            },
+            "response": {
+              "body": {
+                "data": [
+                  {
+                    "compliance_reasons": [],
+                    "compliance_state": "clean",
+                    "converted_kept": false,
+                    "desired_action": "none",
+                    "discovery_state": "present",
+                    "display_path": "Movie/film.mp4",
+                    "embed_sidecars": [],
+                    "fix_status": null,
+                    "id": "<m:1>",
+                    "kind": "video",
+                    "last_seen_at": "<ts>",
+                    "mtime_ns": 4,
+                    "needs_reencode": false,
+                    "pending_sidecars": 0,
+                    "root_id": "<r:1>",
+                    "size": 123,
+                    "suffix": ".mp4",
+                    "workflow_state": "idle"
+                  }
+                ],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {
+                    "suffix": [
+                      ".mp4"
+                    ]
+                  },
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?last_seen_from=1970-01-01%2000:00:00"
+            },
+            "response": {
+              "body": {
+                "data": [
+                  {
+                    "compliance_reasons": [],
+                    "compliance_state": "clean",
+                    "converted_kept": false,
+                    "desired_action": "none",
+                    "discovery_state": "present",
+                    "display_path": "Movie/film.mp4",
+                    "embed_sidecars": [],
+                    "fix_status": null,
+                    "id": "<m:1>",
+                    "kind": "video",
+                    "last_seen_at": "<ts>",
+                    "mtime_ns": 4,
+                    "needs_reencode": false,
+                    "pending_sidecars": 0,
+                    "root_id": "<r:1>",
+                    "size": 123,
+                    "suffix": ".mp4",
+                    "workflow_state": "idle"
+                  }
+                ],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {
+                    "suffix": [
+                      ".mp4"
+                    ]
+                  },
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?last_seen_from=1970-01-01T01:00:00%2B01:00"
+            },
+            "response": {
+              "body": {
+                "data": [
+                  {
+                    "compliance_reasons": [],
+                    "compliance_state": "clean",
+                    "converted_kept": false,
+                    "desired_action": "none",
+                    "discovery_state": "present",
+                    "display_path": "Movie/film.mp4",
+                    "embed_sidecars": [],
+                    "fix_status": null,
+                    "id": "<m:1>",
+                    "kind": "video",
+                    "last_seen_at": "<ts>",
+                    "mtime_ns": 4,
+                    "needs_reencode": false,
+                    "pending_sidecars": 0,
+                    "root_id": "<r:1>",
+                    "size": 123,
+                    "suffix": ".mp4",
+                    "workflow_state": "idle"
+                  }
+                ],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {
+                    "suffix": [
+                      ".mp4"
+                    ]
+                  },
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?limit=0"
+            },
+            "response": {
+              "body": {
+                "detail": "request validation failed",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "request validation failed"
+                },
+                "instance": "/api/v1/files",
+                "status": 422,
+                "title": "request validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?limit=-1"
+            },
+            "response": {
+              "body": {
+                "detail": "request validation failed",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "request validation failed"
+                },
+                "instance": "/api/v1/files",
+                "status": 422,
+                "title": "request validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?limit=101"
+            },
+            "response": {
+              "body": {
+                "detail": "request validation failed",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "request validation failed"
+                },
+                "instance": "/api/v1/files",
+                "status": 422,
+                "title": "request validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?limit=bad"
+            },
+            "response": {
+              "body": {
+                "detail": "request validation failed",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "request validation failed"
+                },
+                "instance": "/api/v1/files",
+                "status": 422,
+                "title": "request validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?has_sidecar=bad"
+            },
+            "response": {
+              "body": {
+                "detail": "request validation failed",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "request validation failed"
+                },
+                "instance": "/api/v1/files",
+                "status": 422,
+                "title": "request validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?sort=bad"
+            },
+            "response": {
+              "body": {
+                "detail": "request validation failed",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "request validation failed"
+                },
+                "instance": "/api/v1/files",
+                "status": 422,
+                "title": "request validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?dir=bad"
+            },
+            "response": {
+              "body": {
+                "detail": "request validation failed",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "request validation failed"
+                },
+                "instance": "/api/v1/files",
+                "status": 422,
+                "title": "request validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?last_seen_from=bad"
+            },
+            "response": {
+              "body": {
+                "detail": "request validation failed",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "request validation failed"
+                },
+                "instance": "/api/v1/files",
+                "status": 422,
+                "title": "request validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?compliance_state=bad"
+            },
+            "response": {
+              "body": {
+                "data": [],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {
+                    "suffix": []
+                  },
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?hide=bad"
+            },
+            "response": {
+              "body": {
+                "detail": "unknown state",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "unknown state"
+                },
+                "instance": "/api/v1/files",
+                "status": 422,
+                "title": "unknown state",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?q=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            },
+            "response": {
+              "body": {
+                "detail": "q is too long",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "q is too long"
+                },
+                "instance": "/api/v1/files",
+                "status": 422,
+                "title": "q is too long",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?kind=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            },
+            "response": {
+              "body": {
+                "detail": "kind is too long",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "kind is too long"
+                },
+                "instance": "/api/v1/files",
+                "status": 422,
+                "title": "kind is too long",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?cursor=invalid"
+            },
+            "response": {
+              "body": {
+                "detail": "invalid cursor",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "invalid cursor"
+                },
+                "instance": "/api/v1/files",
+                "status": 400,
+                "title": "invalid cursor",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 400
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?cursor=<cursor:files:0>"
+            },
+            "response": {
+              "body": {
+                "detail": "invalid cursor",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "invalid cursor"
+                },
+                "instance": "/api/v1/files",
+                "status": 400,
+                "title": "invalid cursor",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 400
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?cursor=<cursor:files:1>"
+            },
+            "response": {
+              "body": {
+                "data": [],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {
+                    "suffix": []
+                  },
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?cursor=<cursor:files:9223372036854775807>"
+            },
+            "response": {
+              "body": {
+                "data": [],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {
+                    "suffix": []
+                  },
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?cursor=<cursor:jobs:1>"
+            },
+            "response": {
+              "body": {
+                "detail": "invalid cursor",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "invalid cursor"
+                },
+                "instance": "/api/v1/files",
+                "status": 400,
+                "title": "invalid cursor",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 400
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?cursor=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            },
+            "response": {
+              "body": {
+                "detail": "request validation failed",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "request validation failed"
+                },
+                "instance": "/api/v1/files",
+                "status": 422,
+                "title": "request validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/browse?root_id=<r:1>&path=Movie"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "files": [
+                    {
+                      "compliance_reasons": [],
+                      "compliance_state": "clean",
+                      "converted_kept": false,
+                      "desired_action": "none",
+                      "discovery_state": "present",
+                      "display_path": "Movie/film.mp4",
+                      "embed_sidecars": [],
+                      "fix_status": null,
+                      "id": "<m:1>",
+                      "kind": "video",
+                      "last_seen_at": "<ts>",
+                      "mtime_ns": 4,
+                      "needs_reencode": false,
+                      "pending_sidecars": 0,
+                      "root_id": "<r:1>",
+                      "size": 123,
+                      "suffix": ".mp4",
+                      "workflow_state": "idle"
+                    }
+                  ],
+                  "folders": [],
+                  "path": "Movie",
+                  "root_id": "<r:1>",
+                  "truncated": false
+                },
+                "meta": {}
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/browse/below"
+            },
+            "response": {
+              "body": {
+                "detail": "request validation failed",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "request validation failed"
+                },
+                "instance": "/api/v1/browse/below",
+                "status": 422,
+                "title": "request validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/browse?root_id=invalid"
+            },
+            "response": {
+              "body": {
+                "detail": "resource not found",
+                "error": {
+                  "code": "not_found",
+                  "message": "resource not found"
+                },
+                "instance": "/api/v1/browse",
+                "status": 404,
+                "title": "Not Found",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 404
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/browse?root_id=<r:1>&path=../outside"
+            },
+            "response": {
+              "body": {
+                "detail": "path must be a folder inside a library",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "path must be a folder inside a library"
+                },
+                "instance": "/api/v1/browse",
+                "status": 422,
+                "title": "path must be a folder inside a library",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/browse?root_id=<r:1>&state=bad"
+            },
+            "response": {
+              "body": {
+                "detail": "unknown state",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "unknown state"
+                },
+                "instance": "/api/v1/browse",
+                "status": 422,
+                "title": "unknown state",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/browse?hide=bad"
+            },
+            "response": {
+              "body": {
+                "detail": "unknown state",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "unknown state"
+                },
+                "instance": "/api/v1/browse",
+                "status": 422,
+                "title": "unknown state",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files/invalid"
+            },
+            "response": {
+              "body": {
+                "detail": "resource not found",
+                "error": {
+                  "code": "not_found",
+                  "message": "resource not found"
+                },
+                "instance": "/api/v1/files/invalid",
+                "status": 404,
+                "title": "Not Found",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 404
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files/<j:1>"
+            },
+            "response": {
+              "body": {
+                "detail": "resource not found",
+                "error": {
+                  "code": "not_found",
+                  "message": "resource not found"
+                },
+                "instance": "/api/v1/files/<j:1>",
+                "status": 404,
+                "title": "Not Found",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 404
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files/<m:999>"
+            },
+            "response": {
+              "body": {
+                "detail": "resource not found",
+                "error": {
+                  "code": "not_found",
+                  "message": "resource not found"
+                },
+                "instance": "/api/v1/files/<m:999>",
+                "status": 404,
+                "title": "Not Found",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 404
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/scans/<s:999>"
+            },
+            "response": {
+              "body": {
+                "detail": "resource not found",
+                "error": {
+                  "code": "not_found",
+                  "message": "resource not found"
+                },
+                "instance": "/api/v1/scans/<s:999>",
+                "status": 404,
+                "title": "Not Found",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 404
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs/<j:999>"
+            },
+            "response": {
+              "body": {
+                "detail": "resource not found",
+                "error": {
+                  "code": "not_found",
+                  "message": "resource not found"
+                },
+                "instance": "/api/v1/jobs/<j:999>",
+                "status": 404,
+                "title": "Not Found",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 404
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/job-items/<i:999>/log"
+            },
+            "response": {
+              "body": {
+                "detail": "resource not found",
+                "error": {
+                  "code": "not_found",
+                  "message": "resource not found"
+                },
+                "instance": "/api/v1/job-items/<i:999>/log",
+                "status": 404,
+                "title": "Not Found",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 404
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files/<m:999>/sidecars"
+            },
+            "response": {
+              "body": {
+                "detail": "resource not found",
+                "error": {
+                  "code": "not_found",
+                  "message": "resource not found"
+                },
+                "instance": "/api/v1/files/<m:999>/sidecars",
+                "status": 404,
+                "title": "Not Found",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 404
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files/<m:999>/inspections"
+            },
+            "response": {
+              "body": {
+                "detail": "resource not found",
+                "error": {
+                  "code": "not_found",
+                  "message": "resource not found"
+                },
+                "instance": "/api/v1/files/<m:999>/inspections",
+                "status": 404,
+                "title": "Not Found",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 404
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files/<m:999>/jobs"
+            },
+            "response": {
+              "body": {
+                "detail": "resource not found",
+                "error": {
+                  "code": "not_found",
+                  "message": "resource not found"
+                },
+                "instance": "/api/v1/files/<m:999>/jobs",
+                "status": 404,
+                "title": "Not Found",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 404
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs/<j:999>/items"
+            },
+            "response": {
+              "body": {
+                "detail": "resource not found",
+                "error": {
+                  "code": "not_found",
+                  "message": "resource not found"
+                },
+                "instance": "/api/v1/jobs/<j:999>/items",
+                "status": 404,
+                "title": "Not Found",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 404
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs/<j:999>/events"
+            },
+            "response": {
+              "body": {
+                "detail": "resource not found",
+                "error": {
+                  "code": "not_found",
+                  "message": "resource not found"
+                },
+                "instance": "/api/v1/jobs/<j:999>/events",
+                "status": 404,
+                "title": "Not Found",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 404
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs?cursor=invalid"
+            },
+            "response": {
+              "body": {
+                "detail": "invalid cursor",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "invalid cursor"
+                },
+                "instance": "/api/v1/jobs",
+                "status": 400,
+                "title": "invalid cursor",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 400
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/scans?cursor=invalid"
+            },
+            "response": {
+              "body": {
+                "detail": "invalid cursor",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "invalid cursor"
+                },
+                "instance": "/api/v1/scans",
+                "status": 400,
+                "title": "invalid cursor",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 400
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/events?after=invalid"
+            },
+            "response": {
+              "body": {
+                "detail": "invalid cursor",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "invalid cursor"
+                },
+                "instance": "/api/v1/events",
+                "status": 400,
+                "title": "invalid cursor",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 400
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/dashboard/activity?cursor=invalid"
+            },
+            "response": {
+              "body": {
+                "detail": "invalid cursor",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "invalid cursor"
+                },
+                "instance": "/api/v1/dashboard/activity",
+                "status": 400,
+                "title": "invalid cursor",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 400
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/dashboard/queue-preview?cursor=invalid"
+            },
+            "response": {
+              "body": {
+                "detail": "invalid cursor",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "invalid cursor"
+                },
+                "instance": "/api/v1/dashboard/queue-preview",
+                "status": 400,
+                "title": "invalid cursor",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 400
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files/<m:1>/sidecars?cursor=invalid"
+            },
+            "response": {
+              "body": {
+                "detail": "invalid cursor",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "invalid cursor"
+                },
+                "instance": "/api/v1/files/<m:1>/sidecars",
+                "status": 400,
+                "title": "invalid cursor",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 400
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files/<m:1>/inspections?cursor=invalid"
+            },
+            "response": {
+              "body": {
+                "detail": "invalid cursor",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "invalid cursor"
+                },
+                "instance": "/api/v1/files/<m:1>/inspections",
+                "status": 400,
+                "title": "invalid cursor",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 400
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files/<m:1>/jobs?cursor=invalid"
+            },
+            "response": {
+              "body": {
+                "detail": "invalid cursor",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "invalid cursor"
+                },
+                "instance": "/api/v1/files/<m:1>/jobs",
+                "status": 400,
+                "title": "invalid cursor",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 400
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs/<j:1>/items?cursor=invalid"
+            },
+            "response": {
+              "body": {
+                "detail": "invalid cursor",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "invalid cursor"
+                },
+                "instance": "/api/v1/jobs/<j:1>/items",
+                "status": 400,
+                "title": "invalid cursor",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 400
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs/<j:1>/events?after=invalid"
+            },
+            "response": {
+              "body": {
+                "detail": "invalid cursor",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "invalid cursor"
+                },
+                "instance": "/api/v1/jobs/<j:1>/events",
+                "status": 400,
+                "title": "invalid cursor",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 400
+            }
+          }
+        ]
+      },
+      "name": "read-edge-sequence"
+    }
+  ],
+  "suite": "api_read_edges"
+}

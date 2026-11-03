@@ -1,0 +1,1471 @@
+{
+  "cases": [
+    {
+      "expected": "und",
+      "input": {
+        "kind": "normalize",
+        "value": null
+      },
+      "name": "normalize None"
+    },
+    {
+      "expected": "und",
+      "input": {
+        "kind": "normalize",
+        "value": ""
+      },
+      "name": "normalize ''"
+    },
+    {
+      "expected": "und",
+      "input": {
+        "kind": "normalize",
+        "value": "   "
+      },
+      "name": "normalize '   '"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "kind": "normalize",
+        "value": "DE"
+      },
+      "name": "normalize 'DE'"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "kind": "normalize",
+        "value": " de "
+      },
+      "name": "normalize ' de '"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "kind": "normalize",
+        "value": "ger"
+      },
+      "name": "normalize 'ger'"
+    },
+    {
+      "expected": "pt-br",
+      "input": {
+        "kind": "normalize",
+        "value": "pt-BR"
+      },
+      "name": "normalize 'pt-BR'"
+    },
+    {
+      "expected": "xx",
+      "input": {
+        "kind": "normalize",
+        "value": "xx"
+      },
+      "name": "normalize 'xx'"
+    },
+    {
+      "expected": "deutsch",
+      "input": {
+        "kind": "normalize",
+        "value": "Deutsch"
+      },
+      "name": "normalize 'Deutsch'"
+    },
+    {
+      "expected": "ß",
+      "input": {
+        "kind": "normalize",
+        "value": "ß"
+      },
+      "name": "normalize 'ß'"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "kind": "normalize",
+        "value": " de "
+      },
+      "name": "normalize '\\xa0de\\xa0'"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "kind": "normalize",
+        "value": "\u001fde\u001c"
+      },
+      "name": "normalize '\\x1fde\\x1c'"
+    },
+    {
+      "expected": "i̇",
+      "input": {
+        "kind": "normalize",
+        "value": "İ"
+      },
+      "name": "normalize 'İ'"
+    },
+    {
+      "expected": "ας",
+      "input": {
+        "kind": "normalize",
+        "value": "ΑΣ"
+      },
+      "name": "normalize 'ΑΣ'"
+    },
+    {
+      "expected": "zho",
+      "input": {
+        "kind": "normalize",
+        "value": "ZHO"
+      },
+      "name": "normalize 'ZHO'"
+    },
+    {
+      "expected": "jpn",
+      "input": {
+        "kind": "normalize",
+        "value": "Ja\t"
+      },
+      "name": "normalize 'Ja\\t'"
+    },
+    {
+      "expected": "und",
+      "input": {
+        "kind": "normalize",
+        "value": "\n"
+      },
+      "name": "normalize '\\n'"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "kind": "normalize",
+        "value": "de"
+      },
+      "name": "normalize 'de'"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "kind": "normalize",
+        "value": "ger"
+      },
+      "name": "normalize 'ger'"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "kind": "normalize",
+        "value": "deu"
+      },
+      "name": "normalize 'deu'"
+    },
+    {
+      "expected": "eng",
+      "input": {
+        "kind": "normalize",
+        "value": "en"
+      },
+      "name": "normalize 'en'"
+    },
+    {
+      "expected": "eng",
+      "input": {
+        "kind": "normalize",
+        "value": "eng"
+      },
+      "name": "normalize 'eng'"
+    },
+    {
+      "expected": "fra",
+      "input": {
+        "kind": "normalize",
+        "value": "fr"
+      },
+      "name": "normalize 'fr'"
+    },
+    {
+      "expected": "fra",
+      "input": {
+        "kind": "normalize",
+        "value": "fre"
+      },
+      "name": "normalize 'fre'"
+    },
+    {
+      "expected": "fra",
+      "input": {
+        "kind": "normalize",
+        "value": "fra"
+      },
+      "name": "normalize 'fra'"
+    },
+    {
+      "expected": "ita",
+      "input": {
+        "kind": "normalize",
+        "value": "it"
+      },
+      "name": "normalize 'it'"
+    },
+    {
+      "expected": "ita",
+      "input": {
+        "kind": "normalize",
+        "value": "ita"
+      },
+      "name": "normalize 'ita'"
+    },
+    {
+      "expected": "spa",
+      "input": {
+        "kind": "normalize",
+        "value": "es"
+      },
+      "name": "normalize 'es'"
+    },
+    {
+      "expected": "spa",
+      "input": {
+        "kind": "normalize",
+        "value": "spa"
+      },
+      "name": "normalize 'spa'"
+    },
+    {
+      "expected": "por",
+      "input": {
+        "kind": "normalize",
+        "value": "pt"
+      },
+      "name": "normalize 'pt'"
+    },
+    {
+      "expected": "por",
+      "input": {
+        "kind": "normalize",
+        "value": "por"
+      },
+      "name": "normalize 'por'"
+    },
+    {
+      "expected": "nld",
+      "input": {
+        "kind": "normalize",
+        "value": "nl"
+      },
+      "name": "normalize 'nl'"
+    },
+    {
+      "expected": "nld",
+      "input": {
+        "kind": "normalize",
+        "value": "dut"
+      },
+      "name": "normalize 'dut'"
+    },
+    {
+      "expected": "nld",
+      "input": {
+        "kind": "normalize",
+        "value": "nld"
+      },
+      "name": "normalize 'nld'"
+    },
+    {
+      "expected": "kor",
+      "input": {
+        "kind": "normalize",
+        "value": "ko"
+      },
+      "name": "normalize 'ko'"
+    },
+    {
+      "expected": "kor",
+      "input": {
+        "kind": "normalize",
+        "value": "kor"
+      },
+      "name": "normalize 'kor'"
+    },
+    {
+      "expected": "jpn",
+      "input": {
+        "kind": "normalize",
+        "value": "ja"
+      },
+      "name": "normalize 'ja'"
+    },
+    {
+      "expected": "jpn",
+      "input": {
+        "kind": "normalize",
+        "value": "jpn"
+      },
+      "name": "normalize 'jpn'"
+    },
+    {
+      "expected": "zho",
+      "input": {
+        "kind": "normalize",
+        "value": "zh"
+      },
+      "name": "normalize 'zh'"
+    },
+    {
+      "expected": "zho",
+      "input": {
+        "kind": "normalize",
+        "value": "chi"
+      },
+      "name": "normalize 'chi'"
+    },
+    {
+      "expected": "zho",
+      "input": {
+        "kind": "normalize",
+        "value": "zho"
+      },
+      "name": "normalize 'zho'"
+    },
+    {
+      "expected": "hin",
+      "input": {
+        "kind": "normalize",
+        "value": "hi"
+      },
+      "name": "normalize 'hi'"
+    },
+    {
+      "expected": "hin",
+      "input": {
+        "kind": "normalize",
+        "value": "hin"
+      },
+      "name": "normalize 'hin'"
+    },
+    {
+      "expected": "rus",
+      "input": {
+        "kind": "normalize",
+        "value": "ru"
+      },
+      "name": "normalize 'ru'"
+    },
+    {
+      "expected": "rus",
+      "input": {
+        "kind": "normalize",
+        "value": "rus"
+      },
+      "name": "normalize 'rus'"
+    },
+    {
+      "expected": "tur",
+      "input": {
+        "kind": "normalize",
+        "value": "tr"
+      },
+      "name": "normalize 'tr'"
+    },
+    {
+      "expected": "tur",
+      "input": {
+        "kind": "normalize",
+        "value": "tur"
+      },
+      "name": "normalize 'tur'"
+    },
+    {
+      "expected": "ara",
+      "input": {
+        "kind": "normalize",
+        "value": "ar"
+      },
+      "name": "normalize 'ar'"
+    },
+    {
+      "expected": "ara",
+      "input": {
+        "kind": "normalize",
+        "value": "ara"
+      },
+      "name": "normalize 'ara'"
+    },
+    {
+      "expected": "pol",
+      "input": {
+        "kind": "normalize",
+        "value": "pl"
+      },
+      "name": "normalize 'pl'"
+    },
+    {
+      "expected": "pol",
+      "input": {
+        "kind": "normalize",
+        "value": "pol"
+      },
+      "name": "normalize 'pol'"
+    },
+    {
+      "expected": "swe",
+      "input": {
+        "kind": "normalize",
+        "value": "sv"
+      },
+      "name": "normalize 'sv'"
+    },
+    {
+      "expected": "swe",
+      "input": {
+        "kind": "normalize",
+        "value": "swe"
+      },
+      "name": "normalize 'swe'"
+    },
+    {
+      "expected": "nor",
+      "input": {
+        "kind": "normalize",
+        "value": "no"
+      },
+      "name": "normalize 'no'"
+    },
+    {
+      "expected": "nor",
+      "input": {
+        "kind": "normalize",
+        "value": "nor"
+      },
+      "name": "normalize 'nor'"
+    },
+    {
+      "expected": "dan",
+      "input": {
+        "kind": "normalize",
+        "value": "da"
+      },
+      "name": "normalize 'da'"
+    },
+    {
+      "expected": "dan",
+      "input": {
+        "kind": "normalize",
+        "value": "dan"
+      },
+      "name": "normalize 'dan'"
+    },
+    {
+      "expected": "fin",
+      "input": {
+        "kind": "normalize",
+        "value": "fi"
+      },
+      "name": "normalize 'fi'"
+    },
+    {
+      "expected": "fin",
+      "input": {
+        "kind": "normalize",
+        "value": "fin"
+      },
+      "name": "normalize 'fin'"
+    },
+    {
+      "expected": "tha",
+      "input": {
+        "kind": "normalize",
+        "value": "th"
+      },
+      "name": "normalize 'th'"
+    },
+    {
+      "expected": "tha",
+      "input": {
+        "kind": "normalize",
+        "value": "tha"
+      },
+      "name": "normalize 'tha'"
+    },
+    {
+      "expected": "vie",
+      "input": {
+        "kind": "normalize",
+        "value": "vi"
+      },
+      "name": "normalize 'vi'"
+    },
+    {
+      "expected": "vie",
+      "input": {
+        "kind": "normalize",
+        "value": "vie"
+      },
+      "name": "normalize 'vie'"
+    },
+    {
+      "expected": "ben",
+      "input": {
+        "kind": "normalize",
+        "value": "bn"
+      },
+      "name": "normalize 'bn'"
+    },
+    {
+      "expected": "ben",
+      "input": {
+        "kind": "normalize",
+        "value": "ben"
+      },
+      "name": "normalize 'ben'"
+    },
+    {
+      "expected": "pan",
+      "input": {
+        "kind": "normalize",
+        "value": "pa"
+      },
+      "name": "normalize 'pa'"
+    },
+    {
+      "expected": "pan",
+      "input": {
+        "kind": "normalize",
+        "value": "pan"
+      },
+      "name": "normalize 'pan'"
+    },
+    {
+      "expected": "tam",
+      "input": {
+        "kind": "normalize",
+        "value": "ta"
+      },
+      "name": "normalize 'ta'"
+    },
+    {
+      "expected": "tam",
+      "input": {
+        "kind": "normalize",
+        "value": "tam"
+      },
+      "name": "normalize 'tam'"
+    },
+    {
+      "expected": "tel",
+      "input": {
+        "kind": "normalize",
+        "value": "te"
+      },
+      "name": "normalize 'te'"
+    },
+    {
+      "expected": "tel",
+      "input": {
+        "kind": "normalize",
+        "value": "tel"
+      },
+      "name": "normalize 'tel'"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "kind": "normalize",
+        "value": "deu"
+      },
+      "name": "normalize 'deu'"
+    },
+    {
+      "expected": "eng",
+      "input": {
+        "kind": "normalize",
+        "value": "eng"
+      },
+      "name": "normalize 'eng'"
+    },
+    {
+      "expected": "fra",
+      "input": {
+        "kind": "normalize",
+        "value": "fra"
+      },
+      "name": "normalize 'fra'"
+    },
+    {
+      "expected": "ita",
+      "input": {
+        "kind": "normalize",
+        "value": "ita"
+      },
+      "name": "normalize 'ita'"
+    },
+    {
+      "expected": "spa",
+      "input": {
+        "kind": "normalize",
+        "value": "spa"
+      },
+      "name": "normalize 'spa'"
+    },
+    {
+      "expected": "por",
+      "input": {
+        "kind": "normalize",
+        "value": "por"
+      },
+      "name": "normalize 'por'"
+    },
+    {
+      "expected": "nld",
+      "input": {
+        "kind": "normalize",
+        "value": "nld"
+      },
+      "name": "normalize 'nld'"
+    },
+    {
+      "expected": "kor",
+      "input": {
+        "kind": "normalize",
+        "value": "kor"
+      },
+      "name": "normalize 'kor'"
+    },
+    {
+      "expected": "jpn",
+      "input": {
+        "kind": "normalize",
+        "value": "jpn"
+      },
+      "name": "normalize 'jpn'"
+    },
+    {
+      "expected": "zho",
+      "input": {
+        "kind": "normalize",
+        "value": "zho"
+      },
+      "name": "normalize 'zho'"
+    },
+    {
+      "expected": "hin",
+      "input": {
+        "kind": "normalize",
+        "value": "hin"
+      },
+      "name": "normalize 'hin'"
+    },
+    {
+      "expected": "rus",
+      "input": {
+        "kind": "normalize",
+        "value": "rus"
+      },
+      "name": "normalize 'rus'"
+    },
+    {
+      "expected": "tur",
+      "input": {
+        "kind": "normalize",
+        "value": "tur"
+      },
+      "name": "normalize 'tur'"
+    },
+    {
+      "expected": "ara",
+      "input": {
+        "kind": "normalize",
+        "value": "ara"
+      },
+      "name": "normalize 'ara'"
+    },
+    {
+      "expected": "pol",
+      "input": {
+        "kind": "normalize",
+        "value": "pol"
+      },
+      "name": "normalize 'pol'"
+    },
+    {
+      "expected": "swe",
+      "input": {
+        "kind": "normalize",
+        "value": "swe"
+      },
+      "name": "normalize 'swe'"
+    },
+    {
+      "expected": "nor",
+      "input": {
+        "kind": "normalize",
+        "value": "nor"
+      },
+      "name": "normalize 'nor'"
+    },
+    {
+      "expected": "dan",
+      "input": {
+        "kind": "normalize",
+        "value": "dan"
+      },
+      "name": "normalize 'dan'"
+    },
+    {
+      "expected": "fin",
+      "input": {
+        "kind": "normalize",
+        "value": "fin"
+      },
+      "name": "normalize 'fin'"
+    },
+    {
+      "expected": "tha",
+      "input": {
+        "kind": "normalize",
+        "value": "tha"
+      },
+      "name": "normalize 'tha'"
+    },
+    {
+      "expected": "vie",
+      "input": {
+        "kind": "normalize",
+        "value": "vie"
+      },
+      "name": "normalize 'vie'"
+    },
+    {
+      "expected": "ben",
+      "input": {
+        "kind": "normalize",
+        "value": "ben"
+      },
+      "name": "normalize 'ben'"
+    },
+    {
+      "expected": "pan",
+      "input": {
+        "kind": "normalize",
+        "value": "pan"
+      },
+      "name": "normalize 'pan'"
+    },
+    {
+      "expected": "tam",
+      "input": {
+        "kind": "normalize",
+        "value": "tam"
+      },
+      "name": "normalize 'tam'"
+    },
+    {
+      "expected": "tel",
+      "input": {
+        "kind": "normalize",
+        "value": "tel"
+      },
+      "name": "normalize 'tel'"
+    },
+    {
+      "expected": "German",
+      "input": {
+        "kind": "handler",
+        "value": "deu"
+      },
+      "name": "handler 'deu'"
+    },
+    {
+      "expected": "English",
+      "input": {
+        "kind": "handler",
+        "value": "eng"
+      },
+      "name": "handler 'eng'"
+    },
+    {
+      "expected": "French",
+      "input": {
+        "kind": "handler",
+        "value": "fra"
+      },
+      "name": "handler 'fra'"
+    },
+    {
+      "expected": "Italian",
+      "input": {
+        "kind": "handler",
+        "value": "ita"
+      },
+      "name": "handler 'ita'"
+    },
+    {
+      "expected": "Spanish",
+      "input": {
+        "kind": "handler",
+        "value": "spa"
+      },
+      "name": "handler 'spa'"
+    },
+    {
+      "expected": "Portuguese",
+      "input": {
+        "kind": "handler",
+        "value": "por"
+      },
+      "name": "handler 'por'"
+    },
+    {
+      "expected": "Dutch",
+      "input": {
+        "kind": "handler",
+        "value": "nld"
+      },
+      "name": "handler 'nld'"
+    },
+    {
+      "expected": "Korean",
+      "input": {
+        "kind": "handler",
+        "value": "kor"
+      },
+      "name": "handler 'kor'"
+    },
+    {
+      "expected": "Japanese",
+      "input": {
+        "kind": "handler",
+        "value": "jpn"
+      },
+      "name": "handler 'jpn'"
+    },
+    {
+      "expected": "Chinese",
+      "input": {
+        "kind": "handler",
+        "value": "zho"
+      },
+      "name": "handler 'zho'"
+    },
+    {
+      "expected": "Hindi",
+      "input": {
+        "kind": "handler",
+        "value": "hin"
+      },
+      "name": "handler 'hin'"
+    },
+    {
+      "expected": "Russian",
+      "input": {
+        "kind": "handler",
+        "value": "rus"
+      },
+      "name": "handler 'rus'"
+    },
+    {
+      "expected": "Turkish",
+      "input": {
+        "kind": "handler",
+        "value": "tur"
+      },
+      "name": "handler 'tur'"
+    },
+    {
+      "expected": "Arabic",
+      "input": {
+        "kind": "handler",
+        "value": "ara"
+      },
+      "name": "handler 'ara'"
+    },
+    {
+      "expected": "Polish",
+      "input": {
+        "kind": "handler",
+        "value": "pol"
+      },
+      "name": "handler 'pol'"
+    },
+    {
+      "expected": "Swedish",
+      "input": {
+        "kind": "handler",
+        "value": "swe"
+      },
+      "name": "handler 'swe'"
+    },
+    {
+      "expected": "Norwegian",
+      "input": {
+        "kind": "handler",
+        "value": "nor"
+      },
+      "name": "handler 'nor'"
+    },
+    {
+      "expected": "Danish",
+      "input": {
+        "kind": "handler",
+        "value": "dan"
+      },
+      "name": "handler 'dan'"
+    },
+    {
+      "expected": "Finnish",
+      "input": {
+        "kind": "handler",
+        "value": "fin"
+      },
+      "name": "handler 'fin'"
+    },
+    {
+      "expected": "Thai",
+      "input": {
+        "kind": "handler",
+        "value": "tha"
+      },
+      "name": "handler 'tha'"
+    },
+    {
+      "expected": "Vietnamese",
+      "input": {
+        "kind": "handler",
+        "value": "vie"
+      },
+      "name": "handler 'vie'"
+    },
+    {
+      "expected": "Bengali",
+      "input": {
+        "kind": "handler",
+        "value": "ben"
+      },
+      "name": "handler 'ben'"
+    },
+    {
+      "expected": "Punjabi",
+      "input": {
+        "kind": "handler",
+        "value": "pan"
+      },
+      "name": "handler 'pan'"
+    },
+    {
+      "expected": "Tamil",
+      "input": {
+        "kind": "handler",
+        "value": "tam"
+      },
+      "name": "handler 'tam'"
+    },
+    {
+      "expected": "Telugu",
+      "input": {
+        "kind": "handler",
+        "value": "tel"
+      },
+      "name": "handler 'tel'"
+    },
+    {
+      "expected": "xx",
+      "input": {
+        "kind": "handler",
+        "value": "xx"
+      },
+      "name": "handler 'xx'"
+    },
+    {
+      "expected": "",
+      "input": {
+        "kind": "handler",
+        "value": ""
+      },
+      "name": "handler ''"
+    },
+    {
+      "expected": "DEU",
+      "input": {
+        "kind": "handler",
+        "value": "DEU"
+      },
+      "name": "handler 'DEU'"
+    },
+    {
+      "expected": [
+        ".avi",
+        ".m2ts",
+        ".m4v",
+        ".mkv",
+        ".mov",
+        ".mp4",
+        ".ts",
+        ".webm"
+      ],
+      "input": {
+        "kind": "set",
+        "value": "VIDEO_EXTS"
+      },
+      "name": "set VIDEO_EXTS"
+    },
+    {
+      "expected": [
+        "mov_text",
+        "srt",
+        "subrip",
+        "webvtt"
+      ],
+      "input": {
+        "kind": "set",
+        "value": "TEXT_SUB_CODECS"
+      },
+      "name": "set TEXT_SUB_CODECS"
+    },
+    {
+      "expected": [
+        "dvd_subtitle",
+        "hdmv_pgs_subtitle"
+      ],
+      "input": {
+        "kind": "set",
+        "value": "IMAGE_SUB_CODECS"
+      },
+      "name": "set IMAGE_SUB_CODECS"
+    },
+    {
+      "expected": [
+        "vc1",
+        "vp9"
+      ],
+      "input": {
+        "kind": "set",
+        "value": "FORCE_TRANSCODE_VIDEO"
+      },
+      "name": "set FORCE_TRANSCODE_VIDEO"
+    },
+    {
+      "expected": [
+        "baseline",
+        "constrained baseline",
+        "constrained high",
+        "extended",
+        "high",
+        "main"
+      ],
+      "input": {
+        "kind": "set",
+        "value": "ATV_H264_OK_PROFILES"
+      },
+      "name": "set ATV_H264_OK_PROFILES"
+    },
+    {
+      "expected": [
+        "main",
+        "main 10",
+        "main still picture"
+      ],
+      "input": {
+        "kind": "set",
+        "value": "ATV_HEVC_OK_PROFILES"
+      },
+      "name": "set ATV_HEVC_OK_PROFILES"
+    },
+    {
+      "expected": [
+        "",
+        "main"
+      ],
+      "input": {
+        "kind": "set",
+        "value": "ATV_AV1_OK_PROFILES"
+      },
+      "name": "set ATV_AV1_OK_PROFILES"
+    },
+    {
+      "expected": [
+        "ac3",
+        "eac3"
+      ],
+      "input": {
+        "kind": "set",
+        "value": "COMPAT_AUDIO_COPY"
+      },
+      "name": "set COMPAT_AUDIO_COPY"
+    },
+    {
+      "expected": [
+        "dca",
+        "dts",
+        "flac",
+        "mlp",
+        "opus",
+        "truehd",
+        "vorbis"
+      ],
+      "input": {
+        "kind": "set",
+        "value": "TRANSCODE_TO_EAC3"
+      },
+      "name": "set TRANSCODE_TO_EAC3"
+    },
+    {
+      "expected": [
+        "yuv420p",
+        "yuvj420p"
+      ],
+      "input": {
+        "kind": "set",
+        "value": "_ATV_H264_OK_PIX_FMTS"
+      },
+      "name": "set _ATV_H264_OK_PIX_FMTS"
+    },
+    {
+      "expected": [
+        "yuv420p",
+        "yuv420p10le",
+        "yuvj420p"
+      ],
+      "input": {
+        "kind": "set",
+        "value": "_ATV_HEVC_OK_PIX_FMTS"
+      },
+      "name": "set _ATV_HEVC_OK_PIX_FMTS"
+    },
+    {
+      "expected": [
+        [
+          "ar",
+          "ara"
+        ],
+        [
+          "ara",
+          "ara"
+        ],
+        [
+          "ben",
+          "ben"
+        ],
+        [
+          "bn",
+          "ben"
+        ],
+        [
+          "chi",
+          "zho"
+        ],
+        [
+          "da",
+          "dan"
+        ],
+        [
+          "dan",
+          "dan"
+        ],
+        [
+          "de",
+          "deu"
+        ],
+        [
+          "deu",
+          "deu"
+        ],
+        [
+          "dut",
+          "nld"
+        ],
+        [
+          "en",
+          "eng"
+        ],
+        [
+          "eng",
+          "eng"
+        ],
+        [
+          "es",
+          "spa"
+        ],
+        [
+          "fi",
+          "fin"
+        ],
+        [
+          "fin",
+          "fin"
+        ],
+        [
+          "fr",
+          "fra"
+        ],
+        [
+          "fra",
+          "fra"
+        ],
+        [
+          "fre",
+          "fra"
+        ],
+        [
+          "ger",
+          "deu"
+        ],
+        [
+          "hi",
+          "hin"
+        ],
+        [
+          "hin",
+          "hin"
+        ],
+        [
+          "it",
+          "ita"
+        ],
+        [
+          "ita",
+          "ita"
+        ],
+        [
+          "ja",
+          "jpn"
+        ],
+        [
+          "jpn",
+          "jpn"
+        ],
+        [
+          "ko",
+          "kor"
+        ],
+        [
+          "kor",
+          "kor"
+        ],
+        [
+          "nl",
+          "nld"
+        ],
+        [
+          "nld",
+          "nld"
+        ],
+        [
+          "no",
+          "nor"
+        ],
+        [
+          "nor",
+          "nor"
+        ],
+        [
+          "pa",
+          "pan"
+        ],
+        [
+          "pan",
+          "pan"
+        ],
+        [
+          "pl",
+          "pol"
+        ],
+        [
+          "pol",
+          "pol"
+        ],
+        [
+          "por",
+          "por"
+        ],
+        [
+          "pt",
+          "por"
+        ],
+        [
+          "ru",
+          "rus"
+        ],
+        [
+          "rus",
+          "rus"
+        ],
+        [
+          "spa",
+          "spa"
+        ],
+        [
+          "sv",
+          "swe"
+        ],
+        [
+          "swe",
+          "swe"
+        ],
+        [
+          "ta",
+          "tam"
+        ],
+        [
+          "tam",
+          "tam"
+        ],
+        [
+          "te",
+          "tel"
+        ],
+        [
+          "tel",
+          "tel"
+        ],
+        [
+          "th",
+          "tha"
+        ],
+        [
+          "tha",
+          "tha"
+        ],
+        [
+          "tr",
+          "tur"
+        ],
+        [
+          "tur",
+          "tur"
+        ],
+        [
+          "vi",
+          "vie"
+        ],
+        [
+          "vie",
+          "vie"
+        ],
+        [
+          "zh",
+          "zho"
+        ],
+        [
+          "zho",
+          "zho"
+        ]
+      ],
+      "input": {
+        "kind": "table",
+        "value": "LANG_MAP"
+      },
+      "name": "table LANG_MAP"
+    },
+    {
+      "expected": [
+        [
+          "ara",
+          "Arabic"
+        ],
+        [
+          "ben",
+          "Bengali"
+        ],
+        [
+          "dan",
+          "Danish"
+        ],
+        [
+          "deu",
+          "German"
+        ],
+        [
+          "eng",
+          "English"
+        ],
+        [
+          "fin",
+          "Finnish"
+        ],
+        [
+          "fra",
+          "French"
+        ],
+        [
+          "hin",
+          "Hindi"
+        ],
+        [
+          "ita",
+          "Italian"
+        ],
+        [
+          "jpn",
+          "Japanese"
+        ],
+        [
+          "kor",
+          "Korean"
+        ],
+        [
+          "nld",
+          "Dutch"
+        ],
+        [
+          "nor",
+          "Norwegian"
+        ],
+        [
+          "pan",
+          "Punjabi"
+        ],
+        [
+          "pol",
+          "Polish"
+        ],
+        [
+          "por",
+          "Portuguese"
+        ],
+        [
+          "rus",
+          "Russian"
+        ],
+        [
+          "spa",
+          "Spanish"
+        ],
+        [
+          "swe",
+          "Swedish"
+        ],
+        [
+          "tam",
+          "Tamil"
+        ],
+        [
+          "tel",
+          "Telugu"
+        ],
+        [
+          "tha",
+          "Thai"
+        ],
+        [
+          "tur",
+          "Turkish"
+        ],
+        [
+          "vie",
+          "Vietnamese"
+        ],
+        [
+          "zho",
+          "Chinese"
+        ]
+      ],
+      "input": {
+        "kind": "table",
+        "value": "HANDLER_NAMES"
+      },
+      "name": "table HANDLER_NAMES"
+    }
+  ],
+  "suite": "lang"
+}

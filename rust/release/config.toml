@@ -1,0 +1,13 @@
+[server]
+bind_host = "0.0.0.0"
+bind_port = 8765
+allowed_origins = ["https://atvprep.example.invalid"]
+[storage]
+database_path = "/state/manager.sqlite"
+[library]
+roots = ["/media"]
+[auth]
+master_token_file = "/config/master-token"
+session_cookie_secure = true
+[atvprep]
+ffprobe = "/usr/bin/ffprobe"

@@ -1,0 +1,1900 @@
+{
+  "cases": [
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.de.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.de.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.DE.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.DE.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.German.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.German.srt"
+    },
+    {
+      "expected": "por",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.pt-BR.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.pt-BR.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.de_DE.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.de_DE.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.de.forced.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.de.forced.srt"
+    },
+    {
+      "expected": "eng",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.en.sdh.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.en.sdh.srt"
+    },
+    {
+      "expected": "und",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.srt"
+    },
+    {
+      "expected": "und",
+      "input": {
+        "fn": "guess",
+        "srt": "Other.de.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Other.de.srt"
+    },
+    {
+      "expected": "fra",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.français.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.français.srt"
+    },
+    {
+      "expected": "spa",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.espanol.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.espanol.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.Deutsch.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.Deutsch.srt"
+    },
+    {
+      "expected": "und",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.xx.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.xx.srt"
+    },
+    {
+      "expected": "zho",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.zh-Hans.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.zh-Hans.srt"
+    },
+    {
+      "expected": "eng",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.eng.hi.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.eng.hi.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "guess",
+        "srt": "Filmde.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Filmde.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.de.ass",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.de.ass"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "guess",
+        "srt": "Film..de.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film..de.srt"
+    },
+    {
+      "expected": "und",
+      "input": {
+        "fn": "guess",
+        "srt": "film.de.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv film.de.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.srt.de",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.srt.de"
+    },
+    {
+      "expected": "und",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.und.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.und.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.german.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.german.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.deutsch.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.deutsch.srt"
+    },
+    {
+      "expected": "eng",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.english.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.english.srt"
+    },
+    {
+      "expected": "fra",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.french.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.french.srt"
+    },
+    {
+      "expected": "fra",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.francais.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.francais.srt"
+    },
+    {
+      "expected": "fra",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.français.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.français.srt"
+    },
+    {
+      "expected": "ita",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.italian.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.italian.srt"
+    },
+    {
+      "expected": "ita",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.italiano.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.italiano.srt"
+    },
+    {
+      "expected": "spa",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.spanish.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.spanish.srt"
+    },
+    {
+      "expected": "spa",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.espanol.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.espanol.srt"
+    },
+    {
+      "expected": "spa",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.español.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.español.srt"
+    },
+    {
+      "expected": "por",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.portuguese.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.portuguese.srt"
+    },
+    {
+      "expected": "nld",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.dutch.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.dutch.srt"
+    },
+    {
+      "expected": "jpn",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.japanese.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.japanese.srt"
+    },
+    {
+      "expected": "kor",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.korean.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.korean.srt"
+    },
+    {
+      "expected": "zho",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.chinese.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.chinese.srt"
+    },
+    {
+      "expected": "rus",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.russian.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.russian.srt"
+    },
+    {
+      "expected": "tur",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.turkish.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.turkish.srt"
+    },
+    {
+      "expected": "ara",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.arabic.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.arabic.srt"
+    },
+    {
+      "expected": "pol",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.polish.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.polish.srt"
+    },
+    {
+      "expected": "swe",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.swedish.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.swedish.srt"
+    },
+    {
+      "expected": "nor",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.norwegian.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.norwegian.srt"
+    },
+    {
+      "expected": "dan",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.danish.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.danish.srt"
+    },
+    {
+      "expected": "hin",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.hindi.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.hindi.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.de.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.de.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.ger.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.ger.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.deu.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.deu.srt"
+    },
+    {
+      "expected": "eng",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.en.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.en.srt"
+    },
+    {
+      "expected": "eng",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.eng.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.eng.srt"
+    },
+    {
+      "expected": "fra",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.fr.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.fr.srt"
+    },
+    {
+      "expected": "fra",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.fre.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.fre.srt"
+    },
+    {
+      "expected": "fra",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.fra.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.fra.srt"
+    },
+    {
+      "expected": "ita",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.it.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.it.srt"
+    },
+    {
+      "expected": "ita",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.ita.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.ita.srt"
+    },
+    {
+      "expected": "spa",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.es.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.es.srt"
+    },
+    {
+      "expected": "spa",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.spa.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.spa.srt"
+    },
+    {
+      "expected": "por",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.pt.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.pt.srt"
+    },
+    {
+      "expected": "por",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.por.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.por.srt"
+    },
+    {
+      "expected": "nld",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.nl.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.nl.srt"
+    },
+    {
+      "expected": "nld",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.dut.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.dut.srt"
+    },
+    {
+      "expected": "nld",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.nld.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.nld.srt"
+    },
+    {
+      "expected": "kor",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.ko.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.ko.srt"
+    },
+    {
+      "expected": "kor",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.kor.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.kor.srt"
+    },
+    {
+      "expected": "jpn",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.ja.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.ja.srt"
+    },
+    {
+      "expected": "jpn",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.jpn.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.jpn.srt"
+    },
+    {
+      "expected": "zho",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.zh.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.zh.srt"
+    },
+    {
+      "expected": "zho",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.chi.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.chi.srt"
+    },
+    {
+      "expected": "zho",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.zho.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.zho.srt"
+    },
+    {
+      "expected": "hin",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.hi.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.hi.srt"
+    },
+    {
+      "expected": "hin",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.hin.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.hin.srt"
+    },
+    {
+      "expected": "rus",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.ru.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.ru.srt"
+    },
+    {
+      "expected": "rus",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.rus.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.rus.srt"
+    },
+    {
+      "expected": "tur",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.tr.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.tr.srt"
+    },
+    {
+      "expected": "tur",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.tur.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.tur.srt"
+    },
+    {
+      "expected": "ara",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.ar.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.ar.srt"
+    },
+    {
+      "expected": "ara",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.ara.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.ara.srt"
+    },
+    {
+      "expected": "pol",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.pl.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.pl.srt"
+    },
+    {
+      "expected": "pol",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.pol.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.pol.srt"
+    },
+    {
+      "expected": "swe",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.sv.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.sv.srt"
+    },
+    {
+      "expected": "swe",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.swe.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.swe.srt"
+    },
+    {
+      "expected": "nor",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.no.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.no.srt"
+    },
+    {
+      "expected": "nor",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.nor.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.nor.srt"
+    },
+    {
+      "expected": "dan",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.da.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.da.srt"
+    },
+    {
+      "expected": "dan",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.dan.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.dan.srt"
+    },
+    {
+      "expected": "fin",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.fi.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.fi.srt"
+    },
+    {
+      "expected": "fin",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.fin.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.fin.srt"
+    },
+    {
+      "expected": "tha",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.th.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.th.srt"
+    },
+    {
+      "expected": "tha",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.tha.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.tha.srt"
+    },
+    {
+      "expected": "vie",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.vi.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.vi.srt"
+    },
+    {
+      "expected": "vie",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.vie.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.vie.srt"
+    },
+    {
+      "expected": "ben",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.bn.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.bn.srt"
+    },
+    {
+      "expected": "ben",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.ben.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.ben.srt"
+    },
+    {
+      "expected": "pan",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.pa.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.pa.srt"
+    },
+    {
+      "expected": "pan",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.pan.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.pan.srt"
+    },
+    {
+      "expected": "tam",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.ta.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.ta.srt"
+    },
+    {
+      "expected": "tam",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.tam.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.tam.srt"
+    },
+    {
+      "expected": "tel",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.te.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.te.srt"
+    },
+    {
+      "expected": "tel",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.tel.srt",
+        "video": "Film.mkv"
+      },
+      "name": "guess Film.mkv Film.tel.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "guess",
+        "srt": "Film [2020].de.srt",
+        "video": "Film [2020].mkv"
+      },
+      "name": "guess Film [2020].mkv Film [2020].de.srt"
+    },
+    {
+      "expected": "eng",
+      "input": {
+        "fn": "guess",
+        "srt": "Film [2020].en.forced.srt",
+        "video": "Film [2020].mkv"
+      },
+      "name": "guess Film [2020].mkv Film [2020].en.forced.srt"
+    },
+    {
+      "expected": "und",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.de.srt",
+        "video": "Film [2020].mkv"
+      },
+      "name": "guess Film [2020].mkv Film.de.srt"
+    },
+    {
+      "expected": "nld",
+      "input": {
+        "fn": "guess",
+        "srt": "Show.S01E01.nl.srt",
+        "video": "Show.S01E01.mkv"
+      },
+      "name": "guess Show.S01E01.mkv Show.S01E01.nl.srt"
+    },
+    {
+      "expected": "nld",
+      "input": {
+        "fn": "guess",
+        "srt": "Show.S01E01.dut.srt",
+        "video": "Show.S01E01.mkv"
+      },
+      "name": "guess Show.S01E01.mkv Show.S01E01.dut.srt"
+    },
+    {
+      "expected": "und",
+      "input": {
+        "fn": "guess",
+        "srt": "Show.S01.nl.srt",
+        "video": "Show.S01E01.mkv"
+      },
+      "name": "guess Show.S01E01.mkv Show.S01.nl.srt"
+    },
+    {
+      "expected": "und",
+      "input": {
+        "fn": "guess",
+        "srt": "Show.S01E01.srt",
+        "video": "Show.S01E01.mkv"
+      },
+      "name": "guess Show.S01E01.mkv Show.S01E01.srt"
+    },
+    {
+      "expected": "und",
+      "input": {
+        "fn": "guess",
+        "srt": "Film.de.srt",
+        "video": "FILM.mkv"
+      },
+      "name": "guess FILM.mkv Film.de.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "guess",
+        "srt": "FILM.de.srt",
+        "video": "FILM.mkv"
+      },
+      "name": "guess FILM.mkv FILM.de.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "guess",
+        "srt": "Ünï.de.srt",
+        "video": "Ünï.mkv"
+      },
+      "name": "guess Ünï.mkv Ünï.de.srt"
+    },
+    {
+      "expected": "und",
+      "input": {
+        "fn": "guess",
+        "srt": "ünï.de.srt",
+        "video": "Ünï.mkv"
+      },
+      "name": "guess Ünï.mkv ünï.de.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "path_lang",
+        "srt": "Film.de.srt"
+      },
+      "name": "path_lang Film.de.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "path_lang",
+        "srt": "Film.ger.srt"
+      },
+      "name": "path_lang Film.ger.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "path_lang",
+        "srt": "Film.deu.srt"
+      },
+      "name": "path_lang Film.deu.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "path_lang",
+        "srt": "Film.de.forced.srt"
+      },
+      "name": "path_lang Film.de.forced.srt"
+    },
+    {
+      "expected": "deu",
+      "input": {
+        "fn": "path_lang",
+        "srt": "Film.DE.SRT"
+      },
+      "name": "path_lang Film.DE.SRT"
+    },
+    {
+      "expected": "und",
+      "input": {
+        "fn": "path_lang",
+        "srt": "film.xx.srt"
+      },
+      "name": "path_lang film.xx.srt"
+    },
+    {
+      "expected": "und",
+      "input": {
+        "fn": "path_lang",
+        "srt": "Film.english.srt"
+      },
+      "name": "path_lang Film.english.srt"
+    },
+    {
+      "expected": "und",
+      "input": {
+        "fn": "path_lang",
+        "srt": "Film.srt"
+      },
+      "name": "path_lang Film.srt"
+    },
+    {
+      "expected": "eng",
+      "input": {
+        "fn": "path_lang",
+        "srt": "dir.en.srt"
+      },
+      "name": "path_lang dir.en.srt"
+    },
+    {
+      "expected": "zho",
+      "input": {
+        "fn": "path_lang",
+        "srt": "Film.zh.forced.srt"
+      },
+      "name": "path_lang Film.zh.forced.srt"
+    },
+    {
+      "expected": {
+        "info": [
+          true,
+          false
+        ],
+        "kind": "forced"
+      },
+      "input": {
+        "fn": "kind",
+        "srt": "Film.forced.srt"
+      },
+      "name": "kind Film.forced.srt"
+    },
+    {
+      "expected": {
+        "info": [
+          false,
+          true
+        ],
+        "kind": "sdh"
+      },
+      "input": {
+        "fn": "kind",
+        "srt": "Film.de.sdh.srt"
+      },
+      "name": "kind Film.de.sdh.srt"
+    },
+    {
+      "expected": {
+        "info": [
+          false,
+          true
+        ],
+        "kind": "sdh"
+      },
+      "input": {
+        "fn": "kind",
+        "srt": "Film.de.HI.srt"
+      },
+      "name": "kind Film.de.HI.srt"
+    },
+    {
+      "expected": {
+        "info": [
+          false,
+          true
+        ],
+        "kind": "sdh"
+      },
+      "input": {
+        "fn": "kind",
+        "srt": "Film.hearing.srt"
+      },
+      "name": "kind Film.hearing.srt"
+    },
+    {
+      "expected": {
+        "info": [
+          false,
+          true
+        ],
+        "kind": "sdh"
+      },
+      "input": {
+        "fn": "kind",
+        "srt": "Film.SDH.srt"
+      },
+      "name": "kind Film.SDH.srt"
+    },
+    {
+      "expected": {
+        "info": [
+          false,
+          false
+        ],
+        "kind": "normal"
+      },
+      "input": {
+        "fn": "kind",
+        "srt": "Film.srt"
+      },
+      "name": "kind Film.srt"
+    },
+    {
+      "expected": {
+        "info": [
+          true,
+          true
+        ],
+        "kind": "forced"
+      },
+      "input": {
+        "fn": "kind",
+        "srt": "Film.forced.sdh.srt"
+      },
+      "name": "kind Film.forced.sdh.srt"
+    },
+    {
+      "expected": {
+        "info": [
+          false,
+          true
+        ],
+        "kind": "sdh"
+      },
+      "input": {
+        "fn": "kind",
+        "srt": "Film.de.hi.srt"
+      },
+      "name": "kind Film.de.hi.srt"
+    },
+    {
+      "expected": {
+        "info": [
+          false,
+          true
+        ],
+        "kind": "sdh"
+      },
+      "input": {
+        "fn": "kind",
+        "srt": "Film.hi.srt"
+      },
+      "name": "kind Film.hi.srt"
+    },
+    {
+      "expected": {
+        "info": [
+          true,
+          false
+        ],
+        "kind": "forced"
+      },
+      "input": {
+        "fn": "kind",
+        "srt": "Film.Forced.srt"
+      },
+      "name": "kind Film.Forced.srt"
+    },
+    {
+      "expected": [
+        false,
+        false
+      ],
+      "input": {
+        "fn": "stream_info",
+        "stream": {
+          "codec_name": "subrip",
+          "codec_type": "subtitle",
+          "disposition": {},
+          "tags": {
+            "language": "eng"
+          }
+        }
+      },
+      "name": "stream info plain"
+    },
+    {
+      "expected": [
+        false,
+        true
+      ],
+      "input": {
+        "fn": "stream_info",
+        "stream": {
+          "codec_name": "subrip",
+          "codec_type": "subtitle",
+          "disposition": {},
+          "tags": {
+            "language": "eng",
+            "title": "English SDH"
+          }
+        }
+      },
+      "name": "stream info sdh"
+    },
+    {
+      "expected": [
+        false,
+        true
+      ],
+      "input": {
+        "fn": "stream_info",
+        "stream": {
+          "codec_name": "subrip",
+          "codec_type": "subtitle",
+          "disposition": {},
+          "tags": {
+            "language": "eng",
+            "title": "English HI x"
+          }
+        }
+      },
+      "name": "stream info hi"
+    },
+    {
+      "expected": [
+        false,
+        true
+      ],
+      "input": {
+        "fn": "stream_info",
+        "stream": {
+          "codec_name": "subrip",
+          "codec_type": "subtitle",
+          "disposition": {},
+          "tags": {
+            "language": "eng",
+            "title": "Hearing impaired"
+          }
+        }
+      },
+      "name": "stream info hearing"
+    },
+    {
+      "expected": [
+        false,
+        true
+      ],
+      "input": {
+        "fn": "stream_info",
+        "stream": {
+          "codec_name": "subrip",
+          "codec_type": "subtitle",
+          "disposition": {},
+          "tags": {
+            "language": "deu",
+            "title": "Hörgeschädigt"
+          }
+        }
+      },
+      "name": "stream info hoer"
+    },
+    {
+      "expected": [
+        true,
+        false
+      ],
+      "input": {
+        "fn": "stream_info",
+        "stream": {
+          "codec_name": "subrip",
+          "codec_type": "subtitle",
+          "disposition": {},
+          "tags": {
+            "language": "deu",
+            "title": "Forced"
+          }
+        }
+      },
+      "name": "stream info forced"
+    },
+    {
+      "expected": [
+        true,
+        false
+      ],
+      "input": {
+        "fn": "stream_info",
+        "stream": {
+          "codec_name": "subrip",
+          "codec_type": "subtitle",
+          "disposition": {
+            "forced": 1
+          },
+          "tags": {
+            "language": "deu"
+          }
+        }
+      },
+      "name": "stream info forced flag"
+    },
+    {
+      "expected": [
+        true,
+        true
+      ],
+      "input": {
+        "fn": "stream_info",
+        "stream": {
+          "codec_name": "subrip",
+          "codec_type": "subtitle",
+          "disposition": {},
+          "tags": {
+            "language": "deu",
+            "title": "Forced SDH"
+          }
+        }
+      },
+      "name": "stream info forced and sdh"
+    },
+    {
+      "expected": [
+        false,
+        false
+      ],
+      "input": {
+        "fn": "stream_info",
+        "stream": {
+          "codec_type": "subtitle",
+          "tags": null
+        }
+      },
+      "name": "stream info null tags"
+    },
+    {
+      "expected": [
+        false,
+        false
+      ],
+      "input": {
+        "fn": "stream_info",
+        "stream": {
+          "codec_name": "subrip",
+          "codec_type": "subtitle",
+          "disposition": {},
+          "tags": {
+            "language": "deu",
+            "title": "Non-Forced"
+          }
+        }
+      },
+      "name": "stream info non forced"
+    },
+    {
+      "expected": [
+        [
+          "Film.de.srt",
+          "deu",
+          "unchecked"
+        ],
+        [
+          "Film.en.forced.srt",
+          "eng",
+          "unchecked"
+        ],
+        [
+          "Film.srt",
+          "und",
+          "unknown_language"
+        ],
+        [
+          "Film.fr.srt",
+          "fra",
+          "unchecked"
+        ]
+      ],
+      "input": {
+        "fn": "classify",
+        "names": [
+          "Film.de.srt",
+          "Film.en.forced.srt",
+          "Film.srt",
+          "Film.fr.srt"
+        ],
+        "streams": null,
+        "video": "Film.mkv"
+      },
+      "name": "classify no streams"
+    },
+    {
+      "expected": [
+        [
+          "Film.de.srt",
+          "deu",
+          "pending"
+        ],
+        [
+          "Film.fr.srt",
+          "fra",
+          "ignored_language"
+        ],
+        [
+          "Film.xx.srt",
+          "und",
+          "unknown_language"
+        ],
+        [
+          "Film.ass",
+          "und",
+          "unsupported"
+        ],
+        [
+          "Film.sub",
+          "und",
+          "unsupported"
+        ]
+      ],
+      "input": {
+        "fn": "classify",
+        "names": [
+          "Film.de.srt",
+          "Film.fr.srt",
+          "Film.xx.srt",
+          "Film.ass",
+          "Film.sub"
+        ],
+        "streams": [],
+        "video": "Film.mkv"
+      },
+      "name": "classify empty streams"
+    },
+    {
+      "expected": [
+        [
+          "Film.de.sdh.srt",
+          "deu",
+          "embedded"
+        ],
+        [
+          "Film.de.srt",
+          "deu",
+          "pending"
+        ]
+      ],
+      "input": {
+        "fn": "classify",
+        "names": [
+          "Film.de.sdh.srt",
+          "Film.de.srt"
+        ],
+        "streams": [
+          {
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "tags": {
+              "language": "deu"
+            }
+          },
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "tags": {
+              "language": "deu",
+              "title": "SDH"
+            }
+          }
+        ],
+        "video": "Film.mkv"
+      },
+      "name": "classify embedded german sdh"
+    },
+    {
+      "expected": [
+        [
+          "Film.de.srt",
+          "deu",
+          "pending"
+        ],
+        [
+          "Film.de.forced.srt",
+          "deu",
+          "embedded"
+        ]
+      ],
+      "input": {
+        "fn": "classify",
+        "names": [
+          "Film.de.srt",
+          "Film.de.forced.srt"
+        ],
+        "streams": [
+          {
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "tags": {
+              "language": "deu"
+            }
+          },
+          {
+            "codec_name": "subrip",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "tags": {
+              "language": "deu",
+              "title": "Forced"
+            }
+          }
+        ],
+        "video": "Film.mkv"
+      },
+      "name": "classify forced only inside"
+    },
+    {
+      "expected": [
+        [
+          "Film.fr.srt",
+          "fra",
+          "pending"
+        ],
+        [
+          "Film.es.srt",
+          "spa",
+          "ignored_language"
+        ]
+      ],
+      "input": {
+        "fn": "classify",
+        "names": [
+          "Film.fr.srt",
+          "Film.es.srt"
+        ],
+        "streams": [
+          {
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "tags": {
+              "language": "fra"
+            }
+          },
+          {
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "tags": {
+              "language": "und"
+            }
+          },
+          {
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "tags": {}
+          }
+        ],
+        "video": "Film.mkv"
+      },
+      "name": "classify audio language kept"
+    },
+    {
+      "expected": [
+        [
+          "Film.de.srt",
+          "deu",
+          "duplicate"
+        ],
+        [
+          "Film.de.1.srt",
+          "deu",
+          "pending"
+        ],
+        [
+          "Film.DE.srt",
+          "deu",
+          "duplicate"
+        ],
+        [
+          "Film.de.copy.srt",
+          "deu",
+          "duplicate"
+        ]
+      ],
+      "input": {
+        "fn": "classify",
+        "names": [
+          "Film.de.srt",
+          "Film.de.1.srt",
+          "Film.DE.srt",
+          "Film.de.copy.srt"
+        ],
+        "streams": [
+          {
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "tags": {
+              "language": "deu"
+            }
+          }
+        ],
+        "video": "Film.mkv"
+      },
+      "name": "classify duplicates"
+    },
+    {
+      "expected": [
+        [
+          "Film.de.b.srt",
+          "deu",
+          "duplicate"
+        ],
+        [
+          "Film.de.A.srt",
+          "deu",
+          "pending"
+        ]
+      ],
+      "input": {
+        "fn": "classify",
+        "names": [
+          "Film.de.b.srt",
+          "Film.de.A.srt"
+        ],
+        "streams": [
+          {
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "tags": {
+              "language": "deu"
+            }
+          }
+        ],
+        "video": "Film.mkv"
+      },
+      "name": "classify duplicate order by lower name"
+    },
+    {
+      "expected": [
+        [
+          "Film.de.forced.srt",
+          "deu",
+          "pending"
+        ],
+        [
+          "Film.de.sdh.srt",
+          "deu",
+          "pending"
+        ],
+        [
+          "Film.de.srt",
+          "deu",
+          "pending"
+        ]
+      ],
+      "input": {
+        "fn": "classify",
+        "names": [
+          "Film.de.forced.srt",
+          "Film.de.sdh.srt",
+          "Film.de.srt"
+        ],
+        "streams": [
+          {
+            "codec_name": "eac3",
+            "codec_type": "audio",
+            "tags": {
+              "language": "deu"
+            }
+          }
+        ],
+        "video": "Film.mkv"
+      },
+      "name": "classify forced and sdh kept"
+    },
+    {
+      "expected": [
+        [
+          "Film.de.srt",
+          "deu",
+          "pending"
+        ]
+      ],
+      "input": {
+        "fn": "classify",
+        "names": [
+          "Film.de.srt"
+        ],
+        "streams": [
+          {
+            "codec_name": "hdmv_pgs_subtitle",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "tags": {
+              "language": "deu"
+            }
+          }
+        ],
+        "video": "Film.mkv"
+      },
+      "name": "classify image subs ignored"
+    },
+    {
+      "expected": [
+        [
+          "Film.de.srt",
+          "deu",
+          "embedded"
+        ]
+      ],
+      "input": {
+        "fn": "classify",
+        "names": [
+          "Film.de.srt"
+        ],
+        "streams": [
+          {
+            "codec_name": "webvtt",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "tags": {
+              "language": "deu"
+            }
+          }
+        ],
+        "video": "Film.mkv"
+      },
+      "name": "classify webvtt inside"
+    },
+    {
+      "expected": [
+        [
+          "Film.en.srt",
+          "eng",
+          "embedded"
+        ]
+      ],
+      "input": {
+        "fn": "classify",
+        "names": [
+          "Film.en.srt"
+        ],
+        "streams": [
+          {
+            "codec_name": "mov_text",
+            "codec_type": "subtitle",
+            "disposition": {},
+            "tags": {
+              "language": "eng"
+            }
+          }
+        ],
+        "video": "Film.mkv"
+      },
+      "name": "classify mov_text inside"
+    },
+    {
+      "expected": [
+        [
+          "Film.de.SRT",
+          "deu",
+          "pending"
+        ],
+        [
+          "Film.en.Srt",
+          "eng",
+          "pending"
+        ]
+      ],
+      "input": {
+        "fn": "classify",
+        "names": [
+          "Film.de.SRT",
+          "Film.en.Srt"
+        ],
+        "streams": [],
+        "video": "Film.mkv"
+      },
+      "name": "classify uppercase suffix"
+    },
+    {
+      "expected": [
+        "Film [2020] x.pt-BR.srt",
+        "Film [2020].de.srt",
+        "Film [2020].zz.SRT"
+      ],
+      "input": {
+        "dirs": [
+          "Film [2020].nl.srt"
+        ],
+        "files": [
+          "Film [2020].mkv",
+          "Film [2020].de.srt",
+          "film [2020].EN.SRT",
+          "Film [2020].fr.ass",
+          "Film [2020].fr.srt.bak",
+          "Film [2020] x.pt-BR.srt",
+          "Other.de.srt",
+          "Film [2020].zz.SRT",
+          "Film [2021].de.srt"
+        ],
+        "fn": "find",
+        "video": "Film [2020].mkv"
+      },
+      "name": "find Film [2020].mkv"
+    },
+    {
+      "expected": [
+        "Film [2020] x.pt-BR.srt",
+        "Film [2020].de.srt",
+        "Film [2020].zz.SRT",
+        "Film [2021].de.srt"
+      ],
+      "input": {
+        "dirs": [
+          "Film [2020].nl.srt"
+        ],
+        "files": [
+          "Film [2020].mkv",
+          "Film [2020].de.srt",
+          "film [2020].EN.SRT",
+          "Film [2020].fr.ass",
+          "Film [2020].fr.srt.bak",
+          "Film [2020] x.pt-BR.srt",
+          "Other.de.srt",
+          "Film [2020].zz.SRT",
+          "Film [2021].de.srt"
+        ],
+        "fn": "find",
+        "video": "Film.mkv"
+      },
+      "name": "find Film.mkv"
+    },
+    {
+      "expected": [
+        "Other.de.srt"
+      ],
+      "input": {
+        "dirs": [
+          "Film [2020].nl.srt"
+        ],
+        "files": [
+          "Film [2020].mkv",
+          "Film [2020].de.srt",
+          "film [2020].EN.SRT",
+          "Film [2020].fr.ass",
+          "Film [2020].fr.srt.bak",
+          "Film [2020] x.pt-BR.srt",
+          "Other.de.srt",
+          "Film [2020].zz.SRT",
+          "Film [2021].de.srt"
+        ],
+        "fn": "find",
+        "video": "Other.mkv"
+      },
+      "name": "find Other.mkv"
+    }
+  ],
+  "suite": "sidecars"
+}

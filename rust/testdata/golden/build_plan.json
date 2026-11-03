@@ -1,0 +1,6471 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 6,
+              "codec": "eac3",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            },
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 2,
+              "is_atmos": false,
+              "is_default": false,
+              "is_transcoded": false,
+              "lang": "deu"
+            },
+            {
+              "action": "copy",
+              "channels": 6,
+              "codec": "eac3",
+              "index": 3,
+              "is_atmos": false,
+              "is_default": false,
+              "is_transcoded": false,
+              "lang": "eng"
+            },
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 4,
+              "is_atmos": false,
+              "is_default": false,
+              "is_transcoded": false,
+              "lang": "eng"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-i",
+            "/media/Film.de.srt",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:a:1",
+            "-c:a:1",
+            "copy",
+            "-metadata:s:a:1",
+            "language=deu",
+            "-metadata:s:a:1",
+            "handler_name=German",
+            "-disposition:a:1",
+            "0",
+            "-map",
+            "0:a:2",
+            "-c:a:2",
+            "copy",
+            "-metadata:s:a:2",
+            "language=eng",
+            "-metadata:s:a:2",
+            "handler_name=English",
+            "-disposition:a:2",
+            "0",
+            "-map",
+            "0:a:3",
+            "-c:a:3",
+            "copy",
+            "-metadata:s:a:3",
+            "language=eng",
+            "-metadata:s:a:3",
+            "handler_name=English",
+            "-disposition:a:3",
+            "0",
+            "-map",
+            "0:5",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=deu",
+            "-metadata:s:s:0",
+            "handler_name=German",
+            "-metadata:s:s:0",
+            "title=DEU",
+            "-disposition:s:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [
+            {
+              "action": "mov_text",
+              "codec": "subrip",
+              "forced": false,
+              "input_idx": 0,
+              "is_default": true,
+              "lang": "deu",
+              "sdh": false,
+              "source": "internal",
+              "stream_idx": 5
+            }
+          ],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 2,
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 3,
+              "tags": {
+                "language": "eng"
+              }
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 4,
+              "tags": {
+                "language": "eng"
+              }
+            },
+            {
+              "codec_name": "subrip",
+              "codec_type": "subtitle",
+              "disposition": {},
+              "index": 5,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": [
+          "Film.de.srt"
+        ]
+      },
+      "name": "h264 copy with sidecar"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "libx265",
+            "-pix_fmt",
+            "yuv420p10le",
+            "-x265-params",
+            "crf=18:colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc:hdr-opt=1:repeat-headers=1",
+            "-tag:v",
+            "hvc1",
+            "-color_primaries",
+            "bt2020",
+            "-color_trc",
+            "smpte2084",
+            "-colorspace",
+            "bt2020nc",
+            "-color_range",
+            "tv",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "transcode",
+            "codec": "h264",
+            "color_primaries": "bt2020",
+            "color_transfer": "smpte2084",
+            "dolby_vision": false,
+            "hdr": true,
+            "height": 2160,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": "hvc1",
+            "width": 3840
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "color_primaries": "bt2020",
+              "color_space": "bt2020nc",
+              "color_transfer": "smpte2084",
+              "height": 2160,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 3840
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "h264 4k hdr transcode"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "libx265",
+            "-pix_fmt",
+            "yuv420p10le",
+            "-x265-params",
+            "crf=18:colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc:hdr-opt=1:repeat-headers=1",
+            "-tag:v",
+            "hvc1",
+            "-color_primaries",
+            "bt2020",
+            "-color_trc",
+            "smpte2084",
+            "-colorspace",
+            "bt2020nc",
+            "-color_range",
+            "tv",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "transcode",
+            "codec": "h264",
+            "color_primaries": "bt2020",
+            "color_transfer": "bt709",
+            "dolby_vision": false,
+            "hdr": true,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": "hvc1",
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "color_primaries": "bt2020",
+              "color_transfer": "bt709",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "hdr by primaries only falls back to pq"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "libx265",
+            "-pix_fmt",
+            "yuv420p10le",
+            "-x265-params",
+            "crf=18:colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc:hdr-opt=1:repeat-headers=1",
+            "-tag:v",
+            "hvc1",
+            "-color_primaries",
+            "bt2020",
+            "-color_trc",
+            "smpte2084",
+            "-colorspace",
+            "bt2020nc",
+            "-color_range",
+            "tv",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "transcode",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "smpte2084",
+            "dolby_vision": false,
+            "hdr": true,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": "hvc1",
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "color_primaries": "",
+              "color_transfer": "smpte2084",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "hdr without primaries"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "libx265",
+            "-pix_fmt",
+            "yuv420p10le",
+            "-x265-params",
+            "crf=18:colorprim=bt2020:transfer=arib-std-b67:colormatrix=bt2020nc:hdr-opt=1:repeat-headers=1",
+            "-tag:v",
+            "hvc1",
+            "-color_primaries",
+            "bt2020",
+            "-color_trc",
+            "arib-std-b67",
+            "-colorspace",
+            "bt2020nc",
+            "-color_range",
+            "tv",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "transcode",
+            "codec": "h264",
+            "color_primaries": "bt2020",
+            "color_transfer": "arib-std-b67",
+            "dolby_vision": false,
+            "hdr": true,
+            "height": 2160,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": "hvc1",
+            "width": 3840
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "color_primaries": "bt2020",
+              "color_transfer": "arib-std-b67",
+              "height": 2160,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 3840
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "hlg transcode"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "libx265",
+            "-pix_fmt",
+            "yuv420p10le",
+            "-x265-params",
+            "crf=22",
+            "-tag:v",
+            "hvc1",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "transcode",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": "hvc1",
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 22,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": true,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "prefer hevc10"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "libx265",
+            "-pix_fmt",
+            "yuv420p10le",
+            "-x265-params",
+            "crf=18",
+            "-tag:v",
+            "hvc1",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "transcode",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p10le",
+            "profile": "High 10",
+            "tag": "hvc1",
+            "width": 1920
+          },
+          "warnings": [
+            "H.264 Profil 'High 10' nicht ATV-hardware-kompatibel → Transcode zu HEVC 10-bit."
+          ]
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p10le",
+              "profile": "High 10",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "h264 high 10 warning"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-tag:v",
+            "hvc1",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "hevc",
+            "color_primaries": "bt2020",
+            "color_transfer": "smpte2084",
+            "dolby_vision": false,
+            "hdr": true,
+            "height": 1080,
+            "pix_fmt": "yuv420p10le",
+            "profile": "Main 10",
+            "tag": "hvc1",
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "color_primaries": "bt2020",
+              "color_space": "bt2020nc",
+              "color_transfer": "smpte2084",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p10le",
+              "profile": "Main 10",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "hevc copy"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-tag:v",
+            "hvc1",
+            "-bsf:v",
+            "hevc_mp4toannexb,extract_extradata",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "hevc",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "Main",
+            "tag": "hvc1",
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": true,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Main",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "hevc copy without parameter sets"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "libx265",
+            "-pix_fmt",
+            "yuv420p10le",
+            "-x265-params",
+            "crf=18",
+            "-tag:v",
+            "hvc1",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "transcode",
+            "codec": "hevc",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p12le",
+            "profile": "Main 12",
+            "tag": "hvc1",
+            "width": 1920
+          },
+          "warnings": [
+            "HEVC Profil 'Main 12' nicht ATV-hardware-kompatibel → Transcode zu HEVC 10-bit."
+          ]
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p12le",
+              "profile": "Main 12",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "hevc main 12 transcode"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "libx265",
+            "-pix_fmt",
+            "yuv420p10le",
+            "-x265-params",
+            "crf=18:colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc:hdr-opt=1:repeat-headers=1",
+            "-tag:v",
+            "hvc1",
+            "-color_primaries",
+            "bt2020",
+            "-color_trc",
+            "smpte2084",
+            "-colorspace",
+            "bt2020nc",
+            "-color_range",
+            "tv",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "transcode",
+            "codec": "hevc",
+            "color_primaries": "bt2020",
+            "color_transfer": "smpte2084",
+            "dolby_vision": false,
+            "hdr": true,
+            "height": 1080,
+            "pix_fmt": "yuv422p10le",
+            "profile": "Main 10",
+            "tag": "hvc1",
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "color_primaries": "bt2020",
+              "color_space": "bt2020nc",
+              "color_transfer": "smpte2084",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv422p10le",
+              "profile": "Main 10",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "hevc 422 hdr transcode"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-tag:v",
+            "dvh1",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "hevc",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": true,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p10le",
+            "profile": "Main 10",
+            "tag": "dvh1",
+            "width": 1920
+          },
+          "warnings": [
+            "Dolby Vision Profile 5 erkannt — Copy-Mux in MP4."
+          ]
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p10le",
+              "profile": "Main 10",
+              "side_data_list": [
+                {
+                  "dv_profile": 5,
+                  "side_data_type": "DOVI configuration record"
+                }
+              ],
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "dolby vision profile 5"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-tag:v",
+            "hvc1",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "hevc",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": true,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p10le",
+            "profile": "Main 10",
+            "tag": "hvc1",
+            "width": 1920
+          },
+          "warnings": [
+            "Dolby Vision Profile 7 (BL+EL) erkannt. Enhancement Layer geht im MP4-Container verloren. Für verlustfreie DV-P7-Ausgabe MKV-Container verwenden."
+          ]
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p10le",
+              "profile": "Main 10",
+              "side_data_list": [
+                {
+                  "dv_profile": 7,
+                  "side_data_type": "DOVI configuration record"
+                }
+              ],
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "dolby vision profile 7"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-tag:v",
+            "hvc1",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "hevc",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": true,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p10le",
+            "profile": "Main 10",
+            "tag": "hvc1",
+            "width": 1920
+          },
+          "warnings": [
+            "Dolby Vision Profile 8 erkannt — Copy-Mux in MP4."
+          ]
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p10le",
+              "profile": "Main 10",
+              "side_data_list": [
+                {
+                  "dv_profile": 8,
+                  "side_data_type": "DOVI configuration record"
+                }
+              ],
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "dolby vision profile 8"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-tag:v",
+            "hvc1",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "hevc",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": true,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "Main 10",
+            "tag": "hvc1",
+            "width": 1920
+          },
+          "warnings": [
+            "Dolby Vision erkannt (Profil unbekannt) — Copy-Mux in MP4."
+          ]
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Main 10",
+              "side_data_list": [
+                {
+                  "side_data_type": "Dolby Vision RPU"
+                }
+              ],
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "dolby vision unknown profile"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": true,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": [
+            "Dolby Vision erkannt, aber Codec ist nicht HEVC (h264). Bitte Quelle prüfen.",
+            "Dolby Vision Profile 7 (BL+EL) erkannt. Enhancement Layer geht im MP4-Container verloren. Für verlustfreie DV-P7-Ausgabe MKV-Container verwenden."
+          ]
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "side_data_list": [
+                {
+                  "dv_profile": 7,
+                  "side_data_type": "DOVI configuration record"
+                }
+              ],
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "dolby vision on h264"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "av1",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "Main",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": [
+            "AV1-Video wird per copy gemuxt (--keep-av1). Erfordert Apple TV 4K 3rd gen + aktualisiertes Wave DeviceProfile.",
+            "Video-Codec 'av1' wird per copy gemuxt — MP4 könnte Probleme verursachen."
+          ]
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": true,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "av1",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Main",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "av1 keep main"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "libx265",
+            "-pix_fmt",
+            "yuv420p10le",
+            "-x265-params",
+            "crf=18",
+            "-tag:v",
+            "hvc1",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "transcode",
+            "codec": "av1",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": "hvc1",
+            "width": 1920
+          },
+          "warnings": [
+            "AV1 Profil 'High' nicht ATV-kompatibel (nur Main-Profil) → Transcode zu HEVC 10-bit."
+          ]
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": true,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "av1",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "av1 keep high"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "libx265",
+            "-pix_fmt",
+            "yuv420p10le",
+            "-x265-params",
+            "crf=18",
+            "-tag:v",
+            "hvc1",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "transcode",
+            "codec": "av1",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "Main",
+            "tag": "hvc1",
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "av1",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Main",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "av1 no keep"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "libx265",
+            "-pix_fmt",
+            "yuv420p10le",
+            "-x265-params",
+            "crf=18",
+            "-tag:v",
+            "hvc1",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "transcode",
+            "codec": "vp9",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "Profile 0",
+            "tag": "hvc1",
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "vp9",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Profile 0",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "vp9"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "libx265",
+            "-pix_fmt",
+            "yuv420p10le",
+            "-x265-params",
+            "crf=18",
+            "-tag:v",
+            "hvc1",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "transcode",
+            "codec": "mpeg4",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "Advanced Simple Profile",
+            "tag": "hvc1",
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "mpeg4",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Advanced Simple Profile",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "mpeg4 copy warning"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:5",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=deu",
+            "-metadata:s:s:0",
+            "handler_name=German",
+            "-metadata:s:s:0",
+            "title=DEU",
+            "-disposition:s:0",
+            "default",
+            "-map",
+            "0:4",
+            "-c:s:1",
+            "mov_text",
+            "-metadata:s:s:1",
+            "language=eng",
+            "-metadata:s:s:1",
+            "handler_name=English",
+            "-metadata:s:s:1",
+            "title=ENG",
+            "-disposition:s:1",
+            "0",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [
+            {
+              "action": "skip",
+              "codec": "dvd_subtitle",
+              "forced": false,
+              "input_idx": 0,
+              "is_default": false,
+              "lang": "deu",
+              "sdh": false,
+              "source": "internal",
+              "stream_idx": 3
+            },
+            {
+              "action": "mov_text",
+              "codec": "subrip",
+              "forced": false,
+              "input_idx": 0,
+              "is_default": true,
+              "lang": "deu",
+              "sdh": false,
+              "source": "internal",
+              "stream_idx": 5
+            },
+            {
+              "action": "skip",
+              "codec": "hdmv_pgs_subtitle",
+              "forced": false,
+              "input_idx": 0,
+              "is_default": false,
+              "lang": "eng",
+              "sdh": false,
+              "source": "internal",
+              "stream_idx": 2
+            },
+            {
+              "action": "mov_text",
+              "codec": "webvtt",
+              "forced": false,
+              "input_idx": 0,
+              "is_default": false,
+              "lang": "eng",
+              "sdh": false,
+              "source": "internal",
+              "stream_idx": 4
+            }
+          ],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": [
+            "Bild-Untertitel (PGS/VobSub) übersprungen: 2 Spur(en) sind nicht MP4-kompatibel.",
+            "WebVTT-Untertitel (1 Spur(en)): erweiterte Formatierungsmerkmale gehen bei Konvertierung zu mov_text verloren."
+          ]
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "codec_name": "hdmv_pgs_subtitle",
+              "codec_type": "subtitle",
+              "disposition": {},
+              "index": 2,
+              "tags": {
+                "language": "eng"
+              }
+            },
+            {
+              "codec_name": "dvd_subtitle",
+              "codec_type": "subtitle",
+              "disposition": {},
+              "index": 3,
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "codec_name": "webvtt",
+              "codec_type": "subtitle",
+              "disposition": {},
+              "index": 4,
+              "tags": {
+                "language": "eng"
+              }
+            },
+            {
+              "codec_name": "subrip",
+              "codec_type": "subtitle",
+              "disposition": {},
+              "index": 5,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "image and webvtt subtitles"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=und",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": [
+            "Keine kompatible Audiospur gefunden — MP4 wird ohne Audio erstellt."
+          ]
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "no audio"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=und",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": [
+            "Keine kompatible Audiospur gefunden — MP4 wird ohne Audio erstellt."
+          ]
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "wmapro",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "unsupported audio only"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-fflags",
+            "+genpts",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-avoid_negative_ts",
+            "make_zero",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": -2002,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": true,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "fix dts negative"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": 0,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": true,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "fix dts zero"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": true,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "fix dts unknown"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": -2002,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "negative dts without fix"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 6,
+              "codec": "eac3",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            },
+            {
+              "action": "downmix",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": false,
+              "is_transcoded": true,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:a:0",
+            "-c:a:1",
+            "aac",
+            "-b:a:1",
+            "192k",
+            "-ac:a:1",
+            "2",
+            "-metadata:s:a:1",
+            "language=deu",
+            "-metadata:s:a:1",
+            "handler_name=German",
+            "-disposition:a:1",
+            "0",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "surround without stereo"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "transcode_eac3",
+              "channels": 6,
+              "codec": "eac3",
+              "index": 2,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": true,
+              "lang": "deu"
+            },
+            {
+              "action": "downmix",
+              "channels": 2,
+              "codec": "aac",
+              "index": 2,
+              "is_atmos": false,
+              "is_default": false,
+              "is_transcoded": true,
+              "lang": "deu"
+            },
+            {
+              "action": "transcode_eac3",
+              "channels": 8,
+              "codec": "eac3",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": false,
+              "is_transcoded": true,
+              "lang": "eng"
+            },
+            {
+              "action": "downmix",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": false,
+              "is_transcoded": true,
+              "lang": "eng"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:1",
+            "-c:a:0",
+            "eac3",
+            "-b:a:0",
+            "768k",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:a:1",
+            "-c:a:1",
+            "aac",
+            "-b:a:1",
+            "192k",
+            "-ac:a:1",
+            "2",
+            "-metadata:s:a:1",
+            "language=deu",
+            "-metadata:s:a:1",
+            "handler_name=German",
+            "-disposition:a:1",
+            "0",
+            "-map",
+            "0:a:0",
+            "-c:a:2",
+            "eac3",
+            "-b:a:2",
+            "768k",
+            "-metadata:s:a:2",
+            "language=eng",
+            "-metadata:s:a:2",
+            "handler_name=English",
+            "-disposition:a:2",
+            "0",
+            "-map",
+            "0:a:0",
+            "-c:a:3",
+            "aac",
+            "-b:a:3",
+            "192k",
+            "-ac:a:3",
+            "2",
+            "-metadata:s:a:3",
+            "language=eng",
+            "-metadata:s:a:3",
+            "handler_name=English",
+            "-disposition:a:3",
+            "0",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 8,
+              "codec_name": "truehd",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            },
+            {
+              "channels": 6,
+              "codec_name": "dts",
+              "codec_type": "audio",
+              "index": 2,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "truehd and dts transcode"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 6,
+              "codec": "eac3",
+              "index": 1,
+              "is_atmos": true,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "eng"
+            },
+            {
+              "action": "downmix",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": false,
+              "is_transcoded": true,
+              "lang": "eng"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:a:0",
+            "-c:a:1",
+            "aac",
+            "-b:a:1",
+            "192k",
+            "-ac:a:1",
+            "2",
+            "-metadata:s:a:1",
+            "language=eng",
+            "-metadata:s:a:1",
+            "handler_name=English",
+            "-disposition:a:1",
+            "0",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "profile": "Dolby Digital Plus + Dolby Atmos",
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "atmos copy"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:4",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=deu",
+            "-metadata:s:s:0",
+            "handler_name=German",
+            "-metadata:s:s:0",
+            "title=DEU",
+            "-disposition:s:0",
+            "default",
+            "-map",
+            "0:3",
+            "-c:s:1",
+            "mov_text",
+            "-metadata:s:s:1",
+            "language=deu",
+            "-metadata:s:s:1",
+            "handler_name=German",
+            "-metadata:s:s:1",
+            "title=DEU (SDH)",
+            "-disposition:s:1",
+            "hearing_impaired",
+            "-map",
+            "0:2",
+            "-c:s:2",
+            "mov_text",
+            "-metadata:s:s:2",
+            "language=deu",
+            "-metadata:s:s:2",
+            "handler_name=German",
+            "-metadata:s:s:2",
+            "title=Forced DEU",
+            "-disposition:s:2",
+            "forced+default",
+            "-map",
+            "0:5",
+            "-c:s:3",
+            "mov_text",
+            "-metadata:s:s:3",
+            "language=eng",
+            "-metadata:s:s:3",
+            "handler_name=English",
+            "-metadata:s:s:3",
+            "title=ENG",
+            "-disposition:s:3",
+            "0",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [
+            {
+              "action": "mov_text",
+              "codec": "subrip",
+              "forced": false,
+              "input_idx": 0,
+              "is_default": true,
+              "lang": "deu",
+              "sdh": false,
+              "source": "internal",
+              "stream_idx": 4
+            },
+            {
+              "action": "mov_text",
+              "codec": "subrip",
+              "forced": false,
+              "input_idx": 0,
+              "is_default": false,
+              "lang": "deu",
+              "sdh": true,
+              "source": "internal",
+              "stream_idx": 3
+            },
+            {
+              "action": "mov_text",
+              "codec": "subrip",
+              "forced": true,
+              "input_idx": 0,
+              "is_default": false,
+              "lang": "deu",
+              "sdh": false,
+              "source": "internal",
+              "stream_idx": 2
+            },
+            {
+              "action": "mov_text",
+              "codec": "subrip",
+              "forced": false,
+              "input_idx": 0,
+              "is_default": false,
+              "lang": "eng",
+              "sdh": false,
+              "source": "internal",
+              "stream_idx": 5
+            }
+          ],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "codec_name": "subrip",
+              "codec_type": "subtitle",
+              "disposition": {},
+              "index": 2,
+              "tags": {
+                "language": "deu",
+                "title": "Forced"
+              }
+            },
+            {
+              "codec_name": "subrip",
+              "codec_type": "subtitle",
+              "disposition": {},
+              "index": 3,
+              "tags": {
+                "language": "deu",
+                "title": "SDH"
+              }
+            },
+            {
+              "codec_name": "subrip",
+              "codec_type": "subtitle",
+              "disposition": {},
+              "index": 4,
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "codec_name": "subrip",
+              "codec_type": "subtitle",
+              "disposition": {},
+              "index": 5,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "forced and sdh subtitles"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-i",
+            "/media/Film.de.forced.srt",
+            "-i",
+            "/media/Film.de.srt",
+            "-i",
+            "/media/Film.en.sdh.srt",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "2:0",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=deu",
+            "-metadata:s:s:0",
+            "handler_name=German",
+            "-metadata:s:s:0",
+            "title=DEU",
+            "-disposition:s:0",
+            "default",
+            "-map",
+            "1:0",
+            "-c:s:1",
+            "mov_text",
+            "-metadata:s:s:1",
+            "language=deu",
+            "-metadata:s:s:1",
+            "handler_name=German",
+            "-metadata:s:s:1",
+            "title=Forced DEU",
+            "-disposition:s:1",
+            "forced+default",
+            "-map",
+            "3:0",
+            "-c:s:2",
+            "mov_text",
+            "-metadata:s:s:2",
+            "language=eng",
+            "-metadata:s:s:2",
+            "handler_name=English",
+            "-metadata:s:s:2",
+            "title=ENG (SDH)",
+            "-disposition:s:2",
+            "hearing_impaired",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [
+            {
+              "action": "mov_text",
+              "codec": "srt",
+              "forced": false,
+              "input_idx": 2,
+              "is_default": true,
+              "lang": "deu",
+              "sdh": false,
+              "source": "external",
+              "stream_idx": 0
+            },
+            {
+              "action": "mov_text",
+              "codec": "srt",
+              "forced": true,
+              "input_idx": 1,
+              "is_default": false,
+              "lang": "deu",
+              "sdh": false,
+              "source": "external",
+              "stream_idx": 0
+            },
+            {
+              "action": "mov_text",
+              "codec": "srt",
+              "forced": false,
+              "input_idx": 3,
+              "is_default": false,
+              "lang": "eng",
+              "sdh": true,
+              "source": "external",
+              "stream_idx": 0
+            }
+          ],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": [
+          "Film.de.forced.srt",
+          "Film.de.srt",
+          "Film.en.sdh.srt"
+        ]
+      },
+      "name": "forced sidecar"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 100.0,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": 100,
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "duration as number"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 12.0,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": " 12 ",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "duration padded string"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": null,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "duration missing"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": null,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "N/A",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "duration na"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 0.0,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": 0,
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "duration null"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": null,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "no format"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": null,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": null,
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "format null"
+    },
+    {
+      "expected": {
+        "error": "Keine Videospur gefunden.",
+        "plan": null
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "no video"
+    },
+    {
+      "expected": {
+        "error": "Keine Videospur gefunden.",
+        "plan": null
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {},
+        "sidecars": []
+      },
+      "name": "no streams"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "codec_name": "mjpeg",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 5,
+              "pix_fmt": "yuv420p",
+              "profile": "",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "cover art second video"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 6,
+              "codec": "eac3",
+              "index": 3,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            },
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 5,
+              "is_atmos": false,
+              "is_default": false,
+              "is_transcoded": false,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:a:1",
+            "-c:a:1",
+            "copy",
+            "-metadata:s:a:1",
+            "language=deu",
+            "-metadata:s:a:1",
+            "handler_name=German",
+            "-disposition:a:1",
+            "0",
+            "-map",
+            "0:1",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=eng",
+            "-metadata:s:s:0",
+            "handler_name=English",
+            "-metadata:s:s:0",
+            "title=ENG",
+            "-disposition:s:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [
+            {
+              "action": "mov_text",
+              "codec": "subrip",
+              "forced": false,
+              "input_idx": 0,
+              "is_default": true,
+              "lang": "eng",
+              "sdh": false,
+              "source": "internal",
+              "stream_idx": 1
+            }
+          ],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "codec_name": "subrip",
+              "codec_type": "subtitle",
+              "disposition": {},
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 3,
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 5,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "audio global indexes"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 6,
+              "codec": "eac3",
+              "index": 3,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "eng"
+            },
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 4,
+              "is_atmos": false,
+              "is_default": false,
+              "is_transcoded": false,
+              "lang": "eng"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:2",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:a:3",
+            "-c:a:1",
+            "copy",
+            "-metadata:s:a:1",
+            "language=eng",
+            "-metadata:s:a:1",
+            "handler_name=English",
+            "-disposition:a:1",
+            "0",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": [
+            1,
+            2
+          ]
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 2,
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 3,
+              "tags": {
+                "language": "eng"
+              }
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 4,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "skip audio"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            },
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 2,
+              "is_atmos": false,
+              "is_default": false,
+              "is_transcoded": false,
+              "lang": "fra"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=fra",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:a:1",
+            "-c:a:1",
+            "copy",
+            "-metadata:s:a:1",
+            "language=fra",
+            "-metadata:s:a:1",
+            "handler_name=French",
+            "-disposition:a:1",
+            "0",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 2,
+              "tags": {
+                "language": "fra"
+              }
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "language of the video follows the original"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "und"
+            }
+          ],
+          "duration_s": 120.5,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-metadata:s:v:0",
+            "language=und",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=und",
+            "-metadata:s:a:0",
+            "handler_name=und",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 1080,
+            "pix_fmt": "yuv420p",
+            "profile": "High",
+            "tag": null,
+            "width": 1920
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "duration": "120.5",
+            "format_name": "matroska,webm"
+          },
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "only und audio"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "eng"
+            }
+          ],
+          "duration_s": 1.0,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "libx265",
+            "-pix_fmt",
+            "yuv420p10le",
+            "-x265-params",
+            "crf=18",
+            "-tag:v",
+            "hvc1",
+            "-metadata:s:v:0",
+            "language=eng",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=eng",
+            "-metadata:s:a:0",
+            "handler_name=English",
+            "-disposition:a:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "transcode",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 240,
+            "pix_fmt": "yuv444p",
+            "profile": "High 4:4:4 Predictive",
+            "tag": "hvc1",
+            "width": 320
+          },
+          "warnings": [
+            "H.264 Profil 'High 4:4:4 Predictive' nicht ATV-hardware-kompatibel → Transcode zu HEVC 10-bit."
+          ]
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "bit_rate": "207536",
+            "duration": "1.000000",
+            "format_long_name": "QuickTime / MOV",
+            "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+            "nb_programs": 0,
+            "nb_stream_groups": 0,
+            "nb_streams": 2,
+            "probe_score": 100,
+            "size": "25942",
+            "start_time": "0.000000",
+            "tags": {
+              "compatible_brands": "isomiso2avc1mp41",
+              "encoder": "Lavf62.3.100",
+              "major_brand": "isom",
+              "minor_version": "512"
+            }
+          },
+          "streams": [
+            {
+              "avg_frame_rate": "24/1",
+              "bit_rate": "59080",
+              "bits_per_raw_sample": "8",
+              "chroma_location": "left",
+              "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+              "codec_name": "h264",
+              "codec_tag": "0x31637661",
+              "codec_tag_string": "avc1",
+              "codec_type": "video",
+              "coded_height": 240,
+              "coded_width": 320,
+              "display_aspect_ratio": "4:3",
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 1,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "duration": "1.000000",
+              "duration_ts": 12288,
+              "extradata_size": 46,
+              "field_order": "progressive",
+              "has_b_frames": 2,
+              "height": 240,
+              "id": "0x1",
+              "index": 0,
+              "is_avc": "true",
+              "level": 13,
+              "nal_length_size": "4",
+              "nb_frames": "24",
+              "pix_fmt": "yuv444p",
+              "profile": "High 4:4:4 Predictive",
+              "r_frame_rate": "24/1",
+              "refs": 1,
+              "sample_aspect_ratio": "1:1",
+              "start_pts": 0,
+              "start_time": "0.000000",
+              "tags": {
+                "encoder": "Lavc62.11.100 libx264",
+                "handler_name": "VideoHandler",
+                "language": "und",
+                "vendor_id": "[0][0][0][0]"
+              },
+              "time_base": "1/12288",
+              "width": 320
+            },
+            {
+              "avg_frame_rate": "0/0",
+              "bit_rate": "127863",
+              "bits_per_sample": 0,
+              "channel_layout": "stereo",
+              "channels": 2,
+              "codec_long_name": "AAC (Advanced Audio Coding)",
+              "codec_name": "aac",
+              "codec_tag": "0x6134706d",
+              "codec_tag_string": "mp4a",
+              "codec_type": "audio",
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 1,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "duration": "1.000000",
+              "duration_ts": 44100,
+              "extradata_size": 5,
+              "id": "0x2",
+              "index": 1,
+              "initial_padding": 0,
+              "nb_frames": "45",
+              "profile": "LC",
+              "r_frame_rate": "0/0",
+              "sample_fmt": "fltp",
+              "sample_rate": "44100",
+              "start_pts": 0,
+              "start_time": "0.000000",
+              "tags": {
+                "handler_name": "SoundHandler",
+                "language": "eng",
+                "vendor_id": "[0][0][0][0]"
+              },
+              "time_base": "1/44100"
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "real h264 aac mp4"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 6,
+              "codec": "eac3",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "deu"
+            },
+            {
+              "action": "downmix",
+              "channels": 2,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": false,
+              "is_transcoded": true,
+              "lang": "deu"
+            }
+          ],
+          "duration_s": 1.0,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-tag:v",
+            "hvc1",
+            "-metadata:s:v:0",
+            "language=deu",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "handler_name=German",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:a:0",
+            "-c:a:1",
+            "aac",
+            "-b:a:1",
+            "192k",
+            "-ac:a:1",
+            "2",
+            "-metadata:s:a:1",
+            "language=deu",
+            "-metadata:s:a:1",
+            "handler_name=German",
+            "-disposition:a:1",
+            "0",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [],
+          "video_info": {
+            "action": "copy",
+            "codec": "hevc",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 240,
+            "pix_fmt": "yuv420p10le",
+            "profile": "Main 10",
+            "tag": "hvc1",
+            "width": 320
+          },
+          "warnings": []
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "bit_rate": "515768",
+            "duration": "1.000000",
+            "format_long_name": "Matroska / WebM",
+            "format_name": "matroska,webm",
+            "nb_programs": 0,
+            "nb_stream_groups": 0,
+            "nb_streams": 2,
+            "probe_score": 100,
+            "size": "64471",
+            "start_time": "-0.006000",
+            "tags": {
+              "ENCODER": "Lavf62.3.100"
+            }
+          },
+          "streams": [
+            {
+              "avg_frame_rate": "24/1",
+              "chroma_location": "left",
+              "codec_long_name": "H.265 / HEVC (High Efficiency Video Coding)",
+              "codec_name": "hevc",
+              "codec_tag": "0x0000",
+              "codec_tag_string": "[0][0][0][0]",
+              "codec_type": "video",
+              "coded_height": 240,
+              "coded_width": 320,
+              "color_range": "tv",
+              "display_aspect_ratio": "4:3",
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 0,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "extradata_size": 2421,
+              "field_order": "progressive",
+              "has_b_frames": 2,
+              "height": 240,
+              "index": 0,
+              "level": 60,
+              "pix_fmt": "yuv420p10le",
+              "profile": "Main 10",
+              "r_frame_rate": "24/1",
+              "refs": 1,
+              "sample_aspect_ratio": "1:1",
+              "start_pts": 0,
+              "start_time": "0.000000",
+              "tags": {
+                "DURATION": "00:00:01.000000000",
+                "ENCODER": "Lavc62.11.100 libx265"
+              },
+              "time_base": "1/1000",
+              "view_ids_available": "",
+              "view_pos_available": "",
+              "width": 320
+            },
+            {
+              "avg_frame_rate": "0/0",
+              "bit_rate": "447890",
+              "bits_per_sample": 0,
+              "channel_layout": "5.1(side)",
+              "channels": 6,
+              "codec_long_name": "ATSC A/52B (AC-3, E-AC-3)",
+              "codec_name": "eac3",
+              "codec_tag": "0x0000",
+              "codec_tag_string": "[0][0][0][0]",
+              "codec_type": "audio",
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 0,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "dmix_mode": "0",
+              "index": 1,
+              "initial_padding": 256,
+              "loro_cmixlev": "0.000000",
+              "loro_surmixlev": "0.000000",
+              "ltrt_cmixlev": "0.000000",
+              "ltrt_surmixlev": "0.000000",
+              "r_frame_rate": "0/0",
+              "sample_fmt": "fltp",
+              "sample_rate": "44100",
+              "start_pts": -6,
+              "start_time": "-0.006000",
+              "tags": {
+                "DURATION": "00:00:01.000000000",
+                "ENCODER": "Lavc62.11.100 eac3",
+                "language": "deu"
+              },
+              "time_base": "1/1000"
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "real hevc 10-bit eac3 5.1"
+    },
+    {
+      "expected": {
+        "error": null,
+        "plan": {
+          "audio_tracks": [
+            {
+              "action": "copy",
+              "channels": 1,
+              "codec": "aac",
+              "index": 1,
+              "is_atmos": false,
+              "is_default": true,
+              "is_transcoded": false,
+              "lang": "und"
+            }
+          ],
+          "duration_s": 1.023,
+          "ffmpeg_cmd": [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-i",
+            "/media/Film.mkv",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "libx265",
+            "-pix_fmt",
+            "yuv420p10le",
+            "-x265-params",
+            "crf=18",
+            "-tag:v",
+            "hvc1",
+            "-metadata:s:v:0",
+            "language=und",
+            "-map",
+            "0:a:0",
+            "-c:a:0",
+            "copy",
+            "-metadata:s:a:0",
+            "language=und",
+            "-metadata:s:a:0",
+            "handler_name=und",
+            "-disposition:a:0",
+            "default",
+            "-map",
+            "0:2",
+            "-c:s:0",
+            "mov_text",
+            "-metadata:s:s:0",
+            "language=eng",
+            "-metadata:s:s:0",
+            "handler_name=English",
+            "-metadata:s:s:0",
+            "title=ENG",
+            "-disposition:s:0",
+            "default",
+            "-map_chapters",
+            "-1",
+            "-strict",
+            "unofficial",
+            "/media/Film.mp4"
+          ],
+          "in_path": "/media/Film.mkv",
+          "out_path": "/media/Film.mp4",
+          "sub_tracks": [
+            {
+              "action": "mov_text",
+              "codec": "subrip",
+              "forced": false,
+              "input_idx": 0,
+              "is_default": true,
+              "lang": "eng",
+              "sdh": false,
+              "source": "internal",
+              "stream_idx": 2
+            }
+          ],
+          "video_info": {
+            "action": "transcode",
+            "codec": "h264",
+            "color_primaries": "",
+            "color_transfer": "",
+            "dolby_vision": false,
+            "hdr": false,
+            "height": 240,
+            "pix_fmt": "yuv444p",
+            "profile": "High 4:4:4 Predictive",
+            "tag": "hvc1",
+            "width": 320
+          },
+          "warnings": [
+            "H.264 Profil 'High 4:4:4 Predictive' nicht ATV-hardware-kompatibel → Transcode zu HEVC 10-bit."
+          ]
+        }
+      },
+      "input": {
+        "ctx": {
+          "first_video_dts": null,
+          "is_faststart": true
+        },
+        "no_param_sets": false,
+        "options": {
+          "crf": 18,
+          "fix_dts": false,
+          "keep_av1": false,
+          "prefer_hevc10": false,
+          "skip_audio": []
+        },
+        "probe": {
+          "format": {
+            "bit_rate": "139339",
+            "duration": "1.023000",
+            "format_long_name": "Matroska / WebM",
+            "format_name": "matroska,webm",
+            "nb_programs": 0,
+            "nb_stream_groups": 0,
+            "nb_streams": 3,
+            "probe_score": 100,
+            "size": "17818",
+            "start_time": "-0.023000",
+            "tags": {
+              "ENCODER": "Lavf62.3.100"
+            }
+          },
+          "streams": [
+            {
+              "avg_frame_rate": "24/1",
+              "bits_per_raw_sample": "8",
+              "chroma_location": "left",
+              "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+              "codec_name": "h264",
+              "codec_tag": "0x0000",
+              "codec_tag_string": "[0][0][0][0]",
+              "codec_type": "video",
+              "coded_height": 240,
+              "coded_width": 320,
+              "color_range": "tv",
+              "display_aspect_ratio": "4:3",
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 0,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "extradata_size": 46,
+              "field_order": "progressive",
+              "has_b_frames": 2,
+              "height": 240,
+              "index": 0,
+              "is_avc": "true",
+              "level": 13,
+              "nal_length_size": "4",
+              "pix_fmt": "yuv444p",
+              "profile": "High 4:4:4 Predictive",
+              "r_frame_rate": "24/1",
+              "refs": 1,
+              "sample_aspect_ratio": "1:1",
+              "start_pts": 0,
+              "start_time": "0.000000",
+              "tags": {
+                "DURATION": "00:00:01.000000000",
+                "ENCODER": "Lavc62.11.100 libx264"
+              },
+              "time_base": "1/1000",
+              "width": 320
+            },
+            {
+              "avg_frame_rate": "0/0",
+              "bits_per_sample": 0,
+              "channel_layout": "mono",
+              "channels": 1,
+              "codec_long_name": "AAC (Advanced Audio Coding)",
+              "codec_name": "aac",
+              "codec_tag": "0x0000",
+              "codec_tag_string": "[0][0][0][0]",
+              "codec_type": "audio",
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 0,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "extradata_size": 5,
+              "index": 1,
+              "initial_padding": 1024,
+              "profile": "LC",
+              "r_frame_rate": "0/0",
+              "sample_fmt": "fltp",
+              "sample_rate": "44100",
+              "start_pts": -23,
+              "start_time": "-0.023000",
+              "tags": {
+                "DURATION": "00:00:01.023000000",
+                "ENCODER": "Lavc62.11.100 aac"
+              },
+              "time_base": "1/1000"
+            },
+            {
+              "avg_frame_rate": "0/0",
+              "codec_long_name": "SubRip subtitle",
+              "codec_name": "subrip",
+              "codec_tag": "0x0000",
+              "codec_tag_string": "[0][0][0][0]",
+              "codec_type": "subtitle",
+              "disposition": {
+                "attached_pic": 0,
+                "captions": 0,
+                "clean_effects": 0,
+                "comment": 0,
+                "default": 0,
+                "dependent": 0,
+                "descriptions": 0,
+                "dub": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "karaoke": 0,
+                "lyrics": 0,
+                "metadata": 0,
+                "multilayer": 0,
+                "non_diegetic": 0,
+                "original": 0,
+                "still_image": 0,
+                "timed_thumbnails": 0,
+                "visual_impaired": 0
+              },
+              "index": 2,
+              "r_frame_rate": "0/0",
+              "start_pts": 0,
+              "start_time": "0.000000",
+              "tags": {
+                "DURATION": "00:00:01.000000000",
+                "ENCODER": "Lavc62.11.100 srt",
+                "language": "eng"
+              },
+              "time_base": "1/1000"
+            }
+          ]
+        },
+        "sidecars": []
+      },
+      "name": "real mkv with subrip"
+    }
+  ],
+  "suite": "build_plan"
+}

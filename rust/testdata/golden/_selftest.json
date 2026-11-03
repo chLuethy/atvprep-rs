@@ -1,0 +1,15 @@
+{
+  "cases": [
+    {
+      "expected": 2,
+      "input": 1,
+      "name": "a"
+    },
+    {
+      "expected": 3,
+      "input": 2,
+      "name": "b"
+    }
+  ],
+  "suite": "_selftest"
+}

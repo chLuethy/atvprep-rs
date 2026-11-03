@@ -1,0 +1,275 @@
+//! The base schema and its runner. `PRAGMA user_version` is the schema version.
+
+use crate::db::Conn;
+use crate::{Error, Result};
+
+const BASE: &str = include_str!("migrations/0001_base.sql");
+
+/// The version this build creates and understands.
+pub const VERSION: i64 = 1;
+
+/// Every table of the base schema.
+pub const TABLES: [&str; 22] = [
+    "auth_sessions",
+    "csrf_tokens",
+    "deployment_events",
+    "deployment_gate",
+    "deployment_permits",
+    "events",
+    "idempotency_records",
+    "input_snapshots",
+    "inspections",
+    "job_items",
+    "jobs",
+    "library_roots",
+    "maintenance_leases",
+    "media_executor_leases",
+    "media_files",
+    "runtime_settings",
+    "scan_runs",
+    "scheduler_leases",
+    "schedules",
+    "settings_audit",
+    "settings_revision",
+    "sidecars",
+];
+
+fn version(conn: &Conn) -> Result<i64> {
+    Ok(conn
+        .raw()
+        .query_row("PRAGMA user_version", [], |row| row.get(0))?)
+}
+
+/// Create the schema on an empty database; do nothing on a current one.
+///
+/// # Errors
+///
+/// The database was written by a newer build, or the SQL fails.
+pub fn migrate(conn: &mut Conn) -> Result<()> {
+    match version(conn)? {
+        0 => conn.transaction(|tx| {
+            tx.execute_batch(BASE)?;
+            tx.execute_batch(&format!("PRAGMA user_version = {VERSION}"))?;
+            Ok(())
+        }),
+        VERSION => Ok(()),
+        other => Err(Error::Invalid(format!(
+            "database schema version {other} is newer than this build understands ({VERSION})"
+        ))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rusqlite::params;
+
+    use super::*;
+    use crate::db::Db;
+
+    fn fresh() -> (Db, Conn) {
+        let db = Db::memory().unwrap();
+        let mut conn = db.conn().unwrap();
+        migrate(&mut conn).unwrap();
+        (db, conn)
+    }
+
+    fn exec(conn: &Conn, sql: &str) -> Result<usize> {
+        Ok(conn.raw().execute(sql, [])?)
+    }
+
+    fn seed_media(conn: &Conn) {
+        exec(
+            conn,
+            "INSERT INTO library_roots(name, canonical_path) VALUES ('r', '/r')",
+        )
+        .unwrap();
+        exec(
+            conn,
+            "INSERT INTO media_files(root_id, relative_path, kind, suffix, size, mtime_ns, fingerprint,
+               discovery_state, compliance_state, workflow_state, desired_action)
+             VALUES (1, 'a.mp4', 'video', '.mp4', 1, 1, 'f', 'present', 'unknown', 'idle', 'none')",
+        )
+        .unwrap();
+        exec(conn, "INSERT INTO jobs(action) VALUES ('fix')").unwrap();
+    }
+
+    #[test]
+    fn migrate_creates_all_22_tables() {
+        let (_db, conn) = fresh();
+        let mut names: Vec<String> = conn
+            .raw()
+            .prepare(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+            )
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .map(|row| row.unwrap())
+            .collect();
+        names.sort();
+        assert_eq!(names, TABLES);
+        assert_eq!(version(&conn).unwrap(), VERSION);
+    }
+
+    #[test]
+    fn the_singletons_are_seeded() {
+        let (_db, conn) = fresh();
+        let gate: (String, String, i64) = conn
+            .raw()
+            .query_row(
+                "SELECT mode, phase, generation FROM deployment_gate",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(gate, ("open".to_owned(), "steady".to_owned(), 0));
+        for table in ["media_executor_leases", "settings_revision"] {
+            let n: i64 = conn
+                .raw()
+                .query_row(
+                    &format!("SELECT count(*) FROM {table} WHERE id=1"),
+                    [],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            assert_eq!(n, 1, "{table}");
+        }
+    }
+
+    #[test]
+    fn migrate_is_idempotent() {
+        let (_db, mut conn) = fresh();
+        migrate(&mut conn).unwrap();
+        migrate(&mut conn).unwrap();
+        assert_eq!(version(&conn).unwrap(), VERSION);
+    }
+
+    #[test]
+    fn a_newer_schema_is_refused() {
+        let db = Db::memory().unwrap();
+        let mut conn = db.conn().unwrap();
+        conn.raw()
+            .execute_batch("PRAGMA user_version = 99")
+            .unwrap();
+        let error = migrate(&mut conn).unwrap_err();
+        assert!(
+            error.to_string().contains("newer than this build"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn check_constraints_reject_unknown_states() {
+        let (_db, conn) = fresh();
+        seed_media(&conn);
+        let bad = [
+            "INSERT INTO jobs(action, status) VALUES ('fix', 'bogus')",
+            "INSERT INTO jobs(action) VALUES ('bogus')",
+            "INSERT INTO jobs(action, trigger) VALUES ('fix', 'bogus')",
+            "INSERT INTO job_items(job_id, media_file_id, action, position, status) VALUES (1, 1, 'fix', 0, 'bogus')",
+            "INSERT INTO scan_runs(root_id, generation, status) VALUES (1, 1, 'bogus')",
+            "INSERT INTO scan_runs(root_id, generation, trigger) VALUES (1, 1, 'bogus')",
+            "INSERT INTO schedules(name, action, days_mask, time_of_day) VALUES ('s', 'verify', 0, '01:00')",
+            "INSERT INTO schedules(name, action, days_mask, time_of_day, max_files) VALUES ('s', 'verify', 1, '01:00', 501)",
+            "UPDATE deployment_gate SET mode = 'bogus'",
+            "UPDATE deployment_gate SET generation = -1",
+            "INSERT INTO deployment_gate(id, mode, phase, generation) VALUES (2, 'open', 'steady', 0)",
+            "UPDATE media_files SET compliance_state = 'bogus'",
+            "UPDATE media_files SET workflow_state = 'bogus'",
+            "UPDATE media_files SET desired_action = 'bogus'",
+            "UPDATE media_files SET discovery_state = 'bogus'",
+        ];
+        for sql in bad {
+            assert!(
+                matches!(exec(&conn, sql), Err(Error::Constraint(_))),
+                "{sql}"
+            );
+        }
+    }
+
+    #[test]
+    fn active_fix_or_convert_item_per_media_is_unique() {
+        let (_db, conn) = fresh();
+        seed_media(&conn);
+        let add = |action: &str, status: &str| {
+            exec(
+                &conn,
+                &format!(
+                    "INSERT INTO job_items(job_id, media_file_id, action, position, status)
+                 VALUES (1, 1, '{action}', 0, '{status}')"
+                ),
+            )
+        };
+        add("fix", "queued").unwrap();
+        assert!(matches!(
+            add("convert", "running"),
+            Err(Error::Constraint(_))
+        ));
+        add("verify", "queued").unwrap();
+        add("fix", "failed").unwrap();
+        exec(
+            &conn,
+            "UPDATE job_items SET status='succeeded' WHERE status='queued' AND action='fix'",
+        )
+        .unwrap();
+        add("convert", "queued").unwrap();
+    }
+
+    #[test]
+    fn events_cannot_be_updated_or_deleted() {
+        let (_db, conn) = fresh();
+        exec(&conn, "INSERT INTO events(topic, entity_type, entity_id, payload_json) VALUES ('t','job',1,'{}')").unwrap();
+        for sql in ["UPDATE events SET topic='x'", "DELETE FROM events"] {
+            let error = exec(&conn, sql).unwrap_err();
+            assert!(
+                error.to_string().contains("events are append-only"),
+                "{sql}: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn only_an_authorized_delete_removes_an_event() {
+        let (db, conn) = fresh();
+        for _ in 0..2 {
+            exec(&conn, "INSERT INTO events(topic, entity_type, entity_id, payload_json) VALUES ('t','job',1,'{}')").unwrap();
+        }
+        assert_eq!(conn.delete_event_for_retention(1).unwrap(), 1);
+        let left: Vec<i64> = conn
+            .raw()
+            .prepare("SELECT id FROM events")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .map(|row| row.unwrap())
+            .collect();
+        assert_eq!(left, [2]);
+        // The permission ends with the call and belongs to this connection only.
+        assert!(exec(&conn, "DELETE FROM events WHERE id = 2").is_err());
+        let other = db.conn().unwrap();
+        assert!(
+            other
+                .raw()
+                .execute("DELETE FROM events WHERE id = 2", [])
+                .is_err()
+        );
+        assert_eq!(conn.delete_event_for_retention(2).unwrap(), 1);
+    }
+
+    #[test]
+    fn deleting_a_parent_row_that_children_use_is_restricted() {
+        let (_db, conn) = fresh();
+        seed_media(&conn);
+        conn.raw()
+            .execute("INSERT INTO job_items(job_id, media_file_id, action, position) VALUES (?1, 1, 'verify', 0)", params![1])
+            .unwrap();
+        assert!(matches!(
+            exec(&conn, "DELETE FROM jobs WHERE id=1"),
+            Err(Error::Constraint(_))
+        ));
+        assert!(matches!(
+            exec(&conn, "DELETE FROM media_files WHERE id=1"),
+            Err(Error::Constraint(_))
+        ));
+    }
+}

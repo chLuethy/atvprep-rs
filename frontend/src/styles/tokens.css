@@ -1,0 +1,120 @@
+/* Design tokens: the atvprep design language (see DESIGN.md at the repository root).
+   Product register: calm, dense, restrained. Ink-tinted neutrals and one signal colour, lime.
+   Lime is a fill (primary action, selection, the running state) and never a text colour on a light
+   surface: there --accent-strong and --accent-text, its darker kin, carry graphics and words.
+   State colours (ok, warn, bad) are separate from the accent and always paired with a symbol and text. */
+:root {
+  /* The two colours of the mark. Fixed: they do not change with the theme. */
+  --brand-lime: oklch(0.902 0.193 123);
+  --brand-ink: oklch(0.219 0.034 276);
+  --cursor-edge: oklch(0.219 0.034 276 / 0.5); /* a hairline round the logo cursor so lime holds on a light surface */
+
+  --bg: oklch(0.982 0.004 276);
+  --panel: oklch(0.998 0.002 276);
+  --side: oklch(0.955 0.007 276);
+  --line: oklch(0.905 0.008 276);
+  --line-strong: oklch(0.82 0.01 276);
+  --text: var(--brand-ink);
+  --muted: oklch(0.48 0.02 276);
+  --faint: oklch(0.62 0.015 276);
+  --accent: var(--brand-lime);        /* fills: primary button, running count, the cursor */
+  --accent-ink: var(--brand-ink);     /* text and symbols on a lime fill: 13:1 */
+  --accent-weak: oklch(0.95 0.07 123);/* selection, quiet backgrounds */
+  --accent-strong: oklch(0.62 0.17 128); /* graphics on a light surface: bars, icons, rings (3:1 and up) */
+  --accent-text: oklch(0.47 0.13 130);   /* links and small words on a light surface (4.5:1 and up) */
+  --ok: oklch(0.5 0.13 152);
+  --warn: oklch(0.56 0.13 52);
+  --bad: oklch(0.52 0.19 20);
+  /* The same three as shapes (health bar): livelier than the text versions, 3:1 on the panel. */
+  --ok-fill: oklch(0.66 0.17 150);
+  --warn-fill: oklch(0.7 0.17 55);
+  --bad-fill: oklch(0.6 0.21 22);
+  --hover: oklch(0.965 0.007 276);
+  --scrim: oklch(0.2 0.02 276 / 0.35);
+  --shadow: 0 1px 2px oklch(0.25 0.02 276 / 0.08), 0 8px 24px oklch(0.25 0.02 276 / 0.1);
+
+  --font-ui: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Type scale: five sizes in rem so the browser's own font setting still applies. Base is 13px at
+     the default 16px: a dense expert tool, not a reading surface. Steps run 1.09 to 1.2. */
+  --text-xs: 0.6875rem;   /* 11px  capital section labels only */
+  --text-sm: 0.75rem;     /* 12px  metadata, chips, table heads, help */
+  --text-base: 0.8125rem; /* 13px  body, rows, controls */
+  --text-md: 0.9375rem;   /* 15px  page titles, key figures */
+  --text-lg: 1.125rem;    /* 18px  the object in focus: file and job titles */
+  --leading-body: 1.45;
+  --leading-title: 1.25;
+  --tracking-title: -0.012em;
+  --tracking-caps: 0.06em;
+
+  /* Motion: it shows state, it never decorates. Short for feedback, one deceleration curve. */
+  --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+  --dur-fast: 120ms;   /* hover, press */
+  --dur-base: 180ms;   /* something appears */
+  --dur-flash: 800ms;  /* something changed */
+  --dur-glide: 500ms;  /* a check drawing itself */
+  --dur-tick: 1200ms;  /* a bar between two reads, one second apart: a little over, so it never waits for the next */
+  --ease-tick: linear; /* steady, because the next read continues from where this one ends */
+  --dur-loop: 2400ms;  /* one breath of a running chip */
+  --ease-loop: ease-in-out;
+  --dur-blink: 1100ms; /* the cursor in the logo, while the worker has work */
+  --ease-blink: steps(1, end);
+  --changed: oklch(0.93 0.075 95);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --changed: oklch(0.38 0.07 95);
+    --leading-body: 1.5;
+    --bg: oklch(0.185 0.018 276);
+    --panel: oklch(0.215 0.02 276);
+    --side: oklch(0.155 0.018 276);
+    --line: oklch(0.29 0.02 276);
+    --line-strong: oklch(0.37 0.022 276);
+    --text: oklch(0.95 0.006 276);
+    --muted: oklch(0.72 0.015 276);
+    --faint: oklch(0.56 0.015 276);
+    --accent-strong: var(--brand-lime);
+    --accent-text: var(--brand-lime);
+    --accent-weak: oklch(0.3 0.06 123);
+    --ok: oklch(0.77 0.15 152);
+    --warn: oklch(0.8 0.14 60);
+    --bad: oklch(0.73 0.15 20);
+    --ok-fill: var(--ok);
+    --warn-fill: var(--warn);
+    --bad-fill: var(--bad);
+    --hover: oklch(0.25 0.02 276);
+    --scrim: oklch(0 0 0 / 0.5);
+    --shadow: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px oklch(0 0 0 / 0.4);
+    --cursor-edge: transparent;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --changed: oklch(0.38 0.07 95);
+  --leading-body: 1.5;
+  --bg: oklch(0.185 0.018 276);
+  --panel: oklch(0.215 0.02 276);
+  --side: oklch(0.155 0.018 276);
+  --line: oklch(0.29 0.02 276);
+  --line-strong: oklch(0.37 0.022 276);
+  --text: oklch(0.95 0.006 276);
+  --muted: oklch(0.72 0.015 276);
+  --faint: oklch(0.56 0.015 276);
+  --accent-strong: var(--brand-lime);
+  --accent-text: var(--brand-lime);
+  --accent-weak: oklch(0.3 0.06 123);
+  --ok: oklch(0.77 0.15 152);
+  --warn: oklch(0.8 0.14 60);
+  --bad: oklch(0.73 0.15 20);
+  --ok-fill: var(--ok);
+  --warn-fill: var(--warn);
+  --bad-fill: var(--bad);
+  --hover: oklch(0.25 0.02 276);
+  --scrim: oklch(0 0 0 / 0.5);
+  --shadow: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px oklch(0 0 0 / 0.4);
+  --cursor-edge: transparent;
+  color-scheme: dark;
+}

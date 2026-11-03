@@ -1,0 +1,650 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "plain_faststart.mp4"
+      },
+      "name": "plain_faststart.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "mdat"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "plain_moov_last.mp4"
+      },
+      "name": "plain_moov_last.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "stereo_surround_subs.mp4"
+      },
+      "name": "stereo_surround_subs.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "atmos_dec3.mp4"
+      },
+      "name": "atmos_dec3.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "dby1.mp4"
+      },
+      "name": "dby1.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "mdat"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "chapters.mp4"
+      },
+      "name": "chapters.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "syn_basic.mp4"
+      },
+      "name": "syn_basic.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "syn_free_before_moov.mp4"
+      },
+      "name": "syn_free_before_moov.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "mdat"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "syn_moov_last.mp4"
+      },
+      "name": "syn_moov_last.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "syn_co64.mp4"
+      },
+      "name": "syn_co64.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "mdat"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "syn_stco_overflow.mp4"
+      },
+      "name": "syn_stco_overflow.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "syn_size0_mdat.mp4"
+      },
+      "name": "syn_size0_mdat.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "syn_box64_mdat.mp4"
+      },
+      "name": "syn_box64_mdat.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "syn_moov64.mp4"
+      },
+      "name": "syn_moov64.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "syn_truncated_moov.mp4"
+      },
+      "name": "syn_truncated_moov.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "syn_truncated_file.mp4"
+      },
+      "name": "syn_truncated_file.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "syn_zero_size_box.mp4"
+      },
+      "name": "syn_zero_size_box.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "message": "free at 734: size 4 < header 8",
+          "raises": "ValueError"
+        }
+      },
+      "input": {
+        "file": "syn_tiny_size_box.mp4"
+      },
+      "name": "syn_tiny_size_box.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "syn_huge_entry_count.mp4"
+      },
+      "name": "syn_huge_entry_count.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "syn_pad_3.mp4"
+      },
+      "name": "syn_pad_3.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "syn_chapters.mp4"
+      },
+      "name": "syn_chapters.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": true
+        }
+      },
+      "input": {
+        "file": "syn_fragmented.mp4"
+      },
+      "name": "syn_fragmented.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": null
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "file": "syn_not_mp4.mp4"
+      },
+      "name": "syn_not_mp4.mp4"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": null
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "hex": ""
+      },
+      "name": "empty"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": null
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "hex": "000000086d6461"
+      },
+      "name": "seven bytes"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "mdat"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "hex": "0000001c6d6461747878787878787878787878787878787878787878000000086d6f6f76"
+      },
+      "name": "mdat then moov"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "hex": "000000086d6f6f76000000096d64617478"
+      },
+      "name": "moov then mdat"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": null
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "hex": "0000000b66726565616263"
+      },
+      "name": "free only"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": null
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "hex": "000000006d6461747878787878787878"
+      },
+      "name": "size zero first"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": null
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "hex": "000000106674797069736f6d00000000000000006d6f6f76"
+      },
+      "name": "size zero after ftyp"
+    },
+    {
+      "expected": {
+        "first": {
+          "message": "non-ASCII atom type at offset 16: b'\\xffoov'",
+          "raises": "ValueError"
+        },
+        "fragmented": {
+          "message": "non-ASCII atom type at offset 16: b'\\xffoov'",
+          "raises": "ValueError"
+        }
+      },
+      "input": {
+        "hex": "000000106674797069736f6d0000000000000010ff6f6f760000000000000000"
+      },
+      "name": "non ascii type"
+    },
+    {
+      "expected": {
+        "first": {
+          "message": "non-ASCII atom type at offset 0: b\"a'\\xffb\"",
+          "raises": "ValueError"
+        },
+        "fragmented": {
+          "message": "non-ASCII atom type at offset 0: b\"a'\\xffb\"",
+          "raises": "ValueError"
+        }
+      },
+      "input": {
+        "hex": "000000106127ff620000000000000000"
+      },
+      "name": "non ascii quote type"
+    },
+    {
+      "expected": {
+        "first": {
+          "message": "non-ASCII atom type at offset 0: b'\\'\"\\xff\\t'",
+          "raises": "ValueError"
+        },
+        "fragmented": {
+          "message": "non-ASCII atom type at offset 0: b'\\'\"\\xff\\t'",
+          "raises": "ValueError"
+        }
+      },
+      "input": {
+        "hex": "000000102722ff090000000000000000"
+      },
+      "name": "non ascii with both quotes"
+    },
+    {
+      "expected": {
+        "first": {
+          "message": "truncated 64-bit size for moov at 0",
+          "raises": "ValueError"
+        },
+        "fragmented": {
+          "message": "truncated 64-bit size for moov at 0",
+          "raises": "ValueError"
+        }
+      },
+      "input": {
+        "hex": "000000016d6f6f76000000"
+      },
+      "name": "truncated extended size"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "hex": "000000016d6f6f760000000000000010"
+      },
+      "name": "extended size ok"
+    },
+    {
+      "expected": {
+        "first": {
+          "message": "moov at 0: size 8 < header 16",
+          "raises": "ValueError"
+        },
+        "fragmented": {
+          "message": "moov at 0: size 8 < header 16",
+          "raises": "ValueError"
+        }
+      },
+      "input": {
+        "hex": "000000016d6f6f760000000000000008"
+      },
+      "name": "extended size below header"
+    },
+    {
+      "expected": {
+        "first": {
+          "message": "moov at 0: size 4 < header 8",
+          "raises": "ValueError"
+        },
+        "fragmented": {
+          "message": "moov at 0: size 4 < header 8",
+          "raises": "ValueError"
+        }
+      },
+      "input": {
+        "hex": "000000046d6f6f760000000000000000"
+      },
+      "name": "size below header"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": null
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "hex": "00001388667265650000000000000000"
+      },
+      "name": "size beyond the file"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": true
+        }
+      },
+      "input": {
+        "hex": "000000286d6f6f76000000106d7668640000000000000000000000106d7665780000000000000000"
+      },
+      "name": "fragmented"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": true
+        }
+      },
+      "input": {
+        "hex": "0000002c6d6f6f760000001c7472616b0000000000000000000000000000000000000000000000086d766578"
+      },
+      "name": "mvex last after trak"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "hex": "000000186d6f6f76000000107472616b000000086d766578"
+      },
+      "name": "mvex nested not counted"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": false
+        }
+      },
+      "input": {
+        "hex": "000000146d6f6f76000000006d76657800000000"
+      },
+      "name": "child size zero stops"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "message": "mvex at 8: size 3 < header 8",
+          "raises": "ValueError"
+        }
+      },
+      "input": {
+        "hex": "000000186d6f6f76000000036d7665780000000000000000"
+      },
+      "name": "child size below header"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "message": "non-ASCII atom type at offset 8: b'\\xfe\\xfd\\xfc\\xfb'",
+          "raises": "ValueError"
+        }
+      },
+      "input": {
+        "hex": "000000146d6f6f760000000cfefdfcfb00000000"
+      },
+      "name": "child non ascii"
+    },
+    {
+      "expected": {
+        "first": {
+          "ok": "moov"
+        },
+        "fragmented": {
+          "ok": true
+        }
+      },
+      "input": {
+        "hex": "000000016d6f6f760000000000000018000000086d766578"
+      },
+      "name": "moov extended header with mvex"
+    }
+  ],
+  "suite": "compliance_atoms"
+}

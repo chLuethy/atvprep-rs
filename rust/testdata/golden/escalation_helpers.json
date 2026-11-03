@@ -1,0 +1,2958 @@
+{
+  "cases": [
+    {
+      "expected": null,
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode h264 high prefer=False keep=False"
+    },
+    {
+      "expected": null,
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode h264 high prefer=False keep=True"
+    },
+    {
+      "expected": "video h264 (High) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode h264 high prefer=True keep=False"
+    },
+    {
+      "expected": "video h264 (High) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode h264 high prefer=True keep=True"
+    },
+    {
+      "expected": "video h264 (High 10) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p10le",
+              "profile": "High 10",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode h264 high 10 prefer=False keep=False"
+    },
+    {
+      "expected": "video h264 (High 10) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p10le",
+              "profile": "High 10",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode h264 high 10 prefer=False keep=True"
+    },
+    {
+      "expected": "video h264 (High 10) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p10le",
+              "profile": "High 10",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode h264 high 10 prefer=True keep=False"
+    },
+    {
+      "expected": "video h264 (High 10) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p10le",
+              "profile": "High 10",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode h264 high 10 prefer=True keep=True"
+    },
+    {
+      "expected": "video h264 (High) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 2160,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 3840
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode h264 4k prefer=False keep=False"
+    },
+    {
+      "expected": "video h264 (High) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 2160,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 3840
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode h264 4k prefer=False keep=True"
+    },
+    {
+      "expected": "video h264 (High) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 2160,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 3840
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode h264 4k prefer=True keep=False"
+    },
+    {
+      "expected": "video h264 (High) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 2160,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 3840
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode h264 4k prefer=True keep=True"
+    },
+    {
+      "expected": "video h264 (High) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "color_primaries": "bt2020",
+              "color_transfer": "smpte2084",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode h264 hdr prefer=False keep=False"
+    },
+    {
+      "expected": "video h264 (High) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "color_primaries": "bt2020",
+              "color_transfer": "smpte2084",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode h264 hdr prefer=False keep=True"
+    },
+    {
+      "expected": "video h264 (High) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "color_primaries": "bt2020",
+              "color_transfer": "smpte2084",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode h264 hdr prefer=True keep=False"
+    },
+    {
+      "expected": "video h264 (High) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "color_primaries": "bt2020",
+              "color_transfer": "smpte2084",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode h264 hdr prefer=True keep=True"
+    },
+    {
+      "expected": "video h264 (yuv422p) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv422p",
+              "profile": "",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode h264 no profile prefer=False keep=False"
+    },
+    {
+      "expected": "video h264 (yuv422p) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv422p",
+              "profile": "",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode h264 no profile prefer=False keep=True"
+    },
+    {
+      "expected": "video h264 (yuv422p) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv422p",
+              "profile": "",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode h264 no profile prefer=True keep=False"
+    },
+    {
+      "expected": "video h264 (yuv422p) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv422p",
+              "profile": "",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode h264 no profile prefer=True keep=True"
+    },
+    {
+      "expected": null,
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Main",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode hevc main prefer=False keep=False"
+    },
+    {
+      "expected": null,
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Main",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode hevc main prefer=False keep=True"
+    },
+    {
+      "expected": null,
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Main",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode hevc main prefer=True keep=False"
+    },
+    {
+      "expected": null,
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Main",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode hevc main prefer=True keep=True"
+    },
+    {
+      "expected": "video hevc (Main 12) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p12le",
+              "profile": "Main 12",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode hevc main 12 prefer=False keep=False"
+    },
+    {
+      "expected": "video hevc (Main 12) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p12le",
+              "profile": "Main 12",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode hevc main 12 prefer=False keep=True"
+    },
+    {
+      "expected": "video hevc (Main 12) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p12le",
+              "profile": "Main 12",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode hevc main 12 prefer=True keep=False"
+    },
+    {
+      "expected": "video hevc (Main 12) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p12le",
+              "profile": "Main 12",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode hevc main 12 prefer=True keep=True"
+    },
+    {
+      "expected": "video hevc (yuv422p10le) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv422p10le",
+              "profile": "",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode hevc 422 prefer=False keep=False"
+    },
+    {
+      "expected": "video hevc (yuv422p10le) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv422p10le",
+              "profile": "",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode hevc 422 prefer=False keep=True"
+    },
+    {
+      "expected": "video hevc (yuv422p10le) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv422p10le",
+              "profile": "",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode hevc 422 prefer=True keep=False"
+    },
+    {
+      "expected": "video hevc (yuv422p10le) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv422p10le",
+              "profile": "",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode hevc 422 prefer=True keep=True"
+    },
+    {
+      "expected": null,
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Main 10",
+              "side_data_list": [
+                {
+                  "dv_profile": 7,
+                  "side_data_type": "DOVI configuration record"
+                }
+              ],
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode dv prefer=False keep=False"
+    },
+    {
+      "expected": null,
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Main 10",
+              "side_data_list": [
+                {
+                  "dv_profile": 7,
+                  "side_data_type": "DOVI configuration record"
+                }
+              ],
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode dv prefer=False keep=True"
+    },
+    {
+      "expected": null,
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Main 10",
+              "side_data_list": [
+                {
+                  "dv_profile": 7,
+                  "side_data_type": "DOVI configuration record"
+                }
+              ],
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode dv prefer=True keep=False"
+    },
+    {
+      "expected": null,
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "hevc",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Main 10",
+              "side_data_list": [
+                {
+                  "dv_profile": 7,
+                  "side_data_type": "DOVI configuration record"
+                }
+              ],
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode dv prefer=True keep=True"
+    },
+    {
+      "expected": "video vp9 (Profile 0) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "vp9",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Profile 0",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode vp9 prefer=False keep=False"
+    },
+    {
+      "expected": "video vp9 (Profile 0) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "vp9",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Profile 0",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode vp9 prefer=False keep=True"
+    },
+    {
+      "expected": "video vp9 (Profile 0) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "vp9",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Profile 0",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode vp9 prefer=True keep=False"
+    },
+    {
+      "expected": "video vp9 (Profile 0) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "vp9",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Profile 0",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode vp9 prefer=True keep=True"
+    },
+    {
+      "expected": "video av1 (Main) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "av1",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Main",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode av1 main prefer=False keep=False"
+    },
+    {
+      "expected": null,
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "av1",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Main",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode av1 main prefer=False keep=True"
+    },
+    {
+      "expected": "video av1 (Main) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "av1",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Main",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode av1 main prefer=True keep=False"
+    },
+    {
+      "expected": null,
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "av1",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Main",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode av1 main prefer=True keep=True"
+    },
+    {
+      "expected": "video av1 (High) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "av1",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode av1 high prefer=False keep=False"
+    },
+    {
+      "expected": "video av1 (High) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "av1",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode av1 high prefer=False keep=True"
+    },
+    {
+      "expected": "video av1 (High) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "av1",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode av1 high prefer=True keep=False"
+    },
+    {
+      "expected": "video av1 (High) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "av1",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode av1 high prefer=True keep=True"
+    },
+    {
+      "expected": null,
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "mpeg2video",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Main",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode mpeg2 prefer=False keep=False"
+    },
+    {
+      "expected": null,
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "mpeg2video",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Main",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode mpeg2 prefer=False keep=True"
+    },
+    {
+      "expected": "video mpeg2video (Main) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "mpeg2video",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Main",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode mpeg2 prefer=True keep=False"
+    },
+    {
+      "expected": "video mpeg2video (Main) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "mpeg2video",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Main",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode mpeg2 prefer=True keep=True"
+    },
+    {
+      "expected": "video vc1 (Advanced) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "vc1",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "",
+              "profile": "Advanced",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode vc1 prefer=False keep=False"
+    },
+    {
+      "expected": "video vc1 (Advanced) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "vc1",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "",
+              "profile": "Advanced",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode vc1 prefer=False keep=True"
+    },
+    {
+      "expected": "video vc1 (Advanced) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "vc1",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "",
+              "profile": "Advanced",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode vc1 prefer=True keep=False"
+    },
+    {
+      "expected": "video vc1 (Advanced) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "vc1",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "",
+              "profile": "Advanced",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode vc1 prefer=True keep=True"
+    },
+    {
+      "expected": null,
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": null,
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode null codec prefer=False keep=False"
+    },
+    {
+      "expected": null,
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": null,
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode null codec prefer=False keep=True"
+    },
+    {
+      "expected": "video  (yuv420p) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": null,
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode null codec prefer=True keep=False"
+    },
+    {
+      "expected": "video  (yuv420p) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": true,
+        "prefer_hevc10": true,
+        "probe": {
+          "streams": [
+            {
+              "codec_name": null,
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode null codec prefer=True keep=True"
+    },
+    {
+      "expected": null,
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "probe": {}
+      },
+      "name": "reencode odd probe []"
+    },
+    {
+      "expected": null,
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": []
+        }
+      },
+      "name": "reencode odd probe ['streams']"
+    },
+    {
+      "expected": null,
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        }
+      },
+      "name": "reencode odd probe ['streams']"
+    },
+    {
+      "expected": null,
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_type": "video"
+            }
+          ]
+        }
+      },
+      "name": "reencode odd probe ['streams']"
+    },
+    {
+      "expected": "video h264 (High 10) needs a re-encode to HEVC",
+      "input": {
+        "fn": "reencode",
+        "keep_av1": false,
+        "prefer_hevc10": false,
+        "probe": {
+          "streams": [
+            {
+              "codec_type": "audio"
+            },
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p10le",
+              "profile": "High 10",
+              "width": 1920
+            },
+            {
+              "codec_name": "vp9",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "Profile 0",
+              "width": 1920
+            }
+          ]
+        }
+      },
+      "name": "reencode odd probe ['streams']"
+    },
+    {
+      "expected": [
+        "deu"
+      ],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "skip": []
+      },
+      "name": "twin surround only skip=[]"
+    },
+    {
+      "expected": [],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "skip": [
+          1
+        ]
+      },
+      "name": "twin surround only skip=[1]"
+    },
+    {
+      "expected": [
+        "deu"
+      ],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "skip": [
+          2
+        ]
+      },
+      "name": "twin surround only skip=[2]"
+    },
+    {
+      "expected": [],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "skip": [
+          1,
+          2
+        ]
+      },
+      "name": "twin surround only skip=[1, 2]"
+    },
+    {
+      "expected": [],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 2,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "skip": []
+      },
+      "name": "twin with stereo skip=[]"
+    },
+    {
+      "expected": [],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 2,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "skip": [
+          1
+        ]
+      },
+      "name": "twin with stereo skip=[1]"
+    },
+    {
+      "expected": [
+        "deu"
+      ],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 2,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "skip": [
+          2
+        ]
+      },
+      "name": "twin with stereo skip=[2]"
+    },
+    {
+      "expected": [],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 2,
+              "tags": {
+                "language": "deu"
+              }
+            }
+          ]
+        },
+        "skip": [
+          1,
+          2
+        ]
+      },
+      "name": "twin with stereo skip=[1, 2]"
+    },
+    {
+      "expected": [
+        "deu"
+      ],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 2,
+              "tags": {
+                "language": "eng"
+              }
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 3,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        },
+        "skip": []
+      },
+      "name": "twin two languages skip=[]"
+    },
+    {
+      "expected": [],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 2,
+              "tags": {
+                "language": "eng"
+              }
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 3,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        },
+        "skip": [
+          1
+        ]
+      },
+      "name": "twin two languages skip=[1]"
+    },
+    {
+      "expected": [
+        "deu"
+      ],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 2,
+              "tags": {
+                "language": "eng"
+              }
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 3,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        },
+        "skip": [
+          2
+        ]
+      },
+      "name": "twin two languages skip=[2]"
+    },
+    {
+      "expected": [],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "deu"
+              }
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 2,
+              "tags": {
+                "language": "eng"
+              }
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 3,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        },
+        "skip": [
+          1,
+          2
+        ]
+      },
+      "name": "twin two languages skip=[1, 2]"
+    },
+    {
+      "expected": [],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        },
+        "skip": []
+      },
+      "name": "twin stereo only skip=[]"
+    },
+    {
+      "expected": [],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        },
+        "skip": [
+          1
+        ]
+      },
+      "name": "twin stereo only skip=[1]"
+    },
+    {
+      "expected": [],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        },
+        "skip": [
+          2
+        ]
+      },
+      "name": "twin stereo only skip=[2]"
+    },
+    {
+      "expected": [],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 2,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "eng"
+              }
+            }
+          ]
+        },
+        "skip": [
+          1,
+          2
+        ]
+      },
+      "name": "twin stereo only skip=[1, 2]"
+    },
+    {
+      "expected": [
+        "fra"
+      ],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "dts",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "fra"
+              }
+            }
+          ]
+        },
+        "skip": []
+      },
+      "name": "twin dts skip=[]"
+    },
+    {
+      "expected": [],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "dts",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "fra"
+              }
+            }
+          ]
+        },
+        "skip": [
+          1
+        ]
+      },
+      "name": "twin dts skip=[1]"
+    },
+    {
+      "expected": [
+        "fra"
+      ],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "dts",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "fra"
+              }
+            }
+          ]
+        },
+        "skip": [
+          2
+        ]
+      },
+      "name": "twin dts skip=[2]"
+    },
+    {
+      "expected": [],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "dts",
+              "codec_type": "audio",
+              "index": 1,
+              "tags": {
+                "language": "fra"
+              }
+            }
+          ]
+        },
+        "skip": [
+          1,
+          2
+        ]
+      },
+      "name": "twin dts skip=[1, 2]"
+    },
+    {
+      "expected": [
+        "und"
+      ],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1
+            }
+          ]
+        },
+        "skip": []
+      },
+      "name": "twin und skip=[]"
+    },
+    {
+      "expected": [],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1
+            }
+          ]
+        },
+        "skip": [
+          1
+        ]
+      },
+      "name": "twin und skip=[1]"
+    },
+    {
+      "expected": [
+        "und"
+      ],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1
+            }
+          ]
+        },
+        "skip": [
+          2
+        ]
+      },
+      "name": "twin und skip=[2]"
+    },
+    {
+      "expected": [],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            },
+            {
+              "channels": 6,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "index": 1
+            }
+          ]
+        },
+        "skip": [
+          1,
+          2
+        ]
+      },
+      "name": "twin und skip=[1, 2]"
+    },
+    {
+      "expected": [],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            }
+          ]
+        },
+        "skip": []
+      },
+      "name": "twin none skip=[]"
+    },
+    {
+      "expected": [],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            }
+          ]
+        },
+        "skip": [
+          1
+        ]
+      },
+      "name": "twin none skip=[1]"
+    },
+    {
+      "expected": [],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            }
+          ]
+        },
+        "skip": [
+          2
+        ]
+      },
+      "name": "twin none skip=[2]"
+    },
+    {
+      "expected": [],
+      "input": {
+        "fn": "twin",
+        "probe": {
+          "streams": [
+            {
+              "codec_name": "h264",
+              "codec_type": "video",
+              "height": 1080,
+              "index": 0,
+              "pix_fmt": "yuv420p",
+              "profile": "High",
+              "width": 1920
+            }
+          ]
+        },
+        "skip": [
+          1,
+          2
+        ]
+      },
+      "name": "twin none skip=[1, 2]"
+    }
+  ],
+  "suite": "escalation_helpers"
+}
