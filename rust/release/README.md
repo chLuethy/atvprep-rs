@@ -35,3 +35,9 @@ A production release still needs the platform evidence and operator decision des
 [the deployment guide](../../DEPLOYMENT.md).
 
 The Gitea workflow verifies and publishes the prebuilt, signed files committed under [release/](../../release/README.md). A manual run verifies without publishing. Building and signing take place separately before the release commit.
+
+Gitea's workflow token can upload private release attachments but cannot download the draft
+through the web attachment endpoint on this server. The workflow checks upload names and sizes
+through the API; an operator must independently download and compare the bytes before resuming
+an existing draft using the explicit `resume_verified_draft` manual input. That input also
+checks the committed artifacts against the existing version tag before publishing.
