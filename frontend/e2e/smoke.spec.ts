@@ -1,28 +1,20 @@
 /**
- * Smoke test for the atvprep-manager SPA served by the FastAPI app via the
- * installed wheel (Task 7).
+ * Smoke test for the atvprep-manager SPA served by the Rust manager.
  *
  * This is a *smoke* test, not a full UI test: it asserts the basics that
- * prove the wheel-installed backend is serving the built SolidJS SPA:
+ * prove the server is serving the built SolidJS SPA:
  *
  *   1. The root page returns 200 and the HTML title is "atvprep-manager".
  *   2. The SPA actually hydrates: the five nav links
- *      (Library / Activity / Overview / Settings) become clickable anchors with
+ *      (Overview / Library / Activity / Schedules / Settings) become anchors with
  *      the expected `href` values.
  *
- * The test targets the FastAPI server at http://127.0.0.1:8765 (the API port),
- * NOT the Vite dev server. The server is started for us by
- * `scripts/run_manager_e2e.py`, which installs the wheel into a temporary
- * venv, boots uvicorn, runs Playwright, and tears everything down.
+ * Run it, together with the other journeys, from the repository root:
  *
- * Run manually (after `npm exec playwright install chromium`):
+ *   ./scripts/run-e2e.sh
  *
- *   npx playwright test --project=chromium
- *
- * from the `frontend/` directory while the server is running, or via the
- * orchestration script:
- *
- *   npm run test:e2e -- --project chromium
+ * which builds the SPA and the binary, seeds a temporary database, starts the server and runs
+ * Playwright (needs `npx playwright install chromium` once).
  */
 
 import { expect, test } from "@playwright/test";
@@ -35,7 +27,7 @@ async function unlock(page: import("@playwright/test").Page): Promise<void> {
   await expect(page.getByRole("button", { name: "Lock", exact: true })).toBeVisible();
 }
 
-test.describe("atvprep-manager SPA smoke (wheel-served)", () => {
+test.describe("atvprep-manager SPA smoke (server-served)", () => {
   test("root page has the expected title", async ({ page }) => {
     const response = await page.goto("/");
     expect(response, "GET / should return a response").not.toBeNull();

@@ -112,7 +112,10 @@ fn read(path: &Path, limit: u64, protected: bool) -> Result<Vec<u8>> {
     let file = rustix::fs::openat(
         &parent,
         leaf,
-        rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::CLOEXEC,
+        rustix::fs::OFlags::RDONLY
+            | rustix::fs::OFlags::NOFOLLOW
+            | rustix::fs::OFlags::NONBLOCK
+            | rustix::fs::OFlags::CLOEXEC,
         rustix::fs::Mode::empty(),
     )
     .map_err(|_| Error::Invalid("cannot safely open local release file".to_owned()))?;
@@ -168,6 +171,13 @@ mod tests {
         let lock = installation_lock(&destination).unwrap();
         assert!(installation_lock(&destination).is_err());
         drop(lock);
-        assert!(installation_lock(&destination).is_ok());
+        // A concurrently forking test thread may inherit the descriptor until its exec; retry briefly.
+        let released = (0..50).any(|_| {
+            installation_lock(&destination).is_ok() || {
+                std::thread::sleep(std::time::Duration::from_millis(20));
+                false
+            }
+        });
+        assert!(released);
     }
 }

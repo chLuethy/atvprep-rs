@@ -139,6 +139,7 @@ impl Recovery<'_> {
             )?;
             summary.retried += 1;
         }
+        self.interrupt_stranded_scans()?;
         summary.reconciled_jobs += self.reconcile_idle_jobs()?;
         if let Some(transaction) = transaction {
             transaction.commit()?;
@@ -172,6 +173,7 @@ impl Recovery<'_> {
     ///
     /// SQLite fails or the durable job state machine refuses a concurrent/illegal update.
     pub fn reconcile_idle_jobs(&self) -> Result<usize> {
+        let cancelled = self.finalize_cancel_requested_jobs()?;
         let mut statement = self.0.conn.prepare(
             "SELECT id FROM jobs
              WHERE status IN ('queued', 'running')
@@ -185,7 +187,75 @@ impl Recovery<'_> {
             .query_map([], |row| row.get::<_, i64>(0))?
             .collect::<std::result::Result<BTreeSet<_>, _>>()?;
         drop(statement);
-        self.reconcile_jobs(&ids)
+        Ok(cancelled + self.reconcile_jobs(&ids)?)
+    }
+
+    /// Mark scan runs whose scheduler lease is gone as `interrupted`.
+    ///
+    /// A claimed or running scan owned by a lease holder is stranded when that lease expired or was
+    /// taken over (a crash). Left alone it counts as active work for the deployment gate and keeps
+    /// its root from ever being scheduled again. Read first: most passes find nothing and must not
+    /// take the write lock away from a running scan.
+    fn interrupt_stranded_scans(&self) -> Result<usize> {
+        let now = self.0.clock.now();
+        let stranded = "status IN ('claimed','running') AND claimed_by IS NOT NULL
+             AND NOT EXISTS (SELECT 1 FROM scheduler_leases
+               WHERE id=1 AND owner_id=scan_runs.claimed_by
+                 AND fencing_token=scan_runs.fencing_token AND lease_expires_at > ?1)";
+        let any: bool = self.0.conn.query_row(
+            &format!("SELECT EXISTS(SELECT 1 FROM scan_runs WHERE {stranded})"),
+            [&now],
+            |row| row.get(0),
+        )?;
+        if !any {
+            return Ok(0);
+        }
+        Ok(self.0.conn.execute(
+            &format!("UPDATE scan_runs SET status='interrupted', finished_at=?1 WHERE {stranded}"),
+            [&now],
+        )?)
+    }
+
+    /// Cancel the queued items of jobs a user cancelled, and close each job once nothing is active.
+    ///
+    /// Nothing else ever moves a queued item of a `cancel_requested` job, so without this the job
+    /// stays open, blocks its files and cannot be cleared or retried.
+    fn finalize_cancel_requested_jobs(&self) -> Result<usize> {
+        let mut statement = self
+            .0
+            .conn
+            .prepare("SELECT id FROM jobs WHERE status='cancel_requested' ORDER BY id LIMIT 100")?;
+        let jobs = statement
+            .query_map([], |row| row.get::<_, i64>(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        drop(statement);
+        let states = JobStateMachine(self.0);
+        let mut closed = 0;
+        for job in jobs {
+            let mut queued = self.0.conn.prepare(
+                "SELECT id, status_version FROM job_items WHERE job_id=?1 AND status='queued'",
+            )?;
+            let items = queued
+                .query_map([job], |row| {
+                    Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?))
+                })?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            drop(queued);
+            for (item, version) in items {
+                states.transition_item(item, "cancelled", version, None, None)?;
+            }
+            let (active, version): (i64, i64) = self.0.conn.query_row(
+                "SELECT (SELECT count(*) FROM job_items WHERE job_id=jobs.id
+                    AND status IN ('queued','claimed','running','cancel_requested','cancelling')),
+                 status_version FROM jobs WHERE id=?1",
+                [job],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )?;
+            if active == 0 && states.aggregate_job(job, version)?.changed {
+                closed += 1;
+            }
+        }
+        Ok(closed)
     }
 
     fn reconcile_jobs(&self, ids: &BTreeSet<i64>) -> Result<usize> {
@@ -351,5 +421,55 @@ mod tests {
             recovered.recover_expired_items(100).unwrap(),
             RecoverySummary::default()
         );
+    }
+
+    #[test]
+    fn a_cancelled_job_with_only_queued_items_is_cancelled_by_reconciliation() {
+        let (_database, conn, clock, _) = fixture();
+        conn.raw()
+            .execute_batch(
+                "INSERT INTO jobs(id,action,status) VALUES(900,'verify','cancel_requested');
+                 INSERT INTO job_items(job_id,media_file_id,action,position,status)
+                   SELECT 900,id,'verify',1,'queued' FROM media_files LIMIT 1;",
+            )
+            .unwrap();
+        let recovery = Recovery(Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        });
+        assert_eq!(recovery.reconcile_idle_jobs().unwrap(), 1);
+        let status = |sql: &str| {
+            conn.raw()
+                .query_row(sql, [], |row| row.get::<_, String>(0))
+                .unwrap()
+        };
+        assert_eq!(status("SELECT status FROM jobs WHERE id=900"), "cancelled");
+        assert_eq!(
+            status("SELECT status FROM job_items WHERE job_id=900"),
+            "cancelled"
+        );
+    }
+
+    #[test]
+    fn scans_without_a_live_lease_or_superseded_are_interrupted() {
+        let (_database, conn, clock, _) = fixture();
+        conn.raw()
+            .execute_batch(
+                "INSERT INTO scan_runs(id,root_id,generation,trigger,status,claimed_by,fencing_token)
+                   SELECT 801,id,1,'scheduled','running','dead-owner',1 FROM library_roots LIMIT 1;",
+            )
+            .unwrap();
+        let recovery = Recovery(Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        });
+        recovery.recover_with_retries(100, 3).unwrap();
+        let status: String = conn
+            .raw()
+            .query_row("SELECT status FROM scan_runs WHERE id=801", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(status, "interrupted");
     }
 }

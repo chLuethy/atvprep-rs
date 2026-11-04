@@ -1345,6 +1345,7 @@ mod tests {
         std::fs::create_dir(dir.path().join("assets")).unwrap();
         std::fs::write(dir.path().join("index.html"), "index").unwrap();
         std::fs::write(dir.path().join("assets/app.js"), "app").unwrap();
+        std::fs::write(dir.path().join("favicon.svg"), "<svg/>").unwrap();
         #[cfg(unix)]
         std::os::unix::fs::symlink(
             dir.path().join("index.html"),
@@ -1364,6 +1365,17 @@ mod tests {
         assert_eq!(
             asset.headers()[header::CACHE_CONTROL],
             "public, max-age=31536000, immutable"
+        );
+        let favicon = app.clone().oneshot(get("/favicon.svg")).await.unwrap();
+        assert_eq!(favicon.headers()[header::CONTENT_TYPE], "image/svg+xml");
+        assert_eq!(favicon.headers()[header::CACHE_CONTROL], "no-cache");
+        assert_eq!(
+            app.clone()
+                .oneshot(get("/missing.svg"))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::NOT_FOUND
         );
         assert_eq!(
             app.clone().oneshot(get("/api")).await.unwrap().status(),

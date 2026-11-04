@@ -108,11 +108,6 @@ pub struct Asset {
     pub size: u64,
 }
 
-/// Parse and validate an unsigned release manifest before signature verification.
-///
-/// # Errors
-///
-/// The JSON or any version, platform, URL, digest or size is invalid.
 /// Verify an OpenSSH SSHSIG for a manifest against the pinned public key.
 ///
 /// # Errors

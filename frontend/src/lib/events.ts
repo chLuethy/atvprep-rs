@@ -119,9 +119,11 @@ export class EventClient {
         if (!this.resyncing && (this.pendingDuringResync.length > 0 || this.pendingOverflowed || this.resyncAfter !== undefined)) void this.resync();
       }
     };
-    socket.onclose = () => {
+    socket.onclose = (event?: { code?: number }) => {
       if (this.socket !== socket) return;
       this.socket = null;
+      // Malformed cursor, expired session or forbidden origin: reconnecting cannot succeed.
+      if (event?.code === 4400 || event?.code === 4401 || event?.code === 4403) return;
       if (!this.stopped && this.reconnectTimer === null) {
         this.reconnectTimer = setTimeout(() => {
           this.reconnectTimer = null;
@@ -257,7 +259,8 @@ export class EventClient {
             const lastRow = snapshot.data.at(-1);
             if (!lastRow) throw new Error("snapshot row limit reached without a row");
             snapshot.meta = {
-              current_cursor: this.isBoundedString(lastRow.id) ? lastRow.id : null,
+              // Row ids are not cursors (the server signs them under a different kind), so none can be derived here.
+              current_cursor: null,
               next_cursor: pageCursor,
               current_sequence: this.isValidSequence(lastRow.sequence) ? lastRow.sequence : undefined,
             };

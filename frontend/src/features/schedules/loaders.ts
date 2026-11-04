@@ -55,7 +55,7 @@ export type DoneResult = { ok: true; schedule?: Schedule } | { ok: false; sessio
 
 async function failure(response: Response): Promise<{ ok: false; session: boolean; detail?: string }> {
   const reason = (await response.json().catch(() => null)) as { detail?: unknown } | null;
-  // FastAPI sends a list of problems for a malformed body; only a plain sentence is worth showing.
+  // Only a plain sentence is worth showing; any structured detail is ignored.
   return typeof reason?.detail === "string" ? { ok: false, session: false, detail: reason.detail } : { ok: false, session: false };
 }
 

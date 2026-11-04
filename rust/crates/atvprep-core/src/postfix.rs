@@ -326,6 +326,12 @@ fn read_atom_header(file: &mut File, offset: u64) -> Result<Option<Atom>> {
             kind_text(kind)
         ));
     }
+    if offset.checked_add(total).is_none() {
+        return value(format!(
+            "{} at {offset}: size {total} overflows the file offset",
+            kind_text(kind)
+        ));
+    }
     Ok(Some(Atom {
         offset,
         size: total,
@@ -459,8 +465,14 @@ pub fn normalize_dec3_for_no_atmos(path: &Path) -> Result<u32> {
         return Ok(0);
     }
     let mut file = OpenOptions::new().read(true).write(true).open(path)?;
+    let file_len = file.metadata()?.len();
     let mut patches = Vec::new();
     for (dec3_offset, payload_size) in locations {
+        if payload_size > file_len {
+            return value(format!(
+                "dec3 at {dec3_offset} extends past the end of the file"
+            ));
+        }
         file.seek(SeekFrom::Start(dec3_offset + 8))?;
         let mut payload = vec![
             0_u8;
@@ -827,5 +839,16 @@ mod tests {
             bytes.windows(4).any(|w| w == b"text"),
             "the chapter handler is still text"
         );
+    }
+
+    #[test]
+    fn a_box_whose_64_bit_size_wraps_the_offset_is_rejected_not_looped() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("wrap.mp4");
+        let mut bytes = vec![0, 0, 0, 16, b'f', b't', b'y', b'p', 0, 0, 0, 0, 0, 0, 0, 0];
+        bytes.extend([0, 0, 0, 1, b'f', b'r', b'e', b'e']);
+        bytes.extend((u64::MAX - 15).to_be_bytes());
+        std::fs::write(&path, bytes).unwrap();
+        assert!(find_moov(&path).is_err());
     }
 }

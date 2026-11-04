@@ -128,7 +128,9 @@ pub fn run_hook(args: &[OsString], ctx: &mut RunContext, stdout: &mut dyn Write)
 
     // No output means the destination is the source MP4 itself and it was already clean.
     let media = result.output.unwrap_or(final_mp4);
-    let _ = writeln!(stdout, "[MediaFile] {}", media.display());
-    let _ = stdout.flush();
+    // Sonarr and Radarr read this line, so a failed write must not look like success.
+    if writeln!(stdout, "[MediaFile] {}", media.display()).is_err() || stdout.flush().is_err() {
+        return exit_code(None);
+    }
     0
 }

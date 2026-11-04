@@ -1,10 +1,10 @@
 /**
- * Playwright config for the atvprep-manager SPA smoke test (Task 7).
+ * Playwright config for the atvprep-manager SPA journeys.
  *
- * Target: the FastAPI server started by `scripts/run_manager_e2e.py`, which
- * installs the wheel into a temporary venv and boots uvicorn on
- * http://127.0.0.1:8765. The test exercises the *wheel-served* SPA, NOT the
- * Vite dev server.
+ * Target: the Rust manager serving the built SPA (`atvprep manager api --web-dist dist`) on
+ * http://127.0.0.1:8765, or PLAYWRIGHT_BASE_URL. The journeys need a seeded database and
+ * E2E_MASTER_TOKEN; `scripts/run-e2e.sh` builds, seeds, starts the server and runs them.
+ * The tests exercise the server-served SPA, NOT the Vite dev server.
  *
  * - Chromium only (the smoke just needs one browser).
  * - No local retries; CI may perform one visible retry.

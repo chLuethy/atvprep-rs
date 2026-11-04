@@ -243,10 +243,11 @@ impl<'de> Deserialize<'de> for Bool {
                 Ok(Bool(v))
             }
             fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Bool, E> {
-                Ok(Bool(matches!(
-                    v.trim().to_ascii_lowercase().as_str(),
-                    "1" | "true" | "yes" | "on"
-                )))
+                match v.trim().to_ascii_lowercase().as_str() {
+                    "1" | "true" | "yes" | "on" => Ok(Bool(true)),
+                    "0" | "false" | "no" | "off" | "" => Ok(Bool(false)),
+                    _ => Err(E::custom(format!("invalid boolean string {v:?}"))),
+                }
             }
         }
         deserializer.deserialize_any(Visitor)
@@ -391,5 +392,14 @@ mod tests {
             config.atvprep_command,
             vec!["atvprep".to_owned(), "--quiet".to_owned()]
         );
+    }
+    #[test]
+    fn boolean_strings_are_validated() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("config.toml");
+        fs::write(&path, "[auth]\nsession_cookie_secure = 'off'\n").unwrap();
+        assert!(!load_config(Some(&path)).unwrap().session_cookie_secure);
+        fs::write(&path, "[auth]\nsession_cookie_secure = 'ture'\n").unwrap();
+        assert!(load_config(Some(&path)).is_err());
     }
 }

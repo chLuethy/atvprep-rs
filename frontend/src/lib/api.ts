@@ -58,9 +58,8 @@ export class ManagerApi {
     headers.set("Accept", "application/json");
     if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
       const apiPath = decodeURIComponent(`${this.baseUrl}${path.split("?", 1)[0]}`);
-      const csrf = path === "/auth/session" && method === "DELETE"
-        ? this.csrf
-        : await this.issueMutationCsrf(method, apiPath, csrfAction(method, apiPath));
+      // The bootstrap token expires after csrf_ttl_seconds; every mutation, logout included, gets its own.
+      const csrf = await this.issueMutationCsrf(method, apiPath, csrfAction(method, apiPath));
       if (!csrf) throw new SessionError();
       headers.set("X-CSRF-Token", csrf);
       headers.set("Idempotency-Key", headers.get("Idempotency-Key") ?? crypto.randomUUID());

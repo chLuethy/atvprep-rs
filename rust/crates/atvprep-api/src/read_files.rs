@@ -400,7 +400,7 @@ pub async fn list(
         for id in ids.iter().take(limit) {let Some(mut value)=load_file(conn,&opaque,*id)? else {continue}; if let Some(object)=value.as_object_mut(){for key in ["status_version","last_success_at","has_error","sidecar_count","inspection_available"] {object.remove(key);}}
             let size=serde_json::to_vec(&value).map_err(|_|())?.len();if size>crate::bounds::MAX_ELEMENT_BYTES || used.saturating_add(size).saturating_add(data.len()+facet_size+1024)>crate::bounds::MAX_RESPONSE_BYTES {truncated=true;break;}used+=size;last=Some(*id);data.push(value);
         }
-        let next=if truncated {last} else if ids.len()>limit {if query.sort.is_some() {after.checked_add(i64::try_from(limit).map_err(|_|())?)} else {last}} else {None};
+        let next=if truncated {if query.sort.is_some() {if data.is_empty() {None} else {after.checked_add(i64::try_from(data.len()).map_err(|_|())?)}} else {last}} else if ids.len()>limit {if query.sort.is_some() {after.checked_add(i64::try_from(limit).map_err(|_|())?)} else {last}} else {None};
         let next=next.map(|id|opaque.encode("cursor:files",id));let mut meta=page_meta(Some(limit),next.as_deref(),truncated);meta["facets"]=json!({"suffix":facets});
         Ok::<_,()>(json!({"data":data,"meta":meta}))
     }).await;

@@ -79,16 +79,19 @@ describe("ManagerApi session client", () => {
     expect(requestHeaders.get("Idempotency-Key")).toEqual(expect.any(String));
   });
 
-  it("logs out with CSRF and clears in-memory CSRF state", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
+  it("logs out with a fresh request-bound CSRF token, not the possibly expired bootstrap token", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ csrf_token: "csrf-fresh" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
     const api = new ManagerApi();
-    api.setCsrfToken("csrf-logout");
+    api.setCsrfToken("csrf-bootstrap");
 
     await api.logout();
 
-    const headers = fetchMock.mock.calls[0]?.[1]?.headers as Headers;
-    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/v1/auth/session");
-    expect(headers.get("X-CSRF-Token")).toBe("csrf-logout");
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/v1/auth/csrf?method=DELETE&path=%2Fapi%2Fv1%2Fauth%2Fsession&action=auth-session");
+    const headers = fetchMock.mock.calls[1]?.[1]?.headers as Headers;
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/v1/auth/session");
+    expect(headers.get("X-CSRF-Token")).toBe("csrf-fresh");
     expect(api.csrfToken).toBeNull();
   });
 

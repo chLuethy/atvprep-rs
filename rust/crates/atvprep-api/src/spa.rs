@@ -66,7 +66,14 @@ pub async fn serve(root: PathBuf, request: Request) -> Response {
     if path.contains('%') || path.split('/').any(|part| part == "." || part == "..") {
         return StatusCode::NOT_FOUND.into_response();
     }
-    let asset = path.starts_with("assets/");
+    let hashed = path.starts_with("assets/");
+    // Unhashed top-level files such as the favicon; everything else is a client-side route.
+    let top_level = !path.contains('/')
+        && Path::new(path)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .is_some_and(|ext| matches!(ext, "svg" | "png" | "ico" | "txt" | "webmanifest"));
+    let asset = hashed || top_level;
     let relative = if asset {
         PathBuf::from(path)
     } else {
@@ -103,7 +110,7 @@ pub async fn serve(root: PathBuf, request: Request) -> Response {
         .insert(header::CONTENT_TYPE, header::HeaderValue::from_static(mime));
     response.headers_mut().insert(
         header::CACHE_CONTROL,
-        header::HeaderValue::from_static(if asset {
+        header::HeaderValue::from_static(if hashed {
             "public, max-age=31536000, immutable"
         } else {
             "no-cache"

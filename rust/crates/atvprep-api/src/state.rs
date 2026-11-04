@@ -29,6 +29,7 @@ pub enum StartupError {
     MissingApiSecret,
     MissingAllowedOrigins,
     InsecureCookiesOnPublicBind,
+    InvalidSessionLifetime,
 }
 
 impl std::fmt::Display for StartupError {
@@ -41,6 +42,9 @@ impl std::fmt::Display for StartupError {
             Self::InsecureCookiesOnPublicBind => {
                 f.write_str("insecure session cookies require loopback binding")
             }
+            Self::InvalidSessionLifetime => f.write_str(
+                "session_absolute_ttl_seconds must be 1..=86400, session_idle_ttl_seconds 1..=28800 and csrf_ttl_seconds 1..=3600",
+            ),
         }
     }
 }
@@ -51,8 +55,9 @@ impl AppState {
     ///
     /// # Errors
     ///
-    /// Returns an error for a missing API secret or allowed origin, or when
-    /// insecure cookies are configured on a non-loopback bind address.
+    /// Returns an error for a missing API secret or allowed origin, when
+    /// insecure cookies are configured on a non-loopback bind address, or for
+    /// session lifetimes outside the ranges the auth service accepts.
     pub fn new(db: Db, config: ManagerConfig) -> Result<Self, StartupError> {
         let api_secret = config
             .api_secret
@@ -65,6 +70,12 @@ impl AppState {
             && !matches!(config.bind_host.as_str(), "127.0.0.1" | "localhost" | "::1")
         {
             return Err(StartupError::InsecureCookiesOnPublicBind);
+        }
+        if !(1..=86_400).contains(&config.session_absolute_ttl_seconds)
+            || !(1..=28_800).contains(&config.session_idle_ttl_seconds)
+            || !(1..=3_600).contains(&config.csrf_ttl_seconds)
+        {
+            return Err(StartupError::InvalidSessionLifetime);
         }
         let approval_secret = config
             .approval_secret

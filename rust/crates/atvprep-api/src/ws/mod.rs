@@ -214,6 +214,22 @@ fn exact_pong(bytes: &[u8]) -> bool {
         && serde_json::from_slice::<Value>(bytes).is_ok_and(|frame| frame == json!({"type":"pong"}))
 }
 
+const REPLAY_SEND_BUDGET: Duration = Duration::from_secs(5);
+
+async fn send_within_budget(
+    socket: &mut WebSocket,
+    frame: &Value,
+    waited: &mut Duration,
+) -> Result<(), u16> {
+    let started = tokio::time::Instant::now();
+    let sent = send(socket, frame).await;
+    *waited += started.elapsed();
+    if sent.is_err() || *waited > REPLAY_SEND_BUDGET {
+        return Err(1012);
+    }
+    Ok(())
+}
+
 async fn replay(
     socket: &mut WebSocket,
     state: AppState,
@@ -224,6 +240,9 @@ async fn replay(
 ) -> Result<(), u16> {
     let mut carry = Vec::new();
     let mut scanned = *after;
+    // The hub handoff lock is held for the whole replay, so a slow reader must not keep it forever:
+    // the time spent waiting on this socket is budgeted, the time spent reading events is not.
+    let mut waited = Duration::ZERO;
     loop {
         if !authenticated(state.clone(), token.to_owned()).await {
             return Err(4401);
@@ -236,9 +255,7 @@ async fn replay(
             .map_err(|()| 1012_u16)?;
         if rows.is_empty() {
             for row in carry {
-                send(socket, &data::frame(&row, opaque))
-                    .await
-                    .map_err(|()| 1012_u16)?;
+                send_within_budget(socket, &data::frame(&row, opaque), &mut waited).await?;
                 *after = row.id;
             }
             return Ok(());
@@ -256,9 +273,7 @@ async fn replay(
         while carry.len() > 256 || bytes > 256 * 1024 {
             let row = carry.remove(0);
             bytes = bytes.saturating_sub(frame_size(&row));
-            send(socket, &data::frame(&row, opaque))
-                .await
-                .map_err(|()| 1012_u16)?;
+            send_within_budget(socket, &data::frame(&row, opaque), &mut waited).await?;
             *after = row.id;
         }
     }

@@ -487,7 +487,7 @@ describe("durable event client", () => {
     oversizedClient.close();
   });
 
-  it("does not adopt a page boundary beyond the last row when the 1000-row cap truncates recovery", async () => {
+  it("never turns a row id into a cursor when the 1000-row cap truncates recovery", async () => {
     vi.stubGlobal("WebSocket", FakeSocket);
     vi.useFakeTimers();
     const row = (sequence: number) => ({ id: `row-${sequence}`, sequence, topic: "job.updated", payload: {} });
@@ -510,12 +510,13 @@ describe("durable event client", () => {
     socket.open();
     socket.message({ type: "gap", after: null, reason: "retention" });
     await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2));
-    expect(client.lastCursor).toBe("row-1000");
+    // Row ids are signed as ids, not cursors; the server would reject them with 400 / 4400.
+    expect(client.lastCursor).toBeNull();
     await vi.advanceTimersByTimeAsync(250);
     const reconnected = FakeSocket.instances.at(-1)!;
     reconnected.open();
     await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(3));
-    expect(requests[2]).toBe("/events?after=row-1000");
+    expect(requests.every((path) => !path.includes("row-"))).toBe(true);
     client.close();
     vi.useRealTimers();
     vi.unstubAllGlobals();

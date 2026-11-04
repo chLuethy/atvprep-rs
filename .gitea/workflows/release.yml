@@ -27,6 +27,7 @@ jobs:
         shell: bash
         env:
           RELEASE_TRUSTED_KEY: ${{ secrets.RELEASE_TRUSTED_KEY }}
+          RESUME_VERIFIED_DRAFT: ${{ inputs.resume_verified_draft }}
         run: |
           set -euo pipefail
           for file in release/release.json release/release.json.sig release/release.pub release/atvprep-linux-x86_64 release/atvprep-linux-aarch64; do
@@ -37,7 +38,7 @@ jobs:
           test "$version" = "$workspace_version"
           if [ "$GITHUB_EVENT_NAME" = push ]; then
             test "$GITHUB_REF" = "refs/tags/v$version"
-          elif [ "${{ inputs.resume_verified_draft }}" = 'true' ]; then
+          elif [ "$RESUME_VERIFIED_DRAFT" = 'true' ]; then
             git fetch origin "refs/tags/v$version:refs/tags/v$version"
             for file in release/release.json release/release.json.sig release/release.pub release/atvprep-linux-x86_64 release/atvprep-linux-aarch64; do
               test "$(git rev-parse "v$version:$file")" = "$(git hash-object "$file")"

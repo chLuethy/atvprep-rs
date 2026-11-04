@@ -106,6 +106,11 @@ fn read_atom_header(file: &mut File, offset: u64) -> Result<Option<(u64, String,
             "{kind} at {offset}: size {total} < header {header_size}"
         )));
     }
+    if offset.checked_add(total).is_none() {
+        return Err(AtomError(format!(
+            "{kind} at {offset}: size {total} overflows the file offset"
+        )));
+    }
     Ok(Some((total, kind, header_size)))
 }
 
@@ -245,5 +250,17 @@ mod tests {
         assert_eq!(bytes_repr(b"a'\xffb"), "b\"a'\\xffb\"");
         assert_eq!(bytes_repr(b"'\"\xff\t"), "b'\\'\"\\xff\\t'");
         assert_eq!(bytes_repr(b"\\\n\r\0"), "b'\\\\\\n\\r\\x00'");
+    }
+
+    #[test]
+    fn a_box_whose_64_bit_size_wraps_the_offset_is_rejected_not_looped() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("wrap.mp4");
+        let mut bytes = vec![0, 0, 0, 16, b'f', b't', b'y', b'p', 0, 0, 0, 0, 0, 0, 0, 0];
+        bytes.extend([0, 0, 0, 1, b'f', b'r', b'e', b'e']);
+        bytes.extend((u64::MAX - 15).to_be_bytes());
+        std::fs::write(&path, bytes).unwrap();
+        assert!(first_moov_vs_mdat(&path).is_err());
+        assert!(is_fragmented(&path).is_err());
     }
 }

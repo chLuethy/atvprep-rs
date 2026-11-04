@@ -471,8 +471,8 @@ fn reference_targets(traks: &[&[u8]], sub_infos: &[SubInfo]) -> (Wanted, BTreeSe
 }
 
 /// The `trak` whose `tref` holds `wanted` for the `owned` reference types; other types stay.
-fn with_refs(trak: &[u8], wanted: &[([u8; 4], u32)], owned: &BTreeSet<[u8; 4]>) -> Vec<u8> {
-    let children = iter_boxes(trak, 8, trak.len());
+fn with_refs(trak: &[u8], wanted: &[([u8; 4], u32)], owned: &BTreeSet<[u8; 4]>) -> Result<Vec<u8>> {
+    let children = strict_children(trak, 8, trak.len())?;
     let had_tref = children.iter().any(|b| &b.kind == b"tref");
     let mut kept: Vec<Vec<u8>> = Vec::new();
     for child in children.iter().filter(|b| &b.kind == b"tref") {
@@ -514,7 +514,7 @@ fn with_refs(trak: &[u8], wanted: &[([u8; 4], u32)], owned: &BTreeSet<[u8; 4]>) 
             placed = true;
         }
     }
-    build_box(b"trak", &body)
+    Ok(build_box(b"trak", &body))
 }
 
 /// A new moov carrying Apple's fall/folw/forc track references.
@@ -530,7 +530,7 @@ pub(crate) fn patch_moov_links(moov: &[u8], sub_infos: &[SubInfo]) -> Result<Vec
             let mine = key
                 .and_then(|id| wanted.get(&id))
                 .map_or(&[][..], Vec::as_slice);
-            body.extend_from_slice(&with_refs(bytes, mine, &owned));
+            body.extend_from_slice(&with_refs(bytes, mine, &owned)?);
         } else {
             body.extend_from_slice(bytes);
         }

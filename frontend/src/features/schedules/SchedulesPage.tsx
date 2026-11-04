@@ -117,6 +117,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
   };
 
   const toggle = (schedule: Schedule) => {
+    fresh(); // a different request body must never reuse an earlier idempotency key
     void act(() => setEnabled(props.api, schedule.id, !schedule.enabled, key), null, t("Unable to change the schedule."));
   };
 
@@ -230,7 +231,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
           <span class="muted">{tn("{count} file matches now", "{count} files match now", schedule.matching)}</span>
         </div>
         <div class="sched-actions">
-          <Button variant="quiet" disabled={busy() || schedule.action !== "verify"} onClick={() => void act(() => runScheduleNow(props.api, schedule.id, key), t("Run started. The result is on the schedule."), t("Unable to run the schedule."))}>{t("Run now")}</Button>
+          <Button variant="quiet" disabled={busy() || schedule.action !== "verify"} onClick={() => { fresh(); void act(() => runScheduleNow(props.api, schedule.id, key), t("Run started. The result is on the schedule."), t("Unable to run the schedule.")); }}>{t("Run now")}</Button>
           <Button variant="quiet" disabled={busy()} onClick={() => openEdit(schedule)}>{t("Edit")}</Button>
           <Button variant="quiet" disabled={busy()} onClick={() => ask(schedule.id, "delete")}>{t("Delete")}</Button>
         </div>
