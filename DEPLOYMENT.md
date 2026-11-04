@@ -2,13 +2,34 @@
 
 Der Manager ist noch nicht produktiv freigegeben. Er verwendet eine neue, separate Datenbank; eine Datenbank der früheren Implementierung wird beim Start zurückgewiesen.
 
-## Voraussetzungen und Installation
+## Installation und Update (ein Befehl)
+
+```bash
+curl -fsSL https://git.ch-luethy.ch/chl/atvprep-rs/raw/branch/main/scripts/install.sh | sudo sh
+```
+
+`scripts/install.sh` installiert die Binary nach `/usr/local/bin/atvprep` samt Verknüpfungen `atvprep-manager` und `atvprep-hook`, oder aktualisiert sie, wenn sie schon vorhanden ist (gleiche Version: „bereits aktuell“, Exitcode 0; ein Downgrade verweigert es). Es unterstützt Linux x86_64 und aarch64 und braucht `curl`, `ssh-keygen` und `sha256sum`.
+
+Vertrauen: Das Skript selbst ist nicht vertrauenswürdig. Es führt nur eine Binary aus, deren signiertes Manifest gegen den Vertrauensschlüssel `/etc/atvprep/release.pub` verifiziert (Namespace `atvprep-release`) und deren SHA-256 zum Manifest passt. Fehlt die Datei, lädt das Skript den Schlüssel einmalig aus dem Release (Trust on first use, ADR 0003), zeigt den Fingerabdruck an und legt ihn root-eigen ab. Mit `ATVPREP_KEY_FINGERPRINT=SHA256:…` bricht es bei einem anderen Schlüssel ab. Spätere Läufe laden den Schlüssel nie wieder.
+
+Servarr-Hook (einmalig je Anwendung; der Pfad endet auf `atvprep-hook` im `/config` des Containers):
+
+```bash
+curl -fsSL https://git.ch-luethy.ch/chl/atvprep-rs/raw/branch/main/scripts/install.sh | sudo sh -s -- servarr sonarr /pfad/zu/sonarr-config/atvprep-hook
+```
+
+Der Pfad wird in `/etc/atvprep/hooks` eingetragen; jeder weitere Lauf aktualisiert zuerst die Binary und danach alle eingetragenen Hooks. Ein fehlgeschlagener Hook beendet den Lauf mit Exitcode 1, die Binary bleibt neu.
+
+Umgebungsvariablen: `ATVPREP_VERSION` (feste Version), `ATVPREP_DEST`, `ATVPREP_TRUSTED_KEY`, `ATVPREP_KEY_FINGERPRINT`, `ATVPREP_HOOKS`. Auf `mm` läuft ein Update der Binary produktiv nur im Releasefenster (unten); der Befehl ändert weder Gate noch Datenbank.
+
+## Manuell und offline installieren
 
 Die Binary benötigt für Medienarbeiten `ffmpeg`, `ffprobe`, `mp4info` und `mp4dump`.
 macOS und Linux verwenden dieselben Multicall-Einstiegspunkte: `atvprep`, `atvprep-hook` und
 `atvprep-manager`. Ein Symlink auf dieselbe Binary reicht für den jeweiligen Namen.
 Release-Plattformen sind `linux-x86_64`, `linux-aarch64`, `macos-x86_64` und `macos-aarch64`;
 das ist die Manifest-Allowlist, keine Aussage über abgeschlossene Tests aller Plattformen.
+Veröffentlicht werden derzeit nur die Linux-Assets, der Einzeiler unterstützt macOS nicht.
 
 Der unabhängig bereitgestellte öffentliche OpenSSH-Ed25519-Schlüssel muss dem lokalen Benutzer
 oder root gehören. Schlüsseldatei und Installationsverzeichnis dürfen nicht durch Gruppe oder

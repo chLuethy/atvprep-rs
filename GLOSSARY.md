@@ -19,6 +19,12 @@ Die Datei `release.json` mit Version und, je Plattform, URL, SHA-256 und Größe
 Der öffentliche OpenSSH-Ed25519-Schlüssel, gegen den Signaturen geprüft werden. Auf `mm` liegt genau eine root-eigene Kopie, die read-only in die Container eingebunden wird; eine Kopie aus Repo oder Download gilt nie als Vertrauensanker.
 _Avoid_: Public Key, release.pub (das ist nur der Dateiname im Repo)
 
+**Trust on first use**:
+Die Erstinstallation übernimmt den Vertrauensschlüssel einmalig aus dem Release und zeigt seinen Fingerabdruck an; danach gilt nur noch die lokale Datei. Ein vorgegebener Fingerabdruck macht daraus eine strikte Prüfung.
+
+**Hook-Register**:
+Die root-eigene Datei `/etc/atvprep/hooks` mit je einer Zeile `<anwendung> <pfad>` je installiertem Hook. Ein Update aktualisiert alle eingetragenen Hooks.
+
 **Plattform**:
 Betriebssystem und Architektur eines Assets. Produktiv zählt nur `linux-x86_64`; alle anderen dienen Entwicklung und Erprobung.
 
