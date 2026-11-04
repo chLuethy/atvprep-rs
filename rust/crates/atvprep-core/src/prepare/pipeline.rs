@@ -5,6 +5,7 @@
 //! MP4 source, and an ffmpeg build of a new `<stem>.mp4` next to another container.
 
 use std::fmt;
+use std::os::fd::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -520,7 +521,11 @@ fn patch_in_place(
     target.revalidate()?;
     {
         let _timing = phase("postfix", Some(source));
-        bring_into_compliance(source, atmos, Some(probe), &ctx.ffprobe)?;
+        // Postfix reopens its file several times; through this descriptor every open reaches the pinned
+        // inode, not whatever the name points to by then.
+        let pinned = target.open_for_write()?;
+        let pinned_path = PathBuf::from(format!("/dev/fd/{}", pinned.as_raw_fd()));
+        bring_into_compliance(&pinned_path, atmos, Some(probe), &ctx.ffprobe)?;
     }
     let report = verify(ctx, source);
     if !report.passed() {

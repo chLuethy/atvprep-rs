@@ -23,6 +23,8 @@ pub struct ProcessResult {
     pub reason: StopReason,
     pub exit_code: Option<i32>,
     pub output: Vec<u8>,
+    /// The child's stdout alone, bounded like `output`; stderr warnings must not corrupt a JSON report.
+    pub stdout: Vec<u8>,
 }
 
 fn nonblocking(fd: impl std::os::fd::AsFd) -> Result<()> {
@@ -35,6 +37,7 @@ fn nonblocking(fd: impl std::os::fd::AsFd) -> Result<()> {
 fn drain(
     reader: &mut impl Read,
     tail: &mut Vec<u8>,
+    mut only: Option<&mut Vec<u8>>,
     observed: &mut dyn FnMut(&[u8]) -> Result<()>,
 ) -> Result<()> {
     let mut buffer = [0u8; 8192];
@@ -44,9 +47,11 @@ fn drain(
             Ok(0) => break,
             Ok(count) => {
                 observed(&buffer[..count])?;
-                tail.extend_from_slice(&buffer[..count]);
-                if tail.len() > 64 * 1024 {
-                    tail.drain(..tail.len() - 64 * 1024);
+                for buffer_tail in std::iter::once(&mut *tail).chain(only.as_deref_mut()) {
+                    buffer_tail.extend_from_slice(&buffer[..count]);
+                    if buffer_tail.len() > 64 * 1024 {
+                        buffer_tail.drain(..buffer_tail.len() - 64 * 1024);
+                    }
                 }
             }
             Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => break,
@@ -223,9 +228,10 @@ fn run_with_stdin(
         let mut stopping = None;
         let mut reason = StopReason::Exited;
         let mut output = Vec::new();
+        let mut only_stdout = Vec::new();
         loop {
-            drain(&mut stdout, &mut output, observed)?;
-            drain(&mut stderr, &mut output, observed)?;
+            drain(&mut stdout, &mut output, Some(&mut only_stdout), observed)?;
+            drain(&mut stderr, &mut output, None, observed)?;
             if stopping.is_none() {
                 if cancelled() {
                     reason = StopReason::Cancelled;
@@ -243,12 +249,13 @@ fn run_with_stdin(
                 let status = child
                     .wait()
                     .map_err(|_| Error::Invalid("cannot reap media process".to_owned()))?;
-                drain(&mut stdout, &mut output, observed)?;
-                drain(&mut stderr, &mut output, observed)?;
+                drain(&mut stdout, &mut output, Some(&mut only_stdout), observed)?;
+                drain(&mut stderr, &mut output, None, observed)?;
                 return Ok(ProcessResult {
                     reason,
                     exit_code: status.code(),
                     output,
+                    stdout: only_stdout,
                 });
             }
             if stopping.is_none()
@@ -256,12 +263,13 @@ fn run_with_stdin(
                     .try_wait()
                     .map_err(|_| Error::Invalid("cannot inspect media process".to_owned()))?
             {
-                drain(&mut stdout, &mut output, observed)?;
-                drain(&mut stderr, &mut output, observed)?;
+                drain(&mut stdout, &mut output, Some(&mut only_stdout), observed)?;
+                drain(&mut stderr, &mut output, None, observed)?;
                 return Ok(ProcessResult {
                     reason,
                     exit_code: status.code(),
                     output,
+                    stdout: only_stdout,
                 });
             }
             std::thread::sleep(Duration::from_millis(20));
@@ -439,6 +447,20 @@ mod tests {
         assert_eq!(output.reason, StopReason::Exited);
         assert_eq!(output.exit_code, Some(0));
         assert_eq!(output.output, b"processed\n");
+        assert_eq!(output.stdout, b"processed\n");
+        // stderr is logged but never part of the stdout a JSON report is parsed from.
+        let (shell, arguments) = tool("sh", &["-c", "echo warning >&2; echo report"]);
+        let split = run(
+            &shell,
+            &arguments,
+            &BTreeMap::new(),
+            Duration::from_secs(2),
+            Duration::from_millis(20),
+            || false,
+        )
+        .unwrap();
+        assert_eq!(split.stdout, b"report\n");
+        assert!(split.output.windows(7).any(|window| window == b"warning"));
         let (sleep, arguments) = tool("sleep", &["10"]);
         let started = Instant::now();
         let timeout = run(

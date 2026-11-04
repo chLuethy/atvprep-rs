@@ -114,7 +114,23 @@ pub fn moov_temp_path(path: &Path) -> PathBuf {
 /// The error of `build`, or of the rename.
 pub fn via_temp(path: &Path, build: impl FnOnce(&Path) -> Result<()>) -> Result<()> {
     let tmp = moov_temp_path(path);
-    let result = build(&tmp).and_then(|()| std::fs::rename(&tmp, path).map_err(Mp4Error::from));
+    let original = std::fs::metadata(path).ok();
+    let result = build(&tmp)
+        .and_then(|()| {
+            // The replacement keeps the original's mode and owner, and is on disk before it takes the
+            // original's name: a crash must not publish an empty file over the only copy.
+            if let Some(original) = &original {
+                let _ = std::fs::set_permissions(&tmp, original.permissions());
+                let _ = std::os::unix::fs::chown(
+                    &tmp,
+                    Some(std::os::unix::fs::MetadataExt::uid(original)),
+                    Some(std::os::unix::fs::MetadataExt::gid(original)),
+                );
+            }
+            std::fs::File::open(&tmp)?.sync_all()?;
+            Ok(())
+        })
+        .and_then(|()| std::fs::rename(&tmp, path).map_err(Mp4Error::from));
     if result.is_err() {
         let _ = std::fs::remove_file(&tmp);
     }

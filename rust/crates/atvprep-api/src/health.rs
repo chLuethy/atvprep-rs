@@ -29,7 +29,7 @@ pub async fn ready(State(state): State<AppState>) -> impl IntoResponse {
             .await
             .unwrap_or(false)
     } else {
-        false
+        state.embedded_web && crate::spa::embedded_available()
     };
     let probes = state.readiness_probes.clone();
     let workers_ready = tokio::task::spawn_blocking(move || {

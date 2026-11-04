@@ -89,6 +89,18 @@ impl Recovery<'_> {
             None
         };
         let before = self.expired_items(limit)?;
+        // Read before recovery: settling the items also settles a cancelled parent.
+        let mut cancelled_jobs = BTreeSet::new();
+        for item in &before {
+            let cancelled: bool = self.0.conn.query_row(
+                "SELECT status IN ('cancel_requested','cancelled') FROM jobs WHERE id=?1",
+                [item.job_id],
+                |row| row.get(0),
+            )?;
+            if cancelled {
+                cancelled_jobs.insert(item.job_id);
+            }
+        }
         let mut summary = self.recover_expired_items(limit)?;
         for item in before {
             let current: Option<String> = self
@@ -101,6 +113,10 @@ impl Recovery<'_> {
                 )
                 .optional()?;
             if current.as_deref() != Some("interrupted") {
+                continue;
+            }
+            // Work the user cancelled must not come back as a retry.
+            if cancelled_jobs.contains(&item.job_id) {
                 continue;
             }
             let status = DeploymentGate(self.0).status()?;

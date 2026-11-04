@@ -90,7 +90,15 @@ pub fn quarantine_output(
     {
         original.set_file_name(name);
     }
-    std::fs::rename(path, &dest)?;
+    if let Err(error) = std::fs::rename(path, &dest) {
+        // A quarantine directory on another filesystem cannot be reached by rename.
+        if error.kind() != std::io::ErrorKind::CrossesDevices {
+            return Err(error);
+        }
+        std::fs::copy(path, &dest)?;
+        std::fs::File::open(&dest)?.sync_all()?;
+        std::fs::remove_file(path)?;
+    }
     let mut sidecar = dest.clone().into_os_string();
     sidecar.push(".verify.json");
     std::fs::write(PathBuf::from(sidecar), sidecar_json(&original, report))?;

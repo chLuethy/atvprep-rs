@@ -354,8 +354,7 @@ impl Patcher {
         let new_moov = patch_moov_for_atmos(&tagged)?;
         match layout.mdat_pos {
             Some(mdat) if faststart && layout.moov_pos > mdat => {
-                drop(file);
-                self.move_moov_to_front(path, &layout, mdat, &new_moov, progress)?;
+                self.move_moov_to_front(path, &file, &layout, mdat, &new_moov, progress)?;
             }
             _ => self.replace_moov(path, &mut file, &layout, &new_moov, progress)?,
         }
@@ -402,10 +401,14 @@ impl Patcher {
     ) -> Result<()> {
         let new_size = new_moov.len() as u64;
         if layout.moov_is_last() {
-            file.seek(SeekFrom::Start(layout.moov_pos))?;
-            file.write_all(new_moov)?;
-            file.set_len(layout.moov_pos + new_size)?;
-            return Ok(());
+            if new_size == layout.moov_size {
+                file.seek(SeekFrom::Start(layout.moov_pos))?;
+                file.write_all(new_moov)?;
+                return Ok(());
+            }
+            // A moov at the end that grows or shrinks would be rewritten and truncated in place, and
+            // an interruption in between leaves a file that does not parse; go through a temp copy.
+            return self.rewrite_with_new_moov(path, file, layout, new_moov, progress);
         }
         if new_size <= layout.moov_size {
             let mut moov = new_moov.to_vec();
@@ -444,12 +447,13 @@ impl Patcher {
         if layout.moov_first() {
             add_to_chunk_offsets(&mut moov, delta)?;
         }
-        self.rewrite_with_new_moov(path, layout, &moov, progress)
+        self.rewrite_with_new_moov(path, file, layout, &moov, progress)
     }
 
     fn rewrite_with_new_moov(
         &self,
         path: &Path,
+        file: &File,
         layout: &Layout,
         new_moov: &[u8],
         progress: Progress<'_>,
@@ -461,7 +465,10 @@ impl Patcher {
             progress,
         };
         via_temp(path, |tmp| {
-            let mut source = File::open(path)?;
+            // The handle the layout was measured on, not a fresh open of the name: a file replaced
+            // since `locate` must not have the old offsets applied to it.
+            let mut source = file.try_clone()?;
+            source.seek(SeekFrom::Start(0))?;
             let mut sink = File::create(tmp)?;
             // Everything before the moov (ftyp, free, ...), the new moov, then the rest (mdat, ...).
             copy_n(
@@ -485,6 +492,7 @@ impl Patcher {
     fn move_moov_to_front(
         &self,
         path: &Path,
+        file: &File,
         layout: &Layout,
         mdat_pos: u64,
         new_moov: &[u8],
@@ -498,7 +506,10 @@ impl Patcher {
             progress,
         };
         via_temp(path, |tmp| {
-            let mut source = File::open(path)?;
+            // The handle the layout was measured on, not a fresh open of the name: a file replaced
+            // since `locate` must not have the old offsets applied to it.
+            let mut source = file.try_clone()?;
+            source.seek(SeekFrom::Start(0))?;
             let mut sink = File::create(tmp)?;
             copy_n(&mut source, &mut sink, mdat_pos, self.chunk, &mut |n| {
                 ticker.tick(n);

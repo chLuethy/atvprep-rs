@@ -314,7 +314,7 @@ impl DeploymentGate<'_> {
                 "the reason must be 1 to 200 printable characters".to_owned(),
             ));
         }
-        self.0.conn.execute("INSERT INTO deployment_gate(id,mode,phase,generation,reason,changed_by_kind,changed_by_ref,changed_at) SELECT 1,'maintenance',COALESCE((SELECT phase FROM deployment_gate WHERE id=1 AND phase IN ('steady','offline-migration')),'offline-migration'),MAX(COALESCE((SELECT CAST(generation AS INTEGER)+1 FROM deployment_gate WHERE id=1),1),COALESCE((SELECT max(generation)+1 FROM deployment_events),1)),?1,?2,?3,?4 ON CONFLICT(id) DO UPDATE SET mode=excluded.mode,phase=excluded.phase,generation=excluded.generation,reason=excluded.reason,changed_by_kind=excluded.changed_by_kind,changed_by_ref=excluded.changed_by_ref,changed_at=excluded.changed_at",rusqlite::params![reason,kind,reference,self.0.clock.now()])?;
+        self.0.conn.execute("INSERT INTO deployment_gate(id,mode,phase,generation,reason,changed_by_kind,changed_by_ref,changed_at) SELECT 1,'maintenance',COALESCE((SELECT phase FROM deployment_gate WHERE id=1 AND phase IN ('steady','offline-migration')),'offline-migration'),MAX(COALESCE((SELECT CAST(generation AS INTEGER)+1 FROM deployment_gate WHERE id=1),1),COALESCE((SELECT max(generation)+1 FROM deployment_events),1)),?1,?2,?3,?4 ON CONFLICT(id) DO UPDATE SET mode=excluded.mode,phase=excluded.phase,generation=excluded.generation,reason=excluded.reason,changed_by_kind=CASE WHEN deployment_gate.mode='maintenance' AND deployment_gate.changed_by_kind='local-cli' AND excluded.changed_by_kind='admin-session' THEN deployment_gate.changed_by_kind ELSE excluded.changed_by_kind END,changed_by_ref=CASE WHEN deployment_gate.mode='maintenance' AND deployment_gate.changed_by_kind='local-cli' AND excluded.changed_by_kind='admin-session' THEN deployment_gate.changed_by_ref ELSE excluded.changed_by_ref END,changed_at=excluded.changed_at",rusqlite::params![reason,kind,reference,self.0.clock.now()])?;
         self.record_change("close", kind)?;
         let status = self.status()?;
         audit.commit()?;
@@ -802,5 +802,33 @@ mod gate_history_tests {
         let finished = gate.finish_offline_migration(&operator, 3).unwrap();
         assert_eq!(finished.generation, 4);
         assert_eq!(gate.history(3, 100).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn an_admin_close_does_not_take_over_a_gate_closed_from_the_host() {
+        use super::DeploymentGate;
+        use crate::{clock::FixedClock, db::Db, repo::Ctx, schema};
+        let db = Db::memory().unwrap();
+        let mut conn = db.conn().unwrap();
+        schema::migrate(&mut conn).unwrap();
+        let clock = FixedClock(1_700_000_000_000_000);
+        let gate = DeploymentGate(Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        });
+        let admin = Operator::from_admin_session(1).unwrap();
+        let local = Operator {
+            kind: "local-cli",
+            reference: "test-owner".to_owned(),
+        };
+        gate.close(&local, "host close").unwrap();
+        let closed = gate.close(&admin, "admin close").unwrap();
+        assert_eq!(
+            gate.open(&admin, closed.generation)
+                .unwrap_err()
+                .to_string(),
+            "the gate was closed from the host; open it from the host"
+        );
+        assert!(gate.open(&local, closed.generation).is_ok());
     }
 }

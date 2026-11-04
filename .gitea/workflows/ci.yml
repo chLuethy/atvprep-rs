@@ -58,3 +58,29 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run typecheck && npm test && npm run build
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        shell: bash
+        run: |
+          if [ "$(id -u)" -eq 0 ]; then SUDO=(); else SUDO=(sudo); fi
+          "${SUDO[@]}" apt-get update
+          "${SUDO[@]}" apt-get install -y ffmpeg sqlite3 build-essential
+      - name: Install Rust toolchain
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - name: Playwright journeys against the Rust server
+        run: ./scripts/run-e2e.sh

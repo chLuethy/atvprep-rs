@@ -58,7 +58,40 @@ pub(crate) fn index_available(root: &Path) -> bool {
     read_file(root, Path::new("index.html")).is_ok()
 }
 
+mod embedded {
+    include!(concat!(env!("OUT_DIR"), "/embedded_web.rs"));
+}
+
+/// Whether this binary carries the built frontend.
+#[must_use]
+pub fn embedded_available() -> bool {
+    embedded::FILES
+        .iter()
+        .any(|(name, _)| *name == "index.html")
+}
+
+fn read_embedded(relative: &Path) -> std::io::Result<Vec<u8>> {
+    let wanted = relative.to_string_lossy();
+    embedded::FILES
+        .iter()
+        .find(|(name, _)| *name == wanted)
+        .map(|(_, data)| data.to_vec())
+        .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::NotFound))
+}
+
 pub async fn serve(root: PathBuf, request: Request) -> Response {
+    respond(request, move |relative| read_file(&root, relative)).await
+}
+
+/// Serve the frontend compiled into the binary.
+pub async fn serve_embedded(request: Request) -> Response {
+    respond(request, read_embedded).await
+}
+
+async fn respond(
+    request: Request,
+    read: impl FnOnce(&Path) -> std::io::Result<Vec<u8>> + Send + 'static,
+) -> Response {
     if request.method() != axum::http::Method::GET && request.method() != axum::http::Method::HEAD {
         return StatusCode::METHOD_NOT_ALLOWED.into_response();
     }
@@ -96,7 +129,7 @@ pub async fn serve(root: PathBuf, request: Request) -> Response {
     } else {
         "text/html; charset=utf-8"
     };
-    let data = tokio::task::spawn_blocking(move || read_file(&root, &relative)).await;
+    let data = tokio::task::spawn_blocking(move || read(&relative)).await;
     let Ok(Ok(data)) = data else {
         return StatusCode::NOT_FOUND.into_response();
     };

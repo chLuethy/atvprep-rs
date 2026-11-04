@@ -48,6 +48,11 @@ fn version(conn: &Conn) -> Result<i64> {
 pub fn migrate(conn: &mut Conn) -> Result<()> {
     match version(conn)? {
         0 => conn.transaction(|tx| {
+            // Another process may have created the schema between the check and this write lock.
+            let current: i64 = tx.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+            if current == VERSION {
+                return Ok(());
+            }
             tx.execute_batch(BASE)?;
             tx.execute_batch(&format!("PRAGMA user_version = {VERSION}"))?;
             Ok(())

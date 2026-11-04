@@ -183,3 +183,29 @@ fn paused_exhausted_and_changing_items_are_failed_without_automatic_retry() {
         );
     }
 }
+
+#[test]
+fn an_interrupted_item_of_a_cancelled_job_is_not_queued_again() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    conn.raw()
+        .execute("UPDATE jobs SET status='cancel_requested' WHERE id=1", [])
+        .unwrap();
+    let clock = FixedClock(1_700_000_000_000_000);
+    let summary = Recovery(Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    })
+    .recover_with_retries(100, 3)
+    .unwrap();
+    assert_eq!(summary.retried, 0);
+    let retries: i64 = conn
+        .raw()
+        .query_row(
+            "SELECT count(*) FROM jobs WHERE trigger='retry'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(retries, 0);
+}

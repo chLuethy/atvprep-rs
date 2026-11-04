@@ -78,9 +78,10 @@ fn scan(data: &mut [u8], start: usize, end: usize, delta: u64) -> Result<()> {
                         data[pos..pos + 8].copy_from_slice(&new.to_be_bytes());
                     } else {
                         let old = u64::from(u32_at(data, pos)?);
-                        let new = u32::try_from(old + delta).map_err(|_| {
-                            Mp4Error::Unsupported("chunk offset no longer fits 32 bits")
-                        })?;
+                        let new = old
+                            .checked_add(delta)
+                            .and_then(|sum| u32::try_from(sum).ok())
+                            .ok_or(Mp4Error::Unsupported("chunk offset no longer fits 32 bits"))?;
                         data[pos..pos + 4].copy_from_slice(&new.to_be_bytes());
                     }
                 }
@@ -114,7 +115,11 @@ pub fn shift_chunk_offsets(chunk: &[u8], delta: u64) -> Result<Vec<u8>> {
                 return Err(Mp4Error::Malformed("stco has bytes after its entries"));
             }
             let offsets = (0..count)
-                .map(|i| Ok(u64::from(u32_at(chunk, 16 + 4 * i)?) + delta))
+                .map(|i| {
+                    u64::from(u32_at(chunk, 16 + 4 * i)?)
+                        .checked_add(delta)
+                        .ok_or(Mp4Error::Unsupported("chunk offset overflows 64 bits"))
+                })
                 .collect::<Result<Vec<u64>>>()?;
             if offsets.iter().any(|&o| o > u64::from(u32::MAX)) {
                 let size = u32::try_from(16 + 8 * count)

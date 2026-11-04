@@ -21,7 +21,7 @@ mod routes_jobs;
 mod routes_scans;
 mod schedule_routes;
 mod settings_routes;
-mod spa;
+pub mod spa;
 pub mod state;
 mod ws;
 
@@ -159,6 +159,9 @@ async fn fallback(
     }
     if let Some(root) = state.web_dist.as_ref() {
         return spa::serve(root.clone(), request).await;
+    }
+    if state.embedded_web && spa::embedded_available() {
+        return spa::serve_embedded(request).await;
     }
     ProblemDetail::new(
         StatusCode::NOT_FOUND,

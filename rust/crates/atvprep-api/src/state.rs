@@ -19,6 +19,8 @@ pub struct AppState {
     pub clock: Arc<dyn Clock>,
     pub readiness_probes: Arc<Vec<ReadinessProbe>>,
     pub web_dist: Option<std::path::PathBuf>,
+    /// Serve the frontend compiled into the binary when no directory is configured.
+    pub embedded_web: bool,
     pub shutting_down: Arc<std::sync::atomic::AtomicBool>,
 }
 
@@ -90,6 +92,7 @@ impl AppState {
             clock: Arc::new(SystemClock),
             readiness_probes: Arc::new(Vec::new()),
             web_dist: None,
+            embedded_web: false,
             shutting_down: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         })
     }
@@ -97,6 +100,12 @@ impl AppState {
     #[must_use]
     pub fn with_readiness_probes(mut self, probes: Vec<ReadinessProbe>) -> Self {
         self.readiness_probes = Arc::new(probes);
+        self
+    }
+
+    #[must_use]
+    pub fn with_embedded_web(mut self) -> Self {
+        self.embedded_web = true;
         self
     }
 

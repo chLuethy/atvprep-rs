@@ -1,9 +1,9 @@
 import { createEffect, createSignal, type Accessor } from "solid-js";
 
 /**
- * The server issues a new opaque id for the same thing in every response, so a refresh always
- * looks different from what is on screen. These helpers tell a real change from a renamed id, so a
- * view can keep what it has and rebuild only what moved.
+ * A refresh returns fresh objects for rows that did not change. These helpers tell a real change
+ * from a new copy, so a view can keep what it has and rebuild only what moved. Ids are ignored when
+ * comparing: they are derived from the row and never carry a change of their own.
  */
 
 const isIdKey = (key: string) => key === "id" || key.endsWith("_id");

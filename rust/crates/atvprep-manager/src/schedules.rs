@@ -438,7 +438,11 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
     drop(statement);
     let mut ran = 0;
     for (id, mask, time, armed_at) in schedules {
-        let Some(slot) = latest_slot(local, mask, TimeOfDay::parse(&time)?) else {
+        // One corrupt row must not stop every schedule after it.
+        let Ok(time_of_day) = TimeOfDay::parse(&time) else {
+            continue;
+        };
+        let Some(slot) = latest_slot(local, mask, time_of_day) else {
             continue;
         };
         let Some(slot_utc) = local_to_utc(slot, &Local) else {
@@ -452,12 +456,29 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
             continue;
         }
         let slot_text = format_micros(slot_micros);
-        if ctx.conn.execute(
-            "UPDATE schedules SET last_slot_at=?1 WHERE id=?2 AND (last_slot_at IS NULL OR last_slot_at < ?1)",
-            rusqlite::params![slot_text, id],
-        )? == 1 {
-            let _ = run_schedule(ctx, id)?;
-            ran += 1;
+        // A failing schedule rolls back alone: its claim is retried next pass, the others still run.
+        ctx.conn.execute_batch("SAVEPOINT schedule_run")?;
+        let outcome = (|| -> Result<bool> {
+            if ctx.conn.execute(
+                "UPDATE schedules SET last_slot_at=?1 WHERE id=?2 AND (last_slot_at IS NULL OR last_slot_at < ?1)",
+                rusqlite::params![slot_text, id],
+            )? == 1 {
+                let _ = run_schedule(ctx, id)?;
+                return Ok(true);
+            }
+            Ok(false)
+        })();
+        match outcome {
+            Ok(did_run) => {
+                ctx.conn.execute_batch("RELEASE schedule_run")?;
+                if did_run {
+                    ran += 1;
+                }
+            }
+            Err(_) => {
+                ctx.conn
+                    .execute_batch("ROLLBACK TO schedule_run; RELEASE schedule_run")?;
+            }
         }
     }
     Ok(ran)

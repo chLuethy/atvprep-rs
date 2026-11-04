@@ -54,8 +54,10 @@ Unsichere Cookies sind nur für Loopback-Erprobungen vorgesehen. Hinter HTTPS `s
 aktivieren und die tatsächlichen Origins eintragen. Pfade an die Maschine anpassen.
 
 ```bash
-atvprep manager api --config config.toml --web-dist web_dist
+atvprep manager api --config config.toml
 ```
+
+Die Weboberfläche ist in die Binary eingebettet (`frontend/dist` wird beim Bauen eingelesen; der Release-Build baut sie zuerst). `--web-dist VERZEICHNIS` oder ein `web_dist` neben der Binary hat Vorrang und ersetzt sie, etwa für eine abweichende Oberfläche. Eine Binary, die ohne gebautes Frontend kompiliert wurde, braucht eines dieser beiden.
 
 Dieser Prozess startet API, Scanner, Executor und Wartung gemeinsam. Ein separater Worker wird nicht benötigt. SIGINT/SIGTERM beendet Dienst und Worker kontrolliert. `/api/health/live`
 meldet den laufenden HTTP-Dienst; `/api/health/ready` prüft SPA, Worker, Datenbank und offenes Gate.

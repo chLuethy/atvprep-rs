@@ -244,6 +244,35 @@ impl FdFixTarget {
         Ok(file)
     }
 
+    /// Open the pinned leaf for in-place modification and keep it for the whole rewrite.
+    ///
+    /// Callers address the returned descriptor through `/dev/fd/N`, so every later open reaches the
+    /// same inode even if the name is swapped for a symlink or another file meanwhile.
+    ///
+    /// # Errors
+    /// Rejects replaced inputs and failed opens.
+    pub fn open_for_write(&self) -> Result<OwnedFd> {
+        let file = openat(
+            &*self.parent,
+            self.leaf_name.as_str(),
+            OFlags::RDWR | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::empty(),
+        )
+        .map_err(|_| UnsafeFixTarget("cannot open pinned input for writing".to_owned()))?;
+        let stat =
+            fstat(&file).map_err(|_| UnsafeFixTarget("cannot inspect pinned input".to_owned()))?;
+        if !is_regular(&stat)
+            || (
+                i128::from(stat.st_dev),
+                i128::from(stat.st_ino),
+                ctime_ns(&stat),
+            ) != self.identity
+        {
+            return unsafe_target("input identity changed before writing");
+        }
+        Ok(file)
+    }
+
     /// Pin a library-relative leaf without following symlinks in any path component.
     ///
     /// # Errors
@@ -991,5 +1020,28 @@ mod tests {
         let dir = dir_with(&[]);
         let error = message(FdFixTarget::for_path(&dir.path().join("a.mp4")));
         assert_eq!(error, "could not safely open fix leaf");
+    }
+
+    #[test]
+    fn the_write_descriptor_keeps_reaching_the_pinned_inode_after_the_name_is_swapped() {
+        use std::io::Write;
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("movie.mp4");
+        std::fs::write(&path, "abc").unwrap();
+        let target = FdFixTarget::for_path(&path).unwrap();
+        let pinned = target.open_for_write().unwrap();
+        let moved = directory.path().join("moved.mp4");
+        std::fs::rename(&path, &moved).unwrap();
+        std::fs::write(&path, "zzz").unwrap();
+        let through = format!("/dev/fd/{}", pinned.as_raw_fd());
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(through)
+            .unwrap()
+            .write_all(b"X")
+            .unwrap();
+        assert_eq!(std::fs::read_to_string(&moved).unwrap(), "Xbc");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "zzz");
+        assert!(target.open_for_write().is_err());
     }
 }

@@ -175,26 +175,6 @@ export function summarizeInspection(result: Record<string, unknown>): Inspection
   };
 }
 
-/**
- * Give refreshed rows the ids their files already had. The server issues a new id for the same
- * file in every response, so without this a refresh would drop the selection and the open file.
- * A file is recognised by its display path; a path that is missing or not unique is left alone.
- */
-export function stabilizeIds<T extends { id: string; display_path?: string | undefined }>(fresh: T[], previous: T[]): T[] {
-  const count = (rows: T[]) => {
-    const seen = new Map<string, number>();
-    for (const row of rows) if (row.display_path) seen.set(row.display_path, (seen.get(row.display_path) ?? 0) + 1);
-    return seen;
-  };
-  const before = count(previous);
-  const after = count(fresh);
-  const ids = new Map(previous.filter((row) => row.display_path && before.get(row.display_path) === 1).map((row) => [row.display_path as string, row.id]));
-  return fresh.map((row) => {
-    const known = row.display_path && after.get(row.display_path) === 1 ? ids.get(row.display_path) : undefined;
-    return known === undefined ? row : { ...row, id: known };
-  });
-}
-
 /** The reason the manager records after a successful fix, which describes the old bytes no longer. */
 export function wasJustFixed(file: { compliance_state: string; compliance_reasons?: string[] | undefined }): boolean {
   return file.compliance_state === "unknown" && (file.compliance_reasons ?? [])[0]?.startsWith("Fixed by atvprep") === true;

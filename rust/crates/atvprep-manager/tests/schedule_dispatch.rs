@@ -38,7 +38,8 @@ fn a_failed_queue_insert_does_not_consume_the_slot() {
         clock: &clock,
     };
     conn.raw().execute_batch("CREATE TRIGGER refuse_schedule BEFORE INSERT ON jobs BEGIN SELECT RAISE(ABORT,'queue unavailable'); END;").unwrap();
-    assert!(run_due_schedules(ctx).is_err());
+    // The failure is contained to that schedule: the pass succeeds, nothing ran, the slot stays open.
+    assert_eq!(run_due_schedules(ctx).unwrap(), 0);
     assert_eq!(
         conn.raw()
             .query_row("SELECT last_slot_at FROM schedules WHERE id=1", [], |row| {
@@ -52,6 +53,26 @@ fn a_failed_queue_insert_does_not_consume_the_slot() {
         .unwrap();
     assert_eq!(run_due_schedules(ctx).unwrap(), 1);
     assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+}
+#[test]
+fn a_failing_or_corrupt_schedule_does_not_block_the_ones_after_it() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    // Schedule 1 (the seeded one) sorts first and is made to fail; 2 is corrupt; 3 is healthy.
+    let time: String = conn
+        .raw()
+        .query_row("SELECT time_of_day FROM schedules WHERE id=1", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    conn.raw().execute("INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,max_files,enabled,armed_at) VALUES(2,'bad','verify',1,127,'not-a-time',1,1,'2000-01-01'),(3,'good','verify',1,127,?1,1,1,'2000-01-01')",[time]).unwrap();
+    conn.raw().execute_batch("CREATE TRIGGER refuse_first BEFORE UPDATE OF last_slot_at ON schedules WHEN NEW.id=1 BEGIN SELECT RAISE(ABORT,'first refused'); END;").unwrap();
+    assert_eq!(run_due_schedules(ctx).unwrap(), 1);
 }
 #[test]
 fn competing_dispatchers_claim_each_slot_once() {

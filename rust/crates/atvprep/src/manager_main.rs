@@ -204,17 +204,22 @@ fn start(config_path: Option<&Path>, web_dist: Option<PathBuf>) -> Result<(), &'
     })
     .ensure_configured(&config.library_roots)
     .map_err(|_| "cannot register libraries")?;
-    let web_dist = web_dist
-        .or_else(|| {
-            std::env::current_exe()
-                .ok()
-                .and_then(|path| path.parent().map(|parent| parent.join("web_dist")))
-        })
-        .ok_or("cannot resolve frontend directory")?;
+    // An explicit directory wins, then a `web_dist` next to the executable, then the frontend
+    // compiled into the binary.
+    let beside_executable = std::env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(|parent| parent.join("web_dist")));
+    let web_dist = web_dist.or_else(|| {
+        beside_executable
+            .clone()
+            .filter(|path| path.is_dir() || !atvprep_api::spa::embedded_available())
+    });
     let bind = (config.bind_host.clone(), config.bind_port);
-    let state = AppState::new(db, config)
-        .map_err(|_| "invalid security configuration")?
-        .with_web_dist(web_dist);
+    let mut state = AppState::new(db, config).map_err(|_| "invalid security configuration")?;
+    state = match web_dist {
+        Some(directory) => state.with_web_dist(directory),
+        None => state.with_embedded_web(),
+    };
     let worker = start_worker(&state)?;
     let worker_probe = worker.clone();
     let database = state.db.clone();

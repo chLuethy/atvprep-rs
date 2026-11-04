@@ -71,67 +71,96 @@ pub fn execute_claimed(
             "parent job no longer accepts execution".to_owned(),
         ));
     }
-    let (root, relative): (String, String) = crate::db::retry_busy(|| {
-        Ok(ctx.conn.query_row("SELECT r.canonical_path,m.relative_path FROM media_files m JOIN library_roots r ON r.id=m.root_id WHERE m.id=?1 AND m.discovery_state='present'",[item.media_file_id],|row|Ok((row.get(0)?,row.get(1)?)))?)
-    })?;
-    let target = atvprep_core::fd_fix_contract::FdFixTarget::from_library(
-        std::path::Path::new(&root),
-        &relative,
-    )
-    .map_err(|_| Error::Invalid("cannot safely open verification input".to_owned()))?;
-    let recorded = crate::db::retry_busy(|| InputSnapshots(ctx).get_for_item(item_id))?
-        .ok_or_else(|| Error::Invalid("verification has no recorded input".to_owned()))?;
-    let recorded = InputSnapshot::from_json(&recorded)?;
-    if target.identity()
-        != (
-            i128::from(recorded.file_device),
-            i128::from(recorded.file_inode),
-            i128::from(recorded.file_ctime_ns),
-        )
-    {
-        return Err(Error::Invalid("verification input changed".to_owned()));
-    }
-    let changing = matches!(item.action.as_str(), "fix" | "convert");
-    if changing {
-        let verifier = config
-            .approvals
-            .as_ref()
-            .ok_or_else(|| Error::Invalid("manual approvals are not configured".to_owned()))?;
-        let current = super::scanner::observe(
+    // Everything that decides whether this input may still run happens before any permit is taken. A
+    // definite "no" (file gone or changed, approval stale) ends the item at once instead of leaving it
+    // claimed until its lease runs out and recovery queues the same doomed work again.
+    let checked = (|| -> Result<_> {
+        let (root, relative): (String, String) = crate::db::retry_busy(|| {
+            Ok(ctx.conn.query_row("SELECT r.canonical_path,m.relative_path FROM media_files m JOIN library_roots r ON r.id=m.root_id WHERE m.id=?1 AND m.discovery_state='present'",[item.media_file_id],|row|Ok((row.get(0)?,row.get(1)?)))?)
+        })?;
+        let target = atvprep_core::fd_fix_contract::FdFixTarget::from_library(
             std::path::Path::new(&root),
             &relative,
-            0,
-            ctx.clock.now_micros(),
-        )?;
-        let sidecar_fingerprint = current
-            .sidecars
-            .iter()
-            .map(|sidecar| {
-                format!(
-                    "{}:{}",
-                    sidecar.relative_path,
-                    super::scanner::fingerprint(sidecar.size, sidecar.mtime_ns)
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("|");
-        let identity = [
-            serde_json::json!(current.meta.scanned_device),
-            serde_json::json!(current.meta.scanned_inode),
-            serde_json::json!(current.meta.scanned_ctime_ns),
-            serde_json::json!(sidecar_fingerprint),
-        ];
-        super::manual_policy::authorize_prepare(
-            ctx,
-            item_id,
-            verifier,
-            &identity,
-            config.session_idle_seconds,
-        )?;
-        target
-            .revalidate()
-            .map_err(|_| Error::Invalid("approved input changed before execution".to_owned()))?;
-    }
+        )
+        .map_err(|_| Error::Invalid("cannot safely open verification input".to_owned()))?;
+        let recorded = crate::db::retry_busy(|| InputSnapshots(ctx).get_for_item(item_id))?
+            .ok_or_else(|| Error::Invalid("verification has no recorded input".to_owned()))?;
+        let recorded = InputSnapshot::from_json(&recorded)?;
+        if target.identity()
+            != (
+                i128::from(recorded.file_device),
+                i128::from(recorded.file_inode),
+                i128::from(recorded.file_ctime_ns),
+            )
+        {
+            return Err(Error::Invalid("verification input changed".to_owned()));
+        }
+        let changing = matches!(item.action.as_str(), "fix" | "convert");
+        if changing {
+            let verifier = config
+                .approvals
+                .as_ref()
+                .ok_or_else(|| Error::Invalid("manual approvals are not configured".to_owned()))?;
+            let current = super::scanner::observe(
+                std::path::Path::new(&root),
+                &relative,
+                0,
+                ctx.clock.now_micros(),
+            )?;
+            let sidecar_fingerprint = current
+                .sidecars
+                .iter()
+                .map(|sidecar| {
+                    format!(
+                        "{}:{}",
+                        sidecar.relative_path,
+                        super::scanner::fingerprint(sidecar.size, sidecar.mtime_ns)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("|");
+            let identity = [
+                serde_json::json!(current.meta.scanned_device),
+                serde_json::json!(current.meta.scanned_inode),
+                serde_json::json!(current.meta.scanned_ctime_ns),
+                serde_json::json!(sidecar_fingerprint),
+            ];
+            // An approval that does not hold right now (revoked session, idle timeout) may hold again:
+            // it is reported as a conflict, so the claim stays and is not ended as stale input.
+            super::manual_policy::authorize_prepare(
+                ctx,
+                item_id,
+                verifier,
+                &identity,
+                config.session_idle_seconds,
+            )
+            .map_err(|error| Error::Conflict(error.to_string()))?;
+            target.revalidate().map_err(|_| {
+                Error::Invalid("approved input changed before execution".to_owned())
+            })?;
+        }
+        Ok((root, relative, target, recorded, changing))
+    })();
+    let (root, relative, target, recorded, changing) = match checked {
+        Ok(checked) => checked,
+        Err(error) => {
+            if !matches!(error, Error::Conflict(_))
+                && authority(ctx, item_id, owner, fence).unwrap_or(false)
+                && JobStateMachine(ctx)
+                    .transition_item(
+                        item_id,
+                        "stale_input",
+                        item.status_version,
+                        Some(fence),
+                        Some(&serde_json::json!({"error": error.to_string()})),
+                    )
+                    .is_ok()
+            {
+                let _ = super::recovery::Recovery(ctx).reconcile_idle_jobs();
+            }
+            return Err(error);
+        }
+    };
     let gate = DeploymentGate(ctx);
     let permit = gate.acquire_permit("job", owner)?.ok_or_else(|| {
         Error::Conflict("maintenance: new work is not accepted right now".to_owned())
@@ -234,12 +263,12 @@ pub fn execute_claimed(
             target
                 .revalidate()
                 .map_err(|_| Error::Invalid("input changed during inspection".to_owned()))?;
-            if process.output.len() > 56 * 1024 {
+            if process.stdout.len() > 56 * 1024 {
                 return Err(Error::Invalid(
                     "inspection report exceeds supported size".to_owned(),
                 ));
             }
-            let document: serde_json::Value = serde_json::from_slice(&process.output)
+            let document: serde_json::Value = serde_json::from_slice(&process.stdout)
                 .map_err(|_| Error::Invalid("inspection returned an invalid report".to_owned()))?;
             let report = if item.action == "verify" {
                 document
@@ -285,6 +314,9 @@ pub fn execute_claimed(
                 ctx, &item, &target, &root, &relative, owner, fence, &process,
             )?;
         }
+        // A verify that reported violations (exit 1) still produced a valid report: the check ran.
+        let verified_with_findings =
+            item.action == "verify" && !changing && process.exit_code == Some(1);
         let fresh = Jobs(ctx)
             .get_item(item_id)?
             .ok_or_else(|| Error::Invalid("job item not found".to_owned()))?;
@@ -292,7 +324,9 @@ pub fn execute_claimed(
             "interrupted"
         } else if process.reason == StopReason::Cancelled {
             "cancelled"
-        } else if process.reason == StopReason::Exited && process.exit_code == Some(0) {
+        } else if process.reason == StopReason::Exited
+            && (process.exit_code == Some(0) || verified_with_findings)
+        {
             "succeeded"
         } else {
             "failed"
@@ -314,7 +348,9 @@ pub fn execute_claimed(
         let code = match process.reason {
             StopReason::TimedOut => Some("timeout"),
             StopReason::Cancelled => Some("cancelled"),
-            StopReason::Exited if process.exit_code != Some(0) => Some("verification_failed"),
+            StopReason::Exited if process.exit_code != Some(0) && !verified_with_findings => {
+                Some("verification_failed")
+            }
             StopReason::Exited => None,
         };
         let changed=ctx.conn.execute("UPDATE job_items SET exit_code=?1,error_code=?2 WHERE id=?3 AND executor_fencing_token=?4 AND lease_expires_at>?5 AND EXISTS(SELECT 1 FROM media_executor_leases WHERE id=1 AND fencing_token=?4 AND lease_expires_at>?5)",rusqlite::params![process.exit_code,code,item_id,fence,ctx.clock.now()])?;
@@ -332,20 +368,25 @@ pub fn execute_claimed(
             Ok(process)
         }
         Err(error) => {
-            if authority(ctx, item_id, owner, fence).unwrap_or(false)
-                && let Ok(Some(fresh)) = Jobs(ctx).get_item(item_id)
-                && fresh.status == "running"
-            {
-                JobStateMachine(ctx).transition_item(
-                    item_id,
-                    "failed",
-                    fresh.status_version,
-                    Some(fence),
-                    None,
-                )?;
-                super::recovery::Recovery(ctx).reconcile_idle_jobs()?;
-            }
+            // The permit must go back whatever the cleanup does, or the gate never quiesces.
+            let cleanup = (|| -> Result<()> {
+                if authority(ctx, item_id, owner, fence).unwrap_or(false)
+                    && let Ok(Some(fresh)) = Jobs(ctx).get_item(item_id)
+                    && fresh.status == "running"
+                {
+                    JobStateMachine(ctx).transition_item(
+                        item_id,
+                        "failed",
+                        fresh.status_version,
+                        Some(fence),
+                        None,
+                    )?;
+                    super::recovery::Recovery(ctx).reconcile_idle_jobs()?;
+                }
+                Ok(())
+            })();
             gate.release_permit(&permit)?;
+            cleanup?;
             Err(error)
         }
     }

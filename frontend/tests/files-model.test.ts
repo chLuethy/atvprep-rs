@@ -8,7 +8,6 @@ import {
   isFixable,
   languageName,
   parseReason,
-  stabilizeIds,
   summarizeInspection,
   verdictOf,
 } from "../src/features/files/model";
@@ -161,24 +160,6 @@ describe("summarizeInspection", () => {
   });
 });
 
-
-describe("stabilizeIds", () => {
-  const row = (id: string, path: string | undefined) => ({ id, display_path: path });
-
-  it("keeps the id a file already had, because the server issues a new one with every response", () => {
-    const previous = [row("old_a", "Film/A.mp4"), row("old_b", "Film/B.mp4")];
-    const fresh = [row("new_b", "Film/B.mp4"), row("new_c", "Film/C.mp4"), row("new_a", "Film/A.mp4")];
-
-    expect(stabilizeIds(fresh, previous).map((item) => item.id)).toEqual(["old_b", "new_c", "old_a"]);
-  });
-
-  it("leaves ids alone when a path is not unique or unknown, since it cannot tell the files apart", () => {
-    const previous = [row("old_1", "Film/Same.mp4"), row("old_2", "Film/Same.mp4"), row("old_3", undefined)];
-    const fresh = [row("new_1", "Film/Same.mp4"), row("new_2", undefined)];
-
-    expect(stabilizeIds(fresh, previous).map((item) => item.id)).toEqual(["new_1", "new_2"]);
-  });
-});
 
 describe("pending subtitle files and fixability", () => {
   const clean = { discovery_state: "present", compliance_state: "clean", desired_action: "none" };

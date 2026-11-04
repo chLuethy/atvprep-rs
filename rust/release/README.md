@@ -20,7 +20,7 @@ docker buildx build --platform linux/arm64 --file rust/release/Dockerfile --targ
 ./rust/release/container_smoke.sh atvprep-rust:test /private/tmp/atvprep-container-smoke
 ```
 
-The image contains the Rust multicall binary, the unchanged SPA, ffmpeg/ffprobe and Bento4.
+The image contains the Rust multicall binary (which embeds the SPA; the image also carries a copy under `/usr/share/atvprep/web_dist`), ffmpeg/ffprobe and Bento4.
 Python and uv are absent. Run it as the owner of private `/config` and `/state` mounts, and
 mount the library at `/media`. Adapt `config.toml`, supply a private master-token file, and
 configure the actual HTTPS origin. Keep existing services and databases separate.
