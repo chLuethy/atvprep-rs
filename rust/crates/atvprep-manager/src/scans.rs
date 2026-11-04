@@ -103,6 +103,21 @@ impl Scans<'_> {
         self.require(self.0.conn.last_insert_rowid())
     }
 
+    /// End a scan run that can no longer finish normally (superseded, lease lost, refused) as
+    /// `interrupted`, whatever its authority. A no-op once it has ended.
+    ///
+    /// # Errors
+    ///
+    /// SQLite fails.
+    pub fn abandon(&self, scan_id: i64) -> Result<()> {
+        self.0.conn.execute(
+            "UPDATE scan_runs SET status='interrupted', finished_at=?1
+             WHERE id=?2 AND status IN ('queued','claimed','running')",
+            rusqlite::params![self.0.clock.now(), scan_id],
+        )?;
+        Ok(())
+    }
+
     /// Whether `scan_id` is the newest scan of the root and, for a claimed scan, still
     /// holds its lease.
     ///

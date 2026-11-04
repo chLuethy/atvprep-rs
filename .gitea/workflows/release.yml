@@ -1,4 +1,4 @@
-name: Verify and publish release
+name: Build, verify and publish release
 on:
   workflow_dispatch:
     inputs:
@@ -23,14 +23,13 @@ jobs:
           if [ "$(id -u)" -eq 0 ]; then SUDO=(); else SUDO=(sudo); fi
           "${SUDO[@]}" apt-get update
           "${SUDO[@]}" apt-get install -y jq binutils openssh-client qemu-user-static
-      - name: Verify committed release
+      - name: Check the signed manifest inputs and version
         shell: bash
         env:
-          RELEASE_TRUSTED_KEY: ${{ secrets.RELEASE_TRUSTED_KEY }}
           RESUME_VERIFIED_DRAFT: ${{ inputs.resume_verified_draft }}
         run: |
           set -euo pipefail
-          for file in release/release.json release/release.json.sig release/release.pub release/atvprep-linux-x86_64 release/atvprep-linux-aarch64; do
+          for file in release/release.json release/release.json.sig release/release.pub; do
             git ls-files --error-unmatch "$file" >/dev/null
           done
           version=$(jq -er '.version' release/release.json)
@@ -40,11 +39,30 @@ jobs:
             test "$GITHUB_REF" = "refs/tags/v$version"
           elif [ "$RESUME_VERIFIED_DRAFT" = 'true' ]; then
             git fetch origin "refs/tags/v$version:refs/tags/v$version"
-            for file in release/release.json release/release.json.sig release/release.pub release/atvprep-linux-x86_64 release/atvprep-linux-aarch64; do
+            for file in release/release.json release/release.json.sig release/release.pub; do
               test "$(git rev-parse "v$version:$file")" = "$(git hash-object "$file")"
             done
           fi
-          RELEASE_VERSION="$version" ./scripts/check-release.sh
+      - name: Build the binaries from the tagged source
+        shell: bash
+        run: |
+          set -euo pipefail
+          builder="atvprep-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker buildx create --name "$builder" --driver docker-container
+          trap 'docker buildx rm "$builder"' EXIT
+          export BUILDX_BUILDER="$builder"
+          docker buildx inspect "$builder" --bootstrap
+          ./rust/release/build.sh "$RUNNER_TEMP/atvprep-release"
+          cp "$RUNNER_TEMP/atvprep-release/linux-x86_64/atvprep" release/atvprep-linux-x86_64
+          cp "$RUNNER_TEMP/atvprep-release/linux-aarch64/atvprep" release/atvprep-linux-aarch64
+          chmod +x release/atvprep-linux-x86_64 release/atvprep-linux-aarch64
+      - name: Verify the signed manifest against the built bytes
+        shell: bash
+        env:
+          RELEASE_TRUSTED_KEY: ${{ secrets.RELEASE_TRUSTED_KEY }}
+        run: |
+          set -euo pipefail
+          RELEASE_VERSION=$(jq -er '.version' release/release.json) ./scripts/check-release.sh
       - name: Publish verified bytes
         if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.resume_verified_draft == 'true')
         shell: bash

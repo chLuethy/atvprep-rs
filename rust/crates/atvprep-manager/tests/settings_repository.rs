@@ -117,7 +117,7 @@ fn values_must_have_the_right_type_and_range() {
         "setting must be int integer-compatible"
     );
     assert_eq!(
-        message("auto_transcode", json!(1)),
+        message("delete_original", json!(1)),
         "setting must be bool integer-compatible"
     );
     assert_eq!(
@@ -141,7 +141,7 @@ fn values_must_have_the_right_type_and_range() {
         (json!(["Extras", "extras", "Samples"]), "list")
     );
     assert_eq!(
-        s.set("auto_transcode", &json!(true), "o", None)
+        s.set("delete_original", &json!(true), "o", None)
             .unwrap()
             .value_type,
         "bool"
@@ -156,7 +156,7 @@ fn bulk_settings_share_one_global_revision_and_audit_revision() {
         .set_many(
             &[
                 ("scan_interval_seconds", json!(600)),
-                ("auto_transcode", json!(true)),
+                ("delete_original", json!(true)),
             ],
             "operator",
             Some(0),
@@ -165,7 +165,7 @@ fn bulk_settings_share_one_global_revision_and_audit_revision() {
     assert_eq!(rows.iter().map(|r| r.revision).collect::<Vec<_>>(), [1, 1]);
     let audits = [
         s.audit("scan_interval_seconds").unwrap(),
-        s.audit("auto_transcode").unwrap(),
+        s.audit("delete_original").unwrap(),
     ];
     assert!(audits.iter().all(|a| a.len() == 1 && a[0].revision == 1));
     assert_eq!(s.current_revision().unwrap(), 1);
@@ -182,7 +182,7 @@ fn bulk_updates_are_validated_before_anything_is_written() {
     let bad = s
         .set_many(
             &[
-                ("auto_transcode", json!(true)),
+                ("delete_original", json!(true)),
                 ("max_probe_workers", json!(99)),
             ],
             "o",

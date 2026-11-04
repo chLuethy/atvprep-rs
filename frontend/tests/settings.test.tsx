@@ -10,8 +10,6 @@ const response = (data: unknown, status = 200) => new Response(JSON.stringify({ 
 const settingsResponse = (revision = 7, settings: Setting[] = [
   { key: "scan_interval_seconds", value: 60, revision },
   { key: "settle_seconds", value: 120, revision },
-  { key: "auto_check_new_files", value: true, revision },
-  { key: "auto_recheck_new_subtitles", value: false, revision },
   { key: "max_ffmpeg_workers", value: 4, revision },
   { key: "max_probe_workers", value: 2, revision },
   { key: "event_retention_days", value: 30, revision },
@@ -29,7 +27,6 @@ describe("audited runtime settings UI", () => {
     const view = render(() => <SettingsPage api={api} />);
     expect(await view.findByRole("heading", { name: "Runtime settings" })).toBeInTheDocument();
     expect(await view.findByLabelText("Scan interval (seconds)")).toHaveValue(60);
-    expect(view.getByLabelText("Check new files automatically")).toBeChecked();
     expect(view.getByLabelText("Parallel conversions")).toHaveValue(4);
     expect(view.getByText("Revision 7")).toBeInTheDocument();
     expect(view.getByText(/operator/)).toBeInTheDocument();
@@ -160,7 +157,6 @@ describe("audited runtime settings UI", () => {
     await view.findByLabelText("Scan interval (seconds)");
 
     expect(within(view.getByRole("region", { name: "Library scan" })).getByLabelText("Scan interval (seconds)")).toBeInTheDocument();
-    expect(within(view.getByRole("region", { name: "Automation" })).getByLabelText("Check new files automatically")).toBeInTheDocument();
     expect(within(view.getByRole("region", { name: "Automation" })).getByLabelText("Parallel conversions")).toBeInTheDocument();
     expect(within(view.getByRole("region", { name: "Retention" })).getByLabelText("Keep events for (days)")).toBeInTheDocument();
     expect(within(view.getByRole("region", { name: "Other" })).getByLabelText("Server version")).toBeDisabled();
@@ -168,13 +164,10 @@ describe("audited runtime settings UI", () => {
 
   it("offers no switch that changes files: fixing, converting and deleting are never automatic", async () => {
     const api = apiFor((path) => path === "/settings" ? settingsResponse(7, [
-      { key: "auto_check_new_files", value: true, revision: 7, default_value: true } as Setting,
-      { key: "auto_fix_mp4", value: true, revision: 7, default_value: false } as Setting,
-      { key: "auto_transcode", value: true, revision: 7, default_value: false } as Setting,
       { key: "delete_original", value: true, revision: 7, default_value: false } as Setting,
     ]) : response([]));
     const view = render(() => <SettingsPage api={api} />);
-    await view.findByLabelText("Check new files automatically");
+    await view.findByRole("region", { name: "Other" });
 
     for (const label of ["Automatically fix MP4 files", "Apply new subtitle files automatically", "Convert automatically", "Delete the original after preparing"]) {
       expect(view.queryByLabelText(label)).toBeNull();
@@ -221,14 +214,12 @@ describe("settings: keyboard", () => {
   it("says what a setting does, its limits and whether it was changed, without revision jargon", async () => {
     const api = apiFor((path) => path === "/settings" ? settingsResponse(7, [
       { key: "settle_seconds", value: 120, revision: 7, default_value: 60, source: "db_override", last_changed_revision: 5, effective_revision: 7 } as Setting,
-      { key: "auto_check_new_files", value: false, revision: 7, default_value: false, source: "default" } as Setting,
     ]) : response([]));
     const view = render(() => <SettingsPage api={api} />);
     const wait = (await view.findByLabelText("Wait after last change (seconds)")).closest(".setting") as HTMLElement;
 
     expect(wait).toHaveTextContent(/still being copied or imported/);
     expect(wait).toHaveTextContent("Allowed: 0 to 86400. Default: 60. Changed from the default.");
-    expect(view.getByLabelText("Check new files automatically").closest(".setting")).toHaveTextContent("Default: off.");
     expect(wait).not.toHaveTextContent(/revision|source/i);
   });
 });

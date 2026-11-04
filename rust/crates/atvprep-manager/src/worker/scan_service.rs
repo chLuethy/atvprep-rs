@@ -79,11 +79,18 @@ pub fn run(
         }
         Ok(())
     };
-    check()?;
+    // A scan that stops before it starts would otherwise stay "running" and count as active work.
+    if let Err(error) = check() {
+        let _ = Scans(ctx).abandon(scan.id);
+        return Err(error);
+    }
     let gate = DeploymentGate(ctx);
-    let permit = gate
-        .acquire_permit("scan", owner)?
-        .ok_or_else(|| Error::Conflict("maintenance: scans are not accepted".to_owned()))?;
+    let Some(permit) = gate.acquire_permit("scan", owner)? else {
+        let _ = Scans(ctx).abandon(scan.id);
+        return Err(Error::Conflict(
+            "maintenance: scans are not accepted".to_owned(),
+        ));
+    };
     let result = (|| {
         let file = tempfile::tempfile()
             .map_err(|_| Error::Invalid("cannot buffer scan observations".to_owned()))?;
@@ -202,6 +209,9 @@ pub fn run(
             "failed"
         };
         let _ = crate::db::retry_busy(|| Scans(ctx).finish(scan.id, status, false));
+    } else if result.is_err() {
+        // Superseded by a newer scan or cut off from its lease: its own finish would be a no-op.
+        let _ = crate::db::retry_busy(|| Scans(ctx).abandon(scan.id));
     }
     let release = gate.release_permit(&permit);
     match result {

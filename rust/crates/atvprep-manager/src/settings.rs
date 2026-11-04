@@ -21,15 +21,10 @@ enum Rule {
     List,
 }
 
-const RULES: [(&str, Rule); 14] = [
+const RULES: [(&str, Rule); 9] = [
     ("scan_interval_seconds", Rule::Int(5, 86_400)),
     ("settle_seconds", Rule::Int(0, 86_400)),
-    ("auto_fix_mp4", Rule::Bool),
     ("delete_original", Rule::Bool),
-    ("auto_apply_new_sidecars", Rule::Bool),
-    ("auto_transcode", Rule::Bool),
-    ("auto_check_new_files", Rule::Bool),
-    ("auto_recheck_new_subtitles", Rule::Bool),
     ("max_ffmpeg_workers", Rule::Int(1, MAX_FFMPEG_WORKERS)),
     ("max_probe_workers", Rule::Int(1, MAX_PROBE_WORKERS)),
     ("event_retention_days", Rule::Int(1, MAX_RETENTION_DAYS)),
@@ -44,10 +39,7 @@ pub fn default_of(key: &str) -> Option<Value> {
     Some(match key {
         "scan_interval_seconds" => 3600.into(),
         "settle_seconds" => 120.into(),
-        "auto_fix_mp4" | "delete_original" | "auto_apply_new_sidecars" | "auto_transcode" => {
-            false.into()
-        }
-        "auto_check_new_files" | "auto_recheck_new_subtitles" => true.into(),
+        "delete_original" => false.into(),
         "max_ffmpeg_workers" => 1.into(),
         "max_probe_workers" => 2.into(),
         "event_retention_days" | "log_retention_days" | "job_retention_days" => 7.into(),

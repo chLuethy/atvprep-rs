@@ -19,9 +19,6 @@ pub struct ManagerConfig {
     pub allowed_origins: Vec<String>,
     pub scan_interval_seconds: u64,
     pub settle_seconds: u64,
-    pub auto_fix_mp4: bool,
-    pub auto_apply_new_sidecars: bool,
-    pub auto_transcode: bool,
     pub max_workers: u32,
     pub max_ffmpeg_workers: u32,
     pub max_probe_workers: u32,
@@ -58,9 +55,6 @@ impl Default for ManagerConfig {
             allowed_origins: Vec::new(),
             scan_interval_seconds: 3600,
             settle_seconds: 120,
-            auto_fix_mp4: false,
-            auto_apply_new_sidecars: false,
-            auto_transcode: false,
             max_workers: 1,
             max_ffmpeg_workers: 1,
             max_probe_workers: 2,
@@ -154,9 +148,6 @@ struct Library {
 struct Automation {
     scan_interval_seconds: Option<u64>,
     settle_seconds: Option<u64>,
-    auto_fix_mp4: Option<Bool>,
-    auto_apply_new_sidecars: Option<Bool>,
-    auto_transcode: Option<Bool>,
     max_workers: Option<u32>,
     max_ffmpeg_workers: Option<u32>,
     max_probe_workers: Option<u32>,
@@ -294,15 +285,6 @@ pub fn load_config(path: Option<&Path>) -> Result<ManagerConfig, ConfigError> {
     }
     if let Some(value) = input.automation.settle_seconds {
         cfg.settle_seconds = value;
-    }
-    if let Some(value) = input.automation.auto_fix_mp4 {
-        cfg.auto_fix_mp4 = value.0;
-    }
-    if let Some(value) = input.automation.auto_apply_new_sidecars {
-        cfg.auto_apply_new_sidecars = value.0;
-    }
-    if let Some(value) = input.automation.auto_transcode {
-        cfg.auto_transcode = value.0;
     }
     if let Some(value) = input
         .automation

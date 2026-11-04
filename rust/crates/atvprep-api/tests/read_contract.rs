@@ -167,7 +167,7 @@ fn fixture_request(name: &str, path: String, tokens: &FixtureTokens<'_>) -> Requ
             ))
     } else if name == "settings_patch" {
         Request::patch(path).header("x-csrf-token",tokens.settings_patch).header("idempotency-key",name).header("content-type","application/json")
-            .body(Body::from(r#"{"settings":{"scan_interval_seconds":600,"auto_transcode":true},"expected_revision":1}"#))
+            .body(Body::from(r#"{"settings":{"scan_interval_seconds":600,"delete_original":true},"expected_revision":1}"#))
     } else if name == "settings_put" {
         Request::put(path).header("x-csrf-token",tokens.settings_put).header("idempotency-key",name).header("content-type","application/json")
             .body(Body::from(r#"{"value":4,"expected_revision":2}"#))

@@ -24,12 +24,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-const KEYS: [&str; 14] = [
-    "auto_apply_new_sidecars",
-    "auto_check_new_files",
-    "auto_fix_mp4",
-    "auto_recheck_new_subtitles",
-    "auto_transcode",
+const KEYS: [&str; 9] = [
     "delete_original",
     "event_retention_days",
     "job_retention_days",

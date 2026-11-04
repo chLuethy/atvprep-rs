@@ -18,9 +18,6 @@ session_cookie_secure = true
 [automation]
 scan_interval_seconds = 3600
 settle_seconds = 120
-auto_fix_mp4 = false
-auto_apply_new_sidecars = false
-auto_transcode = false
 max_ffmpeg_workers = 1
 max_probe_workers = 2
 

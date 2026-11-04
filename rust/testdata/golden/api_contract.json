@@ -633,51 +633,6 @@
                     {
                       "default_value": false,
                       "effective_revision": 1,
-                      "key": "auto_apply_new_sidecars",
-                      "last_changed_revision": null,
-                      "revision": 0,
-                      "source": "default",
-                      "value": false
-                    },
-                    {
-                      "default_value": true,
-                      "effective_revision": 1,
-                      "key": "auto_check_new_files",
-                      "last_changed_revision": null,
-                      "revision": 0,
-                      "source": "default",
-                      "value": true
-                    },
-                    {
-                      "default_value": false,
-                      "effective_revision": 1,
-                      "key": "auto_fix_mp4",
-                      "last_changed_revision": null,
-                      "revision": 0,
-                      "source": "default",
-                      "value": false
-                    },
-                    {
-                      "default_value": true,
-                      "effective_revision": 1,
-                      "key": "auto_recheck_new_subtitles",
-                      "last_changed_revision": null,
-                      "revision": 0,
-                      "source": "default",
-                      "value": true
-                    },
-                    {
-                      "default_value": false,
-                      "effective_revision": 1,
-                      "key": "auto_transcode",
-                      "last_changed_revision": null,
-                      "revision": 0,
-                      "source": "default",
-                      "value": false
-                    },
-                    {
-                      "default_value": false,
-                      "effective_revision": 1,
                       "key": "delete_original",
                       "last_changed_revision": null,
                       "revision": 0,
@@ -1207,7 +1162,7 @@
           {
             "request": {
               "authenticated": true,
-              "body_json": "{\"settings\":{\"scan_interval_seconds\":600,\"auto_transcode\":true},\"expected_revision\":1}",
+              "body_json": "{\"settings\":{\"scan_interval_seconds\":600,\"delete_original\":true},\"expected_revision\":1}",
               "csrf_action": "settings",
               "idempotency_key": "settings_patch",
               "method": "PATCH",
@@ -1235,7 +1190,7 @@
                       "default_value": false,
                       "effective_revision": 2,
                       "guidance": "Editable runtime override; changes are audited and take effect without restart.",
-                      "key": "auto_transcode",
+                      "key": "delete_original",
                       "last_changed_revision": 2,
                       "read_only": false,
                       "restart_required": false,
@@ -1296,7 +1251,7 @@
                   },
                   {
                     "actor": "session:1",
-                    "key": "auto_transcode",
+                    "key": "delete_original",
                     "new_value": true,
                     "old_value": null,
                     "revision": 2

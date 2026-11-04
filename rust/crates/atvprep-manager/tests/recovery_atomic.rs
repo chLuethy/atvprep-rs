@@ -209,3 +209,31 @@ fn an_interrupted_item_of_a_cancelled_job_is_not_queued_again() {
         .unwrap();
     assert_eq!(retries, 0);
 }
+
+#[test]
+fn an_abandoned_scan_ends_as_interrupted_and_a_finished_one_is_left_alone() {
+    use atvprep_manager::scans::Scans;
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    conn.raw()
+        .execute_batch(
+            "INSERT INTO scan_runs(id,root_id,generation,trigger,status) VALUES(1,1,1,'scheduled','running'),(2,1,2,'scheduled','succeeded');",
+        )
+        .unwrap();
+    let clock = FixedClock(1_700_000_000_000_000);
+    let scans = Scans(Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    });
+    scans.abandon(1).unwrap();
+    scans.abandon(2).unwrap();
+    let status = |id: i64| -> String {
+        conn.raw()
+            .query_row("SELECT status FROM scan_runs WHERE id=?1", [id], |row| {
+                row.get(0)
+            })
+            .unwrap()
+    };
+    assert_eq!(status(1), "interrupted");
+    assert_eq!(status(2), "succeeded");
+}

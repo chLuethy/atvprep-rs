@@ -26,8 +26,6 @@ const DEFINITIONS: Record<string, Definition> = {
   scan_interval_seconds: { label: N("Scan interval (seconds)"), hint: N("How often the library is scanned for new and changed files."), kind: "number", min: 5, max: 86400 },
   settle_seconds: { label: N("Wait after last change (seconds)"), hint: N("A new or changed file is left alone for this long, so files still being copied or imported are not touched."), kind: "number", min: 0, max: 86400 },
   scan_exclude_dirs: { label: N("Folders the scan skips"), kind: "lines" },
-  auto_check_new_files: { label: N("Check new files automatically"), hint: N("Queue a check and an analysis for every new file after a library scan. Nothing is changed."), kind: "boolean" },
-  auto_recheck_new_subtitles: { label: N("Re-check when a subtitle track appears"), hint: N("Queue a new check when a file gains a subtitle track or a subtitle file appears next to it. Nothing is changed."), kind: "boolean" },
   max_ffmpeg_workers: { label: N("Parallel conversions"), hint: N("How many fixes and conversions run at once. More is faster but loads the server. Verify jobs are not counted."), kind: "number", min: 1, max: 32 },
   max_probe_workers: { label: N("Parallel checks"), hint: N("How many files are read at once by the scan and by Verify jobs. Fixes and conversions have their own limit."), kind: "number", min: 1, max: 32 },
   event_retention_days: { label: N("Keep events for (days)"), hint: N("How long events in the activity feed are kept."), kind: "number", min: 1, max: 365 },
@@ -38,7 +36,7 @@ const DEFINITIONS: Record<string, Definition> = {
 /** How settings are grouped on the page; anything not listed lands in "Other", read-only. */
 const GROUPS: ReadonlyArray<{ id: string; title: string; keys: readonly string[] }> = [
   { id: "scanning", title: N("Library scan"), keys: ["scan_interval_seconds", "settle_seconds", "max_probe_workers", "scan_exclude_dirs"] },
-  { id: "automation", title: N("Automation"), keys: ["auto_check_new_files", "auto_recheck_new_subtitles", "max_ffmpeg_workers"] },
+  { id: "automation", title: N("Automation"), keys: ["max_ffmpeg_workers"] },
   { id: "retention", title: N("Retention"), keys: ["event_retention_days", "log_retention_days", "job_retention_days"] },
 ];
 

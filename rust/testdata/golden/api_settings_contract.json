@@ -21,51 +21,6 @@
                     {
                       "default_value": false,
                       "effective_revision": 1,
-                      "key": "auto_apply_new_sidecars",
-                      "last_changed_revision": null,
-                      "revision": 0,
-                      "source": "default",
-                      "value": false
-                    },
-                    {
-                      "default_value": true,
-                      "effective_revision": 1,
-                      "key": "auto_check_new_files",
-                      "last_changed_revision": null,
-                      "revision": 0,
-                      "source": "default",
-                      "value": true
-                    },
-                    {
-                      "default_value": false,
-                      "effective_revision": 1,
-                      "key": "auto_fix_mp4",
-                      "last_changed_revision": null,
-                      "revision": 0,
-                      "source": "default",
-                      "value": false
-                    },
-                    {
-                      "default_value": true,
-                      "effective_revision": 1,
-                      "key": "auto_recheck_new_subtitles",
-                      "last_changed_revision": null,
-                      "revision": 0,
-                      "source": "default",
-                      "value": true
-                    },
-                    {
-                      "default_value": false,
-                      "effective_revision": 1,
-                      "key": "auto_transcode",
-                      "last_changed_revision": null,
-                      "revision": 0,
-                      "source": "default",
-                      "value": false
-                    },
-                    {
-                      "default_value": false,
-                      "effective_revision": 1,
                       "key": "delete_original",
                       "last_changed_revision": null,
                       "revision": 0,
@@ -687,7 +642,7 @@
               "idempotency_key": "invalid-12",
               "method": "PUT",
               "origin": "http://testserver",
-              "path": "/api/v1/settings/auto_transcode"
+              "path": "/api/v1/settings/delete_original"
             },
             "response": {
               "body": {
@@ -696,7 +651,7 @@
                   "code": "invalid_request",
                   "message": "setting must be bool integer-compatible"
                 },
-                "instance": "/api/v1/settings/auto_transcode",
+                "instance": "/api/v1/settings/delete_original",
                 "status": 422,
                 "title": "setting must be bool integer-compatible",
                 "type": "about:blank"
@@ -716,7 +671,7 @@
               "idempotency_key": "invalid-13",
               "method": "PUT",
               "origin": "http://testserver",
-              "path": "/api/v1/settings/auto_transcode"
+              "path": "/api/v1/settings/delete_original"
             },
             "response": {
               "body": {
@@ -725,7 +680,7 @@
                   "code": "invalid_request",
                   "message": "setting must be bool integer-compatible"
                 },
-                "instance": "/api/v1/settings/auto_transcode",
+                "instance": "/api/v1/settings/delete_original",
                 "status": 422,
                 "title": "setting must be bool integer-compatible",
                 "type": "about:blank"
@@ -1058,7 +1013,7 @@
           {
             "request": {
               "authenticated": true,
-              "body_json": "{\"settings\":{\"auto_transcode\":true,\"max_probe_workers\":0},\"expected_revision\":1}",
+              "body_json": "{\"settings\":{\"delete_original\":true,\"max_probe_workers\":0},\"expected_revision\":1}",
               "csrf_action": "settings",
               "csrf_alias": "invalid-patch",
               "idempotency_key": "invalid-patch",
@@ -1180,7 +1135,7 @@
           {
             "request": {
               "authenticated": true,
-              "body_json": "{\"settings\":{\"scan_interval_seconds\":600,\"auto_transcode\":true},\"expected_revision\":2}",
+              "body_json": "{\"settings\":{\"scan_interval_seconds\":600,\"delete_original\":true},\"expected_revision\":2}",
               "csrf_action": "settings",
               "csrf_alias": "patch",
               "idempotency_key": "patch",
@@ -1209,7 +1164,7 @@
                       "default_value": false,
                       "effective_revision": 3,
                       "guidance": "Editable runtime override; changes are audited and take effect without restart.",
-                      "key": "auto_transcode",
+                      "key": "delete_original",
                       "last_changed_revision": 3,
                       "read_only": false,
                       "restart_required": false,
@@ -1297,14 +1252,14 @@
               "authenticated": true,
               "method": "GET",
               "origin": "http://testserver",
-              "path": "/api/v1/settings/audit?key=auto_transcode"
+              "path": "/api/v1/settings/audit?key=delete_original"
             },
             "response": {
               "body": {
                 "data": [
                   {
                     "actor": "session:1",
-                    "key": "auto_transcode",
+                    "key": "delete_original",
                     "new_value": true,
                     "old_value": null,
                     "revision": 3
@@ -1410,59 +1365,14 @@
                     {
                       "default_value": false,
                       "effective_revision": 5,
-                      "key": "auto_apply_new_sidecars",
-                      "last_changed_revision": null,
-                      "revision": 0,
-                      "source": "default",
-                      "value": false
-                    },
-                    {
-                      "default_value": true,
-                      "effective_revision": 5,
-                      "key": "auto_check_new_files",
-                      "last_changed_revision": null,
-                      "revision": 0,
-                      "source": "default",
-                      "value": true
-                    },
-                    {
-                      "default_value": false,
-                      "effective_revision": 5,
-                      "key": "auto_fix_mp4",
-                      "last_changed_revision": null,
-                      "revision": 0,
-                      "source": "default",
-                      "value": false
-                    },
-                    {
-                      "default_value": true,
-                      "effective_revision": 5,
-                      "key": "auto_recheck_new_subtitles",
-                      "last_changed_revision": null,
-                      "revision": 0,
-                      "source": "default",
-                      "value": true
-                    },
-                    {
-                      "default_value": false,
-                      "effective_revision": 5,
                       "guidance": "Editable runtime override; changes are audited and take effect without restart.",
-                      "key": "auto_transcode",
+                      "key": "delete_original",
                       "last_changed_revision": 3,
                       "read_only": false,
                       "restart_required": false,
                       "revision": 3,
                       "source": "db_override",
                       "value": true
-                    },
-                    {
-                      "default_value": false,
-                      "effective_revision": 5,
-                      "key": "delete_original",
-                      "last_changed_revision": null,
-                      "revision": 0,
-                      "source": "default",
-                      "value": false
                     },
                     {
                       "default_value": 7,
@@ -1890,59 +1800,14 @@
                     {
                       "default_value": false,
                       "effective_revision": 6,
-                      "key": "auto_apply_new_sidecars",
-                      "last_changed_revision": null,
-                      "revision": 0,
-                      "source": "default",
-                      "value": false
-                    },
-                    {
-                      "default_value": true,
-                      "effective_revision": 6,
-                      "key": "auto_check_new_files",
-                      "last_changed_revision": null,
-                      "revision": 0,
-                      "source": "default",
-                      "value": true
-                    },
-                    {
-                      "default_value": false,
-                      "effective_revision": 6,
-                      "key": "auto_fix_mp4",
-                      "last_changed_revision": null,
-                      "revision": 0,
-                      "source": "default",
-                      "value": false
-                    },
-                    {
-                      "default_value": true,
-                      "effective_revision": 6,
-                      "key": "auto_recheck_new_subtitles",
-                      "last_changed_revision": null,
-                      "revision": 0,
-                      "source": "default",
-                      "value": true
-                    },
-                    {
-                      "default_value": false,
-                      "effective_revision": 6,
                       "guidance": "Editable runtime override; changes are audited and take effect without restart.",
-                      "key": "auto_transcode",
+                      "key": "delete_original",
                       "last_changed_revision": 3,
                       "read_only": false,
                       "restart_required": false,
                       "revision": 3,
                       "source": "db_override",
                       "value": true
-                    },
-                    {
-                      "default_value": false,
-                      "effective_revision": 6,
-                      "key": "delete_original",
-                      "last_changed_revision": null,
-                      "revision": 0,
-                      "source": "default",
-                      "value": false
                     },
                     {
                       "default_value": 7,

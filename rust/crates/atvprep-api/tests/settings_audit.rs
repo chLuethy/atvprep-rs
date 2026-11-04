@@ -12,7 +12,7 @@ async fn audit_pages_by_revision_and_filters_by_key() {
     let db = Db::memory().unwrap();
     let mut conn = db.conn().unwrap();
     schema::migrate(&mut conn).unwrap();
-    conn.raw().execute_batch("INSERT INTO runtime_settings(key,value_json,value_type,revision) VALUES('auto_transcode','true','bool',2),('max_probe_workers','4','int',3); INSERT INTO settings_audit(id,key,revision,actor,old_value_json,new_value_json) VALUES(1,'auto_transcode',2,'session:1','false','true'),(2,'max_probe_workers',2,'session:1','2','3'),(3,'max_probe_workers',3,'session:1','3','4');").unwrap();
+    conn.raw().execute_batch("INSERT INTO runtime_settings(key,value_json,value_type,revision) VALUES('delete_original','true','bool',2),('max_probe_workers','4','int',3); INSERT INTO settings_audit(id,key,revision,actor,old_value_json,new_value_json) VALUES(1,'delete_original',2,'session:1','false','true'),(2,'max_probe_workers',2,'session:1','2','3'),(3,'max_probe_workers',3,'session:1','3','4');").unwrap();
     let config = ManagerConfig {
         api_secret: Some("secret".to_owned()),
         allowed_origins: vec!["http://testserver".to_owned()],

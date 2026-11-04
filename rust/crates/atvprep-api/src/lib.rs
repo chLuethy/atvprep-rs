@@ -841,7 +841,7 @@ mod tests {
                 .body(axum::body::Body::from(body.to_string()))
                 .unwrap()
         };
-        let patch_body = serde_json::json!({"settings":{"scan_interval_seconds":600,"auto_transcode":true},"expected_revision":0});
+        let patch_body = serde_json::json!({"settings":{"scan_interval_seconds":600,"delete_original":true},"expected_revision":0});
         let response = app
             .clone()
             .oneshot(request(

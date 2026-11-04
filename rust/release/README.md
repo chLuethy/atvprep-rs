@@ -34,10 +34,11 @@ deletes its temporary master credential. It does not change any existing contain
 A production release still needs the platform evidence and operator decision described in
 [the deployment guide](../../DEPLOYMENT.md).
 
-The Gitea workflow verifies and publishes the prebuilt, signed files committed under [release/](../../release/README.md). A manual run verifies without publishing. Building and signing take place separately before the release commit.
+The Gitea workflow rebuilds the binaries from the tagged source with this Dockerfile, verifies them against the signed manifest and publishes them; see [release/](../../release/README.md). The build is deterministic so that its bytes equal the locally built and signed ones.
 
 Gitea's workflow token can upload private release attachments but cannot download the draft
 through the web attachment endpoint on this server. The workflow checks upload names and sizes
 through the API; an operator must independently download and compare the bytes before resuming
 an existing draft using the explicit `resume_verified_draft` manual input. That input also
-checks the committed artifacts against the existing version tag before publishing.
+checks the committed manifest, signature and key against the existing version tag and rebuilds
+the binaries before publishing.
