@@ -293,3 +293,49 @@ fn normalize_excluded_dirs_matches_the_python_oracle() {
         assert_eq!(got, case.expected, "{}", case.name);
     }
 }
+
+#[test]
+fn changing_delete_original_ends_the_approval_of_change_schedules_and_pauses_them() {
+    let f = Fixture::new();
+    f.conn.raw().execute_batch("INSERT INTO schedules(id,name,action,days_mask,time_of_day,max_files,enabled,approved_by,approved_at,approval_mac) VALUES
+        (1,'fix on','fix',127,'03:00',5,1,1,1700000000,'mac'),
+        (2,'convert on','convert',127,'03:00',5,1,1,1700000000,'mac'),
+        (3,'fix off','fix',127,'03:00',5,0,NULL,NULL,NULL);
+        INSERT INTO schedules(id,name,action,days_mask,time_of_day,enabled) VALUES (4,'verify','verify',127,'03:00',1),(5,'scan','scan',127,'03:00',1);").unwrap();
+    let state = || -> Vec<(i64, bool, bool)> {
+        let mut statement = f
+            .conn
+            .raw()
+            .prepare("SELECT id, enabled, approval_mac IS NOT NULL FROM schedules ORDER BY id")
+            .unwrap();
+        statement
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap()
+    };
+    let s = f.settings();
+    // Writing the value it already has changes nothing.
+    s.set("delete_original", &json!(false), "o", None).unwrap();
+    assert_eq!(
+        state(),
+        [
+            (1, true, true),
+            (2, true, true),
+            (3, false, false),
+            (4, true, false),
+            (5, true, false)
+        ]
+    );
+    s.set("delete_original", &json!(true), "o", None).unwrap();
+    assert_eq!(
+        state(),
+        [
+            (1, false, false),
+            (2, false, false),
+            (3, false, false),
+            (4, true, false),
+            (5, true, false)
+        ]
+    );
+}

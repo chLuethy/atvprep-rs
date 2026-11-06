@@ -298,6 +298,19 @@ impl Settings<'_> {
                 now
             ],
         )?;
+        if key == "delete_original"
+            && old.as_ref().map_or(false, |s| s.value == Value::Bool(true))
+                != (value == &Value::Bool(true))
+        {
+            // The signature of a fix/convert schedule binds the current value, so every such approval
+            // ends here, in the caller's transaction: the schedules show as paused instead of
+            // silently refusing their runs.
+            self.0.conn.execute(
+                "UPDATE schedules SET enabled=0, approved_by=NULL, approved_at=NULL, approval_mac=NULL
+                 WHERE action IN ('fix','convert') AND (enabled=1 OR approval_mac IS NOT NULL)",
+                [],
+            )?;
+        }
         self.get(key)?
             .ok_or_else(|| Error::NotFound(format!("setting {key}")))
     }
