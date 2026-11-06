@@ -11,3 +11,7 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 ### Domain docs
 
 Single-context: one `GLOSSARY.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### Sprache
+
+Alle vom Agenten verfassten Texte (Issues, Specs, Kommentare, PRs, Commit-Messages, Glossar, ADRs) sind auf Deutsch; Code, Bezeichner und Label-Namen bleiben englisch. Siehe `docs/agents/language.md`.
