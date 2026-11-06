@@ -125,6 +125,30 @@ export const deleteSchedule = (api: Api, id: string, key: string) => send(api, i
 export const runScheduleNow = (api: Api, id: string, key: string) => send(api, `${idPath(id)}/run`, "POST", key);
 
 /** What the server says about a cron expression someone is typing. */
+/** What the person is told before turning on a schedule that changes files, read fresh from the server. */
+export type EnableFacts = { matching: number; deleteOriginal: boolean | null };
+
+/** The schedule's current match count (capped by its run size) and the `delete_original` setting; null when the schedule cannot be read. */
+export async function loadEnableFacts(api: Api, id: string): Promise<EnableFacts | { session: true } | null> {
+  try {
+    const listed = await loadSchedules(api);
+    if (listed.kind === "session") return { session: true };
+    const found = listed.kind === "ok" ? listed.items.find((item) => item.id === id) : undefined;
+    if (!found) return null;
+    let deleteOriginal: boolean | null = null;
+    try {
+      const response = await api.request("/dashboard");
+      if (response.ok) deleteOriginal = ((await response.json()) as { data?: { delete_original?: boolean } }).data?.delete_original ?? null;
+    } catch (error) {
+      if (error instanceof SessionError) return { session: true };
+    }
+    const matching = found.matching ?? 0;
+    return { matching: found.max_files === null ? matching : Math.min(matching, found.max_files), deleteOriginal };
+  } catch {
+    return null;
+  }
+}
+
 export type CronPreview =
   | { kind: "ok"; description: string; nextRuns: string[] }
   | { kind: "invalid"; error: string }

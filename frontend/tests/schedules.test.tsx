@@ -185,6 +185,7 @@ describe("SchedulesPage", () => {
     await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Weekly fix" }));
     const question = await view.findByRole("region", { name: "Turn on Weekly fix" });
     expect(question).toHaveTextContent("up to 10");
+    expect(question).toHaveTextContent("Originals are kept");
     expect(patches).toEqual([]);
     await fireEvent.click(within(question).getByRole("button", { name: "Cancel" }));
     expect(patches).toEqual([]);
@@ -193,6 +194,36 @@ describe("SchedulesPage", () => {
     await fireEvent.click(view.getByRole("checkbox", { name: "Turn on Weekly fix" }));
     await fireEvent.click(within(await view.findByRole("region", { name: "Turn on Weekly fix" })).getByRole("button", { name: "Confirm turn on" }));
     await waitFor(() => expect(patches).toEqual([{ enabled: true, confirm_changes_files: true }]));
+  });
+
+  it("tells the current match count, capped by the run size, and that originals are deleted", async () => {
+    const state = makeApi(
+      [schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, compliance_state: null, max_files: 10, matching: 4 })],
+      {}, { deleteOriginal: true },
+    );
+    const view = render(() => <SchedulesPage api={state.api} />);
+    await view.findByText("Weekly fix");
+    state.set([schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, compliance_state: null, max_files: 10, matching: 37 })]);
+
+    await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Weekly fix" }));
+    const question = await view.findByRole("region", { name: "Turn on Weekly fix" });
+
+    expect(question).toHaveTextContent("10 files match now");
+    expect(question).toHaveTextContent("Originals are deleted");
+    expect(question).toHaveTextContent("approval applies to these settings only");
+  });
+
+  it("turns on a schedule that only checks or scans without any question", async () => {
+    const patches: unknown[] = [];
+    const state = makeApi(
+      [scanSchedule({ enabled: false, id: "sc_s" })],
+      { "PATCH /schedules/sc_s": (init) => { patches.push(JSON.parse(String(init?.body))); return json(scanSchedule()); } },
+      { deleteOriginal: true },
+    );
+    const view = render(() => <SchedulesPage api={state.api} />);
+    await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Nightly scan" }));
+    await waitFor(() => expect(patches).toEqual([{ enabled: true }]));
+    expect(view.queryByRole("region", { name: "Turn on Nightly scan" })).toBeNull();
   });
 
   it("pauses a schedule that changes files without asking", async () => {
