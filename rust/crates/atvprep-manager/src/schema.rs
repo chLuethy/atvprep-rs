@@ -5,15 +5,16 @@ use crate::{Error, Result};
 
 /// Migration stages in order; stage `n` takes a database from version `n - 1` to `n`.
 /// To extend: add `000N_name.sql`, append it here and raise [`VERSION`].
-const STAGES: [&str; 4] = [
+const STAGES: [&str; 5] = [
     include_str!("migrations/0001_base.sql"),
     include_str!("migrations/0002_cron.sql"),
     include_str!("migrations/0003_scan_action.sql"),
     include_str!("migrations/0004_schedule_runs.sql"),
+    include_str!("migrations/0005_schedule_approval.sql"),
 ];
 
 /// The version this build creates and understands.
-pub const VERSION: i64 = 4;
+pub const VERSION: i64 = 5;
 
 /// Every table of the current schema.
 pub const TABLES: [&str; 23] = [
@@ -279,6 +280,46 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn a_version_4_database_upgrades_to_5_and_keeps_its_schedule_runs() {
+        let db = Db::memory().unwrap();
+        let mut conn = db.conn().unwrap();
+        for stage in &STAGES[..4] {
+            conn.raw().execute_batch(stage).unwrap();
+        }
+        conn.raw().execute_batch("PRAGMA user_version = 4").unwrap();
+        exec(
+            &conn,
+            "INSERT INTO schedules(id, name, action, days_mask, time_of_day) VALUES (3, 's', 'verify', 1, '01:00')",
+        )
+        .unwrap();
+        exec(
+            &conn,
+            "INSERT INTO schedule_runs(id, schedule_id, slot, started_at, trigger, result, job_id) VALUES (11, 3, 'x', 'now', 'manual', 'done', 5)",
+        )
+        .unwrap();
+        migrate(&mut conn).unwrap();
+        assert_eq!(version(&conn).unwrap(), 5);
+        let run: String = conn
+            .raw()
+            .query_row(
+                "SELECT concat_ws('|', schedule_id, slot, trigger, result, job_id) FROM schedule_runs WHERE id=11",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(run, "3|x|manual|done|5");
+        let approval: (Option<i64>, Option<i64>, Option<String>) = conn
+            .raw()
+            .query_row(
+                "SELECT approved_by, approved_at, approval_mac FROM schedules WHERE id=3",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(approval, (None, None, None));
     }
 
     #[test]

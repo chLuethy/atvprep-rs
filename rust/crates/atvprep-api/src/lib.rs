@@ -816,7 +816,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn schedule_run_and_delete_are_idempotent_and_non_destructive() {
+    #[allow(clippy::too_many_lines)] // One walk through run, replay, legacy run and delete.
+    async fn schedule_run_and_delete_are_idempotent_and_an_unapproved_changing_run_queues_nothing()
+    {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
@@ -876,7 +878,8 @@ mod tests {
                 .await
                 .unwrap()
                 .status(),
-            StatusCode::CONFLICT
+            // An unapproved schedule that changes files runs "successfully" but queues nothing.
+            StatusCode::OK
         );
         let delete = || {
             request(
@@ -894,11 +897,17 @@ mod tests {
             app.oneshot(delete()).await.unwrap().status(),
             StatusCode::OK
         );
-        let history: i64 = conn
+        // Deleting removes the history; only the legacy schedule's "Not queued" run is left.
+        let mut stmt = conn
             .raw()
-            .query_row("SELECT count(*) FROM schedule_runs", [], |row| row.get(0))
+            .prepare("SELECT result FROM schedule_runs")
             .unwrap();
-        assert_eq!(history, 0, "deleting a schedule removes its history");
+        let history: Vec<String> = stmt
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert!(history.len() == 1 && history[0].starts_with("Not queued: "));
         let jobs: i64 = conn
             .raw()
             .query_row("SELECT count(*) FROM jobs", [], |row| row.get(0))
@@ -917,7 +926,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn schedule_updates_rearm_and_reject_legacy_destructive_actions() {
+    async fn schedule_updates_rearm_and_need_confirmation_to_turn_on_a_changing_action() {
         let mut state = state();
         state.clock = Arc::new(atvprep_manager::clock::FixedClock(1_700_000_000_000_000));
         let mut conn = state.db.conn().unwrap();

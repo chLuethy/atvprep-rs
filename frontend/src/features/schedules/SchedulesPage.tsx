@@ -6,7 +6,7 @@ import { formatDateTime } from "../../lib/time";
 import { loadRoots, type RootRow } from "../scan/loaders";
 import {
   createSchedule, deleteSchedule, loadSchedules, previewCron, runScheduleNow, setEnabled, updateSchedule,
-  isSchedulable, type Action, type Api, type CronPreview, type Schedule, type ScheduleInput,
+  changesFiles, type Action, type Api, type CronPreview, type Schedule, type ScheduleInput,
 } from "./loaders";
 import {
   actionName, CRON_EXAMPLES, DAYS, defaultState, describeLast, describeNext, describeResult,
@@ -18,13 +18,13 @@ import { ListToolbar } from "./ListToolbar";
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
 type Phase = "loading" | "ready" | "error" | "session";
 /** Which inline question a row is asking: turn on, run now, or delete. */
-type Asking = { id: string; kind: "delete" } | null;
+type Asking = { id: string; kind: "delete" | "enable" } | null;
 
 const blank = (): ScheduleInput => ({ name: "", action: "verify", rootId: null, complianceState: defaultState("verify"), days: [...WEEKDAYS], time: "03:00", cron: null, maxFiles: 25 });
 
 const problem = (detail: string | undefined, fallback: string) => (detail ? t("{fallback} The server said: {detail}.", { fallback, detail }) : fallback);
 
-/** Weekly timetables that verify the files that match a filter, or scan the libraries. */
+/** Timetables that verify, fix or convert the files that match a filter, or scan the libraries. */
 export const SchedulesPage: Component<{ api: Api }> = (props) => {
   const [rows, setRows] = createSignal<Schedule[]>([]);
   const [roots, setRoots] = createSignal<RootRow[]>([]);
@@ -133,13 +133,15 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
     if (!result.ok) { setFormError(result.session ? t(SESSION_EXPIRED) : problem(result.detail, t("Unable to save the schedule."))); return; }
     setEditing(null);
     setNotice(target.id === null
-      ? (isSchedulable(input.action) ? t("Schedule saved and on.") : t("Schedule saved. It is paused until you turn it on."))
-      : t("Schedule saved."));
+      ? (changesFiles(input.action) ? t("Schedule saved. It is paused until you turn it on.") : t("Schedule saved and on."))
+      : changesFiles(input.action) && result.schedule?.enabled === false
+        ? t("Schedule saved. It is paused until you turn it on again.")
+        : t("Schedule saved."));
     await load();
     queueMicrotask(() => newButton?.focus());
   };
 
-  const ask = (id: string, kind: "delete") => { fresh(); setRowError(null); setNotice(null); setAsking({ id, kind }); };
+  const ask = (id: string, kind: "delete" | "enable") => { fresh(); setRowError(null); setNotice(null); setAsking({ id, kind }); };
 
   /** Run one row action, then reload. A failure stays on the row that caused it. */
   const act = async (run: () => Promise<{ ok: boolean; session?: boolean; detail?: string }>, done: string | null, failed: string) => {
@@ -155,6 +157,8 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
   };
 
   const toggle = (schedule: Schedule) => {
+    // Turning on a schedule that changes files needs a plain confirmation first.
+    if (!schedule.enabled && changesFiles(schedule.action)) { ask(schedule.id, "enable"); return; }
     fresh(); // a different request body must never reuse an earlier idempotency key
     void act(() => setEnabled(props.api, schedule.id, !schedule.enabled, key), null, t("Unable to change the schedule."));
   };
@@ -231,7 +235,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
         <div class="sched-field action">
           <span id="sched-action-label">{t("Action")}</span>
           <div class="seg" role="group" aria-labelledby="sched-action-label">
-            <For each={["verify", "scan"] as Action[]}>{(action) => (
+            <For each={["verify", "fix", "convert", "scan"] as Action[]}>{(action) => (
               <button type="button" aria-pressed={draft().action === action} disabled={editing()?.id !== null} onClick={() => chooseAction(action)}>{actionName(action)}</button>
             )}</For>
           </div>
@@ -332,11 +336,28 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
     </ul>
   );
 
+  const renderEnableQuestion = (schedule: Schedule) => (
+    <div class="confirm" role="region" aria-label={t("Turn on {name}", { name: schedule.name })}>
+      <p>{t("Turn on “{name}”? From then on it changes files in your library by itself, up to {count} per run, until you pause it.", { name: schedule.name, count: schedule.max_files ?? 0 })}</p>
+      <Show when={rowError()}><p class="notice bad" role="alert">{rowError()}</p></Show>
+      <div class="insp-actions">
+        <Button
+          variant="primary"
+          disabled={busy()}
+          onClick={() => void act(() => setEnabled(props.api, schedule.id, true, key, true), t("Schedule is on."), t("Unable to change the schedule."))}
+        >
+          {t("Confirm turn on")}
+        </Button>
+        <Button variant="quiet" onClick={() => setAsking(null)}>{t("Cancel")}</Button>
+      </div>
+    </div>
+  );
+
   const renderRow = (schedule: Schedule) => (
     <li class="sched-row" classList={{ paused: !schedule.enabled }} data-id={schedule.id}>
       <div class="sched-line">
         <label class="sched-switch">
-          <input type="checkbox" checked={schedule.enabled} disabled={busy() || !isSchedulable(schedule.action)} aria-label={schedule.enabled ? t("Pause {name}", { name: schedule.name }) : t("Turn on {name}", { name: schedule.name })} onChange={() => toggle(schedule)} />
+          <input type="checkbox" checked={schedule.enabled} disabled={busy()} aria-label={schedule.enabled ? t("Pause {name}", { name: schedule.name }) : t("Turn on {name}", { name: schedule.name })} onChange={() => toggle(schedule)} />
         </label>
         <div class="sched-main">
           <b class="sched-name">{schedule.name}</b>
@@ -358,7 +379,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
           </Show>
         </div>
         <div class="sched-actions">
-          <Button variant="quiet" disabled={busy() || !isSchedulable(schedule.action)} onClick={() => { fresh(); void act(() => runScheduleNow(props.api, schedule.id, key), t("Run started. The result is on the schedule."), t("Unable to run the schedule.")); }}>{t("Run now")}</Button>
+          <Button variant="quiet" disabled={busy()} onClick={() => { fresh(); void act(() => runScheduleNow(props.api, schedule.id, key), t("Run started. The result is on the schedule."), t("Unable to run the schedule.")); }}>{t("Run now")}</Button>
           <Button variant="quiet" disabled={busy()} onClick={() => openEdit(schedule)}>{t("Edit")}</Button>
           <Button variant="quiet" disabled={busy()} onClick={() => ask(schedule.id, "delete")}>{t("Delete")}</Button>
         </div>
@@ -369,7 +390,8 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
         </button>
         <Show when={openHistory().has(schedule.id)}>{renderHistory(schedule)}</Show>
       </Show>
-      <Show when={asking()?.id === schedule.id}>{renderQuestion(schedule)}</Show>
+      <Show when={asking()?.id === schedule.id && asking()?.kind === "delete"}>{renderQuestion(schedule)}</Show>
+      <Show when={asking()?.id === schedule.id && asking()?.kind === "enable"}>{renderEnableQuestion(schedule)}</Show>
       <Show when={rowError() && asking() === null}><p class="notice bad" role="alert">{rowError()}</p></Show>
     </li>
   );
@@ -380,7 +402,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
         <h1 id="schedules-title">{t("Schedules")}</h1>
         <Button variant="primary" ref={(element) => { newButton = element; }} aria-expanded={editing() !== null} onClick={openNew}>{t("New schedule")} <Kbd>N</Kbd></Button>
       </header>
-      <p class="muted sched-lede">{t("Check the files that match a filter, or scan your libraries, on the days and time you choose. Times are the server's.")}</p>
+      <p class="muted sched-lede">{t("Check, repair or convert the files that match a filter, or scan your libraries, on the days and time you choose. Times are the server's.")}</p>
       <Show when={notice()}><p class="notice ok" role="status">{notice()}</p></Show>
       <Show when={editing()}>{renderEditor()}</Show>
       <Show when={phase() !== "loading"} fallback={<p class="muted">{t("Loading schedules")}</p>}>
@@ -395,7 +417,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
             fallback={
               <div class="empty">
                 <b>{t("No schedules yet")}</b>
-                <span>{t("A schedule only reads files: it checks them and changes nothing. Repairing or converting a file is always your decision.")}</span>
+                <span>{t("A schedule checks or scans by itself. One that repairs or converts files starts paused and runs only after you turn it on and confirm.")}</span>
               </div>
             }
           >

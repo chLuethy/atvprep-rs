@@ -78,6 +78,11 @@ export const deSchedules: Record<string, string | readonly [string, string]> = {
   "Weekdays at 03:00": "Werktags um 03:00",
   "Every 15 minutes": "Alle 15 Minuten",
   "Every 6 hours, on the hour": "Alle 6 Stunden, zur vollen Stunde",
-  "Check the files that match a filter, or scan your libraries, on the days and time you choose. Times are the server's.": "Dateien, die zu einem Filter passen, prüfen oder Mediatheken scannen, an gewählten Tagen und zu einer Uhrzeit. Die Zeiten gelten in der Serverzeit.",
-  "A schedule only reads files: it checks them and changes nothing. Repairing or converting a file is always your decision.": "Ein Zeitplan liest Dateien nur: Er prüft sie und ändert nichts. Eine Datei zu reparieren oder zu konvertieren bleibt immer deine Entscheidung.",
+  "Check, repair or convert the files that match a filter, or scan your libraries, on the days and time you choose. Times are the server's.": "Dateien, die zu einem Filter passen, prüfen, reparieren oder konvertieren oder Mediatheken scannen, an gewählten Tagen und zu einer Uhrzeit. Die Zeiten gelten in der Serverzeit.",
+  "A schedule checks or scans by itself. One that repairs or converts files starts paused and runs only after you turn it on and confirm.": "Ein Zeitplan prüft oder scannt von selbst. Einer, der Dateien repariert oder konvertiert, startet pausiert und läuft erst, nachdem du ihn eingeschaltet und bestätigt hast.",
+  "Schedule saved. It is paused until you turn it on again.": "Zeitplan gespeichert. Er ist pausiert, bis er wieder eingeschaltet wird.",
+  "Schedule is on.": "Zeitplan ist eingeschaltet.",
+  "Confirm turn on": "Einschalten bestätigen",
+  "Turn on “{name}”? From then on it changes files in your library by itself, up to {count} per run, until you pause it.": "„{name}“ einschalten? Ab dann ändert er Dateien in deiner Mediathek selbstständig, bis zu {count} pro Lauf, bis du ihn pausierst.",
+  "Not approved to change files. Turn the schedule on again.": "Nicht zum Ändern von Dateien freigegeben. Den Zeitplan erneut einschalten.",
 };
