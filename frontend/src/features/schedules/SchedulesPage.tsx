@@ -5,8 +5,8 @@ import { isTyping } from "../../lib/keys";
 import { formatDateTime } from "../../lib/time";
 import { loadRoots, type RootRow } from "../scan/loaders";
 import {
-  createSchedule, deleteSchedule, loadSchedules, previewCron, runScheduleNow, setEnabled, updateSchedule,
-  changesFiles, type Action, type Api, type CronPreview, type Schedule, type ScheduleInput,
+  createSchedule, deleteSchedule, loadEnableFacts, loadSchedules, previewCron, runScheduleNow, setEnabled, updateSchedule,
+  changesFiles, type Action, type Api, type CronPreview, type EnableFacts, type Schedule, type ScheduleInput,
 } from "./loaders";
 import {
   actionName, CRON_EXAMPLES, DAYS, defaultState, describeLast, describeNext, describeResult,
@@ -33,6 +33,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
   const [draft, setDraft] = createSignal<ScheduleInput>(blank());
   const [asking, setAsking] = createSignal<Asking>(null);
   const [busy, setBusy] = createSignal(false);
+  const [facts, setFacts] = createSignal<EnableFacts | null>(null);
   const [formError, setFormError] = createSignal<string | null>(null);
   const [rowError, setRowError] = createSignal<string | null>(null);
   const [notice, setNotice] = createSignal<string | null>(null);
@@ -166,9 +167,18 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
     await load();
   };
 
-  const toggle = (schedule: Schedule) => {
-    // Turning on a schedule that changes files needs a plain confirmation first.
-    if (!schedule.enabled && changesFiles(schedule.action)) { ask(schedule.id, "enable"); return; }
+  const toggle = async (schedule: Schedule) => {
+    // Turning on a schedule that changes files needs a confirmation first, with fresh numbers from the server.
+    if (!schedule.enabled && changesFiles(schedule.action)) {
+      if (busy()) return;
+      setBusy(true);
+      const found = await loadEnableFacts(props.api, schedule.id);
+      setBusy(false);
+      if (found && "session" in found) { setRowError(t(SESSION_EXPIRED)); return; }
+      setFacts(found ?? { matching: Math.min(schedule.matching ?? 0, schedule.max_files ?? 0), deleteOriginal: null });
+      ask(schedule.id, "enable");
+      return;
+    }
     fresh(); // a different request body must never reuse an earlier idempotency key
     void act(() => setEnabled(props.api, schedule.id, !schedule.enabled, key), null, t("Unable to change the schedule."));
   };
@@ -349,6 +359,17 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
   const renderEnableQuestion = (schedule: Schedule) => (
     <div class="confirm" role="region" aria-label={t("Turn on {name}", { name: schedule.name })}>
       <p>{t("Turn on “{name}”? From then on it changes files in your library by itself, up to {count} per run, until you pause it.", { name: schedule.name, count: schedule.max_files ?? 0 })}</p>
+      <Show when={facts()}>
+        {(known) => (
+          <>
+            <p><b>{tn("{count} file matches now", "{count} files match now", known().matching)}</b></p>
+            <p>{known().deleteOriginal === null
+              ? t("Unable to check whether originals are deleted.")
+              : known().deleteOriginal ? t("Originals are deleted.") : t("Originals are kept.")}</p>
+          </>
+        )}
+      </Show>
+      <p class="muted">{t("Your approval applies to these settings only. It ends when you change the library, the filter or the files per run, or when you pause the schedule.")}</p>
       <Show when={rowError()}><p class="notice bad" role="alert">{rowError()}</p></Show>
       <div class="insp-actions">
         <Button

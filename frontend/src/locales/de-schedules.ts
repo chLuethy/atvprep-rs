@@ -85,6 +85,10 @@ export const deSchedules: Record<string, string | readonly [string, string]> = {
   "Schedule saved. It is paused until you turn it on again.": "Zeitplan gespeichert. Er ist pausiert, bis er wieder eingeschaltet wird.",
   "Schedule is on.": "Zeitplan ist eingeschaltet.",
   "Confirm turn on": "Einschalten bestätigen",
+  "Originals are deleted.": "Originale werden gelöscht.",
+  "Originals are kept.": "Originale bleiben erhalten.",
+  "Unable to check whether originals are deleted.": "Ob Originale gelöscht werden, lässt sich gerade nicht prüfen.",
+  "Your approval applies to these settings only. It ends when you change the library, the filter or the files per run, or when you pause the schedule.": "Deine Freigabe gilt nur für diese Einstellungen. Sie endet, wenn du Mediathek, Filter oder Dateien pro Lauf änderst oder den Zeitplan pausierst.",
   "Turn on “{name}”? From then on it changes files in your library by itself, up to {count} per run, until you pause it.": "„{name}“ einschalten? Ab dann ändert er Dateien in deiner Mediathek selbstständig, bis zu {count} pro Lauf, bis du ihn pausierst.",
   "Not approved to change files. Turn the schedule on again.": "Nicht zum Ändern von Dateien freigegeben. Den Zeitplan erneut einschalten.",
 };
