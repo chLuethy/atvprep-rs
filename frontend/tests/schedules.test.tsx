@@ -1,7 +1,7 @@
 import { fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
 import { SchedulesPage } from "../src/features/schedules/SchedulesPage";
-import { describeDays, describeTarget, simpleForm, stateChoices, weeklyCron } from "../src/features/schedules/model";
+import { describeDays, describeResult, describeTarget, simpleForm, stateChoices, weeklyCron } from "../src/features/schedules/model";
 import type { Schedule } from "../src/features/schedules/loaders";
 
 type Api = { request: (path: string, init?: RequestInit) => Promise<Response> };
@@ -11,6 +11,9 @@ const schedule = (over: Partial<Schedule> = {}): Schedule => ({
   cron: "0 3 * * 1,2,3,4,5", days: [0, 1, 2, 3, 4], time: "03:00", max_files: 25, enabled: true, matching: 12,
   next_run_at: "2026-10-26T02:00:00+00:00", last_run_at: null, last_result: null, last_job_id: null, ...over,
 });
+
+const scanSchedule = (over: Partial<Schedule> = {}): Schedule =>
+  schedule({ id: "sc_s", name: "Nightly scan", action: "scan", compliance_state: null, max_files: null, matching: null, ...over });
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify({ data, meta: {} }), { status });
 
@@ -42,12 +45,22 @@ describe("schedule wording", () => {
 
   it("summarises what a schedule acts on", () => {
     expect(describeTarget({ action: "verify", root_name: "Film", compliance_state: "unknown", max_files: 25 })).toBe("Verify · Film · Not verified · up to 25 files");
-    expect(describeTarget({ action: "prepare", root_name: null, compliance_state: null, max_files: 1 })).toBe("Prepare · All libraries · up to 1 file");
+    expect(describeTarget({ action: "fix", root_name: null, compliance_state: null, max_files: 1 })).toBe("Fix · All libraries · up to 1 file");
+    expect(describeTarget({ action: "convert", root_name: "TV", compliance_state: null, max_files: 3 })).toBe("Convert · TV · up to 3 files");
+    expect(describeTarget({ action: "scan", root_name: null, compliance_state: null, max_files: null })).toBe("Scan · All libraries");
+    expect(describeTarget({ action: "scan", root_name: "Film", compliance_state: null, max_files: null })).toBe("Scan · Film");
+  });
+
+  it("puts the scan results of the server into words", () => {
+    expect(describeResult("Queued 1 scan")).toBe("Queued 1 scan");
+    expect(describeResult("Queued 2 scans")).toBe("Queued 2 scans");
+    expect(describeResult("No libraries")).toBe("No libraries");
   });
 
   it("offers state filters that fit the action", () => {
-    expect(stateChoices("prepare").map((choice) => choice.label)).toEqual(["Any file that needs work", "Warning", "Blocker"]);
-    expect(stateChoices("prepare").map((choice) => choice.value)).toEqual([null, "warning", "blocker"]);
+    expect(stateChoices("fix").map((choice) => choice.label)).toEqual(["Any file that needs work", "Warning", "Blocker"]);
+    expect(stateChoices("convert").map((choice) => choice.value)).toEqual([null, "warning", "blocker"]);
+    expect(stateChoices("scan")).toEqual([]);
     expect(stateChoices("verify")[0]?.value).toBe("unknown");
   });
 });
@@ -61,14 +74,14 @@ describe("SchedulesPage", () => {
     expect(view.getByText(/only reads files/)).toBeInTheDocument();
   });
 
-  it("offers only Verify: a schedule never changes files", async () => {
+  it("offers only Verify and Scan: a schedule never changes files", async () => {
     const { api } = makeApi([]);
     const view = render(() => <SchedulesPage api={api} />);
     await fireEvent.click(await view.findByRole("button", { name: /New schedule/ }));
     const editor = await view.findByRole("region", { name: "New schedule" });
     const picker = within(editor).getByRole("group", { name: "Action" });
 
-    expect(within(picker).getAllByRole("button").map((button) => button.textContent)).toEqual(["Verify"]);
+    expect(within(picker).getAllByRole("button").map((button) => button.textContent)).toEqual(["Verify", "Scan"]);
     expect(within(editor).queryByRole("note")).toBeNull();
   });
 
@@ -128,7 +141,7 @@ describe("SchedulesPage", () => {
   it("cannot turn on or run an old schedule that would change files", async () => {
     const calls: string[] = [];
     const state = makeApi(
-      [schedule({ id: "sc_f", name: "Weekly fix", action: "prepare", enabled: false, next_run_at: null, compliance_state: null })],
+      [schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, next_run_at: null, compliance_state: null })],
       { "PATCH /schedules/sc_f": () => { calls.push("patch"); return json(schedule()); }, "POST /schedules/sc_f/run": () => { calls.push("run"); return json(schedule()); } },
     );
     const view = render(() => <SchedulesPage api={state.api} />);
@@ -136,6 +149,60 @@ describe("SchedulesPage", () => {
     expect(await view.findByRole("checkbox", { name: "Turn on Weekly fix" })).toBeDisabled();
     expect(view.getByRole("button", { name: "Run now" })).toBeDisabled();
     expect(calls).toEqual([]);
+  });
+
+  it("still shows an old repair or conversion schedule under its own name", async () => {
+    const { api } = makeApi([
+      schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, next_run_at: null, compliance_state: null }),
+      schedule({ id: "sc_c", name: "Weekly convert", action: "convert", enabled: false, next_run_at: null, compliance_state: null }),
+    ]);
+    const view = render(() => <SchedulesPage api={api} />);
+
+    const list = await view.findByRole("list", { name: "Schedules" });
+    expect(list).toHaveTextContent("Fix · Film · up to 25 files");
+    expect(list).toHaveTextContent("Convert · Film · up to 25 files");
+    expect(list.textContent).not.toMatch(/prepare/i);
+  });
+
+  it("creates a scan schedule without file filter or files per run", async () => {
+    let body: unknown;
+    const state = makeApi([], { "POST /schedules": (init) => { body = JSON.parse(String(init?.body)); return json(scanSchedule(), 201); } });
+    const view = render(() => <SchedulesPage api={state.api} />);
+
+    await fireEvent.click(await view.findByRole("button", { name: /New schedule/ }));
+    const editor = await view.findByRole("region", { name: "New schedule" });
+    expect(within(editor).getByLabelText("Files per run")).toBeInTheDocument();
+    await fireEvent.click(within(within(editor).getByRole("group", { name: "Action" })).getByRole("button", { name: "Scan" }));
+    expect(within(editor).queryByLabelText("Files per run")).toBeNull();
+    expect(within(editor).queryByLabelText("Files that are")).toBeNull();
+    await fireEvent.input(within(editor).getByLabelText("Name"), { target: { value: "Nightly scan" } });
+    await fireEvent.click(within(editor).getByRole("button", { name: "Save schedule" }));
+
+    await waitFor(() => expect(body).toEqual({
+      name: "Nightly scan", action: "scan", root_id: null, days: [0, 1, 2, 3, 4], time: "03:00",
+    }));
+    expect(await view.findByRole("status")).toHaveTextContent("Schedule saved and on.");
+  });
+
+  it("lists a scan schedule without a file count, and turns it on and runs it now", async () => {
+    const runs: string[] = [];
+    const patches: unknown[] = [];
+    const state = makeApi([scanSchedule({ enabled: false, next_run_at: null, last_run_at: "2026-10-23T01:00:00+00:00", last_result: "Queued 1 scan" })], {
+      "POST /schedules/sc_s/run": () => { runs.push("scan"); return json(scanSchedule()); },
+      "PATCH /schedules/sc_s": (init) => { patches.push(JSON.parse(String(init?.body))); return json(scanSchedule()); },
+    });
+    const view = render(() => <SchedulesPage api={state.api} />);
+
+    const list = await view.findByRole("list", { name: "Schedules" });
+    expect(list).toHaveTextContent("Scan · Film");
+    expect(list).toHaveTextContent("Queued 1 scan");
+    expect(list.textContent).not.toMatch(/files? match/);
+    await fireEvent.click(view.getByRole("checkbox", { name: "Turn on Nightly scan" }));
+    await waitFor(() => expect(patches).toEqual([{ enabled: true }]));
+    const runNow = await view.findByRole("button", { name: "Run now" });
+    await waitFor(() => expect(runNow).toBeEnabled());
+    await fireEvent.click(runNow);
+    await waitFor(() => expect(runs).toEqual(["scan"]));
   });
 
   it("runs a verify at once", async () => {

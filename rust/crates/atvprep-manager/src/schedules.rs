@@ -12,6 +12,7 @@ use crate::cron::CronExpr;
 use crate::deployment_gate::DeploymentGate;
 use crate::jobs::{Jobs, NewJob};
 use crate::repo::Ctx;
+use crate::scans::Scans;
 use crate::{Error, Result};
 
 const CATCH_UP_MICROS: i64 = 6 * 60 * 60 * 1_000_000;
@@ -411,8 +412,11 @@ pub fn run_schedule(ctx: Ctx<'_>, schedule_id: i64) -> Result<String> {
     )?;
     let (action, root_id, compliance_state, max_files, _) = schedule;
     let now = ctx.clock.now();
+    if action == "scan" {
+        return run_scan_schedule(ctx, schedule_id, root_id, &now);
+    }
     if action != "verify" {
-        let message = "Not queued: schedules do not change files. Prepare them by hand.";
+        let message = "Not queued: schedules do not change files. Repair or convert them by hand.";
         ctx.conn.execute(
             "UPDATE schedules SET last_run_at=?1, last_job_id=NULL, last_result=?2 WHERE id=?3",
             rusqlite::params![now, message, schedule_id],
@@ -464,6 +468,39 @@ pub fn run_schedule(ctx: Ctx<'_>, schedule_id: i64) -> Result<String> {
     ctx.conn.execute(
         "UPDATE schedules SET last_run_at=?1, last_job_id=?2, last_result=?3 WHERE id=?4",
         rusqlite::params![now, queued.id, message, schedule_id],
+    )?;
+    Ok(message)
+}
+
+/// Queue the scan(s) of a scan schedule: one library, or every library when none is chosen.
+fn run_scan_schedule(
+    ctx: Ctx<'_>,
+    schedule_id: i64,
+    root_id: Option<i64>,
+    now: &str,
+) -> Result<String> {
+    let roots = if let Some(root) = root_id {
+        vec![root]
+    } else {
+        let mut statement = ctx
+            .conn
+            .prepare("SELECT id FROM library_roots ORDER BY id")?;
+        statement
+            .query_map([], |row| row.get(0))?
+            .collect::<std::result::Result<Vec<i64>, _>>()?
+    };
+    let scans = Scans(ctx);
+    for root in &roots {
+        scans.request_manual(*root)?;
+    }
+    let message = match roots.len() {
+        0 => "No libraries".to_owned(),
+        1 => "Queued 1 scan".to_owned(),
+        count => format!("Queued {count} scans"),
+    };
+    ctx.conn.execute(
+        "UPDATE schedules SET last_run_at=?1, last_job_id=NULL, last_result=?2 WHERE id=?3",
+        rusqlite::params![now, message, schedule_id],
     )?;
     Ok(message)
 }
@@ -668,7 +705,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             run_schedule(ctx, schedule_id).unwrap(),
-            "Not queued: schedules do not change files. Prepare them by hand."
+            "Not queued: schedules do not change files. Repair or convert them by hand."
         );
         let jobs: i64 = conn
             .raw()
