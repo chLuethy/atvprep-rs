@@ -85,6 +85,37 @@ describe("SchedulesPage", () => {
     expect(within(editor).queryByRole("note")).toBeNull();
   });
 
+  it("unfolds the history of a schedule with its results and job links", async () => {
+    const runs: Schedule["runs"] = [
+      { started_at: "2026-10-23T01:00:00+00:00", trigger: "scheduled", result: "Queued 12 files", job_id: "j_9", scan_id: null },
+      { started_at: "2026-10-22T09:00:00+00:00", trigger: "manual", result: "No matching files", job_id: null, scan_id: null },
+    ];
+    const { api } = makeApi([schedule({ runs })]);
+    const view = render(() => <SchedulesPage api={api} />);
+
+    const toggle = await view.findByRole("button", { name: "History of Nightly verify" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(view.queryByRole("list", { name: "History of Nightly verify" })).toBeNull();
+    fireEvent.click(toggle);
+    const history = await view.findByRole("list", { name: "History of Nightly verify" });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    const entries = within(history).getAllByRole("listitem");
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toHaveTextContent("Queued 12 files");
+    expect(within(entries[0]!).getByRole("link", { name: "Open job" })).toHaveAttribute("href", "/jobs/j_9");
+    expect(entries[1]).toHaveTextContent("No matching files");
+    expect(within(entries[1]!).queryByRole("link")).toBeNull();
+    fireEvent.click(toggle);
+    expect(view.queryByRole("list", { name: "History of Nightly verify" })).toBeNull();
+  });
+
+  it("offers no history for a schedule that never ran", async () => {
+    const { api } = makeApi([schedule({ runs: [] })]);
+    const view = render(() => <SchedulesPage api={api} />);
+    await view.findByRole("list", { name: "Schedules" });
+    expect(view.queryByRole("button", { name: /History of/ })).toBeNull();
+  });
+
   it("lists each schedule with its target, timetable, next run and last result", async () => {
     const { api } = makeApi([schedule({ last_run_at: "2026-10-23T01:00:00+00:00", last_result: "Queued 12 files", last_job_id: "j_9" })]);
     const view = render(() => <SchedulesPage api={api} />);

@@ -382,6 +382,11 @@ pub fn next_cron_run_at_system(
 ///
 /// The gate is closed, the schedule does not exist, or SQLite rejects a read/write.
 pub fn run_schedule(ctx: Ctx<'_>, schedule_id: i64) -> Result<String> {
+    run_recorded(ctx, schedule_id, None)
+}
+
+/// One run of a schedule; `slot` is set when the dispatcher runs it for a slot, `None` for a manual run.
+fn run_recorded(ctx: Ctx<'_>, schedule_id: i64, slot: Option<&str>) -> Result<String> {
     let gate = DeploymentGate(ctx).status()?;
     if !gate.healthy || gate.mode != "open" || gate.phase != "steady" {
         return Err(Error::Conflict("the deployment gate is closed".to_owned()));
@@ -394,14 +399,11 @@ pub fn run_schedule(ctx: Ctx<'_>, schedule_id: i64) -> Result<String> {
     let (action, root_id, compliance_state, max_files, _) = schedule;
     let now = ctx.clock.now();
     if action == "scan" {
-        return run_scan_schedule(ctx, schedule_id, root_id, &now);
+        return run_scan_schedule(ctx, schedule_id, root_id, &now, slot);
     }
     if action != "verify" {
         let message = "Not queued: schedules do not change files. Repair or convert them by hand.";
-        ctx.conn.execute(
-            "UPDATE schedules SET last_run_at=?1, last_job_id=NULL, last_result=?2 WHERE id=?3",
-            rusqlite::params![now, message, schedule_id],
-        )?;
+        finish_run(ctx, schedule_id, slot, &now, message, None, None)?;
         return Ok(message.to_owned());
     }
     let mut statement = ctx.conn.prepare(
@@ -426,10 +428,7 @@ pub fn run_schedule(ctx: Ctx<'_>, schedule_id: i64) -> Result<String> {
     drop(statement);
     if media_ids.is_empty() {
         let message = "No matching files";
-        ctx.conn.execute(
-            "UPDATE schedules SET last_run_at=?1, last_job_id=NULL, last_result=?2 WHERE id=?3",
-            rusqlite::params![now, message, schedule_id],
-        )?;
+        finish_run(ctx, schedule_id, slot, &now, message, None, None)?;
         return Ok(message.to_owned());
     }
     let mut job = NewJob::new("verify", &media_ids);
@@ -446,9 +445,14 @@ pub fn run_schedule(ctx: Ctx<'_>, schedule_id: i64) -> Result<String> {
             "files"
         }
     );
-    ctx.conn.execute(
-        "UPDATE schedules SET last_run_at=?1, last_job_id=?2, last_result=?3 WHERE id=?4",
-        rusqlite::params![now, queued.id, message, schedule_id],
+    finish_run(
+        ctx,
+        schedule_id,
+        slot,
+        &now,
+        &message,
+        Some(queued.id),
+        None,
     )?;
     Ok(message)
 }
@@ -459,6 +463,7 @@ fn run_scan_schedule(
     schedule_id: i64,
     root_id: Option<i64>,
     now: &str,
+    slot: Option<&str>,
 ) -> Result<String> {
     let roots = if let Some(root) = root_id {
         vec![root]
@@ -471,19 +476,52 @@ fn run_scan_schedule(
             .collect::<std::result::Result<Vec<i64>, _>>()?
     };
     let scans = Scans(ctx);
+    let mut first_scan = None;
     for root in &roots {
-        scans.request_manual(*root)?;
+        let scan = scans.request_manual(*root)?;
+        first_scan.get_or_insert(scan.id);
     }
     let message = match roots.len() {
         0 => "No libraries".to_owned(),
         1 => "Queued 1 scan".to_owned(),
         count => format!("Queued {count} scans"),
     };
-    ctx.conn.execute(
-        "UPDATE schedules SET last_run_at=?1, last_job_id=NULL, last_result=?2 WHERE id=?3",
-        rusqlite::params![now, message, schedule_id],
-    )?;
+    finish_run(ctx, schedule_id, slot, now, &message, None, first_scan)?;
     Ok(message)
+}
+
+/// Remember the outcome on the schedule and add it to its run history.
+fn finish_run(
+    ctx: Ctx<'_>,
+    schedule_id: i64,
+    slot: Option<&str>,
+    now: &str,
+    message: &str,
+    job_id: Option<i64>,
+    scan_id: Option<i64>,
+) -> Result<()> {
+    ctx.conn.execute(
+        "UPDATE schedules SET last_run_at=?1, last_job_id=?2, last_result=?3 WHERE id=?4",
+        rusqlite::params![now, job_id, message, schedule_id],
+    )?;
+    ctx.conn.execute(
+        "INSERT INTO schedule_runs(schedule_id, slot, started_at, trigger, result, job_id, scan_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        rusqlite::params![
+            schedule_id,
+            slot,
+            now,
+            if slot.is_some() {
+                "scheduled"
+            } else {
+                "manual"
+            },
+            message,
+            job_id,
+            scan_id
+        ],
+    )?;
+    Ok(())
 }
 
 /// Run enabled schedules whose latest local slot is no more than six hours old.
@@ -566,7 +604,7 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
                 "UPDATE schedules SET last_slot_at=?1 WHERE id=?2 AND (last_slot_at IS NULL OR last_slot_at < ?1)",
                 rusqlite::params![slot_text, id],
             )? == 1 {
-                let _ = run_schedule(ctx, id)?;
+                let _ = run_recorded(ctx, id, Some(&slot_text))?;
                 return Ok(true);
             }
             Ok(false)
@@ -693,6 +731,76 @@ mod tests {
             .query_row("SELECT count(*) FROM jobs", [], |row| row.get(0))
             .unwrap();
         assert_eq!(jobs, 1);
+    }
+
+    #[test]
+    fn every_run_is_recorded_in_the_history() {
+        let (_database, conn, clock, schedule_id) = runner_fixture();
+        let ctx = crate::repo::Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        };
+        let runs = |conn: &crate::db::Conn| -> Vec<(Option<String>, String, String, bool, bool)> {
+            conn.raw()
+                .prepare(
+                    "SELECT slot, trigger, result, job_id IS NOT NULL, scan_id IS NOT NULL
+                     FROM schedule_runs ORDER BY id",
+                )
+                .unwrap()
+                .query_map([], |r| {
+                    Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+                })
+                .unwrap()
+                .map(|row| row.unwrap())
+                .collect()
+        };
+        run_schedule(ctx, schedule_id).unwrap();
+        conn.raw()
+            .execute("UPDATE media_files SET discovery_state='missing'", [])
+            .unwrap();
+        run_schedule(ctx, schedule_id).unwrap();
+        conn.raw()
+            .execute("UPDATE schedules SET action='fix'", [])
+            .unwrap();
+        run_schedule(ctx, schedule_id).unwrap();
+        conn.raw()
+            .execute("UPDATE schedules SET action='scan'", [])
+            .unwrap();
+        run_schedule(ctx, schedule_id).unwrap();
+        let manual = "manual".to_owned();
+        assert_eq!(
+            runs(&conn),
+            vec![
+                (
+                    None,
+                    manual.clone(),
+                    "Queued 1 file".to_owned(),
+                    true,
+                    false
+                ),
+                (
+                    None,
+                    manual.clone(),
+                    "No matching files".to_owned(),
+                    false,
+                    false
+                ),
+                (
+                    None,
+                    manual.clone(),
+                    "Not queued: schedules do not change files. Repair or convert them by hand."
+                        .to_owned(),
+                    false,
+                    false
+                ),
+                (None, manual, "Queued 1 scan".to_owned(), false, true),
+            ]
+        );
+        let last: String = conn
+            .raw()
+            .query_row("SELECT last_result FROM schedules", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(last, "Queued 1 scan");
     }
 
     #[test]

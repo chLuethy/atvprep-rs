@@ -95,7 +95,8 @@ impl<'a> WorkerService<'a> {
                 + summary.inspections
                 + summary.jobs
                 + summary.logs
-                + summary.permits,
+                + summary.permits
+                + summary.schedule_runs,
         })
     }
 

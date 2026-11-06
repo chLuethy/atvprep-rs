@@ -456,7 +456,8 @@ fn views(conn: &rusqlite::Connection, state: &AppState) -> Result<(Vec<Value>, b
             Some(conn.query_row("SELECT count(*) FROM media_files m WHERE m.discovery_state='present' AND (?1 IS NULL OR m.root_id=?1) AND (?2 IS NULL OR m.compliance_state=?2) AND NOT EXISTS(SELECT 1 FROM job_items i WHERE i.media_file_id=m.id AND i.action IN ('fix','convert') AND i.status NOT IN ('succeeded','failed','cancelled','interrupted','stale_input')) AND (CASE WHEN ?3 IN ('fix','convert') THEN NOT EXISTS(SELECT 1 FROM media_files sibling WHERE sibling.root_id=m.root_id AND sibling.discovery_state='present' AND sibling.relative_path=substr(m.relative_path,1,length(m.relative_path)-length(m.suffix))||'.mp4' AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov')) AND (lower(m.suffix) NOT IN ('.mp4','.m4v','.mov') OR m.compliance_state IN ('warning','blocker') OR m.desired_action='fix') AND (?4 OR m.compliance_reasons NOT LIKE '%] video-reencode:%') ELSE lower(m.suffix) IN ('.mp4','.m4v','.mov') END)",rusqlite::params![root,compliance,action,conn.query_row("SELECT COALESCE((SELECT value_json='true' FROM runtime_settings WHERE key='delete_original'),0)",[],|r|r.get::<_,bool>(0)).map_err(|_|())?],|row|row.get(0)).map_err(|_|())?)
         };
         let last_run = last_run.map(|value| timestamp(&value).replace('Z', "+00:00"));
-        let value = json!({"id":opaque.encode("sc",id),"name":safe_head(&name,2048),"action":action,"root_id":root.map(|id|opaque.encode("r",id)),"root_name":root_name.map(|name|subject(&name)),"compliance_state":if scan {None} else {compliance},"cron":cron.as_str(),"days":mask_to_days(mask),"time":clock,"max_files":if scan {None} else {Some(max_files)},"enabled":enabled,"matching":matching,"next_run_at":next,"last_run_at":last_run,"last_result":last_result.map(|value|safe_head(&value,2048)),"last_job_id":last_job.map(|id|opaque.encode("j",id))});
+        let runs = recent_runs(conn, &opaque, id)?;
+        let value = json!({"id":opaque.encode("sc",id),"name":safe_head(&name,2048),"action":action,"root_id":root.map(|id|opaque.encode("r",id)),"root_name":root_name.map(|name|subject(&name)),"compliance_state":if scan {None} else {compliance},"cron":cron.as_str(),"days":mask_to_days(mask),"time":clock,"max_files":if scan {None} else {Some(max_files)},"enabled":enabled,"matching":matching,"next_run_at":next,"last_run_at":last_run,"last_result":last_result.map(|value|safe_head(&value,2048)),"last_job_id":last_job.map(|id|opaque.encode("j",id)),"runs":runs});
         let size = serde_json::to_vec(&value).map_err(|_| ())?.len();
         if size > crate::bounds::MAX_ELEMENT_BYTES
             || used.saturating_add(size).saturating_add(data.len() + 128)
@@ -469,6 +470,33 @@ fn views(conn: &rusqlite::Connection, state: &AppState) -> Result<(Vec<Value>, b
         data.push(value);
     }
     Ok((data, truncated))
+}
+
+/// The newest runs of one schedule, newest first (maintenance keeps ten).
+fn recent_runs(
+    conn: &rusqlite::Connection,
+    opaque: &Opaque,
+    schedule: i64,
+) -> Result<Vec<Value>, ()> {
+    let mut stmt = conn
+        .prepare("SELECT started_at,trigger,result,job_id,scan_id FROM schedule_runs WHERE schedule_id=?1 ORDER BY id DESC LIMIT 10")
+        .map_err(|_| ())?;
+    let rows = stmt
+        .query_map([schedule], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, Option<i64>>(3)?,
+                row.get::<_, Option<i64>>(4)?,
+            ))
+        })
+        .map_err(|_| ())?;
+    rows.map(|row| {
+        let (started, trigger, result, job, scan) = row.map_err(|_| ())?;
+        Ok(json!({"started_at":timestamp(&started).replace('Z', "+00:00"),"trigger":trigger,"result":safe_head(&result,2048),"job_id":job.map(|id|opaque.encode("j",id)),"scan_id":scan.map(|id|opaque.encode("s",id))}))
+    })
+    .collect()
 }
 
 /// List schedules with matching file counts and their next local-calendar run.

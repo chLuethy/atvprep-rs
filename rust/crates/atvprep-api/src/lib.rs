@@ -793,6 +793,12 @@ mod tests {
         let first = app.clone().oneshot(run()).await.unwrap();
         assert_eq!(first.status(), StatusCode::OK);
         let first = to_bytes(first.into_body(), 65536).await.unwrap();
+        let shown: serde_json::Value = serde_json::from_slice(&first).unwrap();
+        let runs = shown["data"]["runs"].as_array().unwrap();
+        assert_eq!(runs.len(), 1);
+        assert_eq!(runs[0]["trigger"], "manual");
+        assert_eq!(runs[0]["result"], "Queued 1 file");
+        assert!(runs[0]["job_id"].as_str().unwrap().starts_with("j_"));
         let replay = app.clone().oneshot(run()).await.unwrap();
         assert_eq!(first, to_bytes(replay.into_body(), 65536).await.unwrap());
         assert_eq!(
@@ -824,6 +830,11 @@ mod tests {
             app.oneshot(delete()).await.unwrap().status(),
             StatusCode::OK
         );
+        let history: i64 = conn
+            .raw()
+            .query_row("SELECT count(*) FROM schedule_runs", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(history, 0, "deleting a schedule removes its history");
         let jobs: i64 = conn
             .raw()
             .query_row("SELECT count(*) FROM jobs", [], |row| row.get(0))

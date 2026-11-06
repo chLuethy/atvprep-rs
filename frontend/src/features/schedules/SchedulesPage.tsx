@@ -2,13 +2,14 @@ import { createSignal, For, onMount, Show, type Component } from "solid-js";
 import { Button, Kbd } from "../../ui";
 import { N, t, tn } from "../../lib/i18n";
 import { isTyping } from "../../lib/keys";
+import { formatDateTime } from "../../lib/time";
 import { loadRoots, type RootRow } from "../scan/loaders";
 import {
   createSchedule, deleteSchedule, loadSchedules, runScheduleNow, setEnabled, updateSchedule,
   isSchedulable, type Action, type Api, type Schedule, type ScheduleInput,
 } from "./loaders";
 import {
-  actionName, DAYS, defaultState, describeDays, describeLast, describeNext, describeTarget,
+  actionName, DAYS, defaultState, describeDays, describeLast, describeResult, describeNext, describeTarget,
   EVERY_DAY, stateChoices, WEEKDAYS,
 } from "./model";
 
@@ -209,6 +210,31 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
     </div>
   );
 
+  const [shown, setShown] = createSignal<ReadonlySet<string>>(new Set());
+  const toggleHistory = (id: string) =>
+    setShown((current) => {
+      const next = new Set(current);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+
+  const renderHistory = (schedule: Schedule) => (
+    <ul class="plain sched-history" aria-label={t("History of {name}", { name: schedule.name })}>
+      <For each={schedule.runs ?? []}>
+        {(run) => (
+          <li>
+            <span class="muted">{formatDateTime(run.started_at, "")}</span>
+            <span>{run.trigger === "scheduled" ? t("Scheduled") : t("By hand")}</span>
+            <span>{describeResult(run.result)}</span>
+            <Show when={run.job_id}>
+              {(job) => <a href={`/jobs/${encodeURIComponent(job())}`}>{t("Open job")}</a>}
+            </Show>
+          </li>
+        )}
+      </For>
+    </ul>
+  );
+
   const renderRow = (schedule: Schedule) => (
     <li class="sched-row" classList={{ paused: !schedule.enabled }} data-id={schedule.id}>
       <div class="sched-line">
@@ -240,6 +266,12 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
           <Button variant="quiet" disabled={busy()} onClick={() => ask(schedule.id, "delete")}>{t("Delete")}</Button>
         </div>
       </div>
+      <Show when={(schedule.runs ?? []).length > 0}>
+        <button type="button" class="sched-history-toggle" aria-expanded={shown().has(schedule.id)} aria-label={t("History of {name}", { name: schedule.name })} onClick={() => toggleHistory(schedule.id)}>
+          {t("History")} ({(schedule.runs ?? []).length})
+        </button>
+        <Show when={shown().has(schedule.id)}>{renderHistory(schedule)}</Show>
+      </Show>
       <Show when={asking()?.id === schedule.id}>{renderQuestion(schedule)}</Show>
       <Show when={rowError() && asking() === null}><p class="notice bad" role="alert">{rowError()}</p></Show>
     </li>
