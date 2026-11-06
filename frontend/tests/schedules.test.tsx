@@ -57,6 +57,10 @@ describe("schedule wording", () => {
     expect(describeResult("No libraries")).toBe("No libraries");
   });
 
+  it("explains a run that was refused for lack of approval", () => {
+    expect(describeResult("Not queued: not approved to change files. Turn the schedule on again.")).toBe("Not queued: Not approved to change files. Turn the schedule on again.");
+  });
+
   it("offers state filters that fit the action", () => {
     expect(stateChoices("fix").map((choice) => choice.label)).toEqual(["Any file that needs work", "Warning", "Blocker"]);
     expect(stateChoices("convert").map((choice) => choice.value)).toEqual([null, "warning", "blocker"]);
@@ -71,17 +75,17 @@ describe("SchedulesPage", () => {
     const view = render(() => <SchedulesPage api={api} />);
 
     expect(await view.findByText("No schedules yet")).toBeInTheDocument();
-    expect(view.getByText(/only reads files/)).toBeInTheDocument();
+    expect(view.getByText(/starts paused/)).toBeInTheDocument();
   });
 
-  it("offers only Verify and Scan: a schedule never changes files", async () => {
+  it("offers Verify, Fix, Convert and Scan", async () => {
     const { api } = makeApi([]);
     const view = render(() => <SchedulesPage api={api} />);
     await fireEvent.click(await view.findByRole("button", { name: /New schedule/ }));
     const editor = await view.findByRole("region", { name: "New schedule" });
     const picker = within(editor).getByRole("group", { name: "Action" });
 
-    expect(within(picker).getAllByRole("button").map((button) => button.textContent)).toEqual(["Verify", "Scan"]);
+    expect(within(picker).getAllByRole("button").map((button) => button.textContent)).toEqual(["Verify", "Fix", "Convert", "Scan"]);
     expect(within(editor).queryByRole("note")).toBeNull();
   });
 
@@ -138,17 +142,72 @@ describe("SchedulesPage", () => {
     await waitFor(() => expect(patches).toEqual([{ enabled: true }]));
   });
 
-  it("cannot turn on or run an old schedule that would change files", async () => {
-    const calls: string[] = [];
+  it("asks before turning on a schedule that changes files, and sends the confirmation", async () => {
+    const patches: unknown[] = [];
     const state = makeApi(
-      [schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, next_run_at: null, compliance_state: null })],
-      { "PATCH /schedules/sc_f": () => { calls.push("patch"); return json(schedule()); }, "POST /schedules/sc_f/run": () => { calls.push("run"); return json(schedule()); } },
+      [schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, next_run_at: null, compliance_state: null, max_files: 10 })],
+      { "PATCH /schedules/sc_f": (init) => { patches.push(JSON.parse(String(init?.body))); return json(schedule()); } },
     );
     const view = render(() => <SchedulesPage api={state.api} />);
 
-    expect(await view.findByRole("checkbox", { name: "Turn on Weekly fix" })).toBeDisabled();
-    expect(view.getByRole("button", { name: "Run now" })).toBeDisabled();
-    expect(calls).toEqual([]);
+    await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Weekly fix" }));
+    const question = await view.findByRole("region", { name: "Turn on Weekly fix" });
+    expect(question).toHaveTextContent("up to 10");
+    expect(patches).toEqual([]);
+    await fireEvent.click(within(question).getByRole("button", { name: "Cancel" }));
+    expect(patches).toEqual([]);
+    expect(view.queryByRole("region", { name: "Turn on Weekly fix" })).toBeNull();
+
+    await fireEvent.click(view.getByRole("checkbox", { name: "Turn on Weekly fix" }));
+    await fireEvent.click(within(await view.findByRole("region", { name: "Turn on Weekly fix" })).getByRole("button", { name: "Confirm turn on" }));
+    await waitFor(() => expect(patches).toEqual([{ enabled: true, confirm_changes_files: true }]));
+  });
+
+  it("pauses a schedule that changes files without asking", async () => {
+    const patches: unknown[] = [];
+    const state = makeApi(
+      [schedule({ id: "sc_c", name: "Weekly convert", action: "convert", enabled: true, compliance_state: null })],
+      { "PATCH /schedules/sc_c": (init) => { patches.push(JSON.parse(String(init?.body))); return json(schedule()); } },
+    );
+    const view = render(() => <SchedulesPage api={state.api} />);
+
+    await fireEvent.click(await view.findByRole("checkbox", { name: "Pause Weekly convert" }));
+
+    await waitFor(() => expect(patches).toEqual([{ enabled: false }]));
+  });
+
+  it("can run a schedule that changes files now", async () => {
+    const runs: string[] = [];
+    const state = makeApi(
+      [schedule({ id: "sc_f", name: "Weekly fix", action: "fix", compliance_state: null })],
+      { "POST /schedules/sc_f/run": () => { runs.push("fix"); return json(schedule()); } },
+    );
+    const view = render(() => <SchedulesPage api={state.api} />);
+
+    await fireEvent.click(await view.findByRole("button", { name: "Run now" }));
+
+    await waitFor(() => expect(runs).toEqual(["fix"]));
+  });
+
+  it("creates a fix schedule that starts paused and needs its files per run", async () => {
+    let body: unknown;
+    const state = makeApi([], { "POST /schedules": (init) => { body = JSON.parse(String(init?.body)); return json(schedule({ action: "fix", enabled: false }), 201); } });
+    const view = render(() => <SchedulesPage api={state.api} />);
+
+    await fireEvent.click(await view.findByRole("button", { name: /New schedule/ }));
+    const editor = await view.findByRole("region", { name: "New schedule" });
+    await fireEvent.click(within(within(editor).getByRole("group", { name: "Action" })).getByRole("button", { name: "Fix" }));
+    await fireEvent.input(within(editor).getByLabelText("Name"), { target: { value: "Nightly fix" } });
+    await fireEvent.input(within(editor).getByLabelText("Files per run"), { target: { value: "0" } });
+    expect(within(editor).getByRole("button", { name: "Save schedule" })).toBeDisabled();
+    await fireEvent.input(within(editor).getByLabelText("Files per run"), { target: { value: "7" } });
+    await fireEvent.click(within(editor).getByRole("button", { name: "Save schedule" }));
+
+    await waitFor(() => expect(body).toEqual({
+      name: "Nightly fix", action: "fix", root_id: null, compliance_state: null,
+      days: [0, 1, 2, 3, 4], time: "03:00", max_files: 7,
+    }));
+    expect(await view.findByRole("status")).toHaveTextContent("Schedule saved. It is paused until you turn it on.");
   });
 
   it("still shows an old repair or conversion schedule under its own name", async () => {

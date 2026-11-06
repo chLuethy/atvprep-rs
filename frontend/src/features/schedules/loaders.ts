@@ -3,11 +3,11 @@ import { rawId } from "../files/loaders";
 
 export type Api = { request: (path: string, init?: RequestInit) => Promise<Response> };
 
-/** The four things a schedule can do. Only Verify and Scan can be switched on for now. */
+/** The four things a schedule can do. Fix and Convert change files. */
 export type Action = "verify" | "fix" | "convert" | "scan";
 
-/** Whether a person may create, turn on or run a schedule of this action. */
-export const isSchedulable = (action: Action): boolean => action === "verify" || action === "scan";
+/** Whether a schedule of this action changes files: it starts paused and is turned on only after a confirmation. */
+export const changesFiles = (action: Action): boolean => action === "fix" || action === "convert";
 
 export type Schedule = {
   id: string;
@@ -103,6 +103,8 @@ export async function updateSchedule(api: Api, id: string, input: ScheduleInput,
   });
 }
 
-export const setEnabled = (api: Api, id: string, enabled: boolean, key: string) => send(api, idPath(id), "PATCH", key, { enabled });
+/** `confirmed` is the person's explicit yes to a schedule that changes files; the server signs the schedule on it. */
+export const setEnabled = (api: Api, id: string, enabled: boolean, key: string, confirmed = false) =>
+  send(api, idPath(id), "PATCH", key, { enabled, ...(enabled && confirmed ? { confirm_changes_files: true } : {}) });
 export const deleteSchedule = (api: Api, id: string, key: string) => send(api, idPath(id), "DELETE", key);
 export const runScheduleNow = (api: Api, id: string, key: string) => send(api, `${idPath(id)}/run`, "POST", key);

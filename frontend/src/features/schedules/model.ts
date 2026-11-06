@@ -75,6 +75,9 @@ export function describeLast(schedule: Pick<Schedule, "last_run_at" | "last_resu
   return `${describeResult(schedule.last_result)} · ${formatDateTime(schedule.last_run_at, "")}`.trim();
 }
 
+const NOT_APPROVED = "not approved to change files. Turn the schedule on again.";
+N("Not approved to change files. Turn the schedule on again.");
+
 /** What the last run says. The server writes it in English; the ones it writes itself are put into the chosen language. */
 export function describeResult(result: string | null): string {
   if (!result) return t("Ran");
@@ -85,6 +88,9 @@ export function describeResult(result: string | null): string {
   if (result === "No libraries") return t("No libraries");
   if (result === "No matching files") return t("No matching files");
   const refused = /^Not queued: ([\s\S]*)$/.exec(result);
-  if (refused) return t("Not queued: {reason}", { reason: refused[1] ?? "" });
+  if (refused) {
+    const reason = refused[1] ?? "";
+    return t("Not queued: {reason}", { reason: reason === NOT_APPROVED ? t("Not approved to change files. Turn the schedule on again.") : reason });
+  }
   return result;
 }
