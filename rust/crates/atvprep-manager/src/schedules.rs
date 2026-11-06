@@ -395,16 +395,15 @@ fn run_scan_schedule(
     root_id: Option<i64>,
     now: &str,
 ) -> Result<String> {
-    let roots = match root_id {
-        Some(root) => vec![root],
-        None => {
-            let mut statement = ctx
-                .conn
-                .prepare("SELECT id FROM library_roots ORDER BY id")?;
-            statement
-                .query_map([], |row| row.get(0))?
-                .collect::<std::result::Result<Vec<i64>, _>>()?
-        }
+    let roots = if let Some(root) = root_id {
+        vec![root]
+    } else {
+        let mut statement = ctx
+            .conn
+            .prepare("SELECT id FROM library_roots ORDER BY id")?;
+        statement
+            .query_map([], |row| row.get(0))?
+            .collect::<std::result::Result<Vec<i64>, _>>()?
     };
     let scans = Scans(ctx);
     for root in &roots {

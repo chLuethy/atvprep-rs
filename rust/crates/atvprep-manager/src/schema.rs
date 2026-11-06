@@ -168,7 +168,11 @@ mod tests {
         let mut conn = db.conn().unwrap();
         conn.raw().execute_batch(BASE).unwrap();
         conn.raw().execute_batch("PRAGMA user_version = 1").unwrap();
-        exec(&conn, "INSERT INTO library_roots(name, canonical_path) VALUES ('r', '/r')").unwrap();
+        exec(
+            &conn,
+            "INSERT INTO library_roots(name, canonical_path) VALUES ('r', '/r')",
+        )
+        .unwrap();
         exec(
             &conn,
             "INSERT INTO schedules(id, name, action, root_id, days_mask, time_of_day, max_files, enabled, armed_at, last_slot_at, last_run_at, last_job_id, last_result, created_at)

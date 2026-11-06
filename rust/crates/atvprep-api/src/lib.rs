@@ -804,6 +804,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::too_many_lines)] // One session walks create, run, update and list of a scan schedule.
     async fn scan_schedules_are_created_listed_and_run_without_file_filters() {
         let state = state();
         let mut conn = state.db.conn().unwrap();
