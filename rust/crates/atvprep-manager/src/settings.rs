@@ -299,7 +299,7 @@ impl Settings<'_> {
             ],
         )?;
         if key == "delete_original"
-            && old.as_ref().map_or(false, |s| s.value == Value::Bool(true))
+            && old.as_ref().is_some_and(|s| s.value == Value::Bool(true))
                 != (value == &Value::Bool(true))
         {
             // The signature of a fix/convert schedule binds the current value, so every such approval
