@@ -1,0 +1,163 @@
+//! Schedules that change files (fix, convert): queueing needs an approval, and missed runs are never caught up.
+use atvprep_manager::{
+    clock::{Clock, FixedClock},
+    db::{Conn, Db},
+    repo::Ctx,
+    schedules::{run_due_schedules, run_schedule},
+    schema,
+};
+use chrono::{DateTime, Duration, Local, Utc};
+
+const NOW: i64 = 1_700_000_000_000_000;
+
+/// One warning mkv and one clean mp4 in a library, plus a schedule of `action` whose slot was
+/// `minutes_ago` minutes before NOW. `approved` stores a (placeholder) approval.
+fn seed(db: &Db, action: &str, minutes_ago: i64, approved: bool) -> Conn {
+    let mut conn = db.conn().unwrap();
+    schema::migrate(&mut conn).unwrap();
+    conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'test','/library');
+    INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES
+    (1,1,'one.mp4','video','.mp4',1,1,'one','present','clean','idle','none'),
+    (2,1,'two.mp4','video','.mp4',1,1,'two','present','warning','idle','none'),
+    (3,1,'three.mkv','video','.mkv',1,1,'three','present','warning','idle','none');").unwrap();
+    let time = (DateTime::<Utc>::from_timestamp_micros(NOW)
+        .unwrap()
+        .with_timezone(&Local)
+        - Duration::minutes(minutes_ago))
+    .format("%H:%M")
+    .to_string();
+    conn.raw().execute("INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,max_files,enabled,armed_at) VALUES(1,'t',?1,1,127,?2,5,1,'2000-01-01')",rusqlite::params![action,time]).unwrap();
+    if approved {
+        conn.raw().execute("UPDATE schedules SET approved_by=1, approved_at=1700000000, approval_mac=?1", ["a".repeat(64)]).unwrap();
+    }
+    conn
+}
+
+fn jobs(conn: &Conn) -> Vec<(String, String)> {
+    let mut statement = conn
+        .raw()
+        .prepare("SELECT action, settings_snapshot_json FROM jobs ORDER BY id")
+        .unwrap();
+    statement
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap()
+}
+
+#[test]
+fn an_unapproved_schedule_queues_nothing_even_when_run_by_hand() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db, "fix", 0, false);
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    let message = run_schedule(ctx, 1).unwrap();
+    assert!(message.starts_with("Not queued: "), "{message}");
+    assert!(jobs(&conn).is_empty());
+    assert_eq!(run_due_schedules(ctx).unwrap(), 1);
+    assert!(jobs(&conn).is_empty());
+}
+
+#[test]
+fn an_approved_fix_schedule_queues_a_job_bound_to_its_parameters() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db, "fix", 0, true);
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    // Repair takes the files that need it: the warning mp4 and the mkv, not the clean mp4.
+    assert_eq!(run_schedule(ctx, 1).unwrap(), "Queued 2 files");
+    let queued = jobs(&conn);
+    assert_eq!(queued.len(), 1);
+    assert_eq!(queued[0].0, "fix");
+    let snapshot: serde_json::Value = serde_json::from_str(&queued[0].1).unwrap();
+    assert_eq!(snapshot["schedule_id"], 1);
+    assert_eq!(snapshot["pipeline"], "prepare");
+    assert_eq!(snapshot["policy"], "copy-only-v1");
+    assert_eq!(snapshot["schedule_params"]["max_files"], 5);
+    assert_eq!(snapshot["schedule_params"]["delete_original"], false);
+    assert_eq!(snapshot["schedule_params"]["action"], "fix");
+}
+
+#[test]
+fn a_convert_schedule_honours_max_files() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db, "convert", 0, true);
+    conn.raw()
+        .execute("UPDATE schedules SET max_files=1", [])
+        .unwrap();
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    assert_eq!(run_schedule(ctx, 1).unwrap(), "Queued 1 file");
+    assert_eq!(jobs(&conn)[0].0, "convert");
+}
+
+#[test]
+fn a_closed_gate_runs_no_schedule_that_changes_files() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db, "fix", 0, true);
+    conn.raw()
+        .execute("UPDATE deployment_gate SET mode='maintenance'", [])
+        .unwrap();
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    assert!(run_schedule(ctx, 1).is_err());
+    assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+    assert!(jobs(&conn).is_empty());
+}
+
+#[test]
+fn a_slot_on_time_runs_but_a_missed_one_is_never_caught_up() {
+    for action in ["fix", "convert"] {
+        let db = Db::memory().unwrap();
+        let conn = seed(&db, action, 0, true);
+        let clock = FixedClock(NOW);
+        let ctx = Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        };
+        assert_eq!(run_due_schedules(ctx).unwrap(), 1, "{action} on time");
+        assert_eq!(jobs(&conn).len(), 1);
+
+        // The slot was 30 minutes ago: a verify would still catch up, a change must not.
+        let db = Db::memory().unwrap();
+        let conn = seed(&db, action, 30, true);
+        let ctx = Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        };
+        assert_eq!(run_due_schedules(ctx).unwrap(), 0, "{action} missed");
+        assert!(jobs(&conn).is_empty());
+        assert!(
+            conn.raw()
+                .query_row("SELECT last_slot_at FROM schedules", [], |row| row
+                    .get::<_, Option<String>>(0))
+                .unwrap()
+                .is_none()
+        );
+    }
+    // Checking keeps its six-hour catch-up.
+    let db = Db::memory().unwrap();
+    let conn = seed(&db, "verify", 30, false);
+    let clock = FixedClock(NOW);
+    assert_eq!(
+        run_due_schedules(Ctx {
+            conn: conn.raw(),
+            clock: &clock
+        })
+        .unwrap(),
+        1
+    );
+    let _ = clock.now();
+}

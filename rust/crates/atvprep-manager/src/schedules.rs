@@ -8,6 +8,7 @@
 use chrono::{DateTime, Datelike, Local, LocalResult, NaiveDate, Offset, TimeZone, Timelike, Utc};
 
 use crate::clock::format_micros;
+use crate::approval::ScheduleParams;
 use crate::cron::CronExpr;
 use crate::deployment_gate::DeploymentGate;
 use crate::jobs::{Jobs, NewJob};
@@ -16,6 +17,9 @@ use crate::scans::Scans;
 use crate::{Error, Result};
 
 const CATCH_UP_MICROS: i64 = 6 * 60 * 60 * 1_000_000;
+/// A schedule that changes files runs only in the minute of its slot (plus a little slack for the
+/// worker tick); a slot the worker missed, for any reason, is never caught up.
+const ON_TIME_MICROS: i64 = 2 * 60 * 1_000_000;
 
 /// A validated local wall-clock minute.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -396,13 +400,8 @@ pub fn run_schedule(ctx: Ctx<'_>, schedule_id: i64) -> Result<String> {
     if action == "scan" {
         return run_scan_schedule(ctx, schedule_id, root_id, &now);
     }
-    if action != "verify" {
-        let message = "Not queued: schedules do not change files. Repair or convert them by hand.";
-        ctx.conn.execute(
-            "UPDATE schedules SET last_run_at=?1, last_job_id=NULL, last_result=?2 WHERE id=?3",
-            rusqlite::params![now, message, schedule_id],
-        )?;
-        return Ok(message.to_owned());
+    if matches!(action.as_str(), "fix" | "convert") {
+        return run_change_schedule(ctx, schedule_id, &action, &now);
     }
     let mut statement = ctx.conn.prepare(
         "SELECT media_files.id FROM media_files
@@ -453,6 +452,143 @@ pub fn run_schedule(ctx: Ctx<'_>, schedule_id: i64) -> Result<String> {
     Ok(message)
 }
 
+/// The `delete_original` runtime setting (off unless it is stored as `true`).
+///
+/// # Errors
+///
+/// SQLite rejects the read.
+pub fn delete_original_setting(conn: &rusqlite::Connection) -> Result<bool> {
+    let value: Option<String> = rusqlite::OptionalExtension::optional(conn.query_row(
+        "SELECT value_json FROM runtime_settings WHERE key='delete_original'",
+        [],
+        |row| row.get(0),
+    ))?;
+    Ok(value.and_then(|text| serde_json::from_str::<bool>(&text).ok()) == Some(true))
+}
+
+/// A schedule row as far as the approval to change files is concerned.
+pub struct ScheduleApproval {
+    pub id: i64,
+    pub action: String,
+    pub root_id: Option<i64>,
+    pub compliance_state: Option<String>,
+    pub max_files: i64,
+    pub enabled: bool,
+    pub approved_by: Option<i64>,
+    pub approved_at: Option<i64>,
+    pub approval_mac: Option<String>,
+}
+
+impl ScheduleApproval {
+    /// Load a schedule's current parameters and stored approval.
+    ///
+    /// # Errors
+    ///
+    /// SQLite rejects the read.
+    pub fn load(conn: &rusqlite::Connection, id: i64) -> Result<Option<Self>> {
+        Ok(rusqlite::OptionalExtension::optional(conn.query_row(
+            "SELECT id, action, root_id, compliance_state, max_files, enabled, approved_by, approved_at, approval_mac
+             FROM schedules WHERE id=?1",
+            [id],
+            |row| {
+                Ok(Self {
+                    id: row.get(0)?,
+                    action: row.get(1)?,
+                    root_id: row.get(2)?,
+                    compliance_state: row.get(3)?,
+                    max_files: row.get(4)?,
+                    enabled: row.get(5)?,
+                    approved_by: row.get(6)?,
+                    approved_at: row.get(7)?,
+                    approval_mac: row.get(8)?,
+                })
+            },
+        ))?)
+    }
+
+    /// The parameters an approval must match, with the given `delete_original` setting.
+    #[must_use]
+    pub fn params(&self, delete_original: bool) -> ScheduleParams<'_> {
+        ScheduleParams {
+            schedule_id: self.id,
+            action: &self.action,
+            root_id: self.root_id,
+            compliance_state: self.compliance_state.as_deref(),
+            max_files: self.max_files,
+            delete_original,
+        }
+    }
+}
+
+/// Queue the files a repair or conversion schedule selects, if the operator approved it.
+///
+/// The signature itself is verified by the worker right before a file is touched (it needs the
+/// secret); here an approval merely has to exist, so an unapproved schedule queues nothing.
+fn run_change_schedule(ctx: Ctx<'_>, schedule_id: i64, action: &str, now: &str) -> Result<String> {
+    let finish = |message: String, job: Option<i64>| -> Result<String> {
+        ctx.conn.execute(
+            "UPDATE schedules SET last_run_at=?1, last_job_id=?2, last_result=?3 WHERE id=?4",
+            rusqlite::params![now, job, message, schedule_id],
+        )?;
+        Ok(message)
+    };
+    let Some(row) = ScheduleApproval::load(ctx.conn, schedule_id)? else {
+        return Err(Error::Invalid("schedule not found".to_owned()));
+    };
+    if row.approval_mac.is_none() || row.approved_by.is_none() || row.approved_at.is_none() {
+        return finish(
+            "Not queued: not approved to change files. Turn the schedule on again.".to_owned(),
+            None,
+        );
+    }
+    let delete_original = delete_original_setting(ctx.conn)?;
+    let mut statement = ctx.conn.prepare(
+        "SELECT m.id FROM media_files m
+         WHERE m.discovery_state='present'
+           AND (?1 IS NULL OR m.root_id=?1)
+           AND (?2 IS NULL OR m.compliance_state=?2)
+           AND NOT EXISTS (SELECT 1 FROM job_items i WHERE i.media_file_id=m.id
+                           AND i.action IN ('fix','convert')
+                           AND i.status NOT IN ('succeeded','failed','cancelled','interrupted','stale_input'))
+           AND NOT EXISTS (SELECT 1 FROM media_files sibling
+                           WHERE sibling.root_id=m.root_id AND sibling.discovery_state='present'
+                             AND sibling.relative_path=substr(m.relative_path,1,length(m.relative_path)-length(m.suffix))||'.mp4'
+                             AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov'))
+           AND (lower(m.suffix) NOT IN ('.mp4','.m4v','.mov')
+                OR m.compliance_state IN ('warning','blocker') OR m.desired_action='fix')
+           AND (?3 OR m.compliance_reasons NOT LIKE '%] video-reencode:%')
+         ORDER BY m.id LIMIT ?4",
+    )?;
+    let media_ids = statement
+        .query_map(
+            rusqlite::params![row.root_id, row.compliance_state, delete_original, row.max_files],
+            |r| r.get(0),
+        )?
+        .collect::<std::result::Result<Vec<i64>, _>>()?;
+    drop(statement);
+    if media_ids.is_empty() {
+        return finish("No matching files".to_owned(), None);
+    }
+    let params = row.params(delete_original);
+    let mut job = NewJob::new(if action == "convert" { "convert" } else { "fix" }, &media_ids);
+    job.trigger = "manual";
+    job.settings_snapshot = serde_json::json!({
+        "pipeline": "prepare",
+        "policy": "copy-only-v1",
+        "delete_original": delete_original,
+        "delete_original_confirmed": false,
+        "manual_approval": false,
+        "schedule_id": schedule_id,
+        "schedule_params": params.to_json(),
+    });
+    let queued = Jobs(ctx).create(&job)?;
+    let count = media_ids.len();
+    finish(
+        format!("Queued {count} {}", if count == 1 { "file" } else { "files" }),
+        Some(queued.id),
+    )
+}
+
 /// Queue the scan(s) of a scan schedule: one library, or every library when none is chosen.
 fn run_scan_schedule(
     ctx: Ctx<'_>,
@@ -486,7 +622,8 @@ fn run_scan_schedule(
     Ok(message)
 }
 
-/// Run enabled schedules whose latest local slot is no more than six hours old.
+/// Run enabled schedules whose latest local slot is no more than six hours old; schedules that
+/// change files only run in the minute of their slot.
 ///
 /// Each slot is claimed with a compare-and-set update, so concurrent schedulers run it once.
 ///
@@ -525,7 +662,7 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
         u8::try_from(local_now.minute()).unwrap_or(0),
     )?;
     let mut statement = ctx.conn.prepare(
-        "SELECT id, days_mask, time_of_day, armed_at, cron FROM schedules WHERE enabled=1 ORDER BY id",
+        "SELECT id, days_mask, time_of_day, armed_at, cron, action FROM schedules WHERE enabled=1 ORDER BY id",
     )?;
     let schedules = statement
         .query_map([], |row| {
@@ -535,12 +672,13 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
                 row.get::<_, String>(2)?,
                 row.get::<_, String>(3)?,
                 row.get::<_, Option<String>>(4)?,
+                row.get::<_, String>(5)?,
             ))
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
     drop(statement);
     let mut ran = 0;
-    for (id, mask, time, armed_at, cron) in schedules {
+    for (id, mask, time, armed_at, cron, action) in schedules {
         // One corrupt row must not stop every schedule after it.
         let Ok(cron) = effective_cron(cron.as_deref(), mask, &time) else {
             continue;
@@ -553,7 +691,12 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
         };
         let slot_micros = slot_utc.timestamp_micros();
         if slot_micros > now_micros
-            || now_micros - slot_micros > CATCH_UP_MICROS
+            || now_micros - slot_micros
+                > if matches!(action.as_str(), "fix" | "convert") {
+                    ON_TIME_MICROS
+                } else {
+                    CATCH_UP_MICROS
+                }
             || format_micros(slot_micros) <= armed_at
         {
             continue;
@@ -664,7 +807,7 @@ mod tests {
     }
 
     #[test]
-    fn schedule_runner_queues_verify_and_refuses_writes() {
+    fn schedule_runner_queues_verify_and_refuses_unapproved_writes() {
         let (_database, conn, clock, schedule_id) = runner_fixture();
         let ctx = crate::repo::Ctx {
             conn: conn.raw(),
@@ -686,7 +829,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             run_schedule(ctx, schedule_id).unwrap(),
-            "Not queued: schedules do not change files. Repair or convert them by hand."
+            "Not queued: not approved to change files. Turn the schedule on again."
         );
         let jobs: i64 = conn
             .raw()

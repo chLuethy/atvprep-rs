@@ -15,8 +15,15 @@ pub fn prepare_policy_block(snapshot: &Value) -> Option<&'static str> {
     {
         return Some("This job predates the copy-only policy. Queue the fix again.");
     }
-    if snapshot.get("schedule_id").is_some_and(|v| !v.is_null()) {
-        return Some("Scheduled jobs may not change media. Queue the fix by hand.");
+    if let Some(schedule) = snapshot.get("schedule_id").filter(|v| !v.is_null()) {
+        // A job from a schedule carries no session approval; the schedule's own signature,
+        // checked against its current parameters, stands in for it (see `check_schedule`).
+        if schedule.as_i64().is_some_and(|id| id > 0)
+            && snapshot.get("schedule_params").is_some_and(Value::is_object)
+        {
+            return None;
+        }
+        return Some("The schedule behind this job carries no approval. Turn it on again.");
     }
     if snapshot.get("manual_approval") != Some(&Value::Bool(true)) {
         return Some("No explicit approval is recorded for this job.");
@@ -29,6 +36,63 @@ pub fn prepare_policy_block(snapshot: &Value) -> Option<&'static str> {
         return Some("The approval is not bound to a signed-in session.");
     }
     None
+}
+
+/// The parameters an operator signs when turning on a schedule that changes files.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ScheduleParams<'a> {
+    pub schedule_id: i64,
+    pub action: &'a str,
+    pub root_id: Option<i64>,
+    pub compliance_state: Option<&'a str>,
+    pub max_files: i64,
+    /// The `delete_original` setting at the time of signing and of each run.
+    pub delete_original: bool,
+}
+
+impl ScheduleParams<'_> {
+    /// The parameters as recorded in a job snapshot.
+    #[must_use]
+    pub fn to_json(&self) -> Value {
+        json!({
+            "schedule_id": self.schedule_id,
+            "action": self.action,
+            "root_id": self.root_id,
+            "compliance_state": self.compliance_state,
+            "max_files": self.max_files,
+            "delete_original": self.delete_original,
+        })
+    }
+}
+
+fn hex(bytes: &[u8]) -> String {
+    let mut result = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(result, "{byte:02x}").expect("writing to String");
+    }
+    result
+}
+
+/// Lowercase 64-character hex only; anything else cannot be a signature.
+fn unhex(signature: &str) -> Option<Vec<u8>> {
+    let bytes = signature.as_bytes();
+    if bytes.len() != 64
+        || !bytes
+            .iter()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(b))
+    {
+        return None;
+    }
+    bytes
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|pair| {
+            std::str::from_utf8(pair)
+                .ok()
+                .and_then(|v| u8::from_str_radix(v, 16).ok())
+        })
+        .collect()
 }
 
 /// Exact item identity bound into the approval MAC.
@@ -60,7 +124,7 @@ impl ApprovalVerifier {
     }
 
     fn mac(&self, item: &ApprovalItem<'_>, approved_by: i64, approved_at: i64) -> HmacSha256 {
-        let data = json!([
+        self.mac_over(&json!([
             "approval-v2",
             item.job_id,
             item.media_id,
@@ -68,7 +132,72 @@ impl ApprovalVerifier {
             approved_by,
             approved_at,
             item.identity
-        ]);
+        ]))
+    }
+
+    /// Sign a schedule's parameters; the operator's approval to let it change files.
+    #[must_use]
+    pub fn sign_schedule(
+        &self,
+        params: &ScheduleParams<'_>,
+        approved_by: i64,
+        approved_at: i64,
+    ) -> String {
+        hex(&self
+            .schedule_mac(params, approved_by, approved_at)
+            .finalize()
+            .into_bytes())
+    }
+
+    fn schedule_mac(
+        &self,
+        params: &ScheduleParams<'_>,
+        approved_by: i64,
+        approved_at: i64,
+    ) -> HmacSha256 {
+        self.mac_over(&json!([
+            "schedule-approval-v1",
+            params.schedule_id,
+            params.action,
+            params.root_id,
+            params.compliance_state,
+            params.max_files,
+            params.delete_original,
+            approved_by,
+            approved_at
+        ]))
+    }
+
+    /// Check a stored schedule approval against the schedule's *current* parameters.
+    /// A schedule approval does not age: it ends when the parameters change or the schedule
+    /// is paused, which the caller enforces by clearing it.
+    #[must_use]
+    pub fn check_schedule(
+        &self,
+        params: &ScheduleParams<'_>,
+        approved_by: Option<i64>,
+        approved_at: Option<i64>,
+        signature: Option<&str>,
+    ) -> Option<&'static str> {
+        let (Some(approved_by), Some(approved_at), Some(signature)) =
+            (approved_by, approved_at, signature)
+        else {
+            return Some("The schedule is not approved to change files.");
+        };
+        match unhex(signature) {
+            Some(bytes)
+                if self
+                    .schedule_mac(params, approved_by, approved_at)
+                    .verify_slice(&bytes)
+                    .is_ok() =>
+            {
+                None
+            }
+            _ => Some("The schedule approval does not match its current settings."),
+        }
+    }
+
+    fn mac_over(&self, data: &Value) -> HmacSha256 {
         let encoded = serde_json::to_string(&data).expect("JSON values serialize");
         let mut ascii = String::new();
         for ch in encoded.chars() {
@@ -89,15 +218,10 @@ impl ApprovalVerifier {
     /// Sign the job, media, action, approver, timestamp and file identity.
     #[must_use]
     pub fn sign(&self, item: &ApprovalItem<'_>, approved_by: i64, approved_at: i64) -> String {
-        let bytes = self
+        hex(&self
             .mac(item, approved_by, approved_at)
             .finalize()
-            .into_bytes();
-        let mut result = String::with_capacity(64);
-        for byte in bytes {
-            write!(result, "{byte:02x}").expect("writing to String");
-        }
-        result
+            .into_bytes())
     }
 
     /// Check the signature and age using a caller-provided current time.
@@ -117,25 +241,7 @@ impl ApprovalVerifier {
         let Some(approved_by) = snapshot.get("approved_by").and_then(Value::as_i64) else {
             return Some("The approval is not bound to a signed-in session.");
         };
-        let bytes = signature.as_bytes();
-        let decoded = if bytes.len() == 64
-            && bytes
-                .iter()
-                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(b))
-        {
-            bytes
-                .as_chunks::<2>()
-                .0
-                .iter()
-                .map(|pair| {
-                    std::str::from_utf8(pair)
-                        .ok()
-                        .and_then(|v| u8::from_str_radix(v, 16).ok())
-                })
-                .collect::<Option<Vec<_>>>()
-        } else {
-            None
-        };
+        let decoded = unhex(signature);
         if decoded.as_deref().is_none_or(|value| {
             self.mac(item, approved_by, approved_at)
                 .verify_slice(value)
@@ -156,8 +262,114 @@ impl ApprovalVerifier {
 
 #[cfg(test)]
 mod tests {
-    use super::{ApprovalItem, ApprovalVerifier, prepare_policy_block};
+    use super::{ApprovalItem, ApprovalVerifier, ScheduleParams, prepare_policy_block};
     use serde_json::{Value, json};
+
+    const PARAMS: ScheduleParams<'static> = ScheduleParams {
+        schedule_id: 3,
+        action: "fix",
+        root_id: Some(1),
+        compliance_state: Some("warning"),
+        max_files: 25,
+        delete_original: false,
+    };
+
+    #[test]
+    fn a_schedule_signature_binds_every_parameter() {
+        let verifier = ApprovalVerifier::new(b"secret").unwrap();
+        let mac = verifier.sign_schedule(&PARAMS, 5, 1000);
+        assert_eq!(
+            verifier.check_schedule(&PARAMS, Some(5), Some(1000), Some(&mac)),
+            None
+        );
+        let other = |p: ScheduleParams<'static>| {
+            verifier.check_schedule(&p, Some(5), Some(1000), Some(&mac))
+        };
+        assert!(
+            other(ScheduleParams {
+                schedule_id: 4,
+                ..PARAMS
+            })
+            .is_some()
+        );
+        assert!(
+            other(ScheduleParams {
+                action: "convert",
+                ..PARAMS
+            })
+            .is_some()
+        );
+        assert!(
+            other(ScheduleParams {
+                root_id: None,
+                ..PARAMS
+            })
+            .is_some()
+        );
+        assert!(
+            other(ScheduleParams {
+                compliance_state: None,
+                ..PARAMS
+            })
+            .is_some()
+        );
+        assert!(
+            other(ScheduleParams {
+                max_files: 26,
+                ..PARAMS
+            })
+            .is_some()
+        );
+        assert!(
+            other(ScheduleParams {
+                delete_original: true,
+                ..PARAMS
+            })
+            .is_some()
+        );
+        assert!(
+            verifier
+                .check_schedule(&PARAMS, Some(6), Some(1000), Some(&mac))
+                .is_some()
+        );
+        assert!(
+            verifier
+                .check_schedule(&PARAMS, Some(5), Some(1001), Some(&mac))
+                .is_some()
+        );
+        assert!(
+            verifier
+                .check_schedule(&PARAMS, None, None, None)
+                .is_some()
+        );
+        // A job-item signature never doubles as a schedule signature.
+        let item = ApprovalItem {
+            job_id: 3,
+            media_id: 1,
+            action: "fix",
+            identity: &[],
+        };
+        assert_ne!(verifier.sign(&item, 5, 1000), mac);
+        let stranger = ApprovalVerifier::new(b"other").unwrap();
+        assert!(
+            stranger
+                .check_schedule(&PARAMS, Some(5), Some(1000), Some(&mac))
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn a_schedule_snapshot_passes_the_policy_only_with_its_parameters() {
+        let snapshot = json!({"pipeline":"prepare","policy":"copy-only-v1","manual_approval":false,
+            "schedule_id":3,"schedule_params":{"action":"fix"}});
+        assert_eq!(prepare_policy_block(&snapshot), None);
+        let mut bare = snapshot.clone();
+        bare.as_object_mut().unwrap().remove("schedule_params");
+        assert!(prepare_policy_block(&bare).is_some());
+        let mut wrong = snapshot;
+        wrong["schedule_id"] = json!("3");
+        assert!(prepare_policy_block(&wrong).is_some());
+    }
 
     #[test]
     fn signatures_match_python_and_bind_all_identity_fields() {
@@ -199,8 +411,6 @@ mod tests {
     fn policy_requires_an_explicit_bound_manual_approval() {
         let mut snapshot = json!({"pipeline":"prepare","policy":"copy-only-v1","manual_approval":true,"approved_by":5});
         assert_eq!(prepare_policy_block(&snapshot), None);
-        snapshot["schedule_id"] = json!(1);
-        assert!(prepare_policy_block(&snapshot).is_some());
         snapshot["schedule_id"] = Value::Null;
         snapshot["approved_by"] = json!(true);
         assert!(prepare_policy_block(&snapshot).is_some());
