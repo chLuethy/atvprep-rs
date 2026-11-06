@@ -1,5 +1,7 @@
 -- Schedules gain the `scan` action. SQLite cannot alter a CHECK constraint, so the table is rebuilt.
 -- Nothing references `schedules`, so the swap needs no foreign-key handling.
+-- The rebuilt table carries a wider CHECK, so it is not downward compatible either: an older
+-- binary refuses the newer user_version, and its own schedules could not store 'scan'.
 CREATE TABLE schedules_new (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
