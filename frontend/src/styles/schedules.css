@@ -38,3 +38,5 @@
 .cron-examples { display: flex; flex-direction: column; gap: 6px; }
 .cron-examples li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .cron-examples .filter-chip { cursor: pointer; }
+.sched-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 0 0 10px; }
+.sched-sort { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-sm); }
