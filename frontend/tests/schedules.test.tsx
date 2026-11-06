@@ -386,6 +386,16 @@ describe('cron expressions in the simple mode', () => {
     expect(weeklyCron([6, 0], '03:05')).toBe('5 3 * * 0,1');
   });
 
+  it('treats weekday 7 as Sunday, like 0 and like the server', () => {
+    expect(simpleForm('0 3 * * 0,7')).toEqual({ days: [6], time: '03:00' });
+    expect(simpleForm('0 3 * * 5-7')).toEqual({ days: [4, 5, 6], time: '03:00' });
+    expect(simpleForm('0 3 * * 0-7')).toEqual({ days: [0, 1, 2, 3, 4, 5, 6], time: '03:00' });
+    expect(simpleForm('0 3 * * 1-7')).toEqual({ days: [0, 1, 2, 3, 4, 5, 6], time: '03:00' });
+    expect(simpleForm('0 3 * * 7-0')).toBeNull();
+    // What the editor writes back for Sunday is 0, which says the same as 7.
+    expect(weeklyCron([6], '03:00')).toBe('0 3 * * 0');
+  });
+
   it('recognises what days and a time can express, and nothing else', () => {
     expect(simpleForm('0 3 * * 1-5')).toEqual({ days: [0, 1, 2, 3, 4], time: '03:00' });
     expect(simpleForm('5 3 * * 0,1')).toEqual({ days: [0, 6], time: '03:05' });

@@ -174,9 +174,9 @@ pub async fn run(
 /// with a plain message. Anything else is a server fault.
 fn run_error(error: &atvprep_manager::Error) -> MutationError {
     match error {
-        atvprep_manager::Error::Conflict(_) => {
-            MutationError::Rejected("Cannot run now: the system is in maintenance. Try again later.")
-        }
+        atvprep_manager::Error::Conflict(_) => MutationError::Rejected(
+            "Cannot run now: the system is in maintenance. Try again later.",
+        ),
         _ => MutationError::Database,
     }
 }
