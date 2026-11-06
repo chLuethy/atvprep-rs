@@ -752,7 +752,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn schedule_run_and_delete_are_idempotent_and_non_destructive() {
+    async fn schedule_run_and_delete_are_idempotent_and_an_unapproved_changing_run_queues_nothing()
+    {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
@@ -806,7 +807,8 @@ mod tests {
                 .await
                 .unwrap()
                 .status(),
-            StatusCode::CONFLICT
+            // An unapproved schedule that changes files runs "successfully" but queues nothing.
+            StatusCode::OK
         );
         let delete = || {
             request(
@@ -842,7 +844,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn schedule_updates_rearm_and_reject_legacy_destructive_actions() {
+    async fn schedule_updates_rearm_and_need_confirmation_to_turn_on_a_changing_action() {
         let mut state = state();
         state.clock = Arc::new(atvprep_manager::clock::FixedClock(1_700_000_000_000_000));
         let mut conn = state.db.conn().unwrap();

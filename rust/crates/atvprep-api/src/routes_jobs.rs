@@ -64,7 +64,7 @@ pub async fn create(
     }).await
 }
 
-fn approver(ctx: Ctx<'_>, state: &AppState, token: &str) -> Result<i64, MutationError> {
+pub(crate) fn approver(ctx: Ctx<'_>, state: &AppState, token: &str) -> Result<i64, MutationError> {
     crate::auth::AuthService::with_csrf_ttl(
         ctx,
         i64::try_from(state.config.session_absolute_ttl_seconds).unwrap_or(0),

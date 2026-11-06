@@ -28,7 +28,12 @@ fn seed(db: &Db, action: &str, minutes_ago: i64, approved: bool) -> Conn {
     .to_string();
     conn.raw().execute("INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,max_files,enabled,armed_at) VALUES(1,'t',?1,1,127,?2,5,1,'2000-01-01')",rusqlite::params![action,time]).unwrap();
     if approved {
-        conn.raw().execute("UPDATE schedules SET approved_by=1, approved_at=1700000000, approval_mac=?1", ["a".repeat(64)]).unwrap();
+        conn.raw()
+            .execute(
+                "UPDATE schedules SET approved_by=1, approved_at=1700000000, approval_mac=?1",
+                ["a".repeat(64)],
+            )
+            .unwrap();
     }
     conn
 }

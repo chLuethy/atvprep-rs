@@ -1,4 +1,4 @@
-//! Read views for recurring verify schedules.
+//! Read views and mutations for recurring schedules.
 use crate::{
     extract::AuthenticatedSession,
     mutation::{self, MutationError, MutationRequest},
@@ -9,11 +9,12 @@ use crate::{
     state::AppState,
 };
 use atvprep_manager::{
+    approval::{ApprovalVerifier, ScheduleParams},
     cron::CronExpr,
     repo::Ctx,
     schedules::{
-        TimeOfDay, days_to_mask, effective_cron, mask_to_days, next_cron_run_at_system,
-        run_schedule,
+        TimeOfDay, days_to_mask, delete_original_setting, effective_cron, mask_to_days,
+        next_cron_run_at_system, run_schedule,
     },
 };
 use axum::{
@@ -134,7 +135,7 @@ pub async fn delete(
     .await
 }
 
-/// Run a verify or scan schedule once, refusing historical media-changing schedules.
+/// Run a schedule once. A schedule that changes files queues only while it carries its approval.
 pub async fn run(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -151,18 +152,16 @@ pub async fn run(
         body,
         move |ctx, state| {
             let id = schedule_id(&token, state)?;
-            let action: Option<String> = ctx
+            let exists: bool = ctx
                 .conn
-                .query_row("SELECT action FROM schedules WHERE id=?1", [id], |row| {
-                    row.get(0)
-                })
-                .optional()
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM schedules WHERE id=?1)",
+                    [id],
+                    |row| row.get(0),
+                )
                 .map_err(|_| MutationError::Database)?;
-            let action = action.ok_or(MutationError::NotFound)?;
-            if !matches!(action.as_str(), "verify" | "scan") {
-                return Err(MutationError::Rejected(
-                    "schedules cannot change files; repair or convert them by hand",
-                ));
+            if !exists {
+                return Err(MutationError::NotFound);
             }
             run_schedule(ctx, id).map_err(|_| MutationError::Database)?;
             Ok((200, json!({"data":schedule_view(ctx.conn,state,id)?})))
@@ -186,8 +185,8 @@ pub struct ScheduleCreate {
     time: Option<String>,
     /// Takes precedence over `days` and `time`.
     cron: Option<String>,
-    #[serde(default = "default_max_files")]
-    max_files: i64,
+    /// Defaults to 25 for checking; required (1 to 500) for repairing and converting.
+    max_files: Option<i64>,
 }
 
 fn valid_days(days: &[u8]) -> bool {
@@ -244,6 +243,9 @@ pub struct ScheduleUpdate {
     cron: Option<String>,
     max_files: Option<i64>,
     enabled: Option<bool>,
+    /// Required to turn on a schedule that changes files; the confirmation is what signs it.
+    #[serde(default)]
+    confirm_changes_files: bool,
 }
 
 type ExistingSchedule = (
@@ -297,6 +299,8 @@ pub async fn update(
     }
     let mut body = serde_json::to_value(&payload).unwrap_or(Value::Null);
     body["schedule_id"] = json!(token);
+    let session_token =
+        routes_auth::cookie(&headers, state.config.session_cookie_secure).unwrap_or_default();
     mutate(state,headers,"PATCH",path,"update-schedule",body,move |ctx,state|{
         let id=schedule_id(&token,state)?;
         let existing:Option<ExistingSchedule>=ctx.conn.query_row(
@@ -304,7 +308,7 @@ pub async fn update(
             |row|Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?,row.get(4)?,row.get(5)?,row.get(6)?,row.get(7)?,row.get(8)?,row.get(9)?))
         ).optional().map_err(|_|MutationError::Database)?;
         let (name,root,compliance,mask,time,max_files,enabled,action,armed,stored_cron)=existing.ok_or(MutationError::NotFound)?;
-        if payload.enabled==Some(true) && !matches!(action.as_str(),"verify"|"scan") {return Err(MutationError::InvalidInput("schedules cannot change files; only checking and scanning can be scheduled"));}
+        let (old_root,old_compliance)=(root,compliance.clone());
         let root=if payload.clear_root {None} else if let Some(value)=payload.root_id.as_deref(){
             let root=Opaque::new(state.api_secret.as_bytes()).decode(value,"r").map_err(|_|MutationError::InvalidInput("root_id must be an opaque identifier"))?;
             let exists:bool=ctx.conn.query_row("SELECT EXISTS(SELECT 1 FROM library_roots WHERE id=?1)",[root],|row|row.get(0)).map_err(|_|MutationError::Database)?;
@@ -323,7 +327,34 @@ pub async fn update(
             let timing=Timing::from_weekly(mask,time);
             (i64::from(mask),time.to_string(),Some(timing.cron.as_str().to_owned()))
         } else {(mask,time,stored_cron)};
-        ctx.conn.execute("UPDATE schedules SET name=?1,root_id=?2,compliance_state=?3,days_mask=?4,time_of_day=?5,max_files=?6,enabled=?7,armed_at=?8,cron=?9 WHERE id=?10",rusqlite::params![payload.name.unwrap_or(name),root,compliance,mask,time,if scan {max_files} else {payload.max_files.unwrap_or(max_files)},payload.enabled.unwrap_or(enabled),if rearm {ctx.clock.now()} else {armed},cron,id]).map_err(|_|MutationError::Database)?;
+        let new_max=if scan {max_files} else {payload.max_files.unwrap_or(max_files)};
+        let mut new_enabled=payload.enabled.unwrap_or(enabled);
+        // A schedule that changes files runs only with the operator's signature on its exact
+        // parameters: turning it on (confirmed) signs, a changed parameter or a pause revokes.
+        let changes_files=matches!(action.as_str(),"fix"|"convert");
+        let mut approval:Option<(i64,i64,String)>=None;
+        let mut keep_approval=!changes_files;
+        if changes_files {
+            let params_changed=root!=old_root || compliance!=old_compliance || new_max!=max_files;
+            if payload.enabled==Some(true) {
+                if !payload.confirm_changes_files {return Err(MutationError::InvalidInput("turning on a schedule that changes files needs an explicit confirmation"));}
+                let approver=crate::routes_jobs::approver(ctx,state,&session_token)?;
+                let at=ctx.clock.now_micros()/1_000_000;
+                let verifier=ApprovalVerifier::new(state.approval_secret.as_bytes()).ok_or(MutationError::Database)?;
+                let delete_original=delete_original_setting(ctx.conn).map_err(|_|MutationError::Database)?;
+                let mac=verifier.sign_schedule(&ScheduleParams{schedule_id:id,action:&action,root_id:root,compliance_state:compliance.as_deref(),max_files:new_max,delete_original},approver,at);
+                approval=Some((approver,at,mac));
+            } else if new_enabled && !params_changed {
+                keep_approval=true;
+            } else {
+                new_enabled=false;
+            }
+        }
+        ctx.conn.execute("UPDATE schedules SET name=?1,root_id=?2,compliance_state=?3,days_mask=?4,time_of_day=?5,max_files=?6,enabled=?7,armed_at=?8,cron=?9 WHERE id=?10",rusqlite::params![payload.name.unwrap_or(name),root,compliance,mask,time,new_max,new_enabled,if rearm {ctx.clock.now()} else {armed},cron,id]).map_err(|_|MutationError::Database)?;
+        if !keep_approval {
+            let (by,at,mac)=approval.map_or((None,None,None),|(by,at,mac)|(Some(by),Some(at),Some(mac)));
+            ctx.conn.execute("UPDATE schedules SET approved_by=?1,approved_at=?2,approval_mac=?3 WHERE id=?4",rusqlite::params![by,at,mac,id]).map_err(|_|MutationError::Database)?;
+        }
         Ok((200,json!({"data":schedule_view(ctx.conn,state,id)?})))
     }).await
 }
@@ -341,7 +372,10 @@ pub async fn create(
     };
     if payload.name.is_empty()
         || payload.name.chars().count() > 80
-        || !(1..=500).contains(&payload.max_files)
+        || payload
+            .max_files
+            .is_some_and(|max| !(1..=500).contains(&max))
+        || (matches!(payload.action.as_str(), "fix" | "convert") && payload.max_files.is_none())
         || payload.compliance_state.as_deref().is_some_and(|value| {
             !matches!(
                 value,
@@ -374,7 +408,7 @@ pub async fn create(
         let ctx=Ctx{conn:conn.raw(),clock:state.clock.as_ref()};
         let request=MutationRequest{token:&token,csrf:&csrf,origin_allowed,requires_open_gate:true,method:"POST",path:PATH,action:"create-schedule",idempotency_key:&key,body:&body,absolute_ttl:i64::try_from(state.config.session_absolute_ttl_seconds).unwrap_or(0),idle_ttl:i64::try_from(state.config.session_idle_ttl_seconds).unwrap_or(0),csrf_ttl:i64::try_from(state.config.csrf_ttl_seconds).unwrap_or(0)};
         mutation::execute(ctx,&request,|tx|{
-            if !matches!(payload.action.as_str(),"verify"|"scan") {return Err(MutationError::InvalidInput("schedules cannot change files; only checking and scanning can be scheduled"));}
+            let changes_files=matches!(payload.action.as_str(),"fix"|"convert");
             let scan=payload.action=="scan";
             let count:i64=tx.conn.query_row("SELECT count(*) FROM schedules",[],|row|row.get(0)).map_err(|_|MutationError::Database)?;
             if count>=50{return Err(MutationError::InvalidInput("at most 50 schedules"));}
@@ -384,7 +418,7 @@ pub async fn create(
                 let exists:bool=tx.conn.query_row("SELECT EXISTS(SELECT 1 FROM library_roots WHERE id=?1)",[id],|row|row.get(0)).map_err(|_|MutationError::Database)?;
                 if !exists{return Err(MutationError::InvalidInput("unknown library"));}Some(id)
             }else{None};
-            tx.conn.execute("INSERT INTO schedules(name,action,root_id,compliance_state,days_mask,time_of_day,cron,max_files,enabled,armed_at) VALUES(?1,?9,?2,?3,?4,?5,?6,?7,1,?8)",rusqlite::params![payload.name,root,if scan {None} else {payload.compliance_state.as_deref()},timing.days_mask,timing.time.to_string(),timing.cron.as_str(),if scan {default_max_files()} else {payload.max_files},tx.clock.now(),payload.action]).map_err(|_|MutationError::Database)?;
+            tx.conn.execute("INSERT INTO schedules(name,action,root_id,compliance_state,days_mask,time_of_day,cron,max_files,enabled,armed_at) VALUES(?1,?9,?2,?3,?4,?5,?6,?7,?10,?8)",rusqlite::params![payload.name,root,if scan {None} else {payload.compliance_state.as_deref()},timing.days_mask,timing.time.to_string(),timing.cron.as_str(),if scan {default_max_files()} else {payload.max_files.unwrap_or_else(default_max_files)},tx.clock.now(),payload.action,!changes_files]).map_err(|_|MutationError::Database)?;
             let id=opaque.encode("sc",tx.conn.last_insert_rowid());
             let (rows,_)=views(tx.conn,&state).map_err(|()|MutationError::Database)?;
             let data=rows.into_iter().find(|value|value["id"].as_str()==Some(&id)).ok_or(MutationError::Database)?;

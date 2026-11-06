@@ -19,7 +19,9 @@ pub fn prepare_policy_block(snapshot: &Value) -> Option<&'static str> {
         // A job from a schedule carries no session approval; the schedule's own signature,
         // checked against its current parameters, stands in for it (see `check_schedule`).
         if schedule.as_i64().is_some_and(|id| id > 0)
-            && snapshot.get("schedule_params").is_some_and(Value::is_object)
+            && snapshot
+                .get("schedule_params")
+                .is_some_and(Value::is_object)
         {
             return None;
         }
@@ -337,11 +339,7 @@ mod tests {
                 .check_schedule(&PARAMS, Some(5), Some(1001), Some(&mac))
                 .is_some()
         );
-        assert!(
-            verifier
-                .check_schedule(&PARAMS, None, None, None)
-                .is_some()
-        );
+        assert!(verifier.check_schedule(&PARAMS, None, None, None).is_some());
         // A job-item signature never doubles as a schedule signature.
         let item = ApprovalItem {
             job_id: 3,

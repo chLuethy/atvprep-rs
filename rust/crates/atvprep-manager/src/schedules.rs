@@ -7,8 +7,8 @@
 
 use chrono::{DateTime, Datelike, Local, LocalResult, NaiveDate, Offset, TimeZone, Timelike, Utc};
 
-use crate::clock::format_micros;
 use crate::approval::ScheduleParams;
+use crate::clock::format_micros;
 use crate::cron::CronExpr;
 use crate::deployment_gate::DeploymentGate;
 use crate::jobs::{Jobs, NewJob};
@@ -561,7 +561,12 @@ fn run_change_schedule(ctx: Ctx<'_>, schedule_id: i64, action: &str, now: &str) 
     )?;
     let media_ids = statement
         .query_map(
-            rusqlite::params![row.root_id, row.compliance_state, delete_original, row.max_files],
+            rusqlite::params![
+                row.root_id,
+                row.compliance_state,
+                delete_original,
+                row.max_files
+            ],
             |r| r.get(0),
         )?
         .collect::<std::result::Result<Vec<i64>, _>>()?;
@@ -570,7 +575,14 @@ fn run_change_schedule(ctx: Ctx<'_>, schedule_id: i64, action: &str, now: &str) 
         return finish("No matching files".to_owned(), None);
     }
     let params = row.params(delete_original);
-    let mut job = NewJob::new(if action == "convert" { "convert" } else { "fix" }, &media_ids);
+    let mut job = NewJob::new(
+        if action == "convert" {
+            "convert"
+        } else {
+            "fix"
+        },
+        &media_ids,
+    );
     job.trigger = "manual";
     job.settings_snapshot = serde_json::json!({
         "pipeline": "prepare",
@@ -584,7 +596,10 @@ fn run_change_schedule(ctx: Ctx<'_>, schedule_id: i64, action: &str, now: &str) 
     let queued = Jobs(ctx).create(&job)?;
     let count = media_ids.len();
     finish(
-        format!("Queued {count} {}", if count == 1 { "file" } else { "files" }),
+        format!(
+            "Queued {count} {}",
+            if count == 1 { "file" } else { "files" }
+        ),
         Some(queued.id),
     )
 }

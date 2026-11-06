@@ -249,7 +249,9 @@ mod tests {
         sql("UPDATE schedules SET action='fix' WHERE id=1");
         assert!(allowed(&verifier));
 
-        sql("INSERT INTO runtime_settings(key,value_json,value_type,revision) VALUES('delete_original','true','bool',1)");
+        sql(
+            "INSERT INTO runtime_settings(key,value_json,value_type,revision) VALUES('delete_original','true','bool',1)",
+        );
         assert!(!allowed(&verifier), "delete_original is signed");
         sql("DELETE FROM runtime_settings WHERE key='delete_original'");
         assert!(allowed(&verifier));
