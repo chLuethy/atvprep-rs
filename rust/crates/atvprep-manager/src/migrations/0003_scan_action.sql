@@ -15,14 +15,15 @@ CREATE TABLE schedules_new (
     last_run_at TEXT,
     last_job_id INTEGER,
     last_result TEXT,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    cron TEXT
 );
 INSERT INTO schedules_new(id, name, action, root_id, compliance_state, days_mask, time_of_day,
                           max_files, enabled, armed_at, last_slot_at, last_run_at, last_job_id,
-                          last_result, created_at)
+                          last_result, created_at, cron)
     SELECT id, name, action, root_id, compliance_state, days_mask, time_of_day,
            max_files, enabled, armed_at, last_slot_at, last_run_at, last_job_id,
-           last_result, created_at
+           last_result, created_at, cron
     FROM schedules;
 DROP TABLE schedules;
 ALTER TABLE schedules_new RENAME TO schedules;

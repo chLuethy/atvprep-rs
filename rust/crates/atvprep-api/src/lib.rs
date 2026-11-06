@@ -637,6 +637,121 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::too_many_lines)]
+    async fn schedules_are_stored_and_returned_as_cron() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        let auth = routes_auth::service(&state, &conn).unwrap();
+        let session = auth.create().unwrap();
+        let app = router(state.clone());
+        let send = |method: &'static str, path: String, body: serde_json::Value, key: &str| {
+            let csrf = auth
+                .issue_csrf(
+                    &session.token,
+                    method,
+                    &path,
+                    if method == "POST" {
+                        "create-schedule"
+                    } else {
+                        "update-schedule"
+                    },
+                )
+                .unwrap();
+            let request = axum::http::Request::builder()
+                .method(method)
+                .uri(path)
+                .header("origin", "http://localhost")
+                .header(
+                    "cookie",
+                    format!("__Host-atvprep_session={}", session.token),
+                )
+                .header("x-csrf-token", csrf)
+                .header("idempotency-key", key.to_owned())
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(body.to_string()))
+                .unwrap();
+            let app = app.clone();
+            async move {
+                let response = app.oneshot(request).await.unwrap();
+                let status = response.status();
+                let body: serde_json::Value =
+                    serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap())
+                        .unwrap_or(serde_json::Value::Null);
+                (status, body)
+            }
+        };
+        // Simple mode: days and time generate the cron (Sunday = 0).
+        let (status, body) = send(
+            "POST",
+            "/api/v1/schedules".into(),
+            serde_json::json!({"name":"Simple","action":"verify","days":[0,6],"time":"03:05"}),
+            "a",
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED, "{body}");
+        assert_eq!(body["data"]["cron"], "5 3 * * 0,1");
+        assert_eq!(body["data"]["days"], serde_json::json!([0, 6]));
+        // A cron is accepted directly and normalised.
+        let (status, body) = send(
+            "POST",
+            "/api/v1/schedules".into(),
+            serde_json::json!({"name":"Cron","action":"verify","cron":"*/15  2 * * 7"}),
+            "b",
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED, "{body}");
+        assert_eq!(body["data"]["cron"], "*/15 2 * * 7");
+        let stored: String = conn
+            .raw()
+            .query_row("SELECT cron FROM schedules WHERE id=2", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(stored, "*/15 2 * * 7");
+        // Invalid, or neither form given.
+        for (key, bad) in [
+            (
+                "c",
+                serde_json::json!({"name":"x","action":"verify","cron":"@daily"}),
+            ),
+            (
+                "d",
+                serde_json::json!({"name":"x","action":"verify","cron":"61 * * * *"}),
+            ),
+            ("e", serde_json::json!({"name":"x","action":"verify"})),
+            (
+                "f",
+                serde_json::json!({"name":"x","action":"verify","days":[1]}),
+            ),
+        ] {
+            let (status, _) = send("POST", "/api/v1/schedules".into(), bad, key).await;
+            assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{key}");
+        }
+        // Update by cron, then by days (which regenerates the cron).
+        let id = crate::opaque::Opaque::new(state.api_secret.as_bytes()).encode("sc", 1);
+        let path = format!("/api/v1/schedules/{id}");
+        let (status, body) = send(
+            "PATCH",
+            path.clone(),
+            serde_json::json!({"cron":"0 4 1 * *"}),
+            "g",
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["data"]["cron"], "0 4 1 * *");
+        let (status, _) = send(
+            "PATCH",
+            path.clone(),
+            serde_json::json!({"cron":"nope"}),
+            "h",
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        let (status, body) = send("PATCH", path, serde_json::json!({"days":[2]}), "i").await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["data"]["cron"], "0 4 * * 3");
+    }
+
+    #[tokio::test]
     async fn schedule_run_and_delete_are_idempotent_and_non_destructive() {
         let state = state();
         let mut conn = state.db.conn().unwrap();

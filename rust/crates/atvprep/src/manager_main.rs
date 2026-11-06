@@ -157,7 +157,7 @@ fn verify_database(path: &Path) -> Result<(), &'static str> {
             Err("existing database is not an empty Rust database")
         };
     }
-    // An older Rust schema is upgraded by `migrate`; it has the same tables.
+    // An older version is upgraded by `migrate` after this check.
     if !(1..=schema::VERSION).contains(&version) {
         return Err("unsupported database schema");
     }

@@ -65,7 +65,7 @@ _Avoid_: Undo
 Die ausdrückliche Betreiberentscheidung, dass ein Release nach dem Releasefenster in Ordnung ist. Erst danach wird das Gate geöffnet.
 
 **Zeitplan**:
-Eine wiederkehrende Regel, die zu festen Zeitpunkten (Cron-Ausdruck, Serverzeit) eine Aktion auslöst: Prüfen, Reparieren, Konvertieren oder Scannen. Die Aktion eines Zeitplans ändert sich nach dem Anlegen nicht mehr. Ein Zeitplan, der Dateien ändert (Reparieren, Konvertieren), startet pausiert und wird bewusst angeschaltet. Verpasste Läufe werden nicht nachgeholt.
+Eine wiederkehrende Regel, die zu festen Zeitpunkten (Cron-Ausdruck, Serverzeit) eine Aktion auslöst: Prüfen, Reparieren, Konvertieren oder Scannen. Die Aktion eines Zeitplans ändert sich nach dem Anlegen nicht mehr. Ein Zeitplan, der Dateien ändert (Reparieren, Konvertieren), startet pausiert und wird bewusst angeschaltet. Verpasste Läufe werden nicht nachgeholt, mit einer Ausnahme: Nur der jüngste verpasste Slot wird nachgeholt, und nur innerhalb eines Fensters von 6 Stunden. Ein Slot vor dem Einschalten oder Ändern des Zeitplans läuft nie.
 _Avoid_: Schedule, Cronjob, Prepare (die Aktion heißt Reparieren oder Konvertieren)
 
 **Lauf**:

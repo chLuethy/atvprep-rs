@@ -16,6 +16,8 @@ export type Schedule = {
   root_id: string | null;
   root_name: string | null;
   compliance_state: string | null;
+  /** The 5-field cron the schedule runs on (server time, Sunday is 0). The simple mode derives it from days and time. */
+  cron: string;
   /** Weekdays the schedule runs on, Monday is 0. */
   days: number[];
   /** HH:MM in the server's time zone. */

@@ -8,7 +8,7 @@ type Api = { request: (path: string, init?: RequestInit) => Promise<Response> };
 
 const schedule = (over: Partial<Schedule> = {}): Schedule => ({
   id: "sc_1", name: "Nightly verify", action: "verify", root_id: "r_1", root_name: "Film", compliance_state: "unknown",
-  days: [0, 1, 2, 3, 4], time: "03:00", max_files: 25, enabled: true, matching: 12,
+  cron: "0 3 * * 1,2,3,4,5", days: [0, 1, 2, 3, 4], time: "03:00", max_files: 25, enabled: true, matching: 12,
   next_run_at: "2026-10-26T02:00:00+00:00", last_run_at: null, last_result: null, last_job_id: null, ...over,
 });
 
