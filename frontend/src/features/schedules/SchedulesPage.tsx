@@ -65,10 +65,20 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
     setDraft(blank()); setEditing({ id: null });
     queueMicrotask(() => nameInput?.focus());
   };
+  const draftOf = (schedule: Schedule, name: string): ScheduleInput =>
+    ({ name, action: schedule.action, rootId: schedule.root_id, complianceState: schedule.compliance_state, days: [...schedule.days], time: schedule.time, cron: simpleForm(schedule.cron) ? null : schedule.cron, maxFiles: schedule.max_files ?? 25 });
   const openEdit = (schedule: Schedule) => {
     fresh(); setFormError(null); setNotice(null); setAsking(null);
-    setDraft({ name: schedule.name, action: schedule.action, rootId: schedule.root_id, complianceState: schedule.compliance_state, days: [...schedule.days], time: schedule.time, cron: simpleForm(schedule.cron) ? null : schedule.cron, maxFiles: schedule.max_files ?? 25 });
+    setDraft(draftOf(schedule, schedule.name));
     setEditing({ id: schedule.id });
+    queueMicrotask(() => nameInput?.focus());
+  };
+  /** A copy is a new schedule: no id, so saving creates it, and the server decides whether it starts paused. */
+  const openDuplicate = (schedule: Schedule) => {
+    fresh(); setFormError(null); setNotice(null); setAsking(null);
+    const suffix = t(" (copy)");
+    setDraft(draftOf(schedule, schedule.name.slice(0, Math.max(0, 80 - suffix.length)) + suffix));
+    setEditing({ id: null });
     queueMicrotask(() => nameInput?.focus());
   };
   const closeEditor = () => { setEditing(null); queueMicrotask(() => newButton?.focus()); };
@@ -381,6 +391,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
         <div class="sched-actions">
           <Button variant="quiet" disabled={busy()} onClick={() => { fresh(); void act(() => runScheduleNow(props.api, schedule.id, key), t("Run started. The result is on the schedule."), t("Unable to run the schedule.")); }}>{t("Run now")}</Button>
           <Button variant="quiet" disabled={busy()} onClick={() => openEdit(schedule)}>{t("Edit")}</Button>
+          <Button variant="quiet" disabled={busy()} onClick={() => openDuplicate(schedule)}>{t("Duplicate")}</Button>
           <Button variant="quiet" disabled={busy()} onClick={() => ask(schedule.id, "delete")}>{t("Delete")}</Button>
         </div>
       </div>

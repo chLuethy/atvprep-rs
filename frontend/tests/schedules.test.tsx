@@ -487,3 +487,73 @@ describe('the cron editor', () => {
     expect(await within(editor).findByText('Every 15 minutes')).toBeInTheDocument();
   });
 });
+
+describe("duplicating a schedule", () => {
+  const open = async (state: ReturnType<typeof makeApi>) => {
+    const view = render(() => <SchedulesPage api={state.api} />);
+    await fireEvent.click(await view.findByRole("button", { name: "Duplicate" }));
+    return { view, editor: await view.findByRole("region", { name: "New schedule" }) };
+  };
+
+  it("opens a new-schedule editor prefilled with a copy, and saves it as a new schedule", async () => {
+    let body: unknown;
+    const state = makeApi([schedule({ cron: "0 3 * * 1,2,3,4,5" })], { "POST /schedules": (init) => { body = JSON.parse(String(init?.body)); return json(schedule({ id: "sc_2" }), 201); } });
+    const { view, editor } = await open(state);
+
+    expect(within(editor).getByLabelText("Name")).toHaveValue("Nightly verify (copy)");
+    expect(within(editor).getByLabelText("Library")).toHaveValue("r_1");
+    await fireEvent.click(within(editor).getByRole("button", { name: "Save schedule" }));
+
+    await waitFor(() => expect(body).toEqual({
+      name: "Nightly verify (copy)", action: "verify", root_id: "r_1", compliance_state: "unknown",
+      days: [0, 1, 2, 3, 4], time: "03:00", max_files: 25,
+    }));
+    expect(await view.findByRole("status")).toHaveTextContent("Schedule saved and on.");
+    expect(state.calls.some((call) => call.init?.method === "PUT" || call.init?.method === "PATCH")).toBe(false);
+  });
+
+  it("keeps a cron expression and saves it", async () => {
+    let body: unknown;
+    const state = makeApi([schedule({ cron: "*/15 * * * *", days: [0, 1, 2, 3, 4, 5, 6], time: "00:00" })], {
+      "GET /schedules/cron-preview?expression=*%2F15%20*%20*%20*%20*&lang=en": () => preview("*/15 * * * *", "Every 15 minutes"),
+      "POST /schedules": (init) => { body = JSON.parse(String(init?.body)); return json(schedule({ id: "sc_2" }), 201); },
+    });
+    const { editor } = await open(state);
+
+    expect(within(editor).getByRole("button", { name: "Cron" })).toHaveAttribute("aria-pressed", "true");
+    await within(editor).findByText("Every 15 minutes");
+    await fireEvent.click(within(editor).getByRole("button", { name: "Save schedule" }));
+    await waitFor(() => expect(body).toMatchObject({ name: "Nightly verify (copy)", cron: "*/15 * * * *", max_files: 25 }));
+  });
+
+  it("copies a fix schedule with its files per run, and the copy starts paused", async () => {
+    let body: unknown;
+    const state = makeApi([schedule({ action: "fix", compliance_state: "warning", max_files: 9 })], { "POST /schedules": (init) => { body = JSON.parse(String(init?.body)); return json(schedule({ id: "sc_2", action: "fix", enabled: false }), 201); } });
+    const { view, editor } = await open(state);
+
+    expect(within(editor).getByLabelText("Files per run")).toHaveValue(9);
+    await fireEvent.click(within(editor).getByRole("button", { name: "Save schedule" }));
+    await waitFor(() => expect(body).toMatchObject({ action: "fix", compliance_state: "warning", max_files: 9 }));
+    expect(await view.findByRole("status")).toHaveTextContent("Schedule saved. It is paused until you turn it on.");
+  });
+
+  it("copies a scan schedule without files per run", async () => {
+    let body: unknown;
+    const state = makeApi([scanSchedule()], { "POST /schedules": (init) => { body = JSON.parse(String(init?.body)); return json(scanSchedule({ id: "sc_2" }), 201); } });
+    const { editor } = await open(state);
+
+    expect(within(editor).queryByLabelText("Files per run")).toBeNull();
+    await fireEvent.click(within(editor).getByRole("button", { name: "Save schedule" }));
+    await waitFor(() => expect(body).toMatchObject({ name: "Nightly scan (copy)", action: "scan" }));
+    expect(body).not.toHaveProperty("max_files");
+  });
+
+  it("fits the copied name into the 80 character limit", async () => {
+    const state = makeApi([schedule({ name: "x".repeat(80) })]);
+    const { editor } = await open(state);
+    const name = (within(editor).getByLabelText("Name") as HTMLInputElement).value;
+
+    expect(name.length).toBe(80);
+    expect(name.endsWith(" (copy)")).toBe(true);
+  });
+});
