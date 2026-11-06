@@ -79,6 +79,9 @@ a { color: var(--accent-text); }
 .seg button { flex: 1; border: 0; background: none; padding: 5px 6px; font-size: var(--text-sm); color: var(--muted); }
 .seg button + button { border-left: 1px solid var(--line); }
 .seg button[aria-pressed="true"] { background: var(--accent-weak); color: var(--text); font-weight: 600; }
+.filter-chip { border: 1px solid var(--line-strong); border-radius: 999px; background: var(--panel); color: var(--muted); padding: 3px 10px; font-size: var(--text-sm); }
+.filter-chip:hover { color: var(--text); }
+.filter-chip[aria-pressed="true"] { background: var(--accent-weak); border-color: var(--accent); color: var(--text); font-weight: 600; }
 .input, .select {
   background: var(--panel); border: 1px solid var(--line-strong); border-radius: 6px; padding: 5px 8px; min-height: 28px; color: var(--text);
 }

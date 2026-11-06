@@ -63,3 +63,14 @@ _Avoid_: Undo
 
 **Abnahme**:
 Die ausdrückliche Betreiberentscheidung, dass ein Release nach dem Releasefenster in Ordnung ist. Erst danach wird das Gate geöffnet.
+
+**Zeitplan**:
+Eine wiederkehrende Regel, die zu festen Zeitpunkten (Cron-Ausdruck, Serverzeit) eine Aktion auslöst: Prüfen, Reparieren, Konvertieren oder Scannen. Die Aktion eines Zeitplans ändert sich nach dem Anlegen nicht mehr. Ein Zeitplan, der Dateien ändert (Reparieren, Konvertieren), startet pausiert und wird bewusst angeschaltet. Verpasste Läufe werden nicht nachgeholt.
+_Avoid_: Schedule, Cronjob, Prepare (die Aktion heißt Reparieren oder Konvertieren)
+
+**Lauf**:
+Ein einzelnes Auslösen eines Zeitplans, entweder zum geplanten Zeitpunkt (Slot) oder von Hand („Run now"). Erzeugt je nach Aktion einen Job oder einen Scan und wird mit Ergebnis im Verlauf des Zeitplans festgehalten.
+_Avoid_: Ausführung, Run (nur in der Oberfläche)
+
+**Slot**:
+Der geplante Zeitpunkt eines Laufs, wie ihn der Cron-Ausdruck des Zeitplans ergibt.
