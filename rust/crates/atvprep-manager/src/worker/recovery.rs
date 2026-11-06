@@ -103,7 +103,7 @@ impl Recovery<'_> {
         }
         let mut summary = self.recover_expired_items(limit)?;
         for item in before {
-            let current: Option<String> = self
+            let current: Option<ItemStatus> = self
                 .0
                 .conn
                 .query_row(
@@ -112,7 +112,7 @@ impl Recovery<'_> {
                     |row| row.get(0),
                 )
                 .optional()?;
-            if current.as_deref() != Some("interrupted") {
+            if current != Some(ItemStatus::Interrupted) {
                 continue;
             }
             // Work the user cancelled must not come back as a retry.

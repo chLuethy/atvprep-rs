@@ -100,6 +100,30 @@ status_enum! {
     }
 }
 
+status_enum! {
+    /// The status of one scan run (`scan_runs`). Scans are not part of the job lifecycle.
+    ScanStatus, "scan", {
+        Queued => "queued",
+        Claimed => "claimed",
+        Running => "running",
+        Succeeded => "succeeded",
+        Failed => "failed",
+        Cancelled => "cancelled",
+        Interrupted => "interrupted",
+    }
+}
+
+impl ScanStatus {
+    /// The scan has ended one way or another and will not change again.
+    #[must_use]
+    pub const fn is_terminal(self) -> bool {
+        match self {
+            Self::Succeeded | Self::Failed | Self::Cancelled | Self::Interrupted => true,
+            Self::Queued | Self::Claimed | Self::Running => false,
+        }
+    }
+}
+
 impl ItemStatus {
     /// What an item may become from this status.
     #[must_use]

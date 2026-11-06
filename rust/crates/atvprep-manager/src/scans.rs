@@ -4,6 +4,7 @@ use rusqlite::{OptionalExtension, named_params};
 
 use crate::models::ScanRun;
 use crate::repo::Ctx;
+use crate::state_machine::ScanStatus;
 use crate::{Error, Result};
 
 /// The scan `:scan_id` of root `:root_id` is a claimed scan, the newest of its root, and
@@ -52,8 +53,14 @@ impl Scans<'_> {
         }
         self.0.conn.execute(
             "INSERT INTO scan_runs(root_id, generation, trigger, status, started_at)
-             VALUES (?1, ?2, ?3, 'running', ?4)",
-            rusqlite::params![root_id, generation, trigger, self.0.clock.now()],
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![
+                root_id,
+                generation,
+                trigger,
+                ScanStatus::Running,
+                self.0.clock.now()
+            ],
         )?;
         self.require(self.0.conn.last_insert_rowid())
     }
@@ -81,9 +88,9 @@ impl Scans<'_> {
             .0
             .conn
             .query_row(
-                "SELECT id FROM scan_runs WHERE root_id=?1 AND trigger='manual' AND status='queued'
+                "SELECT id FROM scan_runs WHERE root_id=?1 AND trigger='manual' AND status=?2
                  ORDER BY id LIMIT 1",
-                [root_id],
+                rusqlite::params![root_id, ScanStatus::Queued],
                 |r| r.get(0),
             )
             .optional()?;
@@ -97,8 +104,13 @@ impl Scans<'_> {
         )?;
         self.0.conn.execute(
             "INSERT INTO scan_runs(root_id, generation, trigger, status, started_at)
-             VALUES (?1, ?2, 'manual', 'queued', ?3)",
-            rusqlite::params![root_id, generation.unwrap_or(0) + 1, self.0.clock.now()],
+             VALUES (?1, ?2, 'manual', ?3, ?4)",
+            rusqlite::params![
+                root_id,
+                generation.unwrap_or(0) + 1,
+                ScanStatus::Queued,
+                self.0.clock.now()
+            ],
         )?;
         self.require(self.0.conn.last_insert_rowid())
     }
@@ -111,9 +123,16 @@ impl Scans<'_> {
     /// SQLite fails.
     pub fn abandon(&self, scan_id: i64) -> Result<()> {
         self.0.conn.execute(
-            "UPDATE scan_runs SET status='interrupted', finished_at=?1
-             WHERE id=?2 AND status IN ('queued','claimed','running')",
-            rusqlite::params![self.0.clock.now(), scan_id],
+            "UPDATE scan_runs SET status=?1, finished_at=?2
+             WHERE id=?3 AND status IN (?4, ?5, ?6)",
+            rusqlite::params![
+                ScanStatus::Interrupted,
+                self.0.clock.now(),
+                scan_id,
+                ScanStatus::Queued,
+                ScanStatus::Claimed,
+                ScanStatus::Running
+            ],
         )?;
         Ok(())
     }
@@ -159,23 +178,20 @@ impl Scans<'_> {
         Ok(held.is_some())
     }
 
-    /// Finish a scan. `status` accepts the legacy `completed`/`aborted`. A scan that is no longer
+    /// Finish a scan. A scan that is no longer
     /// authoritative is left as it is. A succeeded scan marks the files it did not see as missing.
     ///
     /// # Errors
     ///
     /// Unknown scan or invalid status.
-    pub fn finish(&self, scan_id: i64, status: &str, reconcile_missing: bool) -> Result<ScanRun> {
+    pub fn finish(
+        &self,
+        scan_id: i64,
+        status: ScanStatus,
+        reconcile_missing: bool,
+    ) -> Result<ScanRun> {
         let scan = self.require(scan_id)?;
-        let normalized = match status {
-            "completed" => "succeeded",
-            "aborted" => "interrupted",
-            other => other,
-        };
-        if !matches!(
-            normalized,
-            "succeeded" | "failed" | "cancelled" | "interrupted"
-        ) {
+        if !status.is_terminal() {
             return Err(Error::Invalid("invalid scan status".to_owned()));
         }
         let now = self.0.clock.now();
@@ -192,14 +208,14 @@ impl Scans<'_> {
                       AND fencing_token=scan_runs.fencing_token
                       AND lease_expires_at > :now))",
             named_params! {
-                ":status": normalized, ":finished_at": now, ":scan_id": scan_id,
+                ":status": status, ":finished_at": now, ":scan_id": scan_id,
                 ":root_id": scan.root_id, ":now": now,
             },
         )?;
         if changed == 0 {
             return Ok(scan);
         }
-        if reconcile_missing && normalized == "succeeded" {
+        if reconcile_missing && status == ScanStatus::Succeeded {
             self.0.conn.execute(
                 "UPDATE media_files
                  SET discovery_state='missing',
@@ -220,7 +236,7 @@ impl Scans<'_> {
                                 AND fencing_token=authoritative.fencing_token
                                 AND lease_expires_at > :now)))",
                 named_params! {
-                    ":scan_id": scan_id, ":root_id": scan.root_id, ":status": normalized,
+                    ":scan_id": scan_id, ":root_id": scan.root_id, ":status": status,
                     ":now": self.0.clock.now(),
                 },
             )?;

@@ -14,6 +14,7 @@ use atvprep_manager::repo::Ctx;
 use atvprep_manager::scans::Scans;
 use atvprep_manager::schema::migrate;
 use atvprep_manager::sidecars::Sidecars;
+use atvprep_manager::state_machine::ScanStatus;
 use serde_json::{Value, json};
 
 const T0: i64 = 1_700_000_000_000_000;
@@ -166,7 +167,7 @@ fn a_completed_scan_marks_unseen_media_missing_but_an_aborted_one_does_not() {
     scans
         .record_seen(scan.id, root, "new.mp4", &meta("new"))
         .unwrap();
-    scans.finish(scan.id, "completed", true).unwrap();
+    scans.finish(scan.id, ScanStatus::Succeeded, true).unwrap();
     assert_eq!(
         media.get(old.id).unwrap().unwrap().discovery_state,
         "missing"
@@ -176,7 +177,9 @@ fn a_completed_scan_marks_unseen_media_missing_but_an_aborted_one_does_not() {
         .unwrap()
         .unwrap();
     let second = scans.start(root, 2, "scheduled").unwrap();
-    scans.finish(second.id, "aborted", true).unwrap();
+    scans
+        .finish(second.id, ScanStatus::Interrupted, true)
+        .unwrap();
     assert_eq!(
         media.get(old.id).unwrap().unwrap().discovery_state,
         "missing"
@@ -206,17 +209,27 @@ fn scan_statuses_are_normalised_and_invalid_ones_rejected() {
         (0, 0, 0)
     );
     assert_eq!(
-        scans.finish(started.id, "completed", true).unwrap().status,
-        "succeeded"
+        scans
+            .finish(started.id, ScanStatus::Succeeded, true)
+            .unwrap()
+            .status,
+        ScanStatus::Succeeded
     );
     let second = scans.start(root, 2, "scheduled").unwrap();
     assert_eq!(
-        scans.finish(second.id, "aborted", true).unwrap().status,
-        "interrupted"
+        scans
+            .finish(second.id, ScanStatus::Interrupted, true)
+            .unwrap()
+            .status,
+        ScanStatus::Interrupted
     );
     let third = scans.start(root, 3, "scheduled").unwrap();
-    let error = scans.finish(third.id, "completed-ish", true).unwrap_err();
+    let error = scans
+        .finish(third.id, ScanStatus::Running, true)
+        .unwrap_err();
     assert_eq!(error.to_string(), "invalid scan status");
+    let unknown = "completed-ish".parse::<ScanStatus>().unwrap_err();
+    assert_eq!(unknown.to_string(), "unknown scan status: completed-ish");
     assert_eq!(
         scans.start(root, 4, "bogus").unwrap_err().to_string(),
         "invalid scan trigger"
@@ -266,7 +279,7 @@ fn an_older_scan_cannot_hide_media_seen_by_a_newer_scan() {
         .record_seen(newer.id, root, "newer.mp4", &meta("newer"))
         .unwrap()
         .unwrap();
-    scans.finish(older.id, "completed", true).unwrap();
+    scans.finish(older.id, ScanStatus::Succeeded, true).unwrap();
     assert_eq!(
         Media(f.ctx())
             .get(seen.id)
@@ -275,7 +288,7 @@ fn an_older_scan_cannot_hide_media_seen_by_a_newer_scan() {
             .discovery_state,
         "present"
     );
-    scans.finish(newer.id, "completed", true).unwrap();
+    scans.finish(newer.id, ScanStatus::Succeeded, true).unwrap();
     assert_eq!(
         Media(f.ctx())
             .get(seen.id)
@@ -416,8 +429,11 @@ fn assert_lost_scan_fenced(trigger: &str) {
             .is_none()
     );
     assert_eq!(
-        scans.finish(scan, "completed", true).unwrap().status,
-        "running"
+        scans
+            .finish(scan, ScanStatus::Succeeded, true)
+            .unwrap()
+            .status,
+        ScanStatus::Running
     );
     assert_eq!(
         Media(f.ctx()).get(media.id).unwrap().unwrap().fingerprint,
@@ -444,8 +460,11 @@ fn an_expired_scheduler_lease_rejects_scan_persistence_without_a_takeover() {
             .is_none()
     );
     assert_eq!(
-        scans.finish(scan, "completed", true).unwrap().status,
-        "running"
+        scans
+            .finish(scan, ScanStatus::Succeeded, true)
+            .unwrap()
+            .status,
+        ScanStatus::Running
     );
 }
 
@@ -727,7 +746,7 @@ fn a_dismissed_missing_file_is_shown_again_when_a_scan_finds_it() {
         .unwrap()
         .unwrap();
     let first = scans.start(root, 1, "scheduled").unwrap();
-    scans.finish(first.id, "completed", true).unwrap();
+    scans.finish(first.id, ScanStatus::Succeeded, true).unwrap();
     assert_eq!(
         (
             media.dismiss_missing().unwrap(),
@@ -742,13 +761,15 @@ fn a_dismissed_missing_file_is_shown_again_when_a_scan_finds_it() {
     scans
         .record_seen(second.id, root, "gone.mp4", &meta("g"))
         .unwrap();
-    scans.finish(second.id, "completed", true).unwrap();
+    scans
+        .finish(second.id, ScanStatus::Succeeded, true)
+        .unwrap();
     assert_eq!(
         media.get(gone.id).unwrap().unwrap().discovery_state,
         "present"
     );
     let third = scans.start(root, 3, "scheduled").unwrap();
-    scans.finish(third.id, "completed", true).unwrap();
+    scans.finish(third.id, ScanStatus::Succeeded, true).unwrap();
     let again = media.get(gone.id).unwrap().unwrap();
     assert!(again.discovery_state == "missing" && again.dismissed_at.is_none());
     let _ = f.clock.now();

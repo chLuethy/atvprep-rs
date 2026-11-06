@@ -9,7 +9,7 @@ use crate::{
     leases::MediaExecutorLease,
     repo::Ctx,
     snapshots::{InputSnapshot, InputSnapshots},
-    state_machine::{ItemStatus, JobStateMachine},
+    state_machine::{ItemStatus, JobStateMachine, JobStatus},
 };
 use std::{
     collections::BTreeMap,
@@ -66,7 +66,7 @@ pub fn execute_claimed(
     }
     let parent = crate::db::retry_busy(|| Jobs(ctx).get(item.job_id))?
         .ok_or_else(|| Error::Invalid("parent job not found".to_owned()))?;
-    if !matches!(parent.status.as_str(), "queued" | "running") {
+    if !matches!(parent.status, JobStatus::Queued | JobStatus::Running) {
         return Err(Error::Conflict(
             "parent job no longer accepts execution".to_owned(),
         ));
@@ -207,13 +207,13 @@ pub fn execute_claimed(
                 lost = true;
                 return true;
             }
-            let status: std::result::Result<String, _> = ctx.conn.query_row(
+            let status: std::result::Result<JobStatus, _> = ctx.conn.query_row(
                 "SELECT status FROM jobs WHERE id=?1",
                 [item.job_id],
                 |row| row.get(0),
             );
             status.map_or(true, |status| {
-                !matches!(status.as_str(), "queued" | "running")
+                !matches!(status, JobStatus::Queued | JobStatus::Running)
             })
         };
         let mut output =

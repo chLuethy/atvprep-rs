@@ -29,7 +29,7 @@ pub struct ScanRun {
     pub root_id: i64,
     pub generation: i64,
     pub trigger: String,
-    pub status: String,
+    pub status: crate::state_machine::ScanStatus,
     pub claimed_by: Option<String>,
     pub attempt: i64,
     pub status_version: i64,

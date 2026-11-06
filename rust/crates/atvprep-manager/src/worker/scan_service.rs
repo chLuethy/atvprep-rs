@@ -2,7 +2,7 @@
 use super::scanner::{SeenFile, observe, visit_checked};
 use crate::{
     Error, Result, deployment_gate::DeploymentGate, media::Media, repo::Ctx, scans::Scans,
-    scheduler::SchedulerLease, sidecars::Sidecars,
+    scheduler::SchedulerLease, sidecars::Sidecars, state_machine::ScanStatus,
 };
 use std::{
     io::{BufRead, BufReader, BufWriter, Seek, SeekFrom, Write},
@@ -41,7 +41,7 @@ pub fn run(
         .ok_or_else(|| Error::Invalid("scan not found".to_owned()))?;
     if scan.claimed_by.as_deref() != Some(owner)
         || scan.fencing_token != fence
-        || scan.status != "running"
+        || scan.status != ScanStatus::Running
         || options.lease_seconds < 3
     {
         return Err(Error::Conflict(
@@ -182,7 +182,11 @@ pub fn run(
                     settled.push(media.id);
                 }
             }
-            if Scans(write).finish(scan.id, "succeeded", true)?.status != "succeeded" {
+            if Scans(write)
+                .finish(scan.id, ScanStatus::Succeeded, true)?
+                .status
+                != ScanStatus::Succeeded
+            {
                 return Err(Error::Conflict(
                     "scan lost its completion authority".to_owned(),
                 ));
@@ -204,9 +208,9 @@ pub fn run(
             .as_ref()
             .is_some_and(|stop| stop.load(std::sync::atomic::Ordering::Acquire))
         {
-            "interrupted"
+            ScanStatus::Interrupted
         } else {
-            "failed"
+            ScanStatus::Failed
         };
         let _ = crate::db::retry_busy(|| Scans(ctx).finish(scan.id, status, false));
     } else if result.is_err() {
