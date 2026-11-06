@@ -257,6 +257,66 @@ fn dispatch_respects_catchup_arming_pause_and_gate() {
     }
 }
 #[test]
+fn slots_that_pass_behind_a_closed_gate_are_never_reported_when_it_reopens() {
+    for (hours, action) in [(7, "verify"), (1, "fix")] {
+        let db = Db::memory().unwrap();
+        let conn = seed(&db);
+        let clock = FixedClock(NOW);
+        let ctx = Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        };
+        let time = (DateTime::<Utc>::from_timestamp_micros(NOW)
+            .unwrap()
+            .with_timezone(&Local)
+            - Duration::hours(hours))
+        .format("%H:%M")
+        .to_string();
+        conn.raw()
+            .execute(
+                "UPDATE schedules SET time_of_day=?1, cron=NULL, action=?2, approved_by=1, approved_at=1, approval_mac='a'",
+                rusqlite::params![time, action],
+            )
+            .unwrap();
+        conn.raw()
+            .execute("UPDATE deployment_gate SET mode='maintenance'", [])
+            .unwrap();
+        assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+        conn.raw()
+            .execute("UPDATE deployment_gate SET mode='open'", [])
+            .unwrap();
+        assert_eq!(run_due_schedules(ctx).unwrap(), 0, "{action}");
+        let (entries, jobs): (i64, i64) = conn
+            .raw()
+            .query_row(
+                "SELECT (SELECT count(*) FROM schedule_runs), (SELECT count(*) FROM jobs)",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!((entries, jobs), (0, 0), "{action}");
+    }
+}
+#[test]
+fn a_late_slot_behind_a_closed_gate_still_runs_within_its_window_once_it_reopens() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    conn.raw()
+        .execute("UPDATE deployment_gate SET mode='maintenance'", [])
+        .unwrap();
+    assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+    conn.raw()
+        .execute("UPDATE deployment_gate SET mode='open'", [])
+        .unwrap();
+    // The seeded slot was 30 minutes ago: checking still catches it up.
+    assert_eq!(run_due_schedules(ctx).unwrap(), 1);
+}
+#[test]
 fn a_slot_outside_the_window_is_noted_once_as_missed_without_a_job() {
     let db = Db::memory().unwrap();
     let conn = seed(&db);

@@ -765,9 +765,7 @@ pub fn run_due_schedules(ctx: Ctx<'_>) -> Result<usize> {
 
 fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
     let gate = DeploymentGate(ctx).status()?;
-    if !gate.healthy || gate.mode != "open" || gate.phase != "steady" {
-        return Ok(0);
-    }
+    let gate_open = gate.healthy && gate.mode == "open" && gate.phase == "steady";
     let now_micros = ctx.clock.now_micros();
     let Some(now_utc) = DateTime::<Utc>::from_timestamp_micros(now_micros) else {
         return Ok(0);
@@ -804,7 +802,9 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
             continue;
         };
         // A schedule saved before a limit existed does not run on unnoticed: it is paused and says why.
-        if let Err(violation) = limits::check(&action, &cron, max_files) {
+        if let Err(violation) = limits::check(&action, &cron, max_files)
+            && gate_open
+        {
             pause_over_limit(ctx, id, &violation)?;
             continue;
         }
@@ -826,6 +826,18 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
         };
         let missed = now_micros - slot_micros > window;
         let slot_text = format_micros(slot_micros);
+        if !gate_open {
+            // Nothing runs behind a closed gate, and that is expected. A slot still inside its window
+            // stays open for the catch-up; one that has left it is used up silently, so reopening the
+            // gate never reports it as missed.
+            if missed {
+                ctx.conn.execute(
+                    "UPDATE schedules SET last_slot_at=?1 WHERE id=?2 AND (last_slot_at IS NULL OR last_slot_at < ?1)",
+                    rusqlite::params![slot_text, id],
+                )?;
+            }
+            continue;
+        }
         // A failing schedule rolls back alone: its claim is retried next pass, the others still run.
         ctx.conn.execute_batch("SAVEPOINT schedule_run")?;
         let outcome = (|| -> Result<bool> {
