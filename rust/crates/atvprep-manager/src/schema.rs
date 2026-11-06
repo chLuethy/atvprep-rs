@@ -5,8 +5,11 @@ use crate::{Error, Result};
 
 const BASE: &str = include_str!("migrations/0001_base.sql");
 
+/// Upgrade stages after the base schema: `(version reached, SQL)`, in ascending order.
+const STAGES: [(i64, &str); 1] = [(3, include_str!("migrations/0003_scan_action.sql"))];
+
 /// The version this build creates and understands.
-pub const VERSION: i64 = 1;
+pub const VERSION: i64 = 3;
 
 /// Every table of the base schema.
 pub const TABLES: [&str; 22] = [
@@ -40,28 +43,46 @@ fn version(conn: &Conn) -> Result<i64> {
         .query_row("PRAGMA user_version", [], |row| row.get(0))?)
 }
 
-/// Create the schema on an empty database; do nothing on a current one.
+/// Create the schema on an empty database, upgrade an older one; do nothing on a current one.
 ///
 /// # Errors
 ///
 /// The database was written by a newer build, or the SQL fails.
 pub fn migrate(conn: &mut Conn) -> Result<()> {
-    match version(conn)? {
-        0 => conn.transaction(|tx| {
-            // Another process may have created the schema between the check and this write lock.
-            let current: i64 = tx.query_row("PRAGMA user_version", [], |row| row.get(0))?;
-            if current == VERSION {
-                return Ok(());
-            }
-            tx.execute_batch(BASE)?;
-            tx.execute_batch(&format!("PRAGMA user_version = {VERSION}"))?;
-            Ok(())
-        }),
-        VERSION => Ok(()),
-        other => Err(Error::Invalid(format!(
-            "database schema version {other} is newer than this build understands ({VERSION})"
-        ))),
+    let seen = version(conn)?;
+    if seen == VERSION {
+        return Ok(());
     }
+    if !(0..VERSION).contains(&seen) {
+        return Err(newer(seen));
+    }
+    conn.transaction(|tx| {
+        // Another process may have migrated between the check and this write lock.
+        let current: i64 = tx.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        if current == VERSION {
+            return Ok(());
+        }
+        if !(0..VERSION).contains(&current) {
+            return Err(newer(current));
+        }
+        if current == 0 {
+            tx.execute_batch(BASE)?;
+        }
+        let reached = current.max(1);
+        for (stage_version, sql) in STAGES {
+            if stage_version > reached {
+                tx.execute_batch(sql)?;
+            }
+        }
+        tx.execute_batch(&format!("PRAGMA user_version = {VERSION}"))?;
+        Ok(())
+    })
+}
+
+fn newer(other: i64) -> Error {
+    Error::Invalid(format!(
+        "database schema version {other} is newer than this build understands ({VERSION})"
+    ))
 }
 
 #[cfg(test)]
@@ -139,6 +160,54 @@ mod tests {
                 .unwrap();
             assert_eq!(n, 1, "{table}");
         }
+    }
+
+    #[test]
+    fn a_version_1_database_upgrades_and_keeps_its_schedules() {
+        let db = Db::memory().unwrap();
+        let mut conn = db.conn().unwrap();
+        conn.raw().execute_batch(BASE).unwrap();
+        conn.raw().execute_batch("PRAGMA user_version = 1").unwrap();
+        exec(&conn, "INSERT INTO library_roots(name, canonical_path) VALUES ('r', '/r')").unwrap();
+        exec(
+            &conn,
+            "INSERT INTO schedules(id, name, action, root_id, days_mask, time_of_day, max_files, enabled, armed_at, last_slot_at, last_run_at, last_job_id, last_result, created_at)
+             VALUES (7, 'old', 'convert', 1, 5, '03:30', 40, 1, 'a', 'b', 'c', 9, 'done', 'd')",
+        )
+        .unwrap();
+        migrate(&mut conn).unwrap();
+        assert_eq!(version(&conn).unwrap(), VERSION);
+        let row: String = conn
+            .raw()
+            .query_row(
+                "SELECT concat_ws('|', name, action, root_id, days_mask, time_of_day, max_files, enabled, armed_at, last_slot_at, last_run_at, last_job_id, last_result, created_at) FROM schedules WHERE id=7",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(row, "old|convert|1|5|03:30|40|1|a|b|c|9|done|d");
+        exec(
+            &conn,
+            "INSERT INTO schedules(name, action, days_mask, time_of_day) VALUES ('s', 'scan', 1, '01:00')",
+        )
+        .unwrap();
+        assert!(matches!(
+            exec(
+                &conn,
+                "INSERT INTO schedules(name, action, days_mask, time_of_day) VALUES ('s', 'bogus', 1, '01:00')"
+            ),
+            Err(Error::Constraint(_))
+        ));
+    }
+
+    #[test]
+    fn a_fresh_database_accepts_scan_schedules() {
+        let (_db, conn) = fresh();
+        exec(
+            &conn,
+            "INSERT INTO schedules(name, action, days_mask, time_of_day) VALUES ('s', 'scan', 1, '01:00')",
+        )
+        .unwrap();
     }
 
     #[test]
