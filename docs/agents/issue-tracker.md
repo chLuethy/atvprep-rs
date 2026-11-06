@@ -4,6 +4,7 @@ Issues and specs for this repo live as Gitea issues on `git.ch-luethy.ch`, repos
 
 ## Conventions
 
+- **Sprache**: Titel, Body und Kommentare auf Deutsch schreiben (siehe `docs/agents/language.md`). Label-Namen und Marker wie `Part of #<n>` / `Blocked by: #<n>` bleiben englisch.
 - **Create an issue**: `issue_write` with `method: create`, `owner: chl`, `repo: atvprep-rs`, `title`, `body`.
 - **Read an issue**: `issue_read` (body, labels, comments).
 - **List issues**: `list_issues` / `search_issues`, filtered by `state` and labels.
