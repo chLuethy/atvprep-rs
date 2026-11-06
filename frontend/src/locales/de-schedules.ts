@@ -42,6 +42,8 @@ export const deSchedules: Record<string, string | readonly [string, string]> = {
   "Schedule saved.": "Zeitplan gespeichert.",
   "Unable to change the schedule.": "Der Zeitplan konnte nicht geändert werden.",
   "New schedule": "Neuer Zeitplan",
+  "Duplicate": "Duplizieren",
+  " (copy)": " (Kopie)",
   "Edit schedule": "Zeitplan bearbeiten",
   "Files that are": "Dateien, die",
   "Days": "Tage",
