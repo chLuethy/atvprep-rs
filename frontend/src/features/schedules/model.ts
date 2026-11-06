@@ -26,7 +26,7 @@ export function describeDays(days: number[]): string {
   return sorted.map((day) => t(DAYS[day]?.short ?? "")).join(" ");
 }
 
-const ACTION_LABEL: Record<Action, string> = { verify: N("Verify"), prepare: N("Prepare") };
+const ACTION_LABEL: Record<Action, string> = { verify: N("Verify"), fix: N("Fix"), convert: N("Convert"), scan: N("Scan") };
 export const actionName = (action: Action): string => t(ACTION_LABEL[action]);
 
 const STATE_LABEL: Record<string, string> = {
@@ -40,7 +40,8 @@ export const stateName = (state: string): string => (STATE_LABEL[state] ? t(STAT
 
 /** The states a filter can name for an action. */
 export function stateChoices(action: Action): ReadonlyArray<{ value: string | null; label: string }> {
-  if (action === "prepare") {
+  if (action === "scan") return [];
+  if (action === "fix" || action === "convert") {
     return [{ value: null, label: t("Any file that needs work") }, { value: "warning", label: t("Warning") }, { value: "blocker", label: t("Blocker") }];
   }
   return [
@@ -60,7 +61,7 @@ export const defaultState = (action: Action): string | null => (action === "veri
 export function describeTarget(schedule: Pick<Schedule, "action" | "root_name" | "compliance_state" | "max_files">): string {
   const parts = [actionName(schedule.action), schedule.root_name ?? t("All libraries")];
   if (schedule.compliance_state) parts.push(stateName(schedule.compliance_state));
-  parts.push(tn("up to {count} file", "up to {count} files", schedule.max_files));
+  if (schedule.max_files !== null) parts.push(tn("up to {count} file", "up to {count} files", schedule.max_files));
   return parts.join(" · ");
 }
 
@@ -79,6 +80,9 @@ export function describeResult(result: string | null): string {
   if (!result) return t("Ran");
   const queued = /^Queued (\d+) files?$/.exec(result);
   if (queued) return tn("Queued {count} file", "Queued {count} files", Number(queued[1]));
+  const scans = /^Queued (\d+) scans?$/.exec(result);
+  if (scans) return tn("Queued {count} scan", "Queued {count} scans", Number(scans[1]));
+  if (result === "No libraries") return t("No libraries");
   if (result === "No matching files") return t("No matching files");
   const refused = /^Not queued: ([\s\S]*)$/.exec(result);
   if (refused) return t("Not queued: {reason}", { reason: refused[1] ?? "" });

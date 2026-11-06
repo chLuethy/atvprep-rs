@@ -5,7 +5,7 @@ import { isTyping } from "../../lib/keys";
 import { loadRoots, type RootRow } from "../scan/loaders";
 import {
   createSchedule, deleteSchedule, loadSchedules, runScheduleNow, setEnabled, updateSchedule,
-  type Action, type Api, type Schedule, type ScheduleInput,
+  isSchedulable, type Action, type Api, type Schedule, type ScheduleInput,
 } from "./loaders";
 import {
   actionName, DAYS, defaultState, describeDays, describeLast, describeNext, describeTarget,
@@ -21,7 +21,7 @@ const blank = (): ScheduleInput => ({ name: "", action: "verify", rootId: null, 
 
 const problem = (detail: string | undefined, fallback: string) => (detail ? t("{fallback} The server said: {detail}.", { fallback, detail }) : fallback);
 
-/** Weekly timetables that verify or prepare the files that match a filter. */
+/** Weekly timetables that verify the files that match a filter, or scan the libraries. */
 export const SchedulesPage: Component<{ api: Api }> = (props) => {
   const [rows, setRows] = createSignal<Schedule[]>([]);
   const [roots, setRoots] = createSignal<RootRow[]>([]);
@@ -56,7 +56,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
   };
   const openEdit = (schedule: Schedule) => {
     fresh(); setFormError(null); setNotice(null); setAsking(null);
-    setDraft({ name: schedule.name, action: schedule.action, rootId: schedule.root_id, complianceState: schedule.compliance_state, days: [...schedule.days], time: schedule.time, maxFiles: schedule.max_files });
+    setDraft({ name: schedule.name, action: schedule.action, rootId: schedule.root_id, complianceState: schedule.compliance_state, days: [...schedule.days], time: schedule.time, maxFiles: schedule.max_files ?? 25 });
     setEditing({ id: schedule.id });
     queueMicrotask(() => nameInput?.focus());
   };
@@ -78,7 +78,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
     if (!value.name.trim()) found.push(t("Give the schedule a name."));
     if (value.days.length === 0) found.push(t("Pick at least one day."));
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value.time)) found.push(t("Set a time."));
-    if (!Number.isInteger(value.maxFiles) || value.maxFiles < 1 || value.maxFiles > 500) found.push(t("Files per run must be 1 to 500."));
+    if (value.action !== "scan" && (!Number.isInteger(value.maxFiles) || value.maxFiles < 1 || value.maxFiles > 500)) found.push(t("Files per run must be 1 to 500."));
     return found;
   };
 
@@ -95,7 +95,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
     if (!result.ok) { setFormError(result.session ? t(SESSION_EXPIRED) : problem(result.detail, t("Unable to save the schedule."))); return; }
     setEditing(null);
     setNotice(target.id === null
-      ? (input.action === "verify" ? t("Schedule saved and on.") : t("Schedule saved. It is paused until you turn it on."))
+      ? (isSchedulable(input.action) ? t("Schedule saved and on.") : t("Schedule saved. It is paused until you turn it on."))
       : t("Schedule saved."));
     await load();
     queueMicrotask(() => newButton?.focus());
@@ -142,7 +142,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
         <div class="sched-field action">
           <span id="sched-action-label">{t("Action")}</span>
           <div class="seg" role="group" aria-labelledby="sched-action-label">
-            <For each={["verify"] as Action[]}>{(action) => (
+            <For each={["verify", "scan"] as Action[]}>{(action) => (
               <button type="button" aria-pressed={draft().action === action} disabled={editing()?.id !== null} onClick={() => chooseAction(action)}>{actionName(action)}</button>
             )}</For>
           </div>
@@ -176,10 +176,12 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
           <span>{t("Time (server time)")}</span>
           <input class="input" type="time" value={draft().time} onInput={(event) => patch({ time: event.currentTarget.value })} />
         </label>
-        <label class="sched-field">
-          <span>{t("Files per run")}</span>
-          <input class="input" type="number" min="1" max="500" value={draft().maxFiles} onInput={(event) => patch({ maxFiles: Number(event.currentTarget.value) })} />
-        </label>
+        <Show when={draft().action !== "scan"}>
+          <label class="sched-field">
+            <span>{t("Files per run")}</span>
+            <input class="input" type="number" min="1" max="500" value={draft().maxFiles} onInput={(event) => patch({ maxFiles: Number(event.currentTarget.value) })} />
+          </label>
+        </Show>
       </div>
       <Show when={problems().length > 0 && formError() === null}><p class="muted">{problems()[0]}</p></Show>
       <Show when={formError()}><p class="notice bad" role="alert">{formError()}</p></Show>
@@ -211,7 +213,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
     <li class="sched-row" classList={{ paused: !schedule.enabled }} data-id={schedule.id}>
       <div class="sched-line">
         <label class="sched-switch">
-          <input type="checkbox" checked={schedule.enabled} disabled={busy() || schedule.action !== "verify"} aria-label={schedule.enabled ? t("Pause {name}", { name: schedule.name }) : t("Turn on {name}", { name: schedule.name })} onChange={() => toggle(schedule)} />
+          <input type="checkbox" checked={schedule.enabled} disabled={busy() || !isSchedulable(schedule.action)} aria-label={schedule.enabled ? t("Pause {name}", { name: schedule.name }) : t("Turn on {name}", { name: schedule.name })} onChange={() => toggle(schedule)} />
         </label>
         <div class="sched-main">
           <b class="sched-name">{schedule.name}</b>
@@ -228,10 +230,12 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
               {(job) => <a href={`/jobs/${encodeURIComponent(job())}`}>{t("Open job")}</a>}
             </Show>
           </Show>
-          <span class="muted">{tn("{count} file matches now", "{count} files match now", schedule.matching)}</span>
+          <Show when={schedule.matching !== null}>
+            <span class="muted">{tn("{count} file matches now", "{count} files match now", schedule.matching ?? 0)}</span>
+          </Show>
         </div>
         <div class="sched-actions">
-          <Button variant="quiet" disabled={busy() || schedule.action !== "verify"} onClick={() => { fresh(); void act(() => runScheduleNow(props.api, schedule.id, key), t("Run started. The result is on the schedule."), t("Unable to run the schedule.")); }}>{t("Run now")}</Button>
+          <Button variant="quiet" disabled={busy() || !isSchedulable(schedule.action)} onClick={() => { fresh(); void act(() => runScheduleNow(props.api, schedule.id, key), t("Run started. The result is on the schedule."), t("Unable to run the schedule.")); }}>{t("Run now")}</Button>
           <Button variant="quiet" disabled={busy()} onClick={() => openEdit(schedule)}>{t("Edit")}</Button>
           <Button variant="quiet" disabled={busy()} onClick={() => ask(schedule.id, "delete")}>{t("Delete")}</Button>
         </div>
@@ -247,7 +251,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
         <h1 id="schedules-title">{t("Schedules")}</h1>
         <Button variant="primary" ref={(element) => { newButton = element; }} aria-expanded={editing() !== null} onClick={openNew}>{t("New schedule")} <Kbd>N</Kbd></Button>
       </header>
-      <p class="muted sched-lede">{t("Check the files that match a filter, on the days and time you choose. Times are the server's.")}</p>
+      <p class="muted sched-lede">{t("Check the files that match a filter, or scan your libraries, on the days and time you choose. Times are the server's.")}</p>
       <Show when={notice()}><p class="notice ok" role="status">{notice()}</p></Show>
       <Show when={editing()}>{renderEditor()}</Show>
       <Show when={phase() !== "loading"} fallback={<p class="muted">{t("Loading schedules")}</p>}>
@@ -262,7 +266,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
             fallback={
               <div class="empty">
                 <b>{t("No schedules yet")}</b>
-                <span>{t("A schedule only reads files: it checks them and changes nothing. Preparing a file is always your decision.")}</span>
+                <span>{t("A schedule only reads files: it checks them and changes nothing. Repairing or converting a file is always your decision.")}</span>
               </div>
             }
           >

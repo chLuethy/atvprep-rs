@@ -3,7 +3,11 @@ import { rawId } from "../files/loaders";
 
 export type Api = { request: (path: string, init?: RequestInit) => Promise<Response> };
 
-export type Action = "verify" | "prepare";
+/** The four things a schedule can do. Only Verify and Scan can be switched on for now. */
+export type Action = "verify" | "fix" | "convert" | "scan";
+
+/** Whether a person may create, turn on or run a schedule of this action. */
+export const isSchedulable = (action: Action): boolean => action === "verify" || action === "scan";
 
 export type Schedule = {
   id: string;
@@ -18,10 +22,11 @@ export type Schedule = {
   days: number[];
   /** HH:MM in the server's time zone. */
   time: string;
-  max_files: number;
+  /** Null for a scan: it has no file limit. */
+  max_files: number | null;
   enabled: boolean;
   /** How many files it would pick right now. */
-  matching: number;
+  matching: number | null;
   next_run_at: string | null;
   last_run_at: string | null;
   last_result: string | null;
@@ -80,18 +85,21 @@ const idPath = (id: string) => `/schedules/${encodeURIComponent(rawId(id))}`;
 
 export async function createSchedule(api: Api, input: ScheduleInput, key: string): Promise<SaveResult> {
   const result = await send(api, "/schedules", "POST", key, {
-    name: input.name, action: input.action, root_id: input.rootId, compliance_state: input.complianceState,
-    days: input.days, time: input.time, max_files: input.maxFiles,
+    name: input.name, action: input.action, root_id: input.rootId,
+    ...(input.action === "scan" ? {} : { compliance_state: input.complianceState }),
+    days: input.days, time: input.time,
+    ...(input.action === "scan" ? {} : { max_files: input.maxFiles }),
   });
   return result.ok && result.schedule ? { ok: true, schedule: result.schedule } : result.ok ? { ok: false, session: false } : result;
 }
 
-export async function updateSchedule(api: Api, id: string, input: Omit<ScheduleInput, "action">, key: string): Promise<DoneResult> {
+export async function updateSchedule(api: Api, id: string, input: ScheduleInput, key: string): Promise<DoneResult> {
+  const scan = input.action === "scan";
   return send(api, idPath(id), "PATCH", key, {
     name: input.name,
     root_id: input.rootId, clear_root: input.rootId === null,
-    compliance_state: input.complianceState, clear_compliance_state: input.complianceState === null,
-    days: input.days, time: input.time, max_files: input.maxFiles,
+    ...(scan ? {} : { compliance_state: input.complianceState, clear_compliance_state: input.complianceState === null, max_files: input.maxFiles }),
+    days: input.days, time: input.time,
   });
 }
 

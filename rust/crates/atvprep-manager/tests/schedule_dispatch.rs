@@ -228,3 +228,91 @@ fn runs_rotate_across_present_mp4_files_and_respect_root_state_and_busy_files() 
     conn.raw().execute_batch("INSERT INTO jobs(id,action,status) VALUES(100,'fix','queued'); INSERT INTO job_items(job_id,media_file_id,action,position,status) VALUES(100,2,'fix',1,'queued');").unwrap();
     assert_eq!(run_schedule(ctx, 1).unwrap(), "No matching files");
 }
+fn scan_schedule(conn: &Conn, root: Option<i64>) -> i64 {
+    let time: String = conn
+        .raw()
+        .query_row("SELECT time_of_day FROM schedules WHERE id=1", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    conn.raw()
+        .execute("UPDATE schedules SET enabled=0 WHERE id=1", [])
+        .unwrap();
+    conn.raw().execute("INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,enabled,armed_at) VALUES(10,'scan','scan',?1,127,?2,1,'2000-01-01')",rusqlite::params![root,time]).unwrap();
+    10
+}
+fn queued_scans(conn: &Conn) -> Vec<(i64, String)> {
+    conn.raw()
+        .prepare("SELECT root_id, trigger FROM scan_runs WHERE status='queued' ORDER BY root_id")
+        .unwrap()
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect()
+}
+#[test]
+fn a_scan_schedule_queues_one_scan_of_its_library() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    let id = scan_schedule(&conn, Some(2));
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    assert_eq!(run_schedule(ctx, id).unwrap(), "Queued 1 scan");
+    assert_eq!(queued_scans(&conn), vec![(2, "manual".to_owned())]);
+    let (job, result): (Option<i64>, String) = conn
+        .raw()
+        .query_row(
+            "SELECT last_job_id, last_result FROM schedules WHERE id=?1",
+            [id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!((job, result.as_str()), (None, "Queued 1 scan"));
+    assert_eq!(
+        conn.raw()
+            .query_row("SELECT count(*) FROM jobs", [], |row| row.get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+}
+#[test]
+fn a_scan_schedule_without_a_library_scans_every_library() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    let id = scan_schedule(&conn, None);
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    assert_eq!(run_schedule(ctx, id).unwrap(), "Queued 2 scans");
+    assert_eq!(queued_scans(&conn).len(), 2);
+    // A second run while the scans still wait shares them.
+    run_schedule(ctx, id).unwrap();
+    assert_eq!(queued_scans(&conn).len(), 2);
+}
+#[test]
+fn a_due_scan_schedule_queues_its_scan_once_and_the_closed_gate_blocks_it() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    scan_schedule(&conn, Some(1));
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    conn.raw()
+        .execute("UPDATE deployment_gate SET mode='maintenance'", [])
+        .unwrap();
+    assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+    assert!(queued_scans(&conn).is_empty());
+    conn.raw()
+        .execute("UPDATE deployment_gate SET mode='open'", [])
+        .unwrap();
+    assert_eq!(run_due_schedules(ctx).unwrap(), 1);
+    assert_eq!(queued_scans(&conn), vec![(1, "manual".to_owned())]);
+    assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+}

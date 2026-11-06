@@ -5,13 +5,14 @@ use crate::{Error, Result};
 
 /// Migration stages in order; stage `n` takes a database from version `n - 1` to `n`.
 /// To extend: add `000N_name.sql`, append it here and raise [`VERSION`].
-const STAGES: [&str; 2] = [
+const STAGES: [&str; 3] = [
     include_str!("migrations/0001_base.sql"),
     include_str!("migrations/0002_cron.sql"),
+    include_str!("migrations/0003_scan_action.sql"),
 ];
 
 /// The version this build creates and understands.
-pub const VERSION: i64 = 2;
+pub const VERSION: i64 = 3;
 
 /// Every table of the base schema.
 pub const TABLES: [&str; 22] = [
@@ -154,6 +155,58 @@ mod tests {
                 .unwrap();
             assert_eq!(n, 1, "{table}");
         }
+    }
+
+    #[test]
+    fn a_version_1_database_upgrades_and_keeps_its_schedules() {
+        let db = Db::memory().unwrap();
+        let mut conn = db.conn().unwrap();
+        conn.raw().execute_batch(STAGES[0]).unwrap();
+        conn.raw().execute_batch("PRAGMA user_version = 1").unwrap();
+        exec(
+            &conn,
+            "INSERT INTO library_roots(name, canonical_path) VALUES ('r', '/r')",
+        )
+        .unwrap();
+        exec(
+            &conn,
+            "INSERT INTO schedules(id, name, action, root_id, days_mask, time_of_day, max_files, enabled, armed_at, last_slot_at, last_run_at, last_job_id, last_result, created_at)
+             VALUES (7, 'old', 'convert', 1, 5, '03:30', 40, 1, 'a', 'b', 'c', 9, 'done', 'd')",
+        )
+        .unwrap();
+        migrate(&mut conn).unwrap();
+        assert_eq!(version(&conn).unwrap(), VERSION);
+        let row: String = conn
+            .raw()
+            .query_row(
+                "SELECT concat_ws('|', name, action, root_id, days_mask, time_of_day, max_files, enabled, armed_at, last_slot_at, last_run_at, last_job_id, last_result, created_at) FROM schedules WHERE id=7",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(row, "old|convert|1|5|03:30|40|1|a|b|c|9|done|d");
+        exec(
+            &conn,
+            "INSERT INTO schedules(name, action, days_mask, time_of_day) VALUES ('s', 'scan', 1, '01:00')",
+        )
+        .unwrap();
+        assert!(matches!(
+            exec(
+                &conn,
+                "INSERT INTO schedules(name, action, days_mask, time_of_day) VALUES ('s', 'bogus', 1, '01:00')"
+            ),
+            Err(Error::Constraint(_))
+        ));
+    }
+
+    #[test]
+    fn a_fresh_database_accepts_scan_schedules() {
+        let (_db, conn) = fresh();
+        exec(
+            &conn,
+            "INSERT INTO schedules(name, action, days_mask, time_of_day) VALUES ('s', 'scan', 1, '01:00')",
+        )
+        .unwrap();
     }
 
     #[test]
