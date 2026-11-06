@@ -1197,6 +1197,52 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn job_list_filters_accept_known_statuses_and_reject_unknown_ones() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        conn.raw().execute_batch("INSERT INTO jobs(id,action,status) VALUES(1,'verify','queued'),(2,'verify','running');").unwrap();
+        let token = routes_auth::service(&state, &conn)
+            .unwrap()
+            .create()
+            .unwrap()
+            .token;
+        let app = router(state);
+        let get = |path: &str| {
+            axum::http::Request::get(path)
+                .header("origin", "http://localhost")
+                .header("cookie", format!("__Host-atvprep_session={token}"))
+                .body(axum::body::Body::empty())
+                .unwrap()
+        };
+        let response = app
+            .clone()
+            .oneshot(get("/api/v1/jobs?status=running"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(body["data"].as_array().unwrap().len(), 1);
+        assert_eq!(body["data"][0]["status"], "running");
+        for path in [
+            "/api/v1/jobs?status=bogus",
+            "/api/v1/jobs?exclude_status=bogus",
+        ] {
+            let response = app.clone().oneshot(get(path)).await.unwrap();
+            assert_eq!(
+                response.status(),
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{path}"
+            );
+            let body: serde_json::Value =
+                serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap())
+                    .unwrap();
+            assert_eq!(body["error"]["code"], "invalid_request", "{path}");
+        }
+    }
+
+    #[tokio::test]
     async fn job_items_page_across_equal_positions_without_exposing_paths() {
         let state = state();
         let mut conn = state.db.conn().unwrap();
