@@ -55,6 +55,49 @@ fn a_failed_queue_insert_does_not_consume_the_slot() {
     assert_eq!(run_due_schedules(ctx).unwrap(), 0);
 }
 #[test]
+fn a_dispatched_slot_is_recorded_as_a_scheduled_run() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    assert_eq!(run_due_schedules(ctx).unwrap(), 1);
+    assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+    let (slot, last_slot, trigger, result, job): (String, String, String, String, Option<i64>) =
+        conn.raw()
+            .query_row(
+                "SELECT r.slot, s.last_slot_at, r.trigger, r.result, r.job_id
+                 FROM schedule_runs r JOIN schedules s ON s.id=r.schedule_id",
+                [],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                    ))
+                },
+            )
+            .unwrap();
+    assert_eq!((slot, trigger.as_str()), (last_slot, "scheduled"));
+    assert_eq!(result, "Queued 1 file");
+    assert_eq!(job, Some(1));
+    // A manual run adds an entry without a slot.
+    run_schedule(ctx, 1).unwrap();
+    let manual: i64 = conn
+        .raw()
+        .query_row(
+            "SELECT count(*) FROM schedule_runs WHERE trigger='manual' AND slot IS NULL",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(manual, 1);
+}
+#[test]
 fn a_failing_or_corrupt_schedule_does_not_block_the_ones_after_it() {
     let db = Db::memory().unwrap();
     let conn = seed(&db);

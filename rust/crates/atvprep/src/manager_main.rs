@@ -167,7 +167,11 @@ fn verify_database(path: &Path) -> Result<(), &'static str> {
         .map_err(|_| "cannot inspect database")?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_| "cannot inspect database")?;
-    if tables.iter().map(String::as_str).eq(schema::TABLES) {
+    if tables
+        .iter()
+        .map(String::as_str)
+        .eq(schema::tables_at(version))
+    {
         Ok(())
     } else {
         Err("existing database is not a Rust manager database")

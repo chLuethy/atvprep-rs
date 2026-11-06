@@ -1,16 +1,16 @@
 import { createEffect, createSignal, For, onCleanup, onMount, Show, type Component } from "solid-js";
 import { Button, Kbd } from "../../ui";
 import { language, N, t, tn } from "../../lib/i18n";
-import { formatDateTime } from "../../lib/time";
 import { isTyping } from "../../lib/keys";
+import { formatDateTime } from "../../lib/time";
 import { loadRoots, type RootRow } from "../scan/loaders";
 import {
   createSchedule, deleteSchedule, loadSchedules, previewCron, runScheduleNow, setEnabled, updateSchedule,
   isSchedulable, type Action, type Api, type CronPreview, type Schedule, type ScheduleInput,
 } from "./loaders";
 import {
-  actionName, CRON_EXAMPLES, DAYS, defaultState, describeLast, describeNext, describeTarget,
-  describeWhen, EVERY_DAY, filterSchedules, simpleForm, sortSchedules, stateChoices, WEEKDAYS,
+  actionName, CRON_EXAMPLES, DAYS, defaultState, describeLast, describeNext, describeResult,
+  describeTarget, describeWhen, EVERY_DAY, filterSchedules, simpleForm, sortSchedules, stateChoices, WEEKDAYS,
   weeklyCron, type ListFilter, type SortKey,
 } from "./model";
 import { ListToolbar } from "./ListToolbar";
@@ -307,6 +307,31 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
     </div>
   );
 
+  const [openHistory, setOpenHistory] = createSignal<ReadonlySet<string>>(new Set());
+  const toggleHistory = (id: string) =>
+    setOpenHistory((current) => {
+      const next = new Set(current);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+
+  const renderHistory = (schedule: Schedule) => (
+    <ul class="plain sched-history" aria-label={t("History of {name}", { name: schedule.name })}>
+      <For each={schedule.runs ?? []}>
+        {(run) => (
+          <li>
+            <span class="muted">{formatDateTime(run.started_at, "")}</span>
+            <span>{run.trigger === "scheduled" ? t("Scheduled") : t("By hand")}</span>
+            <span>{describeResult(run.result)}</span>
+            <Show when={run.job_id}>
+              {(job) => <a href={`/jobs/${encodeURIComponent(job())}`}>{t("Open job")}</a>}
+            </Show>
+          </li>
+        )}
+      </For>
+    </ul>
+  );
+
   const renderRow = (schedule: Schedule) => (
     <li class="sched-row" classList={{ paused: !schedule.enabled }} data-id={schedule.id}>
       <div class="sched-line">
@@ -338,6 +363,12 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
           <Button variant="quiet" disabled={busy()} onClick={() => ask(schedule.id, "delete")}>{t("Delete")}</Button>
         </div>
       </div>
+      <Show when={(schedule.runs ?? []).length > 0}>
+        <button type="button" class="sched-history-toggle" aria-expanded={openHistory().has(schedule.id)} aria-label={t("History of {name}", { name: schedule.name })} onClick={() => toggleHistory(schedule.id)}>
+          {t("History")} ({(schedule.runs ?? []).length})
+        </button>
+        <Show when={openHistory().has(schedule.id)}>{renderHistory(schedule)}</Show>
+      </Show>
       <Show when={asking()?.id === schedule.id}>{renderQuestion(schedule)}</Show>
       <Show when={rowError() && asking() === null}><p class="notice bad" role="alert">{rowError()}</p></Show>
     </li>

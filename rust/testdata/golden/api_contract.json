@@ -611,6 +611,7 @@
                     "next_run_at": null,
                     "root_id": "<r:1>",
                     "root_name": "Movies",
+                    "runs": [],
                     "time": "12:30"
                   }
                 ],
@@ -1083,6 +1084,7 @@
                   "next_run_at": "<ts>",
                   "root_id": null,
                   "root_name": null,
+                  "runs": [],
                   "time": "12:30"
                 }
               },
@@ -1120,6 +1122,7 @@
                   "next_run_at": "<ts>",
                   "root_id": null,
                   "root_name": null,
+                  "runs": [],
                   "time": "12:30"
                 }
               },
@@ -1156,6 +1159,15 @@
                   "next_run_at": "<ts>",
                   "root_id": null,
                   "root_name": null,
+                  "runs": [
+                    {
+                      "job_id": "<j:2>",
+                      "result": "Queued 1 file",
+                      "scan_id": null,
+                      "started_at": "<ts>",
+                      "trigger": "manual"
+                    }
+                  ],
                   "time": "12:30"
                 }
               },

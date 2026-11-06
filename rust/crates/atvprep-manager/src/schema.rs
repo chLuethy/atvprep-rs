@@ -5,17 +5,18 @@ use crate::{Error, Result};
 
 /// Migration stages in order; stage `n` takes a database from version `n - 1` to `n`.
 /// To extend: add `000N_name.sql`, append it here and raise [`VERSION`].
-const STAGES: [&str; 3] = [
+const STAGES: [&str; 4] = [
     include_str!("migrations/0001_base.sql"),
     include_str!("migrations/0002_cron.sql"),
     include_str!("migrations/0003_scan_action.sql"),
+    include_str!("migrations/0004_schedule_runs.sql"),
 ];
 
 /// The version this build creates and understands.
-pub const VERSION: i64 = 3;
+pub const VERSION: i64 = 4;
 
-/// Every table of the base schema.
-pub const TABLES: [&str; 22] = [
+/// Every table of the current schema.
+pub const TABLES: [&str; 23] = [
     "auth_sessions",
     "csrf_tokens",
     "deployment_events",
@@ -33,12 +34,23 @@ pub const TABLES: [&str; 22] = [
     "media_files",
     "runtime_settings",
     "scan_runs",
+    "schedule_runs",
     "scheduler_leases",
     "schedules",
     "settings_audit",
     "settings_revision",
     "sidecars",
 ];
+
+/// The tables a database at schema `version` holds: [`TABLES`] minus those added by later stages.
+#[must_use]
+pub fn tables_at(version: i64) -> Vec<&'static str> {
+    TABLES
+        .iter()
+        .copied()
+        .filter(|table| version >= 4 || *table != "schedule_runs")
+        .collect()
+}
 
 fn version(conn: &Conn) -> Result<i64> {
     Ok(conn
@@ -115,7 +127,7 @@ mod tests {
     }
 
     #[test]
-    fn migrate_creates_all_22_tables() {
+    fn migrate_creates_all_23_tables() {
         let (_db, conn) = fresh();
         let mut names: Vec<String> = conn
             .raw()

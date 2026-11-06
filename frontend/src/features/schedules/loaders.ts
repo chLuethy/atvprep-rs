@@ -9,6 +9,15 @@ export type Action = "verify" | "fix" | "convert" | "scan";
 /** Whether a person may create, turn on or run a schedule of this action. */
 export const isSchedulable = (action: Action): boolean => action === "verify" || action === "scan";
 
+/** One entry of a schedule's history: a run at its slot or by hand. */
+export type ScheduleRun = {
+  started_at: string;
+  trigger: "scheduled" | "manual";
+  result: string;
+  job_id: string | null;
+  scan_id: string | null;
+};
+
 export type Schedule = {
   id: string;
   name: string;
@@ -31,6 +40,8 @@ export type Schedule = {
   last_run_at: string | null;
   last_result: string | null;
   last_job_id: string | null;
+  /** The latest runs, newest first. */
+  runs?: ScheduleRun[];
 };
 
 export type SchedulesResult = { kind: "ok"; items: Schedule[] } | { kind: "error" } | { kind: "session" };
