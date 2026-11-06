@@ -611,7 +611,7 @@ fn recent_runs(
     schedule: i64,
 ) -> Result<Vec<Value>, ()> {
     let mut stmt = conn
-        .prepare("SELECT started_at,trigger,result,job_id,scan_id FROM schedule_runs WHERE schedule_id=?1 ORDER BY id DESC LIMIT 10")
+        .prepare("SELECT started_at,trigger,result,job_id,scan_id,kind FROM schedule_runs WHERE schedule_id=?1 ORDER BY id DESC LIMIT 10")
         .map_err(|_| ())?;
     let rows = stmt
         .query_map([schedule], |row| {
@@ -621,12 +621,13 @@ fn recent_runs(
                 row.get::<_, String>(2)?,
                 row.get::<_, Option<i64>>(3)?,
                 row.get::<_, Option<i64>>(4)?,
+                row.get::<_, String>(5)?,
             ))
         })
         .map_err(|_| ())?;
     rows.map(|row| {
-        let (started, trigger, result, job, scan) = row.map_err(|_| ())?;
-        Ok(json!({"started_at":timestamp(&started).replace('Z', "+00:00"),"trigger":trigger,"result":safe_head(&result,2048),"job_id":job.map(|id|opaque.encode("j",id)),"scan_id":scan.map(|id|opaque.encode("s",id))}))
+        let (started, trigger, result, job, scan, kind) = row.map_err(|_| ())?;
+        Ok(json!({"kind":kind,"started_at":timestamp(&started).replace('Z', "+00:00"),"trigger":trigger,"result":safe_head(&result,2048),"job_id":job.map(|id|opaque.encode("j",id)),"scan_id":scan.map(|id|opaque.encode("s",id))}))
     })
     .collect()
 }

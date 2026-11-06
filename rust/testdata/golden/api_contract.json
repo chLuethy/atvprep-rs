@@ -1171,6 +1171,7 @@
                   "runs": [
                     {
                       "job_id": "<j:2>",
+                      "kind": "run",
                       "result": "Queued 1 file",
                       "scan_id": null,
                       "started_at": "<ts>",

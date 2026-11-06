@@ -119,6 +119,21 @@ describe("SchedulesPage", () => {
     expect(view.queryByRole("list", { name: "History of Nightly verify" })).toBeNull();
   });
 
+  it("shows a missed slot in the history with a hint to adjust the schedule", async () => {
+    const runs: Schedule["runs"] = [
+      { kind: "missed", started_at: "2026-10-23T20:00:00+00:00", trigger: "scheduled", result: "Missed: not started within 360 minutes of its slot", job_id: null, scan_id: null },
+      { kind: "run", started_at: "2026-10-22T01:00:00+00:00", trigger: "scheduled", result: "Queued 3 files", job_id: "j_2", scan_id: null },
+    ];
+    const { api } = makeApi([schedule({ runs })]);
+    const view = render(() => <SchedulesPage api={api} />);
+
+    fireEvent.click(await view.findByRole("button", { name: "History of Nightly verify" }));
+    const entries = within(await view.findByRole("list", { name: "History of Nightly verify" })).getAllByRole("listitem");
+    expect(entries[0]).toHaveTextContent("Missed: not started within 360 minutes of its slot");
+    expect(entries[0]).toHaveTextContent("Adjust the schedule or check that the manager is running.");
+    expect(entries[1]).not.toHaveTextContent("Adjust the schedule");
+  });
+
   it("offers no history for a schedule that never ran", async () => {
     const { api } = makeApi([schedule({ runs: [] })]);
     const view = render(() => <SchedulesPage api={api} />);

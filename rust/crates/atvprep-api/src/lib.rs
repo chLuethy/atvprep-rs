@@ -816,6 +816,42 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_missed_slot_is_listed_in_the_history_as_missed() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        conn.raw()
+            .execute_batch(
+                "INSERT INTO schedules(id,name,action,days_mask,time_of_day,enabled) VALUES(1,'Nightly','verify',1,'12:30',1);
+                 INSERT INTO schedule_runs(schedule_id,slot,started_at,trigger,result,kind) VALUES(1,'2026-11-05 12:30:00.000000','2026-11-05 20:00:00.000000','scheduled','Missed: not started within 360 minutes of its slot','missed');",
+            )
+            .unwrap();
+        let auth = routes_auth::service(&state, &conn).unwrap();
+        let session = auth.create().unwrap();
+        let request = axum::http::Request::builder()
+            .uri("/api/v1/schedules")
+            .header("origin", "http://localhost")
+            .header(
+                "cookie",
+                format!("__Host-atvprep_session={}", session.token),
+            )
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let response = router(state.clone()).oneshot(request).await.unwrap();
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        let runs = body["data"][0]["runs"].as_array().unwrap();
+        assert_eq!(runs.len(), 1);
+        assert_eq!(runs[0]["kind"], "missed");
+        assert_eq!(runs[0]["trigger"], "scheduled");
+        assert_eq!(
+            runs[0]["result"],
+            "Missed: not started within 360 minutes of its slot"
+        );
+        assert!(runs[0]["job_id"].is_null());
+    }
+
+    #[tokio::test]
     #[allow(clippy::too_many_lines)] // One session walks every limit through create, update, preview and list.
     async fn schedule_limits_are_enforced_on_save_and_published() {
         let state = state();
@@ -1026,6 +1062,7 @@ mod tests {
         let runs = shown["data"]["runs"].as_array().unwrap();
         assert_eq!(runs.len(), 1);
         assert_eq!(runs[0]["trigger"], "manual");
+        assert_eq!(runs[0]["kind"], "run");
         assert_eq!(runs[0]["result"], "Queued 1 file");
         assert!(runs[0]["job_id"].as_str().unwrap().starts_with("j_"));
         let replay = app.clone().oneshot(run()).await.unwrap();

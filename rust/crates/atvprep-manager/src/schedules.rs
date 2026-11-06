@@ -720,6 +720,27 @@ fn pause_over_limit(ctx: Ctx<'_>, schedule_id: i64, violation: &limits::Violatio
     )
 }
 
+/// Note a slot the manager did not trigger within its window in the schedule's history, with no job.
+///
+/// The claim on the slot (done by the caller) keeps later ticks from noting it again; the unique
+/// index on missed entries guarantees it even if two schedulers raced past the claim.
+fn note_missed(ctx: Ctx<'_>, schedule_id: i64, slot: &str, window_micros: i64) -> Result<()> {
+    ctx.conn.execute(
+        "INSERT OR IGNORE INTO schedule_runs(schedule_id, slot, started_at, trigger, result, kind)
+         VALUES (?1, ?2, ?3, 'scheduled', ?4, 'missed')",
+        rusqlite::params![
+            schedule_id,
+            slot,
+            ctx.clock.now(),
+            format!(
+                "Missed: not started within {} minutes of its slot",
+                window_micros / 60_000_000
+            )
+        ],
+    )?;
+    Ok(())
+}
+
 /// Run enabled schedules whose latest local slot is no more than six hours old; schedules that
 /// change files only run in the minute of their slot.
 ///
@@ -794,17 +815,16 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
             continue;
         };
         let slot_micros = slot_utc.timestamp_micros();
-        if slot_micros > now_micros
-            || now_micros - slot_micros
-                > if matches!(action.as_str(), "fix" | "convert") {
-                    ON_TIME_MICROS
-                } else {
-                    CATCH_UP_MICROS
-                }
-            || format_micros(slot_micros) <= armed_at
-        {
+        // A slot before arming never ran and never will; one in the future is not due yet.
+        if slot_micros > now_micros || format_micros(slot_micros) <= armed_at {
             continue;
         }
+        let window = if limits::changes_files(&action) {
+            ON_TIME_MICROS
+        } else {
+            CATCH_UP_MICROS
+        };
+        let missed = now_micros - slot_micros > window;
         let slot_text = format_micros(slot_micros);
         // A failing schedule rolls back alone: its claim is retried next pass, the others still run.
         ctx.conn.execute_batch("SAVEPOINT schedule_run")?;
@@ -813,6 +833,10 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
                 "UPDATE schedules SET last_slot_at=?1 WHERE id=?2 AND (last_slot_at IS NULL OR last_slot_at < ?1)",
                 rusqlite::params![slot_text, id],
             )? == 1 {
+                if missed {
+                    note_missed(ctx, id, &slot_text, window)?;
+                    return Ok(false);
+                }
                 let _ = run_recorded(ctx, id, Some(&slot_text))?;
                 return Ok(true);
             }

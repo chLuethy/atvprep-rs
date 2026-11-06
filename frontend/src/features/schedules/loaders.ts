@@ -11,6 +11,8 @@ export const changesFiles = (action: Action): boolean => action === "fix" || act
 
 /** One entry of a schedule's history: a run at its slot or by hand. */
 export type ScheduleRun = {
+  /** A run that was started, or a slot the manager did not trigger in time. */
+  kind?: "run" | "missed";
   started_at: string;
   trigger: "scheduled" | "manual";
   result: string;

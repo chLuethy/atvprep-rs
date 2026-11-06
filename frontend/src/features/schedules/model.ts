@@ -175,6 +175,8 @@ export function describeResult(result: string | null): string {
     const reason = refused[1] ?? "";
     return t("Not queued: {reason}", { reason: reason === NOT_APPROVED ? t("Not approved to change files. Turn the schedule on again.") : reason });
   }
+  const missed = /^Missed: not started within (\d+) minutes of its slot$/.exec(result);
+  if (missed) return t("Missed: not started within {minutes} minutes of its slot", { minutes: missed[1] ?? "" });
   const paused = /^Paused: ([\s\S]*)$/.exec(result);
   if (paused) {
     const reason = paused[1] ?? "";

@@ -5,16 +5,17 @@ use crate::{Error, Result};
 
 /// Migration stages in order; stage `n` takes a database from version `n - 1` to `n`.
 /// To extend: add `000N_name.sql`, append it here and raise [`VERSION`].
-const STAGES: [&str; 5] = [
+const STAGES: [&str; 6] = [
     include_str!("migrations/0001_base.sql"),
     include_str!("migrations/0002_cron.sql"),
     include_str!("migrations/0003_scan_action.sql"),
     include_str!("migrations/0004_schedule_runs.sql"),
     include_str!("migrations/0005_schedule_approval.sql"),
+    include_str!("migrations/0006_missed_slots.sql"),
 ];
 
 /// The version this build creates and understands.
-pub const VERSION: i64 = 5;
+pub const VERSION: i64 = 6;
 
 /// Every table of the current schema.
 pub const TABLES: [&str; 23] = [
@@ -371,7 +372,7 @@ mod tests {
         )
         .unwrap();
         migrate(&mut conn).unwrap();
-        assert_eq!(version(&conn).unwrap(), 5);
+        assert_eq!(version(&conn).unwrap(), VERSION);
         let run: String = conn
             .raw()
             .query_row(
@@ -390,6 +391,54 @@ mod tests {
             )
             .unwrap();
         assert_eq!(approval, (None, None, None));
+    }
+
+    #[test]
+    fn a_version_5_database_upgrades_to_6_and_allows_one_missed_entry_per_slot() {
+        let (_db, mut conn) = database_at(5);
+        exec(
+            &conn,
+            "INSERT INTO schedules(id, name, action, days_mask, time_of_day) VALUES (3, 's', 'verify', 1, '01:00')",
+        )
+        .unwrap();
+        exec(
+            &conn,
+            "INSERT INTO schedule_runs(id, schedule_id, slot, started_at, trigger, result) VALUES (11, 3, 'x', 'now', 'scheduled', 'Queued 1 file')",
+        )
+        .unwrap();
+        migrate(&mut conn).unwrap();
+        assert_eq!(version(&conn).unwrap(), VERSION);
+        let kind: String = conn
+            .raw()
+            .query_row("SELECT kind FROM schedule_runs WHERE id=11", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(kind, "run", "existing entries are runs");
+        let missed = |slot: &str| {
+            exec(
+                &conn,
+                &format!(
+                    "INSERT INTO schedule_runs(schedule_id, slot, started_at, trigger, result, kind) VALUES (3, '{slot}', 'now', 'scheduled', 'Missed', 'missed')"
+                ),
+            )
+        };
+        missed("x").unwrap();
+        assert!(missed("x").is_err(), "a second missed entry for a slot");
+        missed("y").unwrap();
+        // A run of the same slot is not a missed entry.
+        exec(
+            &conn,
+            "INSERT INTO schedule_runs(schedule_id, slot, started_at, trigger, result) VALUES (3, 'y', 'now', 'scheduled', 'Queued 1 file')",
+        )
+        .unwrap();
+        assert!(
+            exec(
+                &conn,
+                "INSERT INTO schedule_runs(schedule_id, slot, started_at, trigger, result, kind) VALUES (3, 'z', 'now', 'scheduled', 'x', 'bogus')"
+            )
+            .is_err()
+        );
     }
 
     #[test]

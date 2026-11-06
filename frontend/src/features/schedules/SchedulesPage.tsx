@@ -360,6 +360,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
             <span class="muted">{formatDateTime(run.started_at, "")}</span>
             <span>{run.trigger === "scheduled" ? t("Scheduled") : t("By hand")}</span>
             <span>{describeResult(run.result)}</span>
+            <Show when={run.kind === "missed"}><span class="muted">{t("Adjust the schedule or check that the manager is running.")}</span></Show>
             <Show when={run.job_id}>
               {(job) => <a href={`/jobs/${encodeURIComponent(job())}`}>{t("Open job")}</a>}
             </Show>

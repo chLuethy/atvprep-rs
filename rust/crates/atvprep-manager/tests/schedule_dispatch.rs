@@ -239,14 +239,86 @@ fn dispatch_respects_catchup_arming_pause_and_gate() {
             0,
             "{mode}"
         );
-        assert_eq!(
-            conn.raw()
-                .query_row("SELECT last_slot_at FROM schedules", [], |row| row
-                    .get::<_, Option<String>>(0))
-                .unwrap(),
-            None
-        );
+        // Only a slot the manager saw too late is noted; before arming, paused or behind the gate is expected.
+        let noted: i64 = conn
+            .raw()
+            .query_row("SELECT count(*) FROM schedule_runs", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(noted, i64::from(mode == "late"), "{mode}");
+        if mode != "late" {
+            assert_eq!(
+                conn.raw()
+                    .query_row("SELECT last_slot_at FROM schedules", [], |row| row
+                        .get::<_, Option<String>>(0))
+                    .unwrap(),
+                None
+            );
+        }
     }
+}
+#[test]
+fn a_slot_outside_the_window_is_noted_once_as_missed_without_a_job() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    let time = (DateTime::<Utc>::from_timestamp_micros(NOW)
+        .unwrap()
+        .with_timezone(&Local)
+        - Duration::hours(7))
+    .format("%H:%M")
+    .to_string();
+    conn.raw()
+        .execute("UPDATE schedules SET time_of_day=?1, cron=NULL", [time])
+        .unwrap();
+    for _ in 0..3 {
+        assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+    }
+    let rows: Vec<(String, String, String, String, Option<i64>)> = conn
+        .raw()
+        .prepare("SELECT kind, trigger, result, slot, job_id FROM schedule_runs")
+        .unwrap()
+        .query_map([], |row| {
+            Ok((
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+            ))
+        })
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert_eq!(rows.len(), 1, "{rows:?}");
+    assert_eq!(rows[0].0, "missed");
+    assert_eq!(rows[0].1, "scheduled");
+    assert_eq!(
+        rows[0].2,
+        "Missed: not started within 360 minutes of its slot"
+    );
+    assert_eq!(rows[0].4, None);
+    let (jobs, last_run, last_slot): (i64, Option<String>, Option<String>) = conn
+        .raw()
+        .query_row(
+            "SELECT (SELECT count(*) FROM jobs), last_run_at, last_slot_at FROM schedules",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!((jobs, last_run), (0, None));
+    assert_eq!(last_slot.as_deref(), Some(rows[0].3.as_str()));
+    // Even if the entry has been pruned, the slot is not noted again.
+    conn.raw().execute("DELETE FROM schedule_runs", []).unwrap();
+    assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+    let again: i64 = conn
+        .raw()
+        .query_row("SELECT count(*) FROM schedule_runs", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(again, 0);
 }
 #[test]
 fn runs_rotate_across_present_mp4_files_and_respect_root_state_and_busy_files() {
