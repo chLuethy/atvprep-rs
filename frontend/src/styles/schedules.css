@@ -30,3 +30,5 @@
   .sched-when, .sched-last, .sched-actions { grid-column: 2; }
   .sched-row .confirm, .sched-row > .notice { margin-left: 0; }
 }
+.sched-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 0 0 10px; }
+.sched-sort { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-sm); }

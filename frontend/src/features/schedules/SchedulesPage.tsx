@@ -9,8 +9,9 @@ import {
 } from "./loaders";
 import {
   actionName, DAYS, defaultState, describeDays, describeLast, describeNext, describeTarget,
-  EVERY_DAY, stateChoices, WEEKDAYS,
+  EVERY_DAY, filterSchedules, sortSchedules, stateChoices, WEEKDAYS, type ListFilter, type SortKey,
 } from "./model";
+import { ListToolbar } from "./ListToolbar";
 
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
 type Phase = "loading" | "ready" | "error" | "session";
@@ -33,6 +34,11 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
   const [formError, setFormError] = createSignal<string | null>(null);
   const [rowError, setRowError] = createSignal<string | null>(null);
   const [notice, setNotice] = createSignal<string | null>(null);
+  const [sort, setSort] = createSignal<SortKey>("next");
+  const [filter, setFilter] = createSignal<ListFilter>({ actions: [], statuses: [] });
+  const shown = () => sortSchedules(filterSchedules(rows(), filter()), sort());
+  const filtered = () => filter().actions.length + filter().statuses.length > 0;
+  const resetFilters = () => setFilter({ actions: [], statuses: [] });
   let key = crypto.randomUUID();
   let newButton: HTMLButtonElement | undefined;
   let nameInput: HTMLInputElement | undefined;
@@ -270,9 +276,20 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
               </div>
             }
           >
-            <ul class="plain sched-list" aria-label={t("Schedules")}>
-              <For each={rows()}>{renderRow}</For>
-            </ul>
+            <ListToolbar sort={sort()} filter={filter()} filtered={filtered() && shown().length > 0} onSort={setSort} onFilter={setFilter} onReset={resetFilters} />
+            <Show
+              when={shown().length > 0}
+              fallback={
+                <div class="empty">
+                  <b>{t("No schedule matches these filters")}</b>
+                  <Button variant="quiet" onClick={resetFilters}>{t("Reset filters")}</Button>
+                </div>
+              }
+            >
+              <ul class="plain sched-list" aria-label={t("Schedules")}>
+                <For each={shown()}>{renderRow}</For>
+              </ul>
+            </Show>
           </Show>
         </Show>
       </Show>

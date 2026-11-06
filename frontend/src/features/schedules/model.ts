@@ -75,6 +75,49 @@ export function describeLast(schedule: Pick<Schedule, "last_run_at" | "last_resu
   return `${describeResult(schedule.last_result)} · ${formatDateTime(schedule.last_run_at, "")}`.trim();
 }
 
+export type SortKey = "next" | "name" | "last";
+export type StatusFilter = "on" | "paused";
+export type ListFilter = { actions: Action[]; statuses: StatusFilter[] };
+
+export const SORT_KEYS: ReadonlyArray<{ key: SortKey; label: string }> = [
+  { key: "next", label: N("Next run") },
+  { key: "name", label: N("Name") },
+  { key: "last", label: N("Last run") },
+];
+export const LIST_ACTIONS: ReadonlyArray<Action> = ["verify", "fix", "convert", "scan"];
+export const LIST_STATUSES: ReadonlyArray<{ status: StatusFilter; label: string }> = [
+  { status: "on", label: N("On") },
+  { status: "paused", label: N("Paused") },
+];
+
+const time = (value: string | null): number | null => {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+/** A sorted copy: next run soonest first, last run newest first; schedules without that time come last. */
+export function sortSchedules(rows: readonly Schedule[], key: SortKey): Schedule[] {
+  const byName = (a: Schedule, b: Schedule) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  const byTime = (pick: (row: Schedule) => string | null, newestFirst: boolean) => (a: Schedule, b: Schedule) => {
+    const left = time(pick(a));
+    const right = time(pick(b));
+    if (left === null && right === null) return byName(a, b);
+    if (left === null) return 1;
+    if (right === null) return -1;
+    return (newestFirst ? right - left : left - right) || byName(a, b);
+  };
+  const compare = key === "name" ? byName : key === "last" ? byTime((row) => row.last_run_at, true) : byTime((row) => row.next_run_at, false);
+  return [...rows].sort(compare);
+}
+
+/** Rows matching any chosen action and any chosen status; an empty choice matches everything. */
+export function filterSchedules(rows: readonly Schedule[], filter: ListFilter): Schedule[] {
+  return rows.filter((row) =>
+    (filter.actions.length === 0 || filter.actions.includes(row.action)) &&
+    (filter.statuses.length === 0 || filter.statuses.includes(row.enabled ? "on" : "paused")));
+}
+
 /** What the last run says. The server writes it in English; the ones it writes itself are put into the chosen language. */
 export function describeResult(result: string | null): string {
   if (!result) return t("Ran");

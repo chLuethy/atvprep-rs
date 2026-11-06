@@ -102,7 +102,8 @@ describe("SchedulesPage", () => {
     const { api } = makeApi([schedule({ enabled: false, next_run_at: null })]);
     const view = render(() => <SchedulesPage api={api} />);
 
-    expect(await view.findByText("Paused")).toBeInTheDocument();
+    const list = await view.findByRole("list", { name: "Schedules" });
+    expect(within(list).getByText("Paused")).toBeInTheDocument();
     expect(view.getByRole("checkbox", { name: "Turn on Nightly verify" })).not.toBeChecked();
   });
 
