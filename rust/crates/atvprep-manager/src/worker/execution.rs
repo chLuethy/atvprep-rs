@@ -125,8 +125,14 @@ pub fn execute_claimed(
                 serde_json::json!(current.meta.scanned_ctime_ns),
                 serde_json::json!(sidecar_fingerprint),
             ];
-            // An approval that does not hold right now (revoked session, idle timeout) may hold again:
-            // it is reported as a conflict, so the claim stays and is not ended as stale input.
+            // A manual approval that does not hold right now (revoked session, idle timeout) may hold
+            // again: it is reported as a conflict, so the claim stays and is not ended as stale input.
+            // A schedule's refusal (paused, gone, changed since queueing, bad signature) is permanent:
+            // it ends the item as stale input with the reason, so claim and lease do not linger.
+            let from_schedule = item
+                .settings_snapshot
+                .get("schedule_id")
+                .is_some_and(|id| !id.is_null());
             super::manual_policy::authorize_prepare(
                 ctx,
                 item_id,
@@ -134,7 +140,13 @@ pub fn execute_claimed(
                 &identity,
                 config.session_idle_seconds,
             )
-            .map_err(|error| Error::Conflict(error.to_string()))?;
+            .map_err(|error| {
+                if from_schedule {
+                    error
+                } else {
+                    Error::Conflict(error.to_string())
+                }
+            })?;
             target.revalidate().map_err(|_| {
                 Error::Invalid("approved input changed before execution".to_owned())
             })?;
