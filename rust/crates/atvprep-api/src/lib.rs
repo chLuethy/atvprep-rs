@@ -804,6 +804,125 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn scan_schedules_are_created_listed_and_run_without_file_filters() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private'),(2,'Shows','/shows'); INSERT INTO schedules(id,name,action,days_mask,time_of_day,enabled) VALUES(1,'Old repair','fix',1,'12:30',0);").unwrap();
+        let auth = routes_auth::service(&state, &conn).unwrap();
+        let session = auth.create().unwrap();
+        let opaque = crate::opaque::Opaque::new(state.api_secret.as_bytes());
+        let app = router(state.clone());
+        let send = |method: axum::http::Method,
+                    path: String,
+                    action: &'static str,
+                    key: &'static str,
+                    body: serde_json::Value| {
+            let csrf = auth
+                .issue_csrf(&session.token, method.as_str(), &path, action)
+                .unwrap();
+            let app = app.clone();
+            let cookie = format!("__Host-atvprep_session={}", session.token);
+            async move {
+                let response = app
+                    .oneshot(
+                        axum::http::Request::builder()
+                            .method(method)
+                            .uri(path)
+                            .header("origin", "http://localhost")
+                            .header("cookie", cookie)
+                            .header("x-csrf-token", csrf)
+                            .header("idempotency-key", key)
+                            .header("content-type", "application/json")
+                            .body(axum::body::Body::from(body.to_string()))
+                            .unwrap(),
+                    )
+                    .await
+                    .unwrap();
+                let status = response.status();
+                let json: serde_json::Value =
+                    serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap())
+                        .unwrap_or(serde_json::Value::Null);
+                (status, json)
+            }
+        };
+        let root = opaque.encode("r", 2);
+        let (status, created) = send(
+            axum::http::Method::POST,
+            "/api/v1/schedules".to_owned(),
+            "create-schedule",
+            "scan-create",
+            serde_json::json!({"name":"Nightly scan","action":"scan","root_id":root,"compliance_state":"clean","days":[0],"time":"02:00","max_files":9}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+        assert_eq!(created["data"]["action"], "scan");
+        assert_eq!(created["data"]["root_name"], "Shows");
+        assert!(created["data"]["compliance_state"].is_null());
+        assert!(created["data"]["max_files"].is_null());
+        assert!(created["data"]["matching"].is_null());
+        assert!(created["data"]["next_run_at"].is_string());
+        let id = created["data"]["id"].as_str().unwrap().to_owned();
+        let (status, _) = send(
+            axum::http::Method::POST,
+            "/api/v1/schedules".to_owned(),
+            "create-schedule",
+            "prepare-create",
+            serde_json::json!({"name":"Old word","action":"prepare","days":[0],"time":"02:00"}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        let (status, ran) = send(
+            axum::http::Method::POST,
+            format!("/api/v1/schedules/{id}/run"),
+            "run-schedule",
+            "scan-run",
+            serde_json::Value::Null,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(ran["data"]["last_result"], "Queued 1 scan");
+        let queued: (i64, String) = conn
+            .raw()
+            .query_row(
+                "SELECT root_id, status FROM scan_runs ORDER BY id DESC LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(queued, (2, "queued".to_owned()));
+        let (status, patched) = send(
+            axum::http::Method::PATCH,
+            format!("/api/v1/schedules/{id}"),
+            "update-schedule",
+            "scan-patch",
+            serde_json::json!({"max_files":3,"compliance_state":"clean","clear_root":true}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(patched["data"]["max_files"].is_null());
+        assert!(patched["data"]["compliance_state"].is_null());
+        assert!(patched["data"]["root_id"].is_null());
+        let listed = app
+            .oneshot(
+                axum::http::Request::get("/api/v1/schedules")
+                    .header("origin", "http://localhost")
+                    .header(
+                        "cookie",
+                        format!("__Host-atvprep_session={}", session.token),
+                    )
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let listed: serde_json::Value =
+            serde_json::from_slice(&to_bytes(listed.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(listed["data"][0]["action"], "fix");
+        assert_eq!(listed["data"][1]["action"], "scan");
+    }
+
+    #[tokio::test]
     async fn settings_mutations_are_revisioned_idempotent_and_audited() {
         let state = state();
         let mut conn = state.db.conn().unwrap();
