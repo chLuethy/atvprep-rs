@@ -13,6 +13,7 @@ use atvprep_manager::repo::Ctx;
 use atvprep_manager::schema::migrate;
 use atvprep_manager::settings::Settings;
 use atvprep_manager::snapshots::InputSnapshots;
+use atvprep_manager::state_machine::JobStatus;
 use serde_json::json;
 
 const T0: i64 = 1_700_000_000_000_000;
@@ -410,14 +411,18 @@ fn clear_finished_hides_only_the_requested_finished_statuses() {
         "UPDATE jobs SET status='succeeded' WHERE id={}",
         ids[1]
     ));
-    assert_eq!(jobs.clear_finished(&["failed"]).unwrap(), 1);
-    assert_eq!(jobs.clear_finished(&["failed"]).unwrap(), 0);
+    assert_eq!(jobs.clear_finished(&[JobStatus::Failed]).unwrap(), 1);
+    assert_eq!(jobs.clear_finished(&[JobStatus::Failed]).unwrap(), 0);
     let cleared = |id: i64| jobs.get(id).unwrap().unwrap().cleared_at.is_some();
     assert_eq!(
         (cleared(ids[0]), cleared(ids[1]), cleared(ids[2])),
         (true, false, false)
     );
-    for status in ["queued", "running", "cancel_requested", "bogus"] {
+    for status in [
+        JobStatus::Queued,
+        JobStatus::Running,
+        JobStatus::CancelRequested,
+    ] {
         assert!(
             matches!(jobs.clear_finished(&[status]), Err(Error::Invalid(_))),
             "{status}"

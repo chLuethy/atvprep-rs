@@ -10,7 +10,7 @@ use atvprep_manager::media::Media;
 use atvprep_manager::models::MediaMeta;
 use atvprep_manager::repo::Ctx;
 use atvprep_manager::schema::migrate;
-use atvprep_manager::state_machine::JobStateMachine;
+use atvprep_manager::state_machine::{ItemStatus, JobStateMachine};
 
 const T0: i64 = 1_700_000_000_000_000;
 const SECOND: i64 = 1_000_000;
@@ -157,7 +157,13 @@ fn a_worker_that_lost_the_lease_cannot_commit_late_results() {
         .unwrap()
         .unwrap();
     JobStateMachine(ctx)
-        .transition_item(item.id, "running", item.status_version, Some(token), None)
+        .transition_item(
+            item.id,
+            ItemStatus::Running,
+            item.status_version,
+            Some(token),
+            None,
+        )
         .unwrap();
 
     // The old worker stalls past its lease; a new worker takes over.
@@ -170,7 +176,7 @@ fn a_worker_that_lost_the_lease_cannot_commit_late_results() {
     let machine = JobStateMachine(later_ctx);
     let late = machine.transition_item(
         item.id,
-        "succeeded",
+        ItemStatus::Succeeded,
         item.status_version + 1,
         Some(token),
         None,
@@ -200,5 +206,8 @@ fn a_worker_that_lost_the_lease_cannot_commit_late_results() {
             .unwrap()
             .is_none()
     );
-    assert_eq!(Jobs(later_ctx).items(job.id).unwrap()[0].status, "running");
+    assert_eq!(
+        Jobs(later_ctx).items(job.id).unwrap()[0].status,
+        ItemStatus::Running
+    );
 }

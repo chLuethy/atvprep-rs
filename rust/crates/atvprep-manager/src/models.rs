@@ -211,7 +211,7 @@ impl MediaMeta {
 pub struct Job {
     pub id: i64,
     pub action: String,
-    pub status: String,
+    pub status: crate::state_machine::JobStatus,
     pub trigger: String,
     pub origin_job_id: Option<i64>,
     pub settings_revision: i64,
@@ -267,7 +267,7 @@ pub struct JobItem {
     pub action: String,
     pub position: i64,
     pub origin_item_id: Option<i64>,
-    pub status: String,
+    pub status: crate::state_machine::ItemStatus,
     pub status_version: i64,
     pub attempt: i64,
     pub claimed_by: Option<String>,

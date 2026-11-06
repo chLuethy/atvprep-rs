@@ -143,14 +143,14 @@ fn the_tables_and_the_aggregation_match_the_python_oracle() {
         }
     }
     for case in &cases[1..] {
-        let statuses: Vec<&str> = case.input["statuses"]
+        let statuses: Vec<ItemStatus> = case.input["statuses"]
             .as_array()
             .unwrap()
             .iter()
-            .map(|s| s.as_str().unwrap())
+            .map(|s| s.as_str().unwrap().parse().unwrap())
             .collect();
         let got = match aggregate_parent_status(&statuses) {
-            Ok(status) => json!({"ok": status}),
+            Ok(status) => json!({"ok": status.as_str()}),
             Err(error) => json!({"error": error.to_string()}),
         };
         assert_eq!(got, case.expected, "{}", case.name);
@@ -254,12 +254,31 @@ fn an_unknown_status_string_is_an_error_naming_the_value() {
 }
 
 #[test]
+fn transitions_store_the_same_status_strings_as_before() {
+    let f = Fixture::new();
+    let (job, item) = f.job("verify", 1);
+    f.machine()
+        .transition_item(item, ItemStatus::Claimed, 0, Some(7), None)
+        .unwrap();
+    let stored: (String, String) = f
+        .conn
+        .raw()
+        .query_row(
+            "SELECT (SELECT status FROM job_items WHERE id=?1), (SELECT status FROM jobs WHERE id=?2)",
+            [item, job],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(stored, ("claimed".to_owned(), "running".to_owned()));
+}
+
+#[test]
 fn an_item_transition_bumps_the_version_starts_the_job_and_emits_an_event() {
     let f = Fixture::new();
     let (job, item) = f.job("verify", 1);
     let result = f
         .machine()
-        .transition_item(item, "claimed", 0, Some(7), None)
+        .transition_item(item, ItemStatus::Claimed, 0, Some(7), None)
         .unwrap();
     assert_eq!(
         (
@@ -269,7 +288,10 @@ fn an_item_transition_bumps_the_version_starts_the_job_and_emits_an_event() {
         ),
         ("claimed", 1, true)
     );
-    assert_eq!(Jobs(f.ctx()).get(job).unwrap().unwrap().status, "running");
+    assert_eq!(
+        Jobs(f.ctx()).get(job).unwrap().unwrap().status,
+        JobStatus::Running
+    );
     let events = Events(f.ctx()).list(job, None, 100).unwrap();
     let last = events.last().unwrap();
     assert_eq!(last.topic, "job.item.transition");
@@ -288,11 +310,11 @@ fn a_stale_writer_is_rejected_without_a_second_update() {
     let f = Fixture::new();
     let (job, item) = f.job("verify", 1);
     f.machine()
-        .transition_item(item, "claimed", 0, Some(7), None)
+        .transition_item(item, ItemStatus::Claimed, 0, Some(7), None)
         .unwrap();
     let error = f
         .machine()
-        .transition_item(item, "running", 0, Some(7), None)
+        .transition_item(item, ItemStatus::Running, 0, Some(7), None)
         .unwrap_err();
     assert!(
         matches!(&error, Error::Conflict(m) if m.starts_with("stale job.item.transition writer: expected version 0, current 1")),
@@ -306,16 +328,16 @@ fn a_worker_transition_needs_the_current_fencing_token_even_on_replay() {
     let f = Fixture::new();
     let (_, item) = f.job("verify", 1);
     f.machine()
-        .transition_item(item, "claimed", 0, Some(7), None)
+        .transition_item(item, ItemStatus::Claimed, 0, Some(7), None)
         .unwrap();
     let wrong = f
         .machine()
-        .transition_item(item, "claimed", 1, Some(999), None)
+        .transition_item(item, ItemStatus::Claimed, 1, Some(999), None)
         .unwrap_err();
     assert_eq!(wrong.to_string(), "stale item fencing token");
     let missing = f
         .machine()
-        .transition_item(item, "running", 1, None, None)
+        .transition_item(item, ItemStatus::Running, 1, None, None)
         .unwrap_err();
     assert_eq!(
         missing.to_string(),
@@ -332,13 +354,13 @@ fn the_executor_lease_guards_worker_transitions_once_it_is_in_use() {
         format_micros(T0 + 30_000_000)
     ));
     f.machine()
-        .transition_item(item, "claimed", 0, Some(7), None)
+        .transition_item(item, ItemStatus::Claimed, 0, Some(7), None)
         .unwrap();
     // Another holder took the lease over: the old token no longer works.
     f.sql("UPDATE media_executor_leases SET fencing_token=8");
     let lost = f
         .machine()
-        .transition_item(item, "running", 1, Some(7), None)
+        .transition_item(item, ItemStatus::Running, 1, Some(7), None)
         .unwrap_err();
     assert_eq!(
         lost.to_string(),
@@ -346,7 +368,7 @@ fn the_executor_lease_guards_worker_transitions_once_it_is_in_use() {
     );
     f.sql("UPDATE media_executor_leases SET fencing_token=7");
     f.machine()
-        .transition_item(item, "running", 1, Some(7), None)
+        .transition_item(item, ItemStatus::Running, 1, Some(7), None)
         .unwrap();
     // An expired lease fails closed.
     f.sql(&format!(
@@ -355,7 +377,7 @@ fn the_executor_lease_guards_worker_transitions_once_it_is_in_use() {
     ));
     assert!(matches!(
         f.machine()
-            .transition_item(item, "succeeded", 2, Some(7), None),
+            .transition_item(item, ItemStatus::Succeeded, 2, Some(7), None),
         Err(Error::Conflict(_))
     ));
     // A lease written with a time zone suffix (as a differently written heartbeat would) still counts.
@@ -364,7 +386,7 @@ fn the_executor_lease_guards_worker_transitions_once_it_is_in_use() {
         format_micros(T0 + 30_000_000).replace(' ', "T")
     ));
     f.machine()
-        .transition_item(item, "succeeded", 2, Some(7), None)
+        .transition_item(item, ItemStatus::Succeeded, 2, Some(7), None)
         .unwrap();
 }
 
@@ -373,18 +395,18 @@ fn an_item_transition_keeps_a_cancel_requested_parent() {
     let f = Fixture::new();
     let (job, item) = f.job("verify", 1);
     f.machine()
-        .transition_item(item, "claimed", 0, Some(7), None)
+        .transition_item(item, ItemStatus::Claimed, 0, Some(7), None)
         .unwrap();
     let parent = Jobs(f.ctx()).get(job).unwrap().unwrap();
     f.machine()
-        .transition_job(job, "cancel_requested", parent.status_version, None)
+        .transition_job(job, JobStatus::CancelRequested, parent.status_version, None)
         .unwrap();
     f.machine()
-        .transition_item(item, "running", 1, Some(7), None)
+        .transition_item(item, ItemStatus::Running, 1, Some(7), None)
         .unwrap();
     assert_eq!(
         Jobs(f.ctx()).get(job).unwrap().unwrap().status,
-        "cancel_requested"
+        JobStatus::CancelRequested
     );
 }
 
@@ -394,14 +416,15 @@ fn an_illegal_transition_is_rejected() {
     let (_, item) = f.job("verify", 1);
     let error = f
         .machine()
-        .transition_item(item, "succeeded", 0, None, None)
+        .transition_item(item, ItemStatus::Succeeded, 0, None, None)
         .unwrap_err();
     assert!(
         matches!(&error, Error::Illegal(m) if m == "cannot transition queued to succeeded"),
         "{error}"
     );
     assert!(matches!(
-        f.machine().transition_item(9999, "claimed", 0, None, None),
+        f.machine()
+            .transition_item(9999, ItemStatus::Claimed, 0, None, None),
         Err(Error::Invalid(_))
     ));
 }
@@ -411,15 +434,17 @@ fn a_terminal_parent_cannot_regress_and_a_repeat_is_stable() {
     let f = Fixture::new();
     let (job, _) = f.job("verify", 1);
     let machine = f.machine();
-    let first = machine.transition_job(job, "running", 0, None).unwrap();
+    let first = machine
+        .transition_job(job, JobStatus::Running, 0, None)
+        .unwrap();
     let second = machine
-        .transition_job(job, "cancel_requested", first.status_version, None)
+        .transition_job(job, JobStatus::CancelRequested, first.status_version, None)
         .unwrap();
     let cancelled = machine
-        .transition_job(job, "cancelled", second.status_version, None)
+        .transition_job(job, JobStatus::Cancelled, second.status_version, None)
         .unwrap();
     let repeated = machine
-        .transition_job(job, "cancelled", cancelled.status_version, None)
+        .transition_job(job, JobStatus::Cancelled, cancelled.status_version, None)
         .unwrap();
     assert_eq!(
         (
@@ -430,7 +455,7 @@ fn a_terminal_parent_cannot_regress_and_a_repeat_is_stable() {
         ("cancelled", cancelled.status_version, false)
     );
     let error = machine
-        .transition_job(job, "running", cancelled.status_version, None)
+        .transition_job(job, JobStatus::Running, cancelled.status_version, None)
         .unwrap_err();
     assert!(matches!(error, Error::Illegal(_)));
 }
@@ -441,24 +466,24 @@ fn start_and_finish_times_are_recorded_once_for_the_item_and_its_job() {
     let (job, item) = f.job("verify", 1);
     let jobs = Jobs(f.ctx());
     f.machine()
-        .transition_item(item, "claimed", 0, Some(7), None)
+        .transition_item(item, ItemStatus::Claimed, 0, Some(7), None)
         .unwrap();
     let parent = jobs.get(job).unwrap().unwrap();
     assert!(parent.started_at.is_some() && parent.finished_at.is_none());
     assert!(jobs.items(job).unwrap()[0].started_at.is_none());
     f.machine()
-        .transition_item(item, "running", 1, Some(7), None)
+        .transition_item(item, ItemStatus::Running, 1, Some(7), None)
         .unwrap();
     let running = jobs.items(job).unwrap().remove(0);
     assert!(running.started_at.is_some() && running.finished_at.is_none());
     f.machine()
-        .transition_item(item, "succeeded", 2, Some(7), None)
+        .transition_item(item, ItemStatus::Succeeded, 2, Some(7), None)
         .unwrap();
     let done = jobs.items(job).unwrap().remove(0);
     assert!(done.finished_at.is_some());
     assert_eq!(done.started_at, running.started_at);
     let finished = jobs.get(job).unwrap().unwrap();
-    assert_eq!(finished.status, "succeeded");
+    assert_eq!(finished.status, JobStatus::Succeeded);
     assert!(finished.finished_at.is_some() && finished.started_at.is_some());
     assert_eq!(
         (
@@ -483,20 +508,23 @@ fn the_parent_counts_follow_a_mixed_result() {
     let second = f.conn.raw().last_insert_rowid();
     let machine = f.machine();
     machine
-        .transition_item(first, "claimed", 0, Some(1), None)
+        .transition_item(first, ItemStatus::Claimed, 0, Some(1), None)
         .unwrap();
     machine
-        .transition_item(first, "running", 1, Some(1), None)
+        .transition_item(first, ItemStatus::Running, 1, Some(1), None)
         .unwrap();
     machine
-        .transition_item(first, "succeeded", 2, Some(1), None)
+        .transition_item(first, ItemStatus::Succeeded, 2, Some(1), None)
         .unwrap();
-    assert_eq!(Jobs(f.ctx()).get(job).unwrap().unwrap().status, "running");
+    assert_eq!(
+        Jobs(f.ctx()).get(job).unwrap().unwrap().status,
+        JobStatus::Running
+    );
     machine
-        .transition_item(second, "stale_input", 0, None, None)
+        .transition_item(second, ItemStatus::StaleInput, 0, None, None)
         .unwrap();
     let parent = Jobs(f.ctx()).get(job).unwrap().unwrap();
-    assert_eq!(parent.status, "partial_success");
+    assert_eq!(parent.status, JobStatus::PartialSuccess);
     assert_eq!(
         (
             parent.succeeded_count,
@@ -521,7 +549,10 @@ fn an_item_marked_stale_fails_closed_with_the_reasons() {
         (result.status.as_str(), result.changed),
         ("stale_input", true)
     );
-    assert_eq!(Jobs(f.ctx()).items(job).unwrap()[0].status, "stale_input");
+    assert_eq!(
+        Jobs(f.ctx()).items(job).unwrap()[0].status,
+        ItemStatus::StaleInput
+    );
     let events = Events(f.ctx()).list(job, None, 100).unwrap();
     let stale: Vec<_> = events
         .iter()
@@ -542,10 +573,19 @@ fn cancelling_queued_automatic_jobs_leaves_manual_work_alone() {
     by_hand.trigger = "manual";
     let manual = jobs.create(&by_hand).unwrap();
     assert_eq!(f.machine().cancel_queued_automatic_jobs().unwrap(), 1);
-    assert_eq!(jobs.get(automatic.id).unwrap().unwrap().status, "cancelled");
-    assert_eq!(jobs.items(automatic.id).unwrap()[0].status, "cancelled");
-    assert_eq!(jobs.get(manual.id).unwrap().unwrap().status, "queued");
-    assert_eq!(jobs.items(manual.id).unwrap()[0].status, "queued");
+    assert_eq!(
+        jobs.get(automatic.id).unwrap().unwrap().status,
+        JobStatus::Cancelled
+    );
+    assert_eq!(
+        jobs.items(automatic.id).unwrap()[0].status,
+        ItemStatus::Cancelled
+    );
+    assert_eq!(
+        jobs.get(manual.id).unwrap().unwrap().status,
+        JobStatus::Queued
+    );
+    assert_eq!(jobs.items(manual.id).unwrap()[0].status, ItemStatus::Queued);
     assert_eq!(f.machine().cancel_queued_automatic_jobs().unwrap(), 0);
 }
 
@@ -568,11 +608,23 @@ fn items_left_queued_under_terminal_automatic_jobs_are_settled() {
         failed.id
     ));
     f.machine().cancel_queued_automatic_jobs().unwrap();
-    assert_eq!(jobs.items(stranded.id).unwrap()[0].status, "cancelled");
-    assert_eq!(jobs.items(failed.id).unwrap()[0].status, "cancelled");
-    assert_eq!(jobs.get(stranded.id).unwrap().unwrap().status, "cancelled");
-    assert_eq!(jobs.get(failed.id).unwrap().unwrap().status, "failed");
-    assert_eq!(jobs.items(live.id).unwrap()[0].status, "queued");
+    assert_eq!(
+        jobs.items(stranded.id).unwrap()[0].status,
+        ItemStatus::Cancelled
+    );
+    assert_eq!(
+        jobs.items(failed.id).unwrap()[0].status,
+        ItemStatus::Cancelled
+    );
+    assert_eq!(
+        jobs.get(stranded.id).unwrap().unwrap().status,
+        JobStatus::Cancelled
+    );
+    assert_eq!(
+        jobs.get(failed.id).unwrap().unwrap().status,
+        JobStatus::Failed
+    );
+    assert_eq!(jobs.items(live.id).unwrap()[0].status, ItemStatus::Queued);
 }
 
 #[test]
@@ -586,7 +638,7 @@ fn failed_claim_readback_rolls_back_the_claim_and_attempt() {
             .is_err()
     );
     let fresh = Jobs(f.ctx()).get_item(item).unwrap().unwrap();
-    assert_eq!(fresh.status, "queued");
+    assert_eq!(fresh.status, ItemStatus::Queued);
     assert_eq!(fresh.attempt, 0);
     assert!(f.conn.raw().is_autocommit());
 }
@@ -603,14 +655,17 @@ fn failed_transition_event_rolls_back_item_parent_and_all_events() {
     f.sql("CREATE TRIGGER refuse_item_event BEFORE INSERT ON events WHEN NEW.topic='job.item.transition' BEGIN SELECT RAISE(ABORT,'forced item event failure'); END;");
     assert!(
         f.machine()
-            .transition_item(item, "claimed", 0, Some(7), None)
+            .transition_item(item, ItemStatus::Claimed, 0, Some(7), None)
             .is_err()
     );
     assert_eq!(
         Jobs(f.ctx()).get_item(item).unwrap().unwrap().status,
-        "queued"
+        ItemStatus::Queued
     );
-    assert_eq!(Jobs(f.ctx()).get(job).unwrap().unwrap().status, "queued");
+    assert_eq!(
+        Jobs(f.ctx()).get(job).unwrap().unwrap().status,
+        JobStatus::Queued
+    );
     let after: i64 = f
         .conn
         .raw()
@@ -644,11 +699,17 @@ fn claim_and_transition_retry_real_shared_cache_write_locks() {
     assert_eq!(claimed.attempt, 1);
     let release = block();
     f.machine()
-        .transition_item(item, "running", claimed.status_version, Some(7), None)
+        .transition_item(
+            item,
+            ItemStatus::Running,
+            claimed.status_version,
+            Some(7),
+            None,
+        )
         .unwrap();
     release.join().unwrap();
     assert_eq!(
         Jobs(f.ctx()).get_item(item).unwrap().unwrap().status,
-        "running"
+        ItemStatus::Running
     );
 }

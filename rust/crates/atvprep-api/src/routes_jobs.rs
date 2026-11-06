@@ -10,6 +10,7 @@ use atvprep_manager::{
     jobs::{Jobs, NewJob},
     media::Media,
     repo::Ctx,
+    state_machine::JobStatus,
 };
 use axum::{
     Json,
@@ -203,11 +204,11 @@ pub async fn cancel(
             .get(id)
             .map_err(|_| MutationError::Database)?
             .ok_or(MutationError::NotFound)?;
-        let status = if matches!(job.status.as_str(), "queued" | "running") {
+        let status = if matches!(job.status, JobStatus::Queued | JobStatus::Running) {
             atvprep_manager::state_machine::JobStateMachine(ctx)
                 .transition_job(
                     id,
-                    "cancel_requested",
+                    JobStatus::CancelRequested,
                     job.status_version,
                     Some(&json!({"reason":"user_requested"})),
                 )
@@ -218,7 +219,7 @@ pub async fn cancel(
                     rusqlite::params![ctx.clock.now(), id],
                 )
                 .map_err(|_| MutationError::Database)?;
-            "cancel_requested".to_owned()
+            JobStatus::CancelRequested
         } else {
             job.status
         };
@@ -301,20 +302,19 @@ pub async fn clear(
     Json(input): Json<ClearJobs>,
 ) -> Response {
     const PATH: &str = "/api/v1/jobs/clear";
-    if input.statuses.is_empty()
-        || input.statuses.len() > 4
-        || input.statuses.iter().any(|status| {
-            !matches!(
-                status.as_str(),
-                "succeeded" | "partial_success" | "failed" | "cancelled"
-            )
-        })
-    {
+    let parsed: Result<Vec<JobStatus>, _> = input
+        .statuses
+        .iter()
+        .map(|status| status.parse::<JobStatus>())
+        .collect();
+    let Ok(statuses) = parsed else {
+        return crate::read::error(StatusCode::UNPROCESSABLE_ENTITY, "invalid request", PATH);
+    };
+    if statuses.is_empty() || statuses.len() > 4 || !statuses.iter().all(|s| s.is_terminal()) {
         return crate::read::error(StatusCode::UNPROCESSABLE_ENTITY, "invalid request", PATH);
     }
     let body = json!({"statuses":input.statuses});
     maintenance_mutation(state, headers, PATH, "clear-jobs", body, move |tx| {
-        let statuses: Vec<&str> = input.statuses.iter().map(String::as_str).collect();
         let cleared = Jobs(tx)
             .clear_finished(&statuses)
             .map_err(|_| MutationError::Database)?;

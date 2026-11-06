@@ -49,6 +49,12 @@ macro_rules! status_enum {
             }
         }
 
+        impl serde::Serialize for $name {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+                serializer.serialize_str(self.as_str())
+            }
+        }
+
         impl rusqlite::types::ToSql for $name {
             fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
                 Ok(self.as_str().into())
@@ -200,9 +206,9 @@ pub fn parent_allowed(from: &str, to: &str) -> bool {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TransitionResult {
+pub struct TransitionResult<S> {
     pub entity_id: i64,
-    pub status: String,
+    pub status: S,
     pub status_version: i64,
     pub changed: bool,
 }
@@ -212,29 +218,34 @@ pub struct TransitionResult {
 /// # Errors
 ///
 /// `statuses` is empty.
-pub fn aggregate_parent_status(statuses: &[&str]) -> Result<&'static str> {
+pub fn aggregate_parent_status(statuses: &[ItemStatus]) -> Result<JobStatus> {
+    use ItemStatus::{CancelRequested, Cancelled, Cancelling, Claimed, Queued, Running, Succeeded};
     if statuses.is_empty() {
         return Err(Error::Invalid(
             "job must contain at least one item".to_owned(),
         ));
     }
-    let any = |wanted: &[&str]| statuses.iter().any(|s| wanted.contains(s));
-    let all = |wanted: &str| statuses.iter().all(|s| *s == wanted);
-    Ok(if any(&["queued", "claimed"]) {
-        if all("queued") { "queued" } else { "running" }
-    } else if any(&["running"]) {
-        "running"
-    } else if any(&["cancel_requested", "cancelling"]) {
-        "cancel_requested"
-    } else if all("succeeded") {
-        "succeeded"
-    } else if all("cancelled") {
-        "cancelled"
-    } else if any(&["succeeded"]) {
+    let any = |wanted: &[ItemStatus]| statuses.iter().any(|s| wanted.contains(s));
+    let all = |wanted: ItemStatus| statuses.iter().all(|s| *s == wanted);
+    Ok(if any(&[Queued, Claimed]) {
+        if all(Queued) {
+            JobStatus::Queued
+        } else {
+            JobStatus::Running
+        }
+    } else if any(&[Running]) {
+        JobStatus::Running
+    } else if any(&[CancelRequested, Cancelling]) {
+        JobStatus::CancelRequested
+    } else if all(Succeeded) {
+        JobStatus::Succeeded
+    } else if all(Cancelled) {
+        JobStatus::Cancelled
+    } else if any(&[Succeeded]) {
         // An interrupted item whose retry runs as its own job is finished here; it counts as failed.
-        "partial_success"
+        JobStatus::PartialSuccess
     } else {
-        "failed"
+        JobStatus::Failed
     })
 }
 
@@ -262,18 +273,69 @@ enum Kind {
     Job,
 }
 
+/// What the generic transition needs to know about a status type.
+trait Lifecycle:
+    Copy + PartialEq + std::fmt::Display + rusqlite::ToSql + rusqlite::types::FromSql
+{
+    const KIND: Kind;
+    fn can_become(self, to: Self) -> bool;
+    fn is_terminal(self) -> bool;
+    fn is_running(self) -> bool;
+    fn is_queued(self) -> bool;
+    fn is_claim(self) -> bool;
+}
+
+impl Lifecycle for ItemStatus {
+    const KIND: Kind = Kind::Item;
+    fn can_become(self, to: Self) -> bool {
+        Self::can_become(self, to)
+    }
+    fn is_terminal(self) -> bool {
+        Self::is_terminal(self)
+    }
+    fn is_running(self) -> bool {
+        self == Self::Running
+    }
+    fn is_queued(self) -> bool {
+        self == Self::Queued
+    }
+    fn is_claim(self) -> bool {
+        self == Self::Claimed
+    }
+}
+
+impl Lifecycle for JobStatus {
+    const KIND: Kind = Kind::Job;
+    fn can_become(self, to: Self) -> bool {
+        Self::can_become(self, to)
+    }
+    fn is_terminal(self) -> bool {
+        Self::is_terminal(self)
+    }
+    fn is_running(self) -> bool {
+        self == Self::Running
+    }
+    fn is_queued(self) -> bool {
+        self == Self::Queued
+    }
+    fn is_claim(self) -> bool {
+        false
+    }
+}
+
 pub struct JobStateMachine<'a>(pub Ctx<'a>);
 
-struct Entity {
+struct Entity<S> {
     id: i64,
-    status: String,
+    status: S,
     version: i64,
     fencing: Option<i64>,
     job_id: i64,
 }
 
 impl JobStateMachine<'_> {
-    fn load(&self, kind: Kind, id: i64) -> Result<Entity> {
+    fn load<S: Lifecycle>(&self, id: i64) -> Result<Entity<S>> {
+        let kind = S::KIND;
         let sql = match kind {
             Kind::Item => {
                 "SELECT id, status, status_version, executor_fencing_token, job_id FROM job_items WHERE id=?1"
@@ -309,11 +371,11 @@ impl JobStateMachine<'_> {
     pub fn transition_item(
         &self,
         item_id: i64,
-        target: &str,
+        target: ItemStatus,
         expected_version: i64,
         fencing_token: Option<i64>,
         payload: Option<&Value>,
-    ) -> Result<TransitionResult> {
+    ) -> Result<TransitionResult<ItemStatus>> {
         crate::db::atomic_write(self.0, |ctx| {
             JobStateMachine(ctx).transition_item_inner(
                 item_id,
@@ -328,20 +390,13 @@ impl JobStateMachine<'_> {
     fn transition_item_inner(
         &self,
         item_id: i64,
-        target: &str,
+        target: ItemStatus,
         expected_version: i64,
         fencing_token: Option<i64>,
         payload: Option<&Value>,
-    ) -> Result<TransitionResult> {
-        let entity = self.load(Kind::Item, item_id)?;
-        self.transition(
-            Kind::Item,
-            &entity,
-            target,
-            expected_version,
-            fencing_token,
-            payload,
-        )
+    ) -> Result<TransitionResult<ItemStatus>> {
+        let entity = self.load::<ItemStatus>(item_id)?;
+        self.transition(&entity, target, expected_version, fencing_token, payload)
     }
 
     /// Move a job.
@@ -352,10 +407,10 @@ impl JobStateMachine<'_> {
     pub fn transition_job(
         &self,
         job_id: i64,
-        target: &str,
+        target: JobStatus,
         expected_version: i64,
         payload: Option<&Value>,
-    ) -> Result<TransitionResult> {
+    ) -> Result<TransitionResult<JobStatus>> {
         crate::db::atomic_write(self.0, |ctx| {
             JobStateMachine(ctx).transition_job_inner(job_id, target, expected_version, payload)
         })
@@ -364,12 +419,12 @@ impl JobStateMachine<'_> {
     fn transition_job_inner(
         &self,
         job_id: i64,
-        target: &str,
+        target: JobStatus,
         expected_version: i64,
         payload: Option<&Value>,
-    ) -> Result<TransitionResult> {
-        let entity = self.load(Kind::Job, job_id)?;
-        self.transition(Kind::Job, &entity, target, expected_version, None, payload)
+    ) -> Result<TransitionResult<JobStatus>> {
+        let entity = self.load::<JobStatus>(job_id)?;
+        self.transition(&entity, target, expected_version, None, payload)
     }
 
     fn lease(&self) -> Result<Option<(i64, Option<String>)>> {
@@ -385,28 +440,28 @@ impl JobStateMachine<'_> {
     }
 
     #[allow(clippy::too_many_lines)]
-    fn transition(
+    fn transition<S: Lifecycle>(
         &self,
-        kind: Kind,
-        entity: &Entity,
-        target: &str,
+        entity: &Entity<S>,
+        target: S,
         expected_version: i64,
         fencing_token: Option<i64>,
         payload: Option<&Value>,
-    ) -> Result<TransitionResult> {
+    ) -> Result<TransitionResult<S>> {
+        let kind = S::KIND;
         let topic = if kind == Kind::Item {
             "job.item.transition"
         } else {
             "job.transition"
         };
-        let current = entity.status.as_str();
+        let current = entity.status;
         if expected_version != entity.version {
             return Err(Error::Conflict(format!(
                 "stale {topic} writer: expected version {expected_version}, current {}",
                 entity.version
             )));
         }
-        let worker = kind == Kind::Item && current != "queued";
+        let worker = kind == Kind::Item && !current.is_queued();
         if worker && fencing_token.is_none() {
             return Err(Error::Conflict(
                 "worker item transition requires a fencing token".to_owned(),
@@ -440,28 +495,17 @@ impl JobStateMachine<'_> {
         if target == current {
             return Ok(TransitionResult {
                 entity_id: entity.id,
-                status: current.to_owned(),
+                status: current,
                 status_version: entity.version,
                 changed: false,
             });
         }
-        let legal = match kind {
-            Kind::Item => item_allowed(current, target),
-            Kind::Job => parent_allowed(current, target),
-        };
-        if !legal {
+        if !current.can_become(target) {
             return Err(Error::Illegal(format!(
                 "cannot transition {current} to {target}"
             )));
         }
-        let terminal = match kind {
-            Kind::Item => target
-                .parse::<ItemStatus>()
-                .is_ok_and(ItemStatus::is_terminal),
-            Kind::Job => target
-                .parse::<JobStatus>()
-                .is_ok_and(JobStatus::is_terminal),
-        };
+        let terminal = target.is_terminal();
         let table = if kind == Kind::Item {
             "job_items"
         } else {
@@ -469,7 +513,7 @@ impl JobStateMachine<'_> {
         };
         let mut sets = vec!["status=:target", "status_version=status_version+1"];
         let mut conditions = vec!["id=:id", "status=:current", "status_version=:expected"];
-        if target == "running" {
+        if target.is_running() {
             sets.push("started_at=COALESCE(started_at, :now)");
         }
         if terminal {
@@ -482,7 +526,7 @@ impl JobStateMachine<'_> {
                              AND fencing_token=:fence AND lease_expires_at > :now)",
                 );
             }
-            if current == "queued" && target == "claimed" {
+            if current.is_queued() && target.is_claim() {
                 conditions
                     .push("(executor_fencing_token=:fence OR executor_fencing_token IS NULL)");
                 sets.push("executor_fencing_token=:fence");
@@ -518,7 +562,8 @@ impl JobStateMachine<'_> {
         }
         drop(statement);
         let mut body = json!({
-            "from": current, "to": target,
+            "from": current.to_string(),
+            "to": target.to_string(),
             "from_version": expected_version, "to_version": expected_version + 1,
         });
         if let (Some(extra), Some(map)) = (payload.and_then(Value::as_object), body.as_object_mut())
@@ -528,8 +573,8 @@ impl JobStateMachine<'_> {
             }
         }
         if kind == Kind::Item {
-            let parent = self.load(Kind::Job, entity.job_id)?;
-            if parent.status != "cancel_requested" {
+            let parent = self.load::<JobStatus>(entity.job_id)?;
+            if parent.status != JobStatus::CancelRequested {
                 self.aggregate_job(entity.job_id, parent.version)?;
             }
         }
@@ -543,7 +588,7 @@ impl JobStateMachine<'_> {
         )?;
         Ok(TransitionResult {
             entity_id: entity.id,
-            status: target.to_owned(),
+            status: target,
             status_version: expected_version + 1,
             changed: true,
         })
@@ -554,20 +599,28 @@ impl JobStateMachine<'_> {
     /// # Errors
     ///
     /// Unknown job, no items, an illegal parent change, or a parent that stays busy.
-    pub fn aggregate_job(&self, job_id: i64, expected_version: i64) -> Result<TransitionResult> {
+    pub fn aggregate_job(
+        &self,
+        job_id: i64,
+        expected_version: i64,
+    ) -> Result<TransitionResult<JobStatus>> {
         crate::db::atomic_write(self.0, |ctx| {
             JobStateMachine(ctx).aggregate_job_inner(job_id, expected_version)
         })
     }
 
-    fn aggregate_job_inner(&self, job_id: i64, expected_version: i64) -> Result<TransitionResult> {
+    fn aggregate_job_inner(
+        &self,
+        job_id: i64,
+        expected_version: i64,
+    ) -> Result<TransitionResult<JobStatus>> {
         let mut expected = expected_version;
         for _ in 0..5 {
-            let job = self.load(Kind::Job, job_id)?;
+            let job = self.load::<JobStatus>(job_id)?;
             if job.version != expected {
                 expected = job.version;
             }
-            let statuses: Vec<String> = {
+            let statuses: Vec<ItemStatus> = {
                 let mut statement = self
                     .0
                     .conn
@@ -575,25 +628,24 @@ impl JobStateMachine<'_> {
                 let rows = statement.query_map([job_id], |r| r.get(0))?;
                 rows.collect::<std::result::Result<_, _>>()?
             };
-            let refs: Vec<&str> = statuses.iter().map(String::as_str).collect();
-            let target = aggregate_parent_status(&refs)?;
-            let count = |wanted: &[&str]| {
-                i64::try_from(refs.iter().filter(|s| wanted.contains(s)).count())
+            let target = aggregate_parent_status(&statuses)?;
+            let count = |wanted: &[ItemStatus]| {
+                i64::try_from(statuses.iter().filter(|s| wanted.contains(s)).count())
                     .unwrap_or(i64::MAX)
             };
             self.0.conn.execute(
                 "UPDATE jobs SET succeeded_count=:ok, failed_count=:failed, cancelled_count=:cancelled,
                                  total_count=:total WHERE id=:id",
                 named_params! {
-                    ":ok": count(&["succeeded"]),
-                    ":failed": count(&["failed", "stale_input"]),
-                    ":cancelled": count(&["cancelled"]),
-                    ":total": i64::try_from(refs.len()).unwrap_or(i64::MAX),
+                    ":ok": count(&[ItemStatus::Succeeded]),
+                    ":failed": count(&[ItemStatus::Failed, ItemStatus::StaleInput]),
+                    ":cancelled": count(&[ItemStatus::Cancelled]),
+                    ":total": i64::try_from(statuses.len()).unwrap_or(i64::MAX),
                     ":id": job_id,
                 },
             )?;
             match self.transition_job(job_id, target, expected, None) {
-                Err(Error::Conflict(_)) => expected = self.load(Kind::Job, job_id)?.version,
+                Err(Error::Conflict(_)) => expected = self.load::<JobStatus>(job_id)?.version,
                 other => return other,
             }
         }
@@ -607,12 +659,15 @@ impl JobStateMachine<'_> {
     /// # Errors
     ///
     /// Unknown item or an illegal transition.
-    pub fn mark_item_stale(&self, item_id: i64, reasons: &[String]) -> Result<TransitionResult> {
-        let item = self.load(Kind::Item, item_id)?;
+    pub fn mark_item_stale(
+        &self,
+        item_id: i64,
+        reasons: &[String],
+    ) -> Result<TransitionResult<ItemStatus>> {
+        let item = self.load::<ItemStatus>(item_id)?;
         self.transition(
-            Kind::Item,
             &item,
-            "stale_input",
+            ItemStatus::StaleInput,
             item.version,
             None,
             Some(&json!({"reasons": reasons})),
@@ -637,11 +692,17 @@ impl JobStateMachine<'_> {
         let mut cancelled = 0;
         for id in ids {
             let items = Jobs(self.0).items(id)?;
-            if items.is_empty() || items.iter().any(|i| i.status != "queued") {
+            if items.is_empty() || items.iter().any(|i| i.status != ItemStatus::Queued) {
                 continue;
             }
             for item in items {
-                self.transition_item(item.id, "cancelled", item.status_version, None, None)?;
+                self.transition_item(
+                    item.id,
+                    ItemStatus::Cancelled,
+                    item.status_version,
+                    None,
+                    None,
+                )?;
             }
             cancelled += 1;
         }
@@ -673,7 +734,11 @@ impl JobStateMachine<'_> {
                 "job.item.transition",
                 "job_item",
                 *item_id,
-                &json!({"from": "queued", "to": "cancelled", "reason": "stranded under terminal job"}),
+                &json!({
+                    "from": ItemStatus::Queued.as_str(),
+                    "to": ItemStatus::Cancelled.as_str(),
+                    "reason": "stranded under terminal job",
+                }),
                 None,
             )?;
         }
