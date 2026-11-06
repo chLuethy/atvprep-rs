@@ -1,5 +1,8 @@
--- Schedules run on a cron expression. days_mask and time_of_day stay as legacy columns so the
--- previous binary still reads the table. A NULL cron means "derive it from the legacy columns".
+-- Schedules run on a cron expression. days_mask and time_of_day stay as legacy columns (still
+-- filled in, and the fallback when cron is NULL), but this does NOT make the schema downward
+-- compatible: a binary older than this release refuses the database because user_version is
+-- newer than it knows. Rolling back needs the pre-release database backup (see DEPLOYMENT.md).
+-- A NULL cron means "derive it from the legacy columns".
 ALTER TABLE schedules ADD COLUMN cron TEXT;
 
 -- Monday = bit 0 becomes cron weekday 1 ... Saturday = bit 5 becomes 6, Sunday = bit 6 becomes 0.

@@ -163,11 +163,22 @@ pub async fn run(
             if !exists {
                 return Err(MutationError::NotFound);
             }
-            run_schedule(ctx, id).map_err(|_| MutationError::Database)?;
+            run_schedule(ctx, id).map_err(|error| run_error(&error))?;
             Ok((200, json!({"data":schedule_view(ctx.conn,state,id)?})))
         },
     )
     .await
+}
+
+/// A refusal by the gate (the only conflict a run can meet) is the caller's to retry later: 409
+/// with a plain message. Anything else is a server fault.
+fn run_error(error: &atvprep_manager::Error) -> MutationError {
+    match error {
+        atvprep_manager::Error::Conflict(_) => MutationError::Rejected(
+            "Cannot run now: the system is in maintenance. Try again later.",
+        ),
+        _ => MutationError::Database,
+    }
 }
 
 fn default_max_files() -> i64 {
@@ -601,5 +612,26 @@ pub async fn list(State(state): State<AppState>, _session: AuthenticatedSession)
             "internal server error",
             PATH,
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::run_error;
+    use atvprep_manager::Error;
+    use axum::http::StatusCode;
+
+    #[test]
+    fn a_gate_conflict_on_run_now_is_a_409_not_a_500() {
+        let conflict = run_error(&Error::Conflict("the deployment gate is closed".to_owned()));
+        assert_eq!(
+            conflict.response("/api/v1/schedules/x/run").status(),
+            StatusCode::CONFLICT
+        );
+        let broken = run_error(&Error::Invalid("boom".to_owned()));
+        assert_eq!(
+            broken.response("/api/v1/schedules/x/run").status(),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
     }
 }
