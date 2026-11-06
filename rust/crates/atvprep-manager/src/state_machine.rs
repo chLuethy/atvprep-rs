@@ -23,6 +23,17 @@ macro_rules! status_enum {
             /// Every status, in declaration order.
             pub const ALL: &'static [Self] = &[$(Self::$variant),+];
 
+            /// The statuses that satisfy `keep` as an SQL list, for example `('succeeded','failed')`.
+            fn sql_list_where(keep: impl Fn(Self) -> bool) -> String {
+                let list = Self::ALL
+                    .iter()
+                    .filter(|status| keep(**status))
+                    .map(|status| format!("'{}'", status.as_str()))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                format!("({list})")
+            }
+
             /// The string stored in the database and sent over the wire.
             #[must_use]
             pub const fn as_str(self) -> &'static str {
@@ -114,6 +125,30 @@ status_enum! {
 }
 
 impl ScanStatus {
+    /// Running work: no longer waiting, not yet ended.
+    #[must_use]
+    pub const fn is_active(self) -> bool {
+        !matches!(self, Self::Queued) && !self.is_terminal()
+    }
+
+    /// The terminal statuses as an SQL list, for example `('succeeded','failed',...)`.
+    #[must_use]
+    pub fn terminal_sql_list() -> String {
+        Self::sql_list_where(Self::is_terminal)
+    }
+
+    /// The statuses a scan has not left yet, as an SQL list.
+    #[must_use]
+    pub fn non_terminal_sql_list() -> String {
+        Self::sql_list_where(|status| !status.is_terminal())
+    }
+
+    /// The active statuses as an SQL list.
+    #[must_use]
+    pub fn active_sql_list() -> String {
+        Self::sql_list_where(Self::is_active)
+    }
+
     /// The scan has ended one way or another and will not change again.
     #[must_use]
     pub const fn is_terminal(self) -> bool {
@@ -125,6 +160,24 @@ impl ScanStatus {
 }
 
 impl ItemStatus {
+    /// Running work: no longer waiting, not yet ended.
+    #[must_use]
+    pub const fn is_active(self) -> bool {
+        !matches!(self, Self::Queued) && !self.is_terminal()
+    }
+
+    /// The terminal statuses as an SQL list, for example `('succeeded','failed',...)`.
+    #[must_use]
+    pub fn terminal_sql_list() -> String {
+        Self::sql_list_where(Self::is_terminal)
+    }
+
+    /// The active statuses as an SQL list.
+    #[must_use]
+    pub fn active_sql_list() -> String {
+        Self::sql_list_where(Self::is_active)
+    }
+
     /// What an item may become from this status.
     #[must_use]
     pub const fn targets(self) -> &'static [Self] {
@@ -175,6 +228,18 @@ impl ItemStatus {
 }
 
 impl JobStatus {
+    /// The terminal statuses as an SQL list, for example `('succeeded','failed',...)`.
+    #[must_use]
+    pub fn terminal_sql_list() -> String {
+        Self::sql_list_where(Self::is_terminal)
+    }
+
+    /// The statuses a job has not left yet, as an SQL list.
+    #[must_use]
+    pub fn non_terminal_sql_list() -> String {
+        Self::sql_list_where(|status| !status.is_terminal())
+    }
+
     /// What a job may become from this status.
     #[must_use]
     pub const fn targets(self) -> &'static [Self] {

@@ -16,10 +16,15 @@ use rusqlite::{OptionalExtension, params};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-const JOB_SELECT: &str = "SELECT j.id,j.action,j.status,j.trigger,j.origin_job_id,j.requested_at,j.started_at,j.finished_at,j.total_count,j.succeeded_count,j.failed_count,j.cancelled_count,j.settings_snapshot_json,
+fn job_select() -> String {
+    format!(
+        "SELECT j.id,j.action,j.status,j.trigger,j.origin_job_id,j.requested_at,j.started_at,j.finished_at,j.total_count,j.succeeded_count,j.failed_count,j.cancelled_count,j.settings_snapshot_json,
  (SELECT m.relative_path FROM job_items i JOIN media_files m ON m.id=i.media_file_id WHERE i.job_id=j.id ORDER BY i.position,i.id LIMIT 1),
- (SELECT CAST(SUM(CASE WHEN i.status IN ('succeeded','failed','cancelled','interrupted','stale_input') THEN 100 ELSE COALESCE(i.progress,0) END)*1.0/COUNT(*) AS INTEGER) FROM job_items i WHERE i.job_id=j.id)
- FROM jobs j";
+ (SELECT CAST(SUM(CASE WHEN i.status IN {terminal} THEN 100 ELSE COALESCE(i.progress,0) END)*1.0/COUNT(*) AS INTEGER) FROM job_items i WHERE i.job_id=j.id)
+ FROM jobs j",
+        terminal = ItemStatus::terminal_sql_list()
+    )
+}
 
 pub(crate) fn subject(value: &str) -> String {
     let value = value.replace('\\', "/");
@@ -132,7 +137,7 @@ pub async fn file_jobs(
         let conn=state.db.conn().map_err(|_|())?;
         let exists:bool=conn.raw().query_row("SELECT EXISTS(SELECT 1 FROM media_files WHERE id=?1)",[media_id],|row|row.get(0)).map_err(|_|())?;
         if !exists{return Ok(None);}
-        let sql=format!("{JOB_SELECT} WHERE j.id>?1 AND EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=j.id AND i.media_file_id=?2) ORDER BY j.id LIMIT ?3");
+        let sql=format!("{job_select} WHERE j.id>?1 AND EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=j.id AND i.media_file_id=?2) ORDER BY j.id LIMIT ?3",job_select=job_select());
         let mut stmt=conn.raw().prepare(&sql).map_err(|_|())?;
         let rows=stmt.query_map(params![after,media_id,i64::try_from(limit+1).map_err(|_|())?],|row|view(row,&opaque)).map_err(|_|())?;
         let mut data=Vec::new();let mut last=None;let mut used=0usize;let mut more=false;let mut truncated=false;
@@ -180,7 +185,7 @@ pub async fn queue(
     let result=tokio::task::spawn_blocking(move ||{
         let conn=state.db.conn().map_err(|_|())?;
         let total:i64=conn.raw().query_row("SELECT count(*) FROM jobs WHERE status IN ('queued','running','cancel_requested')",[],|row|row.get(0)).map_err(|_|())?;
-        let sql=format!("{JOB_SELECT} WHERE j.status IN ('queued','running','cancel_requested') AND j.id>?1 ORDER BY j.id LIMIT ?2");
+        let sql=format!("{job_select} WHERE j.status NOT IN {terminal} AND j.id>?1 ORDER BY j.id LIMIT ?2",job_select=job_select(),terminal=JobStatus::terminal_sql_list());
         let mut stmt=conn.raw().prepare(&sql).map_err(|_|())?;
         let rows=stmt.query_map(params![after,i64::try_from(limit+1).map_err(|_|())?],|row|view(row,&opaque)).map_err(|_|())?;
         let mut data=Vec::new();let mut last=None;let mut used=0usize;let mut more=false;let mut truncated=false;
@@ -346,7 +351,7 @@ pub async fn jobs(
     let descending = query.order.as_deref() == Some("desc");
     let result = tokio::task::spawn_blocking(move || {
         let conn=state.db.conn().map_err(|_|())?;
-        let sql=format!("{JOB_SELECT} WHERE j.cleared_at IS NULL AND (?1 IS NULL OR j.status=?1) AND (?2 IS NULL OR j.status!=?2) AND (?3 IS NULL OR j.action=?3 OR (?3='prepare' AND j.action IN ('fix','convert'))) AND (?4 IS NULL OR (CASE WHEN ?5 THEN j.id<?4 ELSE j.id>?4 END)) ORDER BY j.id {} LIMIT ?6", if descending {"DESC"} else {"ASC"});
+        let sql=format!("{job_select} WHERE j.cleared_at IS NULL AND (?1 IS NULL OR j.status=?1) AND (?2 IS NULL OR j.status!=?2) AND (?3 IS NULL OR j.action=?3 OR (?3='prepare' AND j.action IN ('fix','convert'))) AND (?4 IS NULL OR (CASE WHEN ?5 THEN j.id<?4 ELSE j.id>?4 END)) ORDER BY j.id {} LIMIT ?6", if descending {"DESC"} else {"ASC"},job_select=job_select());
         let mut stmt=conn.raw().prepare(&sql).map_err(|_|())?;
         let rows=stmt.query_map(params![status,exclude_status,query.action.filter(|v|!v.is_empty()),after,descending,i64::try_from(limit+1).map_err(|_|())?],|row|view(row,&opaque)).map_err(|_|())?;
         let mut data=Vec::new(); let mut last=None; let mut used=0usize; let mut more=false; let mut truncated=false;
@@ -379,7 +384,7 @@ pub async fn job(
     let result = tokio::task::spawn_blocking(move || {
         let conn = state.db.conn().map_err(|_| ())?;
         conn.raw()
-            .query_row(&format!("{JOB_SELECT} WHERE j.id=?1"), [id], |row| {
+            .query_row(&format!("{} WHERE j.id=?1", job_select()), [id], |row| {
                 view(row, &opaque)
             })
             .optional()

@@ -5,6 +5,7 @@ use rusqlite::OptionalExtension;
 use crate::Result;
 use crate::clock::format_micros;
 use crate::repo::Ctx;
+use crate::state_machine::JobStatus;
 
 /// Retention grace periods after expiry or terminal completion, in days.
 #[derive(Clone, Copy)]
@@ -292,15 +293,15 @@ impl<'a> MaintenanceLease<'a> {
         }
         let cutoff = format_micros(self.ctx.clock.now_micros() - keep_days * 86_400_000_000);
         let mut statement = self.ctx.conn.prepare(
-            "SELECT jobs.id FROM jobs
-             WHERE status IN ('succeeded','partial_success','failed','cancelled')
+            &format!("SELECT jobs.id FROM jobs
+             WHERE status IN {}
                AND finished_at IS NOT NULL AND finished_at < ?1
                AND NOT EXISTS (SELECT 1 FROM events WHERE events.job_id=jobs.id)
                AND NOT EXISTS (SELECT 1 FROM jobs AS retry_job WHERE retry_job.origin_job_id=jobs.id)
                AND NOT EXISTS (SELECT 1 FROM events WHERE events.item_id IN (SELECT id FROM job_items WHERE job_id=jobs.id))
                AND NOT EXISTS (SELECT 1 FROM job_items AS retry
                                WHERE retry.origin_item_id IN (SELECT id FROM job_items WHERE job_id=jobs.id))
-             ORDER BY jobs.id LIMIT ?2",
+             ORDER BY jobs.id LIMIT ?2", JobStatus::terminal_sql_list()),
         )?;
         let ids = statement
             .query_map(rusqlite::params![cutoff, batch_size], |row| {
@@ -386,7 +387,7 @@ impl<'a> MaintenanceLease<'a> {
         )?;
         let inspections = self.prune_inspections(owner_id, batch, policy.inspection_days)?;
         let logs = if self.held(owner_id)? {
-            self.ctx.conn.execute("UPDATE job_items SET log_tail=NULL WHERE id IN (SELECT i.id FROM job_items i JOIN jobs j ON j.id=i.job_id WHERE j.finished_at<?1 AND j.status IN ('succeeded','partial_success','failed','cancelled') AND i.log_tail IS NOT NULL ORDER BY i.id LIMIT ?2)",rusqlite::params![RetentionPolicy::cutoff(now,policy.log_days),batch])?
+            self.ctx.conn.execute(&format!("UPDATE job_items SET log_tail=NULL WHERE id IN (SELECT i.id FROM job_items i JOIN jobs j ON j.id=i.job_id WHERE j.finished_at<?1 AND j.status IN {} AND i.log_tail IS NOT NULL ORDER BY i.id LIMIT ?2)",JobStatus::terminal_sql_list()),rusqlite::params![RetentionPolicy::cutoff(now,policy.log_days),batch])?
         } else {
             0
         };

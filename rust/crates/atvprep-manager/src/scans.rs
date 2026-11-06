@@ -32,8 +32,8 @@ impl Scans<'_> {
             .0
             .conn
             .query_row(
-                "SELECT * FROM scan_runs WHERE id = ?1",
-                [scan_id],
+                "SELECT * FROM scan_runs WHERE id = :scan_id",
+                named_params! { ":scan_id": scan_id },
                 ScanRun::from_row,
             )
             .optional()?)
@@ -53,14 +53,14 @@ impl Scans<'_> {
         }
         self.0.conn.execute(
             "INSERT INTO scan_runs(root_id, generation, trigger, status, started_at)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            rusqlite::params![
-                root_id,
-                generation,
-                trigger,
-                ScanStatus::Running,
-                self.0.clock.now()
-            ],
+             VALUES (:root_id, :generation, :trigger, :status, :started_at)",
+            named_params! {
+                ":root_id": root_id,
+                ":generation": generation,
+                ":trigger": trigger,
+                ":status": ScanStatus::Running,
+                ":started_at": self.0.clock.now(),
+            },
         )?;
         self.require(self.0.conn.last_insert_rowid())
     }
@@ -76,7 +76,7 @@ impl Scans<'_> {
             .0
             .conn
             .query_row(
-                "SELECT id FROM library_roots WHERE id = ?1",
+                "SELECT id FROM library_roots WHERE id = :root_id",
                 [root_id],
                 |r| r.get(0),
             )
@@ -88,9 +88,9 @@ impl Scans<'_> {
             .0
             .conn
             .query_row(
-                "SELECT id FROM scan_runs WHERE root_id=?1 AND trigger='manual' AND status=?2
+                "SELECT id FROM scan_runs WHERE root_id=:root_id AND trigger='manual' AND status=:status
                  ORDER BY id LIMIT 1",
-                rusqlite::params![root_id, ScanStatus::Queued],
+                named_params! { ":root_id": root_id, ":status": ScanStatus::Queued },
                 |r| r.get(0),
             )
             .optional()?;
@@ -98,19 +98,19 @@ impl Scans<'_> {
             return self.require(id);
         }
         let generation: Option<i64> = self.0.conn.query_row(
-            "SELECT max(generation) FROM scan_runs WHERE root_id = ?1",
-            [root_id],
+            "SELECT max(generation) FROM scan_runs WHERE root_id = :root_id",
+            named_params! { ":root_id": root_id },
             |r| r.get(0),
         )?;
         self.0.conn.execute(
             "INSERT INTO scan_runs(root_id, generation, trigger, status, started_at)
-             VALUES (?1, ?2, 'manual', ?3, ?4)",
-            rusqlite::params![
-                root_id,
-                generation.unwrap_or(0) + 1,
-                ScanStatus::Queued,
-                self.0.clock.now()
-            ],
+             VALUES (:root_id, :generation, 'manual', :status, :started_at)",
+            named_params! {
+                ":root_id": root_id,
+                ":generation": generation.unwrap_or(0) + 1,
+                ":status": ScanStatus::Queued,
+                ":started_at": self.0.clock.now(),
+            },
         )?;
         self.require(self.0.conn.last_insert_rowid())
     }
@@ -123,16 +123,16 @@ impl Scans<'_> {
     /// SQLite fails.
     pub fn abandon(&self, scan_id: i64) -> Result<()> {
         self.0.conn.execute(
-            "UPDATE scan_runs SET status=?1, finished_at=?2
-             WHERE id=?3 AND status IN (?4, ?5, ?6)",
-            rusqlite::params![
-                ScanStatus::Interrupted,
-                self.0.clock.now(),
-                scan_id,
-                ScanStatus::Queued,
-                ScanStatus::Claimed,
-                ScanStatus::Running
-            ],
+            &format!(
+                "UPDATE scan_runs SET status=:status, finished_at=:finished_at
+                 WHERE id=:scan_id AND status IN {}",
+                ScanStatus::non_terminal_sql_list()
+            ),
+            named_params! {
+                ":status": ScanStatus::Interrupted,
+                ":finished_at": self.0.clock.now(),
+                ":scan_id": scan_id,
+            },
         )?;
         Ok(())
     }
@@ -154,8 +154,8 @@ impl Scans<'_> {
             .0
             .conn
             .query_row(
-                "SELECT id FROM scan_runs WHERE root_id=?1 ORDER BY generation DESC, id DESC LIMIT 1",
-                [root_id],
+                "SELECT id FROM scan_runs WHERE root_id=:root_id ORDER BY generation DESC, id DESC LIMIT 1",
+                named_params! { ":root_id": root_id },
                 |r| r.get(0),
             )
             .optional()?;
@@ -169,21 +169,25 @@ impl Scans<'_> {
             .0
             .conn
             .query_row(
-                "SELECT id FROM scheduler_leases WHERE id=1 AND owner_id=?1 AND fencing_token=?2
-                 AND lease_expires_at > ?3",
-                rusqlite::params![scan.claimed_by, scan.fencing_token, self.0.clock.now()],
+                "SELECT id FROM scheduler_leases WHERE id=1 AND owner_id=:owner_id
+                 AND fencing_token=:fencing_token AND lease_expires_at > :now",
+                named_params! {
+                    ":owner_id": scan.claimed_by,
+                    ":fencing_token": scan.fencing_token,
+                    ":now": self.0.clock.now(),
+                },
                 |r| r.get(0),
             )
             .optional()?;
         Ok(held.is_some())
     }
 
-    /// Finish a scan. A scan that is no longer
-    /// authoritative is left as it is. A succeeded scan marks the files it did not see as missing.
+    /// Finish a scan. A scan that is no longer authoritative is left as it is. A succeeded
+    /// scan marks the files it did not see as missing.
     ///
     /// # Errors
     ///
-    /// Unknown scan or invalid status.
+    /// Unknown scan, or `status` is not terminal.
     pub fn finish(
         &self,
         scan_id: i64,

@@ -11,6 +11,7 @@ use crate::clock::format_micros;
 use crate::deployment_gate::DeploymentGate;
 use crate::jobs::{Jobs, NewJob};
 use crate::repo::Ctx;
+use crate::state_machine::ItemStatus;
 use crate::{Error, Result};
 
 const CATCH_UP_MICROS: i64 = 6 * 60 * 60 * 1_000_000;
@@ -335,7 +336,7 @@ pub fn run_schedule(ctx: Ctx<'_>, schedule_id: i64) -> Result<String> {
         )?;
         return Ok(message.to_owned());
     }
-    let mut statement = ctx.conn.prepare(
+    let mut statement = ctx.conn.prepare(&format!(
         "SELECT media_files.id FROM media_files
          WHERE discovery_state='present'
            AND lower(suffix) IN ('.mp4','.m4v','.mov')
@@ -343,11 +344,12 @@ pub fn run_schedule(ctx: Ctx<'_>, schedule_id: i64) -> Result<String> {
            AND (?2 IS NULL OR compliance_state=?2)
            AND id NOT IN (SELECT media_file_id FROM job_items
                           WHERE action IN ('fix','convert')
-                            AND status NOT IN ('succeeded','failed','cancelled','interrupted','stale_input'))
+                            AND status NOT IN {})
          ORDER BY (SELECT max(id) FROM job_items AS prior
                    WHERE prior.media_file_id=media_files.id AND prior.action='verify') ASC,
                   media_files.id ASC LIMIT ?3",
-    )?;
+        ItemStatus::terminal_sql_list()
+    ))?;
     let media_ids = statement
         .query_map(
             rusqlite::params![root_id, compliance_state, max_files],

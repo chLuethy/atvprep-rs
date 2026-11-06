@@ -604,3 +604,21 @@ fn runtime_settings_of_the_control_plane_are_read_with_a_floor_of_one() {
         .unwrap();
     assert_eq!(jobs.read_runtime_int("media_limit", 3).unwrap(), 1);
 }
+
+#[test]
+fn a_stored_status_that_is_not_known_is_an_error_naming_the_value() {
+    let f = Fixture::new();
+    let media = f.media(&["a.mp4"]);
+    let jobs = Jobs(f.ctx());
+    let job = jobs.create(&NewJob::new("fix", &media)).unwrap();
+    let item = jobs.items(job.id).unwrap()[0].id;
+    f.sql("PRAGMA ignore_check_constraints=ON");
+    f.sql(&format!(
+        "UPDATE job_items SET status='bogus_item' WHERE id={item};
+         UPDATE jobs SET status='bogus_job' WHERE id={}",
+        job.id
+    ));
+
+    assert!(error_text(jobs.get_item(item)).contains("bogus_item"));
+    assert!(error_text(jobs.get(job.id)).contains("bogus_job"));
+}

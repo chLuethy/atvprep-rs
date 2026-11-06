@@ -17,17 +17,6 @@ use crate::{Error, Result};
 const ACTIONS: [&str; 4] = ["inspect", "verify", "fix", "convert"];
 const TRIGGERS: [&str; 3] = ["automatic", "manual", "retry"];
 
-/// The finished item statuses as an SQL list, for example `('succeeded','failed',...)`.
-fn item_done() -> String {
-    let list = ItemStatus::ALL
-        .iter()
-        .filter(|status| status.is_terminal())
-        .map(|status| format!("'{status}'"))
-        .collect::<Vec<_>>()
-        .join(",");
-    format!("({list})")
-}
-
 /// What a new job is made of.
 pub struct NewJob<'a> {
     pub action: &'a str,
@@ -137,7 +126,7 @@ impl Jobs<'_> {
             "SELECT 1 FROM job_items WHERE media_file_id IN ({}) AND action IN ('fix','convert')
              AND status NOT IN {} LIMIT 1",
             item_columns_in(media_ids),
-            item_done()
+            ItemStatus::terminal_sql_list()
         );
         Ok(self
             .0

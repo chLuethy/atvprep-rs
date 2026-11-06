@@ -5,6 +5,7 @@ use crate::{
     read::{error, page_meta, timestamp},
     state::AppState,
 };
+use atvprep_manager::state_machine::ItemStatus;
 use axum::{
     Json,
     extract::{Path, Query, State},
@@ -552,7 +553,7 @@ fn load_file(
     let embedded:Vec<Value>=classified.iter().filter(|(_,_,_,status)|status=="pending").map(|(_,name,lang,_)|json!({"name":name,"language":lang,"kind":atvprep_core::sidecars::sidecar_kind(name)})).collect();
     data["pending_sidecars"] = json!(embedded.len());
     data["embed_sidecars"] = json!(embedded);
-    let fix_status:Option<String>=conn.query_row("SELECT CASE WHEN max(CASE WHEN status='running' THEN 2 WHEN status IN ('cancel_requested','cancelling') THEN 1 ELSE 0 END)=2 THEN 'running' WHEN max(CASE WHEN status='running' THEN 2 WHEN status IN ('cancel_requested','cancelling') THEN 1 ELSE 0 END)=1 THEN 'cancelling' ELSE 'queued' END FROM job_items WHERE media_file_id=?1 AND action IN ('fix','convert') AND status NOT IN ('succeeded','failed','cancelled','interrupted','stale_input') HAVING count(*)>0",[media],|row|row.get(0)).optional().map_err(|_|())?;
+    let fix_status:Option<String>=conn.query_row(&format!("SELECT CASE WHEN max(CASE WHEN status='running' THEN 2 WHEN status IN ('cancel_requested','cancelling') THEN 1 ELSE 0 END)=2 THEN 'running' WHEN max(CASE WHEN status='running' THEN 2 WHEN status IN ('cancel_requested','cancelling') THEN 1 ELSE 0 END)=1 THEN 'cancelling' ELSE 'queued' END FROM job_items WHERE media_file_id=?1 AND action IN ('fix','convert') AND status NOT IN {} HAVING count(*)>0",ItemStatus::terminal_sql_list()),[media],|row|row.get(0)).optional().map_err(|_|())?;
     data["fix_status"] = json!(fix_status);
     Ok(Some(data))
 }
