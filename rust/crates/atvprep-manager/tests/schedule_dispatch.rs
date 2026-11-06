@@ -74,6 +74,50 @@ fn a_failing_or_corrupt_schedule_does_not_block_the_ones_after_it() {
     conn.raw().execute_batch("CREATE TRIGGER refuse_first BEFORE UPDATE OF last_slot_at ON schedules WHEN NEW.id=1 BEGIN SELECT RAISE(ABORT,'first refused'); END;").unwrap();
     assert_eq!(run_due_schedules(ctx).unwrap(), 1);
 }
+fn local_minute_offset(minutes: i64) -> (String, String) {
+    let at = DateTime::<Utc>::from_timestamp_micros(NOW)
+        .unwrap()
+        .with_timezone(&Local)
+        + Duration::minutes(minutes);
+    (at.format("%-M").to_string(), at.format("%-H").to_string())
+}
+#[test]
+fn the_cron_decides_the_slot_not_the_legacy_columns() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    // The legacy columns say 00:00; the cron says half an hour ago, then half an hour ahead.
+    conn.raw().execute("DELETE FROM schedules", []).unwrap();
+    let (minute, hour) = local_minute_offset(-30);
+    let cron = format!("{minute} {hour} * * *");
+    conn.raw().execute("INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,max_files,enabled,armed_at,cron) VALUES(1,'c','verify',1,127,'00:00',1,1,'2000-01-01',?1)",[cron]).unwrap();
+    assert_eq!(run_due_schedules(ctx).unwrap(), 1);
+    assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+    let (minute, hour) = local_minute_offset(30);
+    let cron = format!("{minute} {hour} * * *");
+    conn.raw()
+        .execute("UPDATE schedules SET cron=?1, last_slot_at=NULL", [cron])
+        .unwrap();
+    assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+}
+#[test]
+fn an_invalid_cron_is_skipped() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    conn.raw()
+        .execute("UPDATE schedules SET cron='nonsense' WHERE id=1", [])
+        .unwrap();
+    assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+}
 #[test]
 fn competing_dispatchers_claim_each_slot_once() {
     let temp = tempfile::tempdir().unwrap();
