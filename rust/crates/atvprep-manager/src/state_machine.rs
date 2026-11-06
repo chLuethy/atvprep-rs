@@ -10,66 +10,194 @@ use crate::jobs::Jobs;
 use crate::repo::Ctx;
 use crate::{Error, Result};
 
-/// What an item may become from each status.
+/// Declares a status enum with its database/JSON strings, parsing and `SQLite` conversions.
+macro_rules! status_enum {
+    ($(#[$meta:meta])* $name:ident, $what:literal, { $($variant:ident => $text:literal),+ $(,)? }) => {
+        $(#[$meta])*
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        pub enum $name {
+            $($variant),+
+        }
+
+        impl $name {
+            /// Every status, in declaration order.
+            pub const ALL: &'static [Self] = &[$(Self::$variant),+];
+
+            /// The string stored in the database and sent over the wire.
+            #[must_use]
+            pub const fn as_str(self) -> &'static str {
+                match self {
+                    $(Self::$variant => $text),+
+                }
+            }
+        }
+
+        impl std::str::FromStr for $name {
+            type Err = Error;
+
+            fn from_str(text: &str) -> Result<Self> {
+                match text {
+                    $($text => Ok(Self::$variant),)+
+                    other => Err(Error::Invalid(format!(concat!("unknown ", $what, " status: {}"), other))),
+                }
+            }
+        }
+
+        impl std::fmt::Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str(self.as_str())
+            }
+        }
+
+        impl rusqlite::types::ToSql for $name {
+            fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+                Ok(self.as_str().into())
+            }
+        }
+
+        impl rusqlite::types::FromSql for $name {
+            fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+                value.as_str()?.parse().map_err(|error: Error| {
+                    rusqlite::types::FromSqlError::Other(error.to_string().into())
+                })
+            }
+        }
+    };
+}
+
+status_enum! {
+    /// The status of one job item.
+    ItemStatus, "item", {
+        Queued => "queued",
+        Claimed => "claimed",
+        Running => "running",
+        CancelRequested => "cancel_requested",
+        Cancelling => "cancelling",
+        Succeeded => "succeeded",
+        Failed => "failed",
+        Cancelled => "cancelled",
+        Interrupted => "interrupted",
+        StaleInput => "stale_input",
+    }
+}
+
+status_enum! {
+    /// The status of a job (the parent of its items).
+    JobStatus, "job", {
+        Queued => "queued",
+        Running => "running",
+        CancelRequested => "cancel_requested",
+        Succeeded => "succeeded",
+        PartialSuccess => "partial_success",
+        Failed => "failed",
+        Cancelled => "cancelled",
+    }
+}
+
+impl ItemStatus {
+    /// What an item may become from this status.
+    #[must_use]
+    pub const fn targets(self) -> &'static [Self] {
+        use ItemStatus::{
+            CancelRequested, Cancelled, Cancelling, Claimed, Failed, Interrupted, Queued, Running,
+            StaleInput, Succeeded,
+        };
+        match self {
+            Queued => &[Claimed, Cancelled, StaleInput],
+            Claimed => &[Running, CancelRequested, Cancelled, Interrupted, StaleInput],
+            Running => &[
+                Succeeded,
+                Failed,
+                StaleInput,
+                CancelRequested,
+                Cancelled,
+                Interrupted,
+            ],
+            CancelRequested => &[Cancelling, Interrupted],
+            Cancelling => &[Cancelled, Failed, Interrupted],
+            Interrupted => &[Failed],
+            Succeeded | Failed | Cancelled | StaleInput => &[],
+        }
+    }
+
+    /// Whether `to` is an allowed next status.
+    #[must_use]
+    pub fn can_become(self, to: Self) -> bool {
+        self.targets().contains(&to)
+    }
+
+    /// No further transition is expected: the item is finished one way or another.
+    #[must_use]
+    pub const fn is_terminal(self) -> bool {
+        match self {
+            Self::Succeeded
+            | Self::Failed
+            | Self::StaleInput
+            | Self::Cancelled
+            | Self::Interrupted => true,
+            Self::Queued
+            | Self::Claimed
+            | Self::Running
+            | Self::CancelRequested
+            | Self::Cancelling => false,
+        }
+    }
+}
+
+impl JobStatus {
+    /// What a job may become from this status.
+    #[must_use]
+    pub const fn targets(self) -> &'static [Self] {
+        use JobStatus::{
+            CancelRequested, Cancelled, Failed, PartialSuccess, Queued, Running, Succeeded,
+        };
+        match self {
+            Queued => &[Running, CancelRequested, Cancelled, Failed, PartialSuccess],
+            Running => &[
+                CancelRequested,
+                Succeeded,
+                PartialSuccess,
+                Failed,
+                Cancelled,
+            ],
+            CancelRequested => &[Cancelled, Failed, PartialSuccess, Succeeded],
+            Succeeded | PartialSuccess | Failed | Cancelled => &[],
+        }
+    }
+
+    /// Whether `to` is an allowed next status.
+    #[must_use]
+    pub fn can_become(self, to: Self) -> bool {
+        self.targets().contains(&to)
+    }
+
+    /// No further transition is expected: the job is finished one way or another.
+    #[must_use]
+    pub const fn is_terminal(self) -> bool {
+        match self {
+            Self::Succeeded | Self::PartialSuccess | Self::Failed | Self::Cancelled => true,
+            Self::Queued | Self::Running | Self::CancelRequested => false,
+        }
+    }
+}
+
+/// What an item may become from each status (string form; unknown statuses allow nothing).
 #[must_use]
 pub fn item_allowed(from: &str, to: &str) -> bool {
-    let targets: &[&str] = match from {
-        "queued" => &["claimed", "cancelled", "stale_input"],
-        "claimed" => &[
-            "running",
-            "cancel_requested",
-            "cancelled",
-            "interrupted",
-            "stale_input",
-        ],
-        "running" => &[
-            "succeeded",
-            "failed",
-            "stale_input",
-            "cancel_requested",
-            "cancelled",
-            "interrupted",
-        ],
-        "cancel_requested" => &["cancelling", "interrupted"],
-        "cancelling" => &["cancelled", "failed", "interrupted"],
-        "interrupted" => &["failed"],
-        _ => &[],
-    };
-    targets.contains(&to)
+    match (from.parse::<ItemStatus>(), to.parse::<ItemStatus>()) {
+        (Ok(from), Ok(to)) => from.can_become(to),
+        _ => false,
+    }
 }
 
-/// What a job may become from each status.
+/// What a job may become from each status (string form; unknown statuses allow nothing).
 #[must_use]
 pub fn parent_allowed(from: &str, to: &str) -> bool {
-    let targets: &[&str] = match from {
-        "queued" => &[
-            "running",
-            "cancel_requested",
-            "cancelled",
-            "failed",
-            "partial_success",
-        ],
-        "running" => &[
-            "cancel_requested",
-            "succeeded",
-            "partial_success",
-            "failed",
-            "cancelled",
-        ],
-        "cancel_requested" => &["cancelled", "failed", "partial_success", "succeeded"],
-        _ => &[],
-    };
-    targets.contains(&to)
+    match (from.parse::<JobStatus>(), to.parse::<JobStatus>()) {
+        (Ok(from), Ok(to)) => from.can_become(to),
+        _ => false,
+    }
 }
-
-const ITEM_TERMINAL: [&str; 5] = [
-    "succeeded",
-    "failed",
-    "stale_input",
-    "cancelled",
-    "interrupted",
-];
-const PARENT_TERMINAL: [&str; 4] = ["succeeded", "partial_success", "failed", "cancelled"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TransitionResult {
@@ -327,8 +455,12 @@ impl JobStateMachine<'_> {
             )));
         }
         let terminal = match kind {
-            Kind::Item => ITEM_TERMINAL.contains(&target),
-            Kind::Job => PARENT_TERMINAL.contains(&target),
+            Kind::Item => target
+                .parse::<ItemStatus>()
+                .is_ok_and(ItemStatus::is_terminal),
+            Kind::Job => target
+                .parse::<JobStatus>()
+                .is_ok_and(JobStatus::is_terminal),
         };
         let table = if kind == Kind::Item {
             "job_items"

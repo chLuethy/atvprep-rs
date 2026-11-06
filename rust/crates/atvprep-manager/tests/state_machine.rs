@@ -13,7 +13,7 @@ use atvprep_manager::repo::Ctx;
 use atvprep_manager::schema::migrate;
 use atvprep_manager::snapshots::InputSnapshots;
 use atvprep_manager::state_machine::{
-    JobStateMachine, aggregate_parent_status, item_allowed, parent_allowed,
+    ItemStatus, JobStateMachine, JobStatus, aggregate_parent_status, item_allowed, parent_allowed,
 };
 use atvprep_testkit::load_golden;
 use serde_json::{Value, json};
@@ -155,6 +155,102 @@ fn the_tables_and_the_aggregation_match_the_python_oracle() {
         };
         assert_eq!(got, case.expected, "{}", case.name);
     }
+}
+
+#[test]
+fn the_typed_statuses_follow_the_python_oracle_tables() {
+    let cases = load_golden::<Value, Value>("state_machine");
+    let wanted = |kind: &str, from: &str, to: &str| {
+        cases[0].expected[kind]
+            .get(from)
+            .is_some_and(|v| v.as_array().unwrap().iter().any(|s| s == to))
+    };
+    for from in ItemStatus::ALL {
+        for to in ItemStatus::ALL {
+            assert_eq!(
+                from.can_become(*to),
+                wanted("item", from.as_str(), to.as_str()),
+                "item {from} -> {to}"
+            );
+        }
+    }
+    for from in JobStatus::ALL {
+        for to in JobStatus::ALL {
+            assert_eq!(
+                from.can_become(*to),
+                wanted("parent", from.as_str(), to.as_str()),
+                "job {from} -> {to}"
+            );
+        }
+    }
+}
+
+#[test]
+fn the_typed_statuses_round_trip_their_strings_and_know_terminal_states() {
+    let item_terminal = [
+        "succeeded",
+        "failed",
+        "stale_input",
+        "cancelled",
+        "interrupted",
+    ];
+    for status in ItemStatus::ALL {
+        assert_eq!(status.as_str().parse::<ItemStatus>().unwrap(), *status);
+        assert_eq!(
+            status.is_terminal(),
+            item_terminal.contains(&status.as_str()),
+            "item {status}"
+        );
+    }
+    let job_terminal = ["succeeded", "partial_success", "failed", "cancelled"];
+    for status in JobStatus::ALL {
+        assert_eq!(status.as_str().parse::<JobStatus>().unwrap(), *status);
+        assert_eq!(
+            status.is_terminal(),
+            job_terminal.contains(&status.as_str()),
+            "job {status}"
+        );
+    }
+}
+
+#[test]
+fn the_typed_statuses_read_and_write_the_same_strings_in_sqlite() {
+    let conn = rusqlite::Connection::open_in_memory().unwrap();
+    conn.execute_batch("CREATE TABLE t(item TEXT, job TEXT)")
+        .unwrap();
+    for (item, job) in ItemStatus::ALL.iter().zip(JobStatus::ALL.iter().cycle()) {
+        conn.execute(
+            "INSERT INTO t VALUES (?1, ?2)",
+            rusqlite::params![item, job],
+        )
+        .unwrap();
+    }
+    let (raw_item, raw_job): (String, String) = conn
+        .query_row("SELECT item, job FROM t LIMIT 1", [], |r| {
+            Ok((r.get(0)?, r.get(1)?))
+        })
+        .unwrap();
+    assert_eq!((raw_item.as_str(), raw_job.as_str()), ("queued", "queued"));
+    let item: ItemStatus = conn
+        .query_row("SELECT item FROM t LIMIT 1", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(item, ItemStatus::Queued);
+    conn.execute("UPDATE t SET job='bogus'", []).unwrap();
+    let error = conn
+        .query_row("SELECT job FROM t LIMIT 1", [], |r| {
+            r.get::<_, JobStatus>(0)
+        })
+        .unwrap_err();
+    assert!(error.to_string().contains("bogus"), "{error}");
+}
+
+#[test]
+fn an_unknown_status_string_is_an_error_naming_the_value() {
+    let error = "bogus".parse::<ItemStatus>().unwrap_err();
+    assert!(matches!(error, Error::Invalid(_)));
+    assert!(error.to_string().contains("bogus"), "{error}");
+    let error = "claimed".parse::<JobStatus>().unwrap_err();
+    assert!(error.to_string().contains("claimed"), "{error}");
 }
 
 #[test]
