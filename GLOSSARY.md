@@ -63,3 +63,19 @@ _Avoid_: Undo
 
 **Abnahme**:
 Die ausdrückliche Betreiberentscheidung, dass ein Release nach dem Releasefenster in Ordnung ist. Erst danach wird das Gate geöffnet.
+
+## Arbeit und Status
+
+**Job-Status**:
+Der Zustand eines Jobs (`JobStatus`): `queued`, `running`, `cancel_requested`, `succeeded`, `partial_success`, `failed`, `cancelled`. Wird aus den Item-Status des Jobs abgeleitet und ist terminal ab `succeeded`, `partial_success`, `failed` und `cancelled`.
+_Avoid_: Parent-Status, Status-String
+
+**Item-Status**:
+Der Zustand eines Items eines Jobs (`ItemStatus`): vom Einreihen (`queued`) über Beanspruchung (`claimed`) und Ausführung (`running`, `cancel_requested`, `cancelling`) bis zum Ende. Terminal sind `succeeded`, `failed`, `stale_input`, `cancelled` und `interrupted`.
+_Avoid_: Child-Status
+
+**Scan-Status**:
+Der Zustand eines Scan-Laufs (`ScanStatus`), getrennt vom Job-Lebenszyklus: `queued`, `claimed`, `running`, `succeeded`, `failed`, `cancelled`, `interrupted`. Terminal sind `succeeded`, `failed`, `cancelled` und `interrupted`.
+
+**Terminal**:
+Ein Status, aus dem kein weiterer Übergang mehr erwartet wird: die Arbeit ist auf die eine oder andere Weise beendet und ändert sich nicht mehr. Die Typen bieten dafür `is_terminal()`; Übergänge prüft `can_become()`.

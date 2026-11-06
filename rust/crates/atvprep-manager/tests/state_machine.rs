@@ -13,7 +13,7 @@ use atvprep_manager::repo::Ctx;
 use atvprep_manager::schema::migrate;
 use atvprep_manager::snapshots::InputSnapshots;
 use atvprep_manager::state_machine::{
-    ItemStatus, JobStateMachine, JobStatus, aggregate_parent_status, item_allowed, parent_allowed,
+    ItemStatus, JobStateMachine, JobStatus, aggregate_parent_status,
 };
 use atvprep_testkit::load_golden;
 use serde_json::{Value, json};
@@ -102,46 +102,9 @@ impl Fixture {
 }
 
 #[test]
-fn the_tables_and_the_aggregation_match_the_python_oracle() {
+fn the_aggregation_matches_the_python_oracle() {
     let cases = load_golden::<Value, Value>("state_machine");
     assert_eq!(cases.len(), 1002);
-    let statuses = |kind: &str| -> Vec<String> {
-        cases[0].expected[kind]
-            .as_object()
-            .unwrap()
-            .keys()
-            .cloned()
-            .collect()
-    };
-    for (kind, allowed) in [
-        ("item", item_allowed as fn(&str, &str) -> bool),
-        ("parent", parent_allowed),
-    ] {
-        let table = cases[0].expected[kind].as_object().unwrap();
-        let universe: Vec<String> = statuses("item")
-            .into_iter()
-            .chain(statuses("parent"))
-            .collect();
-        for from in &universe {
-            let wanted: Vec<&str> = table
-                .get(from)
-                .map(|v| {
-                    v.as_array()
-                        .unwrap()
-                        .iter()
-                        .map(|s| s.as_str().unwrap())
-                        .collect()
-                })
-                .unwrap_or_default();
-            for to in &universe {
-                assert_eq!(
-                    allowed(from, to),
-                    wanted.contains(&to.as_str()),
-                    "{kind} {from} -> {to}"
-                );
-            }
-        }
-    }
     for case in &cases[1..] {
         let statuses: Vec<ItemStatus> = case.input["statuses"]
             .as_array()
@@ -165,6 +128,33 @@ fn the_typed_statuses_follow_the_python_oracle_tables() {
             .get(from)
             .is_some_and(|v| v.as_array().unwrap().iter().any(|s| s == to))
     };
+    // The oracle names no status the typed enums do not know.
+    for (kind, known) in [
+        (
+            "item",
+            ItemStatus::ALL
+                .iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<_>>(),
+        ),
+        (
+            "parent",
+            JobStatus::ALL
+                .iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<_>>(),
+        ),
+    ] {
+        for (from, targets) in cases[0].expected[kind].as_object().unwrap() {
+            assert!(known.contains(&from.as_str()), "{kind} {from}");
+            for to in targets.as_array().unwrap() {
+                assert!(
+                    known.contains(&to.as_str().unwrap()),
+                    "{kind} {from} -> {to}"
+                );
+            }
+        }
+    }
     for from in ItemStatus::ALL {
         for to in ItemStatus::ALL {
             assert_eq!(

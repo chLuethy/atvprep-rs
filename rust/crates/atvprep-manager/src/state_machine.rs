@@ -211,24 +211,6 @@ impl JobStatus {
     }
 }
 
-/// What an item may become from each status (string form; unknown statuses allow nothing).
-#[must_use]
-pub fn item_allowed(from: &str, to: &str) -> bool {
-    match (from.parse::<ItemStatus>(), to.parse::<ItemStatus>()) {
-        (Ok(from), Ok(to)) => from.can_become(to),
-        _ => false,
-    }
-}
-
-/// What a job may become from each status (string form; unknown statuses allow nothing).
-#[must_use]
-pub fn parent_allowed(from: &str, to: &str) -> bool {
-    match (from.parse::<JobStatus>(), to.parse::<JobStatus>()) {
-        (Ok(from), Ok(to)) => from.can_become(to),
-        _ => false,
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TransitionResult<S> {
     pub entity_id: i64,
