@@ -1,15 +1,16 @@
-import { createSignal, For, onMount, Show, type Component } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, onMount, Show, type Component } from "solid-js";
 import { Button, Kbd } from "../../ui";
-import { N, t, tn } from "../../lib/i18n";
+import { language, N, t, tn } from "../../lib/i18n";
+import { formatDateTime } from "../../lib/time";
 import { isTyping } from "../../lib/keys";
 import { loadRoots, type RootRow } from "../scan/loaders";
 import {
-  createSchedule, deleteSchedule, loadSchedules, runScheduleNow, setEnabled, updateSchedule,
-  type Action, type Api, type Schedule, type ScheduleInput,
+  createSchedule, deleteSchedule, loadSchedules, previewCron, runScheduleNow, setEnabled, updateSchedule,
+  type Action, type Api, type CronPreview, type Schedule, type ScheduleInput,
 } from "./loaders";
 import {
-  actionName, DAYS, defaultState, describeDays, describeLast, describeNext, describeTarget,
-  EVERY_DAY, stateChoices, WEEKDAYS,
+  actionName, CRON_EXAMPLES, DAYS, defaultState, describeLast, describeNext, describeTarget,
+  describeWhen, EVERY_DAY, simpleForm, stateChoices, WEEKDAYS, weeklyCron,
 } from "./model";
 
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
@@ -17,7 +18,7 @@ type Phase = "loading" | "ready" | "error" | "session";
 /** Which inline question a row is asking: turn on, run now, or delete. */
 type Asking = { id: string; kind: "delete" } | null;
 
-const blank = (): ScheduleInput => ({ name: "", action: "verify", rootId: null, complianceState: defaultState("verify"), days: [...WEEKDAYS], time: "03:00", maxFiles: 25 });
+const blank = (): ScheduleInput => ({ name: "", action: "verify", rootId: null, complianceState: defaultState("verify"), days: [...WEEKDAYS], time: "03:00", cron: null, maxFiles: 25 });
 
 const problem = (detail: string | undefined, fallback: string) => (detail ? t("{fallback} The server said: {detail}.", { fallback, detail }) : fallback);
 
@@ -33,6 +34,9 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
   const [formError, setFormError] = createSignal<string | null>(null);
   const [rowError, setRowError] = createSignal<string | null>(null);
   const [notice, setNotice] = createSignal<string | null>(null);
+  const [guideOpen, setGuideOpen] = createSignal(false);
+  /** What the server said about the cron text as it stands; null while that is not known yet. */
+  const [preview, setPreview] = createSignal<CronPreview | null>(null);
   let key = crypto.randomUUID();
   let newButton: HTMLButtonElement | undefined;
   let nameInput: HTMLInputElement | undefined;
@@ -56,7 +60,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
   };
   const openEdit = (schedule: Schedule) => {
     fresh(); setFormError(null); setNotice(null); setAsking(null);
-    setDraft({ name: schedule.name, action: schedule.action, rootId: schedule.root_id, complianceState: schedule.compliance_state, days: [...schedule.days], time: schedule.time, maxFiles: schedule.max_files });
+    setDraft({ name: schedule.name, action: schedule.action, rootId: schedule.root_id, complianceState: schedule.compliance_state, days: [...schedule.days], time: schedule.time, cron: simpleForm(schedule.cron) ? null : schedule.cron, maxFiles: schedule.max_files });
     setEditing({ id: schedule.id });
     queueMicrotask(() => nameInput?.focus());
   };
@@ -67,6 +71,26 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
     const states = stateChoices(action).map((choice) => choice.value);
     patch({ action, complianceState: states.includes(draft().complianceState) ? draft().complianceState : defaultState(action) });
   };
+  const chooseMode = (mode: "simple" | "cron") => {
+    const current = draft();
+    if (mode === "cron") { patch({ cron: current.cron ?? weeklyCron(current.days, current.time) }); return; }
+    const simple = current.cron === null ? null : simpleForm(current.cron);
+    patch({ cron: null, ...(simple ?? {}) });
+  };
+
+  // The description and next runs of the cron text come from the server, shortly after typing stops.
+  createEffect(() => {
+    const expression = draft().cron;
+    const lang = language();
+    if (editing() === null || expression === null) { setPreview(null); return; }
+    setPreview(null);
+    let current = true;
+    const timer = setTimeout(() => {
+      void previewCron(props.api, expression, lang).then((result) => { if (current) setPreview(result); });
+    }, 150);
+    onCleanup(() => { current = false; clearTimeout(timer); });
+  });
+
   const toggleDay = (day: number) => {
     const days = draft().days;
     patch({ days: days.includes(day) ? days.filter((known) => known !== day) : [...days, day].sort((a, b) => a - b) });
@@ -76,8 +100,15 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
     const value = draft();
     const found: string[] = [];
     if (!value.name.trim()) found.push(t("Give the schedule a name."));
-    if (value.days.length === 0) found.push(t("Pick at least one day."));
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value.time)) found.push(t("Set a time."));
+    if (value.cron !== null) {
+      const state = preview();
+      if (!value.cron.trim()) found.push(t("Enter a cron expression."));
+      else if (state?.kind === "invalid") found.push(state.error);
+      else if (state === null) found.push(t("Checking the expression."));
+    } else {
+      if (value.days.length === 0) found.push(t("Pick at least one day."));
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value.time)) found.push(t("Set a time."));
+    }
     if (!Number.isInteger(value.maxFiles) || value.maxFiles < 1 || value.maxFiles > 500) found.push(t("Files per run must be 1 to 500."));
     return found;
   };
@@ -127,6 +158,57 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
     if (event.key === "Escape" && editing()) closeEditor();
   };
 
+  const renderCron = () => (
+    <>
+      <div class="sched-field wide">
+        <label for="sched-cron">{t("Cron expression (server time)")}</label>
+        <input
+          id="sched-cron" class="input mono" type="text" spellcheck={false} autocomplete="off"
+          value={draft().cron ?? ""} aria-invalid={preview()?.kind === "invalid"} aria-describedby="sched-cron-result"
+          onInput={(event) => patch({ cron: event.currentTarget.value })}
+        />
+        <div id="sched-cron-result" class="cron-result" aria-live="polite">
+          {(() => {
+            const state = preview();
+            if (state?.kind === "invalid") return <p class="notice bad">{state.error}</p>;
+            if (state?.kind === "error") return <p class="muted">{t("Unable to check the expression right now. The server checks it when you save.")}</p>;
+            if (state?.kind !== "ok") return null;
+            return (
+              <>
+                <p class="cron-description">{state.description}</p>
+                <Show when={state.nextRuns.length > 0}>
+                  <span class="muted">{t("Next runs")}</span>
+                  <ul class="plain cron-runs" aria-label={t("Next runs")}>
+                    <For each={state.nextRuns}>{(run) => <li>{formatDateTime(run, "")}</li>}</For>
+                  </ul>
+                </Show>
+              </>
+            );
+          })()}
+        </div>
+        <div>
+          <Button variant="quiet" aria-expanded={guideOpen()} onClick={() => setGuideOpen(!guideOpen())}>{t("Cron guide")}</Button>
+        </div>
+        <Show when={guideOpen()}>
+          <div class="cron-guide">
+            <p>{t("Five fields separated by spaces: minute, hour, day of month, month, weekday.")}</p>
+            <p>{t("Allowed values: minute 0-59, hour 0-23, day of month 1-31, month 1-12, weekday 0-7 (Sunday is 0 or 7).")}</p>
+            <p>{t("Use * for every value, 1-5 for a range, 1,3,5 for a list and */15 for every 15th value. If day of month and weekday are both set, either one is enough.")}</p>
+            <p class="muted">{t("Examples. Click one to use it.")}</p>
+            <ul class="plain cron-examples">
+              <For each={CRON_EXAMPLES}>{(example) => (
+                <li>
+                  <button type="button" class="filter-chip mono" onClick={() => patch({ cron: example.cron })}>{example.cron}</button>
+                  <span class="muted">{t(example.meaning)}</span>
+                </li>
+              )}</For>
+            </ul>
+          </div>
+        </Show>
+      </div>
+    </>
+  );
+
   const renderEditor = () => (
     <div
       class="confirm sched-editor"
@@ -162,6 +244,14 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
             </select>
           </label>
         </Show>
+        <div class="sched-field">
+          <span id="sched-mode-label">{t("Timing")}</span>
+          <div class="seg" role="group" aria-labelledby="sched-mode-label">
+            <button type="button" aria-pressed={draft().cron === null} onClick={() => chooseMode("simple")}>{t("Simple")}</button>
+            <button type="button" aria-pressed={draft().cron !== null} onClick={() => chooseMode("cron")}>{t("Cron")}</button>
+          </div>
+        </div>
+        <Show when={draft().cron === null} fallback={renderCron()}>
         <div class="sched-field wide">
           <span id="sched-days-label">{t("Days")}</span>
           <div class="chips" role="group" aria-labelledby="sched-days-label">
@@ -176,12 +266,13 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
           <span>{t("Time (server time)")}</span>
           <input class="input" type="time" value={draft().time} onInput={(event) => patch({ time: event.currentTarget.value })} />
         </label>
+        </Show>
         <label class="sched-field">
           <span>{t("Files per run")}</span>
           <input class="input" type="number" min="1" max="500" value={draft().maxFiles} onInput={(event) => patch({ maxFiles: Number(event.currentTarget.value) })} />
         </label>
       </div>
-      <Show when={problems().length > 0 && formError() === null}><p class="muted">{problems()[0]}</p></Show>
+      <Show when={problems().length > 0 && formError() === null && preview()?.kind !== "invalid"}><p class="muted">{problems()[0]}</p></Show>
       <Show when={formError()}><p class="notice bad" role="alert">{formError()}</p></Show>
       <div class="insp-actions">
         <Button variant="primary" disabled={busy() || problems().length > 0} onClick={() => void save()}>{t("Save schedule")}</Button>
@@ -218,7 +309,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
           <span class="muted sched-target">{describeTarget(schedule)}</span>
         </div>
         <div class="sched-when">
-          <span>{`${describeDays(schedule.days)} · ${schedule.time}`}</span>
+          <span>{describeWhen(schedule)}</span>
           <span class="muted">{describeNext(schedule)}</span>
         </div>
         <div class="sched-last">

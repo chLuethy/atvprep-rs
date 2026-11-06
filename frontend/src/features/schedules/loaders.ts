@@ -49,6 +49,8 @@ export type ScheduleInput = {
   complianceState: string | null;
   days: number[];
   time: string;
+  /** A cron expression (the Cron mode); null means the days and time above (the Simple mode). */
+  cron: string | null;
   maxFiles: number;
 };
 
@@ -76,12 +78,14 @@ async function send(api: Api, path: string, method: string, key: string, body?: 
   }
 }
 
+const timing = (input: Pick<ScheduleInput, "cron" | "days" | "time">) => (input.cron === null ? { days: input.days, time: input.time } : { cron: input.cron });
+
 const idPath = (id: string) => `/schedules/${encodeURIComponent(rawId(id))}`;
 
 export async function createSchedule(api: Api, input: ScheduleInput, key: string): Promise<SaveResult> {
   const result = await send(api, "/schedules", "POST", key, {
     name: input.name, action: input.action, root_id: input.rootId, compliance_state: input.complianceState,
-    days: input.days, time: input.time, max_files: input.maxFiles,
+    ...timing(input), max_files: input.maxFiles,
   });
   return result.ok && result.schedule ? { ok: true, schedule: result.schedule } : result.ok ? { ok: false, session: false } : result;
 }
@@ -91,10 +95,30 @@ export async function updateSchedule(api: Api, id: string, input: Omit<ScheduleI
     name: input.name,
     root_id: input.rootId, clear_root: input.rootId === null,
     compliance_state: input.complianceState, clear_compliance_state: input.complianceState === null,
-    days: input.days, time: input.time, max_files: input.maxFiles,
+    ...timing(input), max_files: input.maxFiles,
   });
 }
 
 export const setEnabled = (api: Api, id: string, enabled: boolean, key: string) => send(api, idPath(id), "PATCH", key, { enabled });
 export const deleteSchedule = (api: Api, id: string, key: string) => send(api, idPath(id), "DELETE", key);
 export const runScheduleNow = (api: Api, id: string, key: string) => send(api, `${idPath(id)}/run`, "POST", key);
+
+/** What the server says about a cron expression someone is typing. */
+export type CronPreview =
+  | { kind: "ok"; description: string; nextRuns: string[] }
+  | { kind: "invalid"; error: string }
+  | { kind: "error" };
+
+export async function previewCron(api: Api, expression: string, lang: string): Promise<CronPreview> {
+  try {
+    const response = await api.request(`/schedules/cron-preview?expression=${encodeURIComponent(expression)}&lang=${encodeURIComponent(lang)}`);
+    if (!response.ok) return { kind: "error" };
+    const body = (await response.json()) as { data?: { valid?: boolean; description?: string; next_runs?: string[]; error?: string } };
+    const data = body.data;
+    if (data?.valid === true) return { kind: "ok", description: data.description ?? "", nextRuns: data.next_runs ?? [] };
+    if (data?.valid === false) return { kind: "invalid", error: data.error ?? "" };
+    return { kind: "error" };
+  } catch {
+    return { kind: "error" };
+  }
+}
