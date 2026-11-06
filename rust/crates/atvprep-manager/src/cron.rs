@@ -202,6 +202,40 @@ impl CronExpr {
         (mask, time)
     }
 
+    /// The smallest gap in minutes between two consecutive slots, or `None` if it never runs.
+    ///
+    /// Within a day the gaps depend only on the hour and minute sets. Across midnight a gap only
+    /// counts on two consecutive matching days, found by walking the same span as the slot search.
+    #[must_use]
+    pub fn min_interval_minutes(&self) -> Option<u32> {
+        let mut starts: Vec<u32> = Vec::new();
+        for hour in (0..24u32).filter(|h| self.hours & (1 << h) != 0) {
+            for minute in (0..60u32).filter(|m| self.minutes & (1 << m) != 0) {
+                starts.push(hour * 60 + minute);
+            }
+        }
+        let (first, last) = (*starts.first()?, *starts.last()?);
+        let first_day = LocalDateTime::new(2024, 1, 1, 0, 0).ok()?;
+        let mut matching =
+            (0..SEARCH_DAYS).map(|ahead| self.day_matches(first_day.add_days(ahead)));
+        let mut previous = matching.next()?;
+        let mut any = previous;
+        let mut closest = u32::MAX;
+        for today in matching {
+            if previous && today {
+                closest = closest.min(24 * 60 - last + first);
+            }
+            any |= today;
+            previous = today;
+        }
+        if !any {
+            return None;
+        }
+        let within = starts.windows(2).map(|pair| pair[1] - pair[0]).min();
+        // A repeating gap of a week or a day, whichever the days allow, is never the closest.
+        Some(closest.min(within.unwrap_or(u32::MAX)).min(7 * 24 * 60))
+    }
+
     fn day_matches(&self, day: LocalDateTime) -> bool {
         if self.months & (1 << day.month()) == 0 {
             return false;
@@ -275,6 +309,27 @@ mod tests {
     }
 
     // 2026-10-25 is a Sunday, 2026-10-26 a Monday.
+    #[test]
+    fn min_interval_finds_the_closest_two_slots() {
+        for (text, minutes) in [
+            ("* * * * *", Some(1)),
+            ("0,5 * * * *", Some(5)),
+            ("0,10 * * * *", Some(10)),
+            ("*/15 * * * *", Some(15)),
+            ("0 */6 * * *", Some(360)),
+            ("0 3 * * *", Some(1440)),
+            ("0 3 * * 1", Some(10080)),
+            // Across midnight: 23:55 to 00:05 the next day.
+            ("55,5 23,0 * * *", Some(10)),
+            // Only on a leap day does the 5-minute pair exist.
+            ("0,5 0 29 2 *", Some(5)),
+            // 31 February never happens.
+            ("0 0 31 2 *", None),
+        ] {
+            assert_eq!(cron(text).min_interval_minutes(), minutes, "{text}");
+        }
+    }
+
     #[test]
     fn sunday_is_zero_and_seven() {
         for text in ["0 3 * * 0", "0 3 * * 7"] {

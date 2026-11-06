@@ -619,7 +619,16 @@
               "time": "12:30"
             }
           ],
-          "meta": {}
+          "meta": {
+            "limits": {
+              "max_files": {
+                "convert": 6,
+                "fix": 12,
+                "verify": 500
+              },
+              "min_change_interval_minutes": 15
+            }
+          }
         },
         "status": 200
       },

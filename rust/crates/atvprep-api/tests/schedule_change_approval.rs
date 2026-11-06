@@ -147,7 +147,7 @@ impl Harness {
 }
 
 fn new_schedule(action: &str) -> Value {
-    json!({"name":"Nightly","action":action,"days":[0],"time":"03:00","max_files":10})
+    json!({"name":"Nightly","action":action,"days":[0],"time":"03:00","max_files":5})
 }
 
 #[tokio::test]
@@ -158,7 +158,7 @@ async fn fix_and_convert_schedules_start_paused_and_need_max_files() {
         assert_eq!(status, StatusCode::CREATED, "{body}");
         assert_eq!(body["data"]["action"], action);
         assert_eq!(body["data"]["enabled"], false);
-        assert_eq!(body["data"]["max_files"], 10);
+        assert_eq!(body["data"]["max_files"], 5);
         for bad in [json!(0), json!(501), json!(-1)] {
             let mut input = new_schedule(action);
             input["max_files"] = bad;
@@ -323,5 +323,5 @@ async fn run_now_queues_only_an_approved_change_schedule() {
     assert_eq!(h.sql::<String>("SELECT action FROM jobs"), "fix");
     let snapshot: Value =
         serde_json::from_str(&h.sql::<String>("SELECT settings_snapshot_json FROM jobs")).unwrap();
-    assert_eq!(snapshot["schedule_params"]["max_files"], 10);
+    assert_eq!(snapshot["schedule_params"]["max_files"], 5);
 }

@@ -15,9 +15,10 @@ const schedule = (over: Partial<Schedule> = {}): Schedule => ({
 const scanSchedule = (over: Partial<Schedule> = {}): Schedule =>
   schedule({ id: "sc_s", name: "Nightly scan", action: "scan", compliance_state: null, max_files: null, matching: null, ...over });
 
-const json = (data: unknown, status = 200) => new Response(JSON.stringify({ data, meta: {} }), { status });
+const LIMITS = { min_change_interval_minutes: 15, max_files: { verify: 500, fix: 12, convert: 6 } };
+const json = (data: unknown, status = 200, meta: unknown = {}) => new Response(JSON.stringify({ data, meta }), { status });
 
-function makeApi(initial: Schedule[], handlers: Record<string, (init?: RequestInit) => Response> = {}, options: { deleteOriginal?: boolean } = {}) {
+function makeApi(initial: Schedule[], handlers: Record<string, (init?: RequestInit) => Response> = {}, options: { deleteOriginal?: boolean; limits?: unknown } = {}) {
   let current = initial;
   const calls: Array<{ path: string; init?: RequestInit }> = [];
   const api: Api = {
@@ -26,7 +27,7 @@ function makeApi(initial: Schedule[], handlers: Record<string, (init?: RequestIn
       const method = init?.method ?? "GET";
       const handler = handlers[`${method} ${path}`];
       if (handler) return handler(init);
-      if (path === "/schedules" && method === "GET") return json(current);
+      if (path === "/schedules" && method === "GET") return json(current, 200, { limits: options.limits ?? LIMITS });
       if (path === "/dashboard") return json({ files: {}, jobs: {}, delete_original: options.deleteOriginal ?? false });
       if (path === "/roots") return json([{ id: "r_1", name: "Film", latest_scan: null }, { id: "r_2", name: "TV", latest_scan: null }]);
       return json({});
@@ -59,6 +60,11 @@ describe("schedule wording", () => {
 
   it("explains a run that was refused for lack of approval", () => {
     expect(describeResult("Not queued: not approved to change files. Turn the schedule on again.")).toBe("Not queued: Not approved to change files. Turn the schedule on again.");
+  });
+
+  it("explains why a schedule was paused for breaking a limit", () => {
+    expect(describeResult("Paused: Files per run may be at most 12 for this action.")).toBe("Paused: it takes more than 12 files per run. Adjust the schedule.");
+    expect(describeResult("Paused: A schedule that changes files may run at most every 15 minutes; this one runs every 10.")).toBe("Paused: it runs more often than every 15 minutes (every 10). Adjust the schedule.");
   });
 
   it("offers state filters that fit the action", () => {
@@ -417,7 +423,7 @@ describe('the cron editor', () => {
   };
 
   it('switches between Simple and Cron and starts Cron from the days and time', async () => {
-    const state = makeApi([], { 'GET /schedules/cron-preview?expression=0%203%20*%20*%201%2C2%2C3%2C4%2C5&lang=en': () => preview('0 3 * * 1,2,3,4,5', 'At 03:00, on weekdays') });
+    const state = makeApi([], { 'GET /schedules/cron-preview?expression=0%203%20*%20*%201%2C2%2C3%2C4%2C5&lang=en&action=verify': () => preview('0 3 * * 1,2,3,4,5', 'At 03:00, on weekdays') });
     const { editor } = await openCron(state);
 
     expect(within(editor).getByLabelText(/Cron expression/)).toHaveValue('0 3 * * 1,2,3,4,5');
@@ -430,8 +436,8 @@ describe('the cron editor', () => {
 
   it('describes the expression and lists the next five runs while typing', async () => {
     const state = makeApi([], {
-      'GET /schedules/cron-preview?expression=0%203%20*%20*%201%2C2%2C3%2C4%2C5&lang=en': () => preview('0 3 * * 1,2,3,4,5', 'At 03:00, on weekdays'),
-      'GET /schedules/cron-preview?expression=*%2F15%20*%20*%20*%20*&lang=en': () => preview('*/15 * * * *', 'Every 15 minutes', ['2026-10-26T02:15:00+00:00', '2026-10-26T02:30:00+00:00', '2026-10-26T02:45:00+00:00', '2026-10-26T03:00:00+00:00', '2026-10-26T03:15:00+00:00']),
+      'GET /schedules/cron-preview?expression=0%203%20*%20*%201%2C2%2C3%2C4%2C5&lang=en&action=verify': () => preview('0 3 * * 1,2,3,4,5', 'At 03:00, on weekdays'),
+      'GET /schedules/cron-preview?expression=*%2F15%20*%20*%20*%20*&lang=en&action=verify': () => preview('*/15 * * * *', 'Every 15 minutes', ['2026-10-26T02:15:00+00:00', '2026-10-26T02:30:00+00:00', '2026-10-26T02:45:00+00:00', '2026-10-26T03:00:00+00:00', '2026-10-26T03:15:00+00:00']),
     });
     const { editor } = await openCron(state);
     expect(await within(editor).findByText('At 03:00, on weekdays')).toBeInTheDocument();
@@ -445,8 +451,8 @@ describe('the cron editor', () => {
 
   it('shows what is wrong with an invalid expression and blocks saving', async () => {
     const state = makeApi([], {
-      'GET /schedules/cron-preview?expression=0%203%20*%20*%201%2C2%2C3%2C4%2C5&lang=en': () => preview('0 3 * * 1,2,3,4,5', 'At 03:00, on weekdays'),
-      'GET /schedules/cron-preview?expression=61%20*%20*%20*%20*&lang=en': () => invalid('minute: 61 is out of range 0-59'),
+      'GET /schedules/cron-preview?expression=0%203%20*%20*%201%2C2%2C3%2C4%2C5&lang=en&action=verify': () => preview('0 3 * * 1,2,3,4,5', 'At 03:00, on weekdays'),
+      'GET /schedules/cron-preview?expression=61%20*%20*%20*%20*&lang=en&action=verify': () => invalid('minute: 61 is out of range 0-59'),
     });
     const { editor } = await openCron(state);
     await fireEvent.input(within(editor).getByLabelText('Name'), { target: { value: 'x' } });
@@ -464,8 +470,8 @@ describe('the cron editor', () => {
   it('saves the expression itself', async () => {
     let body: unknown;
     const state = makeApi([], {
-      'GET /schedules/cron-preview?expression=0%203%20*%20*%201%2C2%2C3%2C4%2C5&lang=en': () => preview('0 3 * * 1,2,3,4,5', 'At 03:00, on weekdays'),
-      'GET /schedules/cron-preview?expression=0%20*%2F6%20*%20*%20*&lang=en': () => preview('0 */6 * * *', 'At 00:00, 06:00, 12:00, 18:00, every day'),
+      'GET /schedules/cron-preview?expression=0%203%20*%20*%201%2C2%2C3%2C4%2C5&lang=en&action=verify': () => preview('0 3 * * 1,2,3,4,5', 'At 03:00, on weekdays'),
+      'GET /schedules/cron-preview?expression=0%20*%2F6%20*%20*%20*&lang=en&action=verify': () => preview('0 */6 * * *', 'At 00:00, 06:00, 12:00, 18:00, every day'),
       'POST /schedules': (init) => { body = JSON.parse(String(init?.body)); return json(schedule(), 201); },
     });
     const { editor } = await openCron(state);
@@ -479,7 +485,7 @@ describe('the cron editor', () => {
 
   it('opens a schedule that days and time cannot express directly in Cron mode', async () => {
     const state = makeApi([schedule({ cron: '*/15 * * * *', days: [0, 1, 2, 3, 4, 5, 6], time: '00:00' })], {
-      'GET /schedules/cron-preview?expression=*%2F15%20*%20*%20*%20*&lang=en': () => preview('*/15 * * * *', 'Every 15 minutes'),
+      'GET /schedules/cron-preview?expression=*%2F15%20*%20*%20*%20*&lang=en&action=verify': () => preview('*/15 * * * *', 'Every 15 minutes'),
     });
     const view = render(() => <SchedulesPage api={state.api} />);
     await fireEvent.click(await view.findByRole('button', { name: 'Edit' }));
@@ -509,8 +515,8 @@ describe('the cron editor', () => {
 
   it('has a guide with the fields and examples that fill the field', async () => {
     const state = makeApi([], {
-      'GET /schedules/cron-preview?expression=0%203%20*%20*%201%2C2%2C3%2C4%2C5&lang=en': () => preview('0 3 * * 1,2,3,4,5', 'At 03:00, on weekdays'),
-      'GET /schedules/cron-preview?expression=*%2F15%20*%20*%20*%20*&lang=en': () => preview('*/15 * * * *', 'Every 15 minutes'),
+      'GET /schedules/cron-preview?expression=0%203%20*%20*%201%2C2%2C3%2C4%2C5&lang=en&action=verify': () => preview('0 3 * * 1,2,3,4,5', 'At 03:00, on weekdays'),
+      'GET /schedules/cron-preview?expression=*%2F15%20*%20*%20*%20*&lang=en&action=verify': () => preview('*/15 * * * *', 'Every 15 minutes'),
     });
     const { editor } = await openCron(state);
     expect(within(editor).queryByText(/day of month/)).toBeNull();
@@ -556,7 +562,7 @@ describe("duplicating a schedule", () => {
   it("keeps a cron expression and saves it", async () => {
     let body: unknown;
     const state = makeApi([schedule({ cron: "*/15 * * * *", days: [0, 1, 2, 3, 4, 5, 6], time: "00:00" })], {
-      "GET /schedules/cron-preview?expression=*%2F15%20*%20*%20*%20*&lang=en": () => preview("*/15 * * * *", "Every 15 minutes"),
+      "GET /schedules/cron-preview?expression=*%2F15%20*%20*%20*%20*&lang=en&action=verify": () => preview("*/15 * * * *", "Every 15 minutes"),
       "POST /schedules": (init) => { body = JSON.parse(String(init?.body)); return json(schedule({ id: "sc_2" }), 201); },
     });
     const { editor } = await open(state);
@@ -596,5 +602,63 @@ describe("duplicating a schedule", () => {
 
     expect(name.length).toBe(80);
     expect(name.endsWith(" (copy)")).toBe(true);
+  });
+});
+
+describe("limits read from the server", () => {
+  const openEditor = async (state: ReturnType<typeof makeApi>) => {
+    const view = render(() => <SchedulesPage api={state.api} />);
+    await fireEvent.click(await view.findByRole("button", { name: /New schedule/ }));
+    const editor = await view.findByRole("region", { name: "New schedule" });
+    return { view, editor };
+  };
+
+  it("shows the limit of the chosen action at Files per run, with the server's numbers", async () => {
+    const state = makeApi([], {}, { limits: { min_change_interval_minutes: 20, max_files: { verify: 321, fix: 9, convert: 4 } } });
+    const { editor } = await openEditor(state);
+    const files = () => within(editor).getByLabelText("Files per run");
+    const choose = (name: string) => fireEvent.click(within(within(editor).getByRole("group", { name: "Action" })).getByRole("button", { name }));
+
+    await waitFor(() => expect(files()).toHaveAttribute("max", "321"));
+    expect(within(editor).getByText("At most 321 files per run.")).toBeInTheDocument();
+    await choose("Fix");
+    expect(files()).toHaveAttribute("max", "9");
+    expect(within(editor).getByText("At most 9 files per run.")).toBeInTheDocument();
+    await choose("Convert");
+    expect(files()).toHaveAttribute("max", "4");
+    await choose("Scan");
+    expect(within(editor).queryByLabelText("Files per run")).toBeNull();
+  });
+
+  it("blocks a save above the limit and names it", async () => {
+    const state = makeApi([]);
+    const { editor } = await openEditor(state);
+    await waitFor(() => expect(within(editor).getByLabelText("Files per run")).toHaveAttribute("max", "500"));
+    await fireEvent.click(within(within(editor).getByRole("group", { name: "Action" })).getByRole("button", { name: "Convert" }));
+    await fireEvent.input(within(editor).getByLabelText("Name"), { target: { value: "x" } });
+    await fireEvent.input(within(editor).getByLabelText("Files per run"), { target: { value: "7" } });
+
+    expect(within(editor).getByRole("button", { name: "Save schedule" })).toBeDisabled();
+    expect(within(editor).getByText("Files per run must be 1 to 6.")).toBeInTheDocument();
+    await fireEvent.input(within(editor).getByLabelText("Files per run"), { target: { value: "6" } });
+    expect(within(editor).getByRole("button", { name: "Save schedule" })).toBeEnabled();
+  });
+
+  it("asks the server about the cron for the chosen action and shows its refusal", async () => {
+    const state = makeApi([], {
+      "GET /schedules/cron-preview?expression=0%203%20*%20*%201%2C2%2C3%2C4%2C5&lang=en&action=fix": () => preview("0 3 * * 1,2,3,4,5", "At 03:00, on weekdays"),
+      "GET /schedules/cron-preview?expression=0%2C10%20*%20*%20*%20*&lang=en&action=fix": () => invalid("A schedule that changes files may run at most every 15 minutes; this one runs every 10."),
+    });
+    const { editor } = await openEditor(state);
+    await fireEvent.click(within(within(editor).getByRole("group", { name: "Action" })).getByRole("button", { name: "Fix" }));
+    await fireEvent.input(within(editor).getByLabelText("Name"), { target: { value: "x" } });
+    await fireEvent.click(within(editor).getByRole("button", { name: "Cron" }));
+    await within(editor).findByText("At 03:00, on weekdays");
+
+    await fireEvent.input(within(editor).getByLabelText(/Cron expression/), { target: { value: "0,10 * * * *" } });
+
+    expect(await within(editor).findByText("A schedule that changes files may run at most every 15 minutes; this one runs every 10.")).toBeInTheDocument();
+    expect(within(editor).getByText("A schedule that changes files may run at most every 15 minutes.")).toBeInTheDocument();
+    expect(within(editor).getByRole("button", { name: "Save schedule" })).toBeDisabled();
   });
 });

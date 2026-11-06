@@ -6,7 +6,7 @@ import { formatDateTime } from "../../lib/time";
 import { loadRoots, type RootRow } from "../scan/loaders";
 import {
   createSchedule, deleteSchedule, loadEnableFacts, loadSchedules, previewCron, runScheduleNow, setEnabled, updateSchedule,
-  changesFiles, type Action, type Api, type CronPreview, type EnableFacts, type Schedule, type ScheduleInput,
+  changesFiles, type Action, type Api, type CronPreview, type EnableFacts, type Limits, type Schedule, type ScheduleInput,
 } from "./loaders";
 import {
   actionName, CRON_EXAMPLES, DAYS, defaultState, describeLast, describeNext, describeResult,
@@ -27,6 +27,8 @@ const problem = (detail: string | undefined, fallback: string) => (detail ? t("{
 /** Timetables that verify, fix or convert the files that match a filter, or scan the libraries. */
 export const SchedulesPage: Component<{ api: Api }> = (props) => {
   const [rows, setRows] = createSignal<Schedule[]>([]);
+  /** What the server allows; null until it says (an older server never does). */
+  const [limits, setLimits] = createSignal<Limits | null>(null);
   const [roots, setRoots] = createSignal<RootRow[]>([]);
   const [phase, setPhase] = createSignal<Phase>("loading");
   const [editing, setEditing] = createSignal<{ id: string | null } | null>(null);
@@ -53,7 +55,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
 
   const load = async () => {
     const result = await loadSchedules(props.api);
-    if (result.kind === "ok") { setRows(result.items); setPhase("ready"); }
+    if (result.kind === "ok") { setRows(result.items); setLimits(result.limits); setPhase("ready"); }
     else setPhase(result.kind === "session" ? "session" : "error");
   };
   onMount(() => {
@@ -100,11 +102,12 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
   createEffect(() => {
     const expression = draft().cron;
     const lang = language();
+    const action = draft().action;
     if (editing() === null || expression === null) { setPreview(null); return; }
     setPreview(null);
     let current = true;
     const timer = setTimeout(() => {
-      void previewCron(props.api, expression, lang).then((result) => { if (current) setPreview(result); });
+      void previewCron(props.api, expression, lang, action).then((result) => { if (current) setPreview(result); });
     }, 150);
     onCleanup(() => { current = false; clearTimeout(timer); });
   });
@@ -113,6 +116,9 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
     const days = draft().days;
     patch({ days: days.includes(day) ? days.filter((known) => known !== day) : [...days, day].sort((a, b) => a - b) });
   };
+
+  /** The most files one run of this action may take, as the server says; null when it has not said. */
+  const maxFilesFor = (action: Action): number | null => limits()?.maxFiles[action] ?? null;
 
   const problems = () => {
     const value = draft();
@@ -127,7 +133,10 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
       if (value.days.length === 0) found.push(t("Pick at least one day."));
       if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value.time)) found.push(t("Set a time."));
     }
-    if (value.action !== "scan" && (!Number.isInteger(value.maxFiles) || value.maxFiles < 1 || value.maxFiles > 500)) found.push(t("Files per run must be 1 to 500."));
+    const cap = maxFilesFor(value.action);
+    if (value.action !== "scan" && (!Number.isInteger(value.maxFiles) || value.maxFiles < 1 || (cap !== null && value.maxFiles > cap))) {
+      found.push(cap === null ? t("Files per run must be at least 1.") : t("Files per run must be 1 to {max}.", { max: cap }));
+    }
     return found;
   };
 
@@ -217,6 +226,9 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
             );
           })()}
         </div>
+        <Show when={changesFiles(draft().action) && limits() !== null}>
+          <p class="muted">{t("A schedule that changes files may run at most every {minutes} minutes.", { minutes: limits()?.minChangeIntervalMinutes ?? 0 })}</p>
+        </Show>
         <div>
           <Button variant="quiet" aria-expanded={guideOpen()} onClick={() => setGuideOpen(!guideOpen())}>{t("Cron guide")}</Button>
         </div>
@@ -299,10 +311,11 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
         </label>
         </Show>
         <Show when={draft().action !== "scan"}>
-          <label class="sched-field">
-            <span>{t("Files per run")}</span>
-            <input class="input" type="number" min="1" max="500" value={draft().maxFiles} onInput={(event) => patch({ maxFiles: Number(event.currentTarget.value) })} />
-          </label>
+          <div class="sched-field">
+            <label for="sched-max-files">{t("Files per run")}</label>
+            <input id="sched-max-files" class="input" type="number" min="1" max={maxFilesFor(draft().action) ?? undefined} value={draft().maxFiles} aria-describedby="sched-max-files-hint" onInput={(event) => patch({ maxFiles: Number(event.currentTarget.value) })} />
+            <span id="sched-max-files-hint" class="muted">{(() => { const cap = maxFilesFor(draft().action); return cap === null ? "" : t("At most {max} files per run.", { max: cap }); })()}</span>
+          </div>
         </Show>
       </div>
       <Show when={problems().length > 0 && formError() === null && preview()?.kind !== "invalid"}><p class="muted">{problems()[0]}</p></Show>

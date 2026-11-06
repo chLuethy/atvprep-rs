@@ -13,6 +13,7 @@ pub mod inspections;
 pub mod jobs;
 pub mod leases;
 pub mod library;
+pub mod limits;
 pub mod media;
 pub mod models;
 pub mod procid;

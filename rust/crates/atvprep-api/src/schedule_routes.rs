@@ -11,6 +11,7 @@ use crate::{
 use atvprep_manager::{
     approval::{ApprovalVerifier, ScheduleParams},
     cron::{CronExpr, Lang},
+    limits,
     repo::Ctx,
     schedules::{
         TimeOfDay, days_to_mask, delete_original_setting, effective_cron, mask_to_days,
@@ -296,9 +297,7 @@ pub async fn update(
             .time
             .as_ref()
             .is_some_and(|time| TimeOfDay::parse(time).is_err())
-        || payload
-            .max_files
-            .is_some_and(|max| !(1..=500).contains(&max))
+        || payload.max_files.is_some_and(|max| max < 1)
         || payload.compliance_state.as_deref().is_some_and(|value| {
             !matches!(
                 value,
@@ -339,6 +338,13 @@ pub async fn update(
             (i64::from(mask),time.to_string(),Some(timing.cron.as_str().to_owned()))
         } else {(mask,time,stored_cron)};
         let new_max=if scan {max_files} else {payload.max_files.unwrap_or(max_files)};
+        // Limits apply to whatever is saved, so a stored schedule over a limit is rejected here too;
+        // pausing it stays possible.
+        let pause_only=payload.enabled==Some(false) && !retimed && payload.max_files.is_none();
+        if !pause_only {
+            let effective=effective_cron(cron.as_deref(),u8::try_from(mask).unwrap_or(127),&time).map_err(|_|MutationError::Database)?;
+            limits::check(&action,&effective,new_max).map_err(|violation|MutationError::Validation(violation.to_string()))?;
+        }
         let mut new_enabled=payload.enabled.unwrap_or(enabled);
         // A schedule that changes files runs only with the operator's signature on its exact
         // parameters: turning it on (confirmed) signs, a changed parameter or a pause revokes.
@@ -383,9 +389,7 @@ pub async fn create(
     };
     if payload.name.is_empty()
         || payload.name.chars().count() > 80
-        || payload
-            .max_files
-            .is_some_and(|max| !(1..=500).contains(&max))
+        || payload.max_files.is_some_and(|max| max < 1)
         || (matches!(payload.action.as_str(), "fix" | "convert") && payload.max_files.is_none())
         || payload.compliance_state.as_deref().is_some_and(|value| {
             !matches!(
@@ -399,6 +403,17 @@ pub async fn create(
         )
     {
         return error(StatusCode::UNPROCESSABLE_ENTITY, "invalid request", PATH);
+    }
+    if let Err(violation) = limits::check(
+        &payload.action,
+        &timing.cron,
+        payload.max_files.unwrap_or_else(default_max_files),
+    ) {
+        return error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            &violation.to_string(),
+            PATH,
+        );
     }
     let token =
         routes_auth::cookie(&headers, state.config.session_cookie_secure).unwrap_or_default();
@@ -517,6 +532,18 @@ fn views(conn: &rusqlite::Connection, state: &AppState) -> Result<(Vec<Value>, b
     Ok((data, truncated))
 }
 
+/// The limits the editor shows, read from the one place that defines them.
+fn limits_view() -> Value {
+    json!({
+        "min_change_interval_minutes": limits::MIN_CHANGE_INTERVAL_MINUTES,
+        "max_files": {
+            "verify": limits::MAX_FILES_VERIFY,
+            "fix": limits::MAX_FILES_FIX,
+            "convert": limits::MAX_FILES_CONVERT,
+        },
+    })
+}
+
 /// What a person has typed in the cron field.
 #[derive(Deserialize)]
 pub struct CronPreviewQuery {
@@ -524,6 +551,9 @@ pub struct CronPreviewQuery {
     expression: String,
     #[serde(default)]
     lang: String,
+    /// The action the expression is for; limits of that action apply. Without one, none do.
+    #[serde(default)]
+    action: String,
 }
 
 /// The number of upcoming runs a cron preview lists.
@@ -540,6 +570,10 @@ pub async fn cron_preview(
 ) -> Response {
     let now = DateTime::<Utc>::from_timestamp_micros(state.clock.now_micros());
     let data = match (CronExpr::parse(&query.expression), now) {
+        (Ok(cron), Some(_)) if limits::check_timing(&query.action, &cron).is_err() => {
+            let violation = limits::check_timing(&query.action, &cron).err();
+            json!({"valid": false, "error": violation.map(|v| v.to_string())})
+        }
         (Ok(cron), Some(now)) => {
             let runs: Vec<String> = upcoming_cron_runs_system(now, &cron, PREVIEW_RUNS)
                 .iter()
@@ -603,8 +637,13 @@ pub async fn list(State(state): State<AppState>, _session: AuthenticatedSession)
     let result = tokio::task::spawn_blocking(move || {
         let conn = state.db.conn().map_err(|_| ())?;
         let (data, truncated) = views(conn.raw(), &state)?;
-        Ok::<_, ()>(json!({"data": data, "meta": if truncated { json!({"truncated": true}) } else { json!({}) }}))
-    }).await;
+        let mut meta = json!({"limits": limits_view()});
+        if truncated {
+            meta["truncated"] = json!(true);
+        }
+        Ok::<_, ()>(json!({"data": data, "meta": meta}))
+    })
+    .await;
     match result {
         Ok(Ok(body)) => Json(body).into_response(),
         _ => error(

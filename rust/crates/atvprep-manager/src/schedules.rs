@@ -12,6 +12,7 @@ use crate::clock::format_micros;
 use crate::cron::CronExpr;
 use crate::deployment_gate::DeploymentGate;
 use crate::jobs::{Jobs, NewJob};
+use crate::limits;
 use crate::repo::Ctx;
 use crate::scans::Scans;
 use crate::{Error, Result};
@@ -702,6 +703,23 @@ fn finish_run(
     Ok(())
 }
 
+/// Pause a schedule that breaks a limit, end its approval and put the reason into its history.
+fn pause_over_limit(ctx: Ctx<'_>, schedule_id: i64, violation: &limits::Violation) -> Result<()> {
+    ctx.conn.execute(
+        "UPDATE schedules SET enabled=0, approved_by=NULL, approved_at=NULL, approval_mac=NULL WHERE id=?1",
+        [schedule_id],
+    )?;
+    finish_run(
+        ctx,
+        schedule_id,
+        None,
+        &ctx.clock.now(),
+        &format!("Paused: {violation}"),
+        None,
+        None,
+    )
+}
+
 /// Run enabled schedules whose latest local slot is no more than six hours old; schedules that
 /// change files only run in the minute of their slot.
 ///
@@ -742,7 +760,7 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
         u8::try_from(local_now.minute()).unwrap_or(0),
     )?;
     let mut statement = ctx.conn.prepare(
-        "SELECT id, days_mask, time_of_day, armed_at, cron, action FROM schedules WHERE enabled=1 ORDER BY id",
+        "SELECT id, days_mask, time_of_day, armed_at, cron, action, max_files FROM schedules WHERE enabled=1 ORDER BY id",
     )?;
     let schedules = statement
         .query_map([], |row| {
@@ -753,16 +771,22 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
                 row.get::<_, String>(3)?,
                 row.get::<_, Option<String>>(4)?,
                 row.get::<_, String>(5)?,
+                row.get::<_, i64>(6)?,
             ))
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
     drop(statement);
     let mut ran = 0;
-    for (id, mask, time, armed_at, cron, action) in schedules {
+    for (id, mask, time, armed_at, cron, action, max_files) in schedules {
         // One corrupt row must not stop every schedule after it.
         let Ok(cron) = effective_cron(cron.as_deref(), mask, &time) else {
             continue;
         };
+        // A schedule saved before a limit existed does not run on unnoticed: it is paused and says why.
+        if let Err(violation) = limits::check(&action, &cron, max_files) {
+            pause_over_limit(ctx, id, &violation)?;
+            continue;
+        }
         let Some(slot) = cron.latest_slot(local) else {
             continue;
         };
