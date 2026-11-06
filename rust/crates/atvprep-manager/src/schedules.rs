@@ -398,8 +398,10 @@ pub fn upcoming_cron_runs_system(
 
 /// Run one schedule or record why it could not queue work.
 ///
-/// Schedule execution is deliberately read-only: only `verify` is queued. Historical `fix` and
-/// `convert` schedules are retained for visibility but cannot start a media-changing job.
+/// What a run does depends on the schedule's action: `verify` queues a verification job, `scan`
+/// requests scans, and `fix`/`convert` queue a media-changing job only while the schedule carries
+/// the operator's approval (otherwise nothing is queued and the result says so). The worker
+/// verifies the signature again right before it touches a file (see ADR 0006).
 ///
 /// # Errors
 ///
