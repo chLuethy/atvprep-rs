@@ -373,6 +373,25 @@ pub fn next_cron_run_at_system(
     next_cron_run_at(now, enabled, cron, &Local)
 }
 
+/// The next `count` future cron instants after `now`, in the manager host's local timezone.
+#[must_use]
+pub fn upcoming_cron_runs_system(
+    now: DateTime<Utc>,
+    cron: &CronExpr,
+    count: usize,
+) -> Vec<DateTime<Utc>> {
+    let mut runs = Vec::with_capacity(count);
+    let mut after = now;
+    while runs.len() < count {
+        let Some(next) = next_cron_run_at_system(after, true, cron) else {
+            break;
+        };
+        runs.push(next);
+        after = next;
+    }
+    runs
+}
+
 /// Run one schedule or record why it could not queue work.
 ///
 /// Schedule execution is deliberately read-only: only `verify` is queued. Historical `fix` and

@@ -8,6 +8,9 @@
 use crate::schedules::{LocalDateTime, TimeOfDay};
 use crate::{Error, Result};
 
+mod describe;
+pub use describe::Lang;
+
 /// How many days a slot search looks over: enough for 29 February on any weekday.
 const SEARCH_DAYS: i64 = 366 * 9;
 
@@ -28,36 +31,84 @@ fn invalid(reason: &str) -> Error {
     Error::Invalid(format!("invalid cron expression: {reason}"))
 }
 
-fn number(text: &str, min: u32, max: u32) -> Result<u32> {
-    if text.is_empty() || text.len() > 2 || !text.bytes().all(|b| b.is_ascii_digit()) {
-        return Err(invalid("fields hold numbers only"));
+/// A field with its name and range, so messages say what is wrong where.
+#[derive(Clone, Copy)]
+struct Spec {
+    name: &'static str,
+    min: u32,
+    max: u32,
+}
+
+impl Spec {
+    fn error(self, problem: &str) -> Error {
+        invalid(&format!("{}: {problem}", self.name))
     }
-    let value: u32 = text.parse().map_err(|_| invalid("bad number"))?;
-    if (min..=max).contains(&value) {
+}
+
+const MINUTE: Spec = Spec {
+    name: "minute",
+    min: 0,
+    max: 59,
+};
+const HOUR: Spec = Spec {
+    name: "hour",
+    min: 0,
+    max: 23,
+};
+const DAY: Spec = Spec {
+    name: "day of month",
+    min: 1,
+    max: 31,
+};
+const MONTH: Spec = Spec {
+    name: "month",
+    min: 1,
+    max: 12,
+};
+const WEEKDAY: Spec = Spec {
+    name: "weekday",
+    min: 0,
+    max: 7,
+};
+
+fn number(text: &str, spec: Spec, min: u32) -> Result<u32> {
+    if text.is_empty() || text.len() > 2 || !text.bytes().all(|b| b.is_ascii_digit()) {
+        return Err(spec.error(&format!(
+            "\"{text}\" is not a number (names and macros are not supported)"
+        )));
+    }
+    let value: u32 = text
+        .parse()
+        .map_err(|_| spec.error(&format!("\"{text}\" is not a number")))?;
+    if (min..=spec.max).contains(&value) {
         Ok(value)
     } else {
-        Err(invalid("number out of range"))
+        Err(spec.error(&format!(
+            "{value} is out of range {}-{}",
+            spec.min, spec.max
+        )))
     }
 }
 
 /// Returns the bit set of a field and whether it starts with `*`.
-fn field(text: &str, min: u32, max: u32) -> Result<(u64, bool)> {
+fn field(text: &str, spec: Spec) -> Result<(u64, bool)> {
+    let (min, max) = (spec.min, spec.max);
     let mut bits = 0u64;
     for item in text.split(',') {
         let (base, step) = match item.split_once('/') {
-            Some((base, step)) => (base, Some(number(step, 1, max)?)),
+            Some((base, step)) => (base, Some(number(step, spec, 1)?)),
             None => (item, None),
         };
         let (from, to) = if base == "*" {
             (min, max)
         } else if let Some((from, to)) = base.split_once('-') {
-            let (from, to) = (number(from, min, max)?, number(to, min, max)?);
+            let (from, to) = (number(from, spec, min)?, number(to, spec, min)?);
             if from > to {
-                return Err(invalid("descending range"));
+                return Err(spec.error(&format!("descending range {from}-{to}")));
             }
             (from, to)
         } else {
-            let from = number(base, min, max)?;
+            let from = number(base, spec, min)?;
             (from, if step.is_some() { max } else { from })
         };
         let step = step.unwrap_or(1);
@@ -79,13 +130,16 @@ impl CronExpr {
     pub fn parse(text: &str) -> Result<Self> {
         let parts: Vec<&str> = text.split_whitespace().collect();
         let [minute, hour, day, month, weekday] = parts[..] else {
-            return Err(invalid("expected 5 fields"));
+            return Err(invalid(&format!(
+                "expected 5 fields (minute hour day-of-month month weekday), found {}",
+                parts.len()
+            )));
         };
-        let (minutes, _) = field(minute, 0, 59)?;
-        let (hours, _) = field(hour, 0, 23)?;
-        let (days, days_any) = field(day, 1, 31)?;
-        let (months, _) = field(month, 1, 12)?;
-        let (weekdays, weekdays_any) = field(weekday, 0, 7)?;
+        let (minutes, _) = field(minute, MINUTE)?;
+        let (hours, _) = field(hour, HOUR)?;
+        let (days, days_any) = field(day, DAY)?;
+        let (months, _) = field(month, MONTH)?;
+        let (weekdays, weekdays_any) = field(weekday, WEEKDAY)?;
         // 7 is Sunday too.
         let weekdays = (weekdays & 0x7f) | ((weekdays >> 7) & 1);
         Ok(Self {
@@ -330,5 +384,76 @@ mod tests {
                 (mask, time)
             );
         }
+    }
+
+    #[test]
+    fn errors_name_the_field_and_the_problem() {
+        let message = |text: &str| CronExpr::parse(text).unwrap_err().to_string();
+        assert!(
+            message("* * * *").contains("5 fields"),
+            "{}",
+            message("* * * *")
+        );
+        assert!(
+            message("61 * * * *").contains("minute"),
+            "{}",
+            message("61 * * * *")
+        );
+        assert!(message("61 * * * *").contains("0-59"));
+        assert!(message("* 24 * * *").contains("hour"));
+        assert!(message("* * 32 * *").contains("day of month"));
+        assert!(message("* * * 13 *").contains("month"));
+        assert!(message("* * * * 8").contains("weekday"));
+        assert!(message("* * * * mon").contains("weekday"));
+        assert!(message("5-1 * * * *").contains("descending"));
+    }
+
+    fn say(text: &str, lang: Lang) -> String {
+        cron(text).describe(lang)
+    }
+
+    #[test]
+    fn describes_common_expressions_in_english() {
+        assert_eq!(say("0 3 * * *", Lang::En), "Every day at 03:00");
+        assert_eq!(say("0 3 * * 1-5", Lang::En), "At 03:00, on weekdays");
+        assert_eq!(say("*/15 * * * *", Lang::En), "Every 15 minutes");
+        assert_eq!(say("* * * * *", Lang::En), "Every minute");
+        assert_eq!(
+            say("0 */6 * * *", Lang::En),
+            "At 00:00, 06:00, 12:00, 18:00, every day"
+        );
+        assert_eq!(say("30 * * * *", Lang::En), "Every hour at minute 30");
+        assert_eq!(say("0 * * * *", Lang::En), "Every hour");
+        assert_eq!(say("0 4 * * 0,7", Lang::En), "At 04:00, on Sunday");
+        assert_eq!(say("0 4 * * 6,0", Lang::En), "At 04:00, on weekends");
+        assert_eq!(
+            say("15 2 1,15 * *", Lang::En),
+            "At 02:15, on day 1, 15 of the month"
+        );
+        assert_eq!(
+            say("0 9 * 1,7 1", Lang::En),
+            "At 09:00, on Monday, in January, July"
+        );
+        assert_eq!(
+            say("0 0 1 * 1", Lang::En),
+            "At 00:00, on day 1 of the month or on Monday"
+        );
+    }
+
+    #[test]
+    fn describes_common_expressions_in_german() {
+        assert_eq!(say("0 3 * * *", Lang::De), "Täglich um 03:00");
+        assert_eq!(say("0 3 * * 1-5", Lang::De), "Um 03:00, an Werktagen");
+        assert_eq!(say("*/15 * * * *", Lang::De), "Alle 15 Minuten");
+        assert_eq!(say("* * * * *", Lang::De), "Jede Minute");
+        assert_eq!(say("0 4 * * 3", Lang::De), "Um 04:00, am Mittwoch");
+    }
+
+    #[test]
+    fn many_times_fall_back_to_minutes_and_hours() {
+        assert_eq!(
+            say("0,10,20 9-17 * * *", Lang::En),
+            "At minutes 0, 10, 20 of hours 9-17, every day"
+        );
     }
 }

@@ -1,7 +1,7 @@
 import { fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
 import { SchedulesPage } from "../src/features/schedules/SchedulesPage";
-import { describeDays, describeResult, describeTarget, stateChoices } from "../src/features/schedules/model";
+import { describeDays, describeResult, describeTarget, simpleForm, stateChoices, weeklyCron } from "../src/features/schedules/model";
 import type { Schedule } from "../src/features/schedules/loaders";
 
 type Api = { request: (path: string, init?: RequestInit) => Promise<Response> };
@@ -251,5 +251,148 @@ describe("SchedulesPage", () => {
     await fireEvent.keyDown(editor, { key: "Escape" });
 
     await waitFor(() => expect(view.queryByRole("region", { name: "New schedule" })).not.toBeInTheDocument());
+  });
+});
+
+const preview = (cron: string, description: string, runs: string[] = ['2026-10-26T02:00:00+00:00', '2026-10-27T02:00:00+00:00', '2026-10-28T02:00:00+00:00', '2026-10-29T02:00:00+00:00', '2026-10-30T02:00:00+00:00']) =>
+  json({ valid: true, expression: cron, description, next_runs: runs });
+const invalid = (error: string) => json({ valid: false, error });
+
+describe('cron expressions in the simple mode', () => {
+  it('turns days and a time into the cron the server would store', () => {
+    expect(weeklyCron([0, 1, 2, 3, 4], '03:00')).toBe('0 3 * * 1,2,3,4,5');
+    expect(weeklyCron([6, 0], '03:05')).toBe('5 3 * * 0,1');
+  });
+
+  it('recognises what days and a time can express, and nothing else', () => {
+    expect(simpleForm('0 3 * * 1-5')).toEqual({ days: [0, 1, 2, 3, 4], time: '03:00' });
+    expect(simpleForm('5 3 * * 0,1')).toEqual({ days: [0, 6], time: '03:05' });
+    expect(simpleForm('30 22 * * 7')).toEqual({ days: [6], time: '22:30' });
+    expect(simpleForm('0 3 * * *')).toEqual({ days: [0, 1, 2, 3, 4, 5, 6], time: '03:00' });
+    for (const cron of ['*/15 * * * *', '0 */6 * * *', '0 3 1 * *', '0 3 * 6 *', '0,30 3 * * *', '0 3,4 * * *', '0 3 * * 1-5/2', '0 3 * * 9']) {
+      expect(simpleForm(cron), cron).toBeNull();
+    }
+  });
+});
+
+describe('the cron editor', () => {
+  const openCron = async (state: ReturnType<typeof makeApi>) => {
+    const view = render(() => <SchedulesPage api={state.api} />);
+    await fireEvent.click(await view.findByRole('button', { name: /New schedule/ }));
+    const editor = await view.findByRole('region', { name: 'New schedule' });
+    await fireEvent.click(within(editor).getByRole('button', { name: 'Cron' }));
+    return { view, editor };
+  };
+
+  it('switches between Simple and Cron and starts Cron from the days and time', async () => {
+    const state = makeApi([], { 'GET /schedules/cron-preview?expression=0%203%20*%20*%201%2C2%2C3%2C4%2C5&lang=en': () => preview('0 3 * * 1,2,3,4,5', 'At 03:00, on weekdays') });
+    const { editor } = await openCron(state);
+
+    expect(within(editor).getByLabelText(/Cron expression/)).toHaveValue('0 3 * * 1,2,3,4,5');
+    expect(within(editor).queryByLabelText(/Time \(server time\)/)).toBeNull();
+    expect(within(editor).getByRole('button', { name: 'Cron' })).toHaveAttribute('aria-pressed', 'true');
+    await fireEvent.click(within(editor).getByRole('button', { name: 'Simple' }));
+    expect(within(editor).getByLabelText(/Time \(server time\)/)).toBeInTheDocument();
+    expect(within(editor).queryByLabelText(/Cron expression/)).toBeNull();
+  });
+
+  it('describes the expression and lists the next five runs while typing', async () => {
+    const state = makeApi([], {
+      'GET /schedules/cron-preview?expression=0%203%20*%20*%201%2C2%2C3%2C4%2C5&lang=en': () => preview('0 3 * * 1,2,3,4,5', 'At 03:00, on weekdays'),
+      'GET /schedules/cron-preview?expression=*%2F15%20*%20*%20*%20*&lang=en': () => preview('*/15 * * * *', 'Every 15 minutes', ['2026-10-26T02:15:00+00:00', '2026-10-26T02:30:00+00:00', '2026-10-26T02:45:00+00:00', '2026-10-26T03:00:00+00:00', '2026-10-26T03:15:00+00:00']),
+    });
+    const { editor } = await openCron(state);
+    expect(await within(editor).findByText('At 03:00, on weekdays')).toBeInTheDocument();
+
+    await fireEvent.input(within(editor).getByLabelText(/Cron expression/), { target: { value: '*/15 * * * *' } });
+
+    expect(await within(editor).findByText('Every 15 minutes')).toBeInTheDocument();
+    const runs = within(editor).getByRole('list', { name: 'Next runs' });
+    expect(within(runs).getAllByRole('listitem')).toHaveLength(5);
+  });
+
+  it('shows what is wrong with an invalid expression and blocks saving', async () => {
+    const state = makeApi([], {
+      'GET /schedules/cron-preview?expression=0%203%20*%20*%201%2C2%2C3%2C4%2C5&lang=en': () => preview('0 3 * * 1,2,3,4,5', 'At 03:00, on weekdays'),
+      'GET /schedules/cron-preview?expression=61%20*%20*%20*%20*&lang=en': () => invalid('minute: 61 is out of range 0-59'),
+    });
+    const { editor } = await openCron(state);
+    await fireEvent.input(within(editor).getByLabelText('Name'), { target: { value: 'x' } });
+    await within(editor).findByText('At 03:00, on weekdays');
+    expect(within(editor).getByRole('button', { name: 'Save schedule' })).toBeEnabled();
+
+    await fireEvent.input(within(editor).getByLabelText(/Cron expression/), { target: { value: '61 * * * *' } });
+
+    expect(await within(editor).findByText('minute: 61 is out of range 0-59')).toBeInTheDocument();
+    expect(within(editor).getByLabelText(/Cron expression/)).toHaveAttribute('aria-invalid', 'true');
+    expect(within(editor).getByRole('button', { name: 'Save schedule' })).toBeDisabled();
+    expect(within(editor).queryByRole('list', { name: 'Next runs' })).toBeNull();
+  });
+
+  it('saves the expression itself', async () => {
+    let body: unknown;
+    const state = makeApi([], {
+      'GET /schedules/cron-preview?expression=0%203%20*%20*%201%2C2%2C3%2C4%2C5&lang=en': () => preview('0 3 * * 1,2,3,4,5', 'At 03:00, on weekdays'),
+      'GET /schedules/cron-preview?expression=0%20*%2F6%20*%20*%20*&lang=en': () => preview('0 */6 * * *', 'At 00:00, 06:00, 12:00, 18:00, every day'),
+      'POST /schedules': (init) => { body = JSON.parse(String(init?.body)); return json(schedule(), 201); },
+    });
+    const { editor } = await openCron(state);
+    await fireEvent.input(within(editor).getByLabelText('Name'), { target: { value: 'Often' } });
+    await fireEvent.input(within(editor).getByLabelText(/Cron expression/), { target: { value: '0 */6 * * *' } });
+    await within(editor).findByText('At 00:00, 06:00, 12:00, 18:00, every day');
+    await fireEvent.click(within(editor).getByRole('button', { name: 'Save schedule' }));
+
+    await waitFor(() => expect(body).toEqual({ name: 'Often', action: 'verify', root_id: null, compliance_state: 'unknown', cron: '0 */6 * * *', max_files: 25 }));
+  });
+
+  it('opens a schedule that days and time cannot express directly in Cron mode', async () => {
+    const state = makeApi([schedule({ cron: '*/15 * * * *', days: [0, 1, 2, 3, 4, 5, 6], time: '00:00' })], {
+      'GET /schedules/cron-preview?expression=*%2F15%20*%20*%20*%20*&lang=en': () => preview('*/15 * * * *', 'Every 15 minutes'),
+    });
+    const view = render(() => <SchedulesPage api={state.api} />);
+    await fireEvent.click(await view.findByRole('button', { name: 'Edit' }));
+    const editor = await view.findByRole('region', { name: 'Edit schedule' });
+
+    expect(within(editor).getByRole('button', { name: 'Cron' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(editor).getByLabelText(/Cron expression/)).toHaveValue('*/15 * * * *');
+    expect(await within(editor).findByText('Every 15 minutes')).toBeInTheDocument();
+  });
+
+  it('opens a weekly schedule in Simple mode', async () => {
+    const state = makeApi([schedule()]);
+    const view = render(() => <SchedulesPage api={state.api} />);
+    await fireEvent.click(await view.findByRole('button', { name: 'Edit' }));
+    const editor = await view.findByRole('region', { name: 'Edit schedule' });
+
+    expect(within(editor).getByRole('button', { name: 'Simple' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(editor).getByLabelText(/Time \(server time\)/)).toHaveValue('03:00');
+  });
+
+  it('shows a cron schedule as its expression in the list', async () => {
+    const state = makeApi([schedule({ cron: '0 */6 * * *', days: [0, 1, 2, 3, 4, 5, 6], time: '00:00' })]);
+    const view = render(() => <SchedulesPage api={state.api} />);
+
+    expect(await view.findByRole('list', { name: 'Schedules' })).toHaveTextContent('0 */6 * * *');
+  });
+
+  it('has a guide with the fields and examples that fill the field', async () => {
+    const state = makeApi([], {
+      'GET /schedules/cron-preview?expression=0%203%20*%20*%201%2C2%2C3%2C4%2C5&lang=en': () => preview('0 3 * * 1,2,3,4,5', 'At 03:00, on weekdays'),
+      'GET /schedules/cron-preview?expression=*%2F15%20*%20*%20*%20*&lang=en': () => preview('*/15 * * * *', 'Every 15 minutes'),
+    });
+    const { editor } = await openCron(state);
+    expect(within(editor).queryByText(/day of month/)).toBeNull();
+
+    const toggle = within(editor).getByRole('button', { name: 'Cron guide' });
+    await fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(within(editor).getByText(/minute, hour, day of month, month, weekday/)).toBeInTheDocument();
+    for (const example of ['0 3 * * 1-5', '*/15 * * * *', '0 */6 * * *']) {
+      expect(within(editor).getByRole('button', { name: example })).toBeInTheDocument();
+    }
+    await fireEvent.click(within(editor).getByRole('button', { name: '*/15 * * * *' }));
+
+    expect(within(editor).getByLabelText(/Cron expression/)).toHaveValue('*/15 * * * *');
+    expect(await within(editor).findByText('Every 15 minutes')).toBeInTheDocument();
   });
 });
