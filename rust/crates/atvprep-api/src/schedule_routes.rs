@@ -10,16 +10,16 @@ use crate::{
 };
 use atvprep_manager::{
     approval::{ApprovalVerifier, ScheduleParams},
-    cron::CronExpr,
+    cron::{CronExpr, Lang},
     repo::Ctx,
     schedules::{
         TimeOfDay, days_to_mask, delete_original_setting, effective_cron, mask_to_days,
-        next_cron_run_at_system, run_schedule,
+        next_cron_run_at_system, run_schedule, upcoming_cron_runs_system,
     },
 };
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
@@ -503,6 +503,59 @@ fn views(conn: &rusqlite::Connection, state: &AppState) -> Result<(Vec<Value>, b
         data.push(value);
     }
     Ok((data, truncated))
+}
+
+/// What a person has typed in the cron field.
+#[derive(Deserialize)]
+pub struct CronPreviewQuery {
+    #[serde(default)]
+    expression: String,
+    #[serde(default)]
+    lang: String,
+}
+
+/// The number of upcoming runs a cron preview lists.
+const PREVIEW_RUNS: usize = 5;
+
+/// Describe a cron expression in plain words and list its next runs, or say what is wrong with it.
+///
+/// A read-only helper for the schedule editor: nothing is stored, so it needs a session but no
+/// CSRF proof. An invalid expression is an answer (`valid: false`), not an HTTP error.
+pub async fn cron_preview(
+    State(state): State<AppState>,
+    _session: AuthenticatedSession,
+    Query(query): Query<CronPreviewQuery>,
+) -> Response {
+    let now = DateTime::<Utc>::from_timestamp_micros(state.clock.now_micros());
+    let data = match (CronExpr::parse(&query.expression), now) {
+        (Ok(cron), Some(now)) => {
+            let runs: Vec<String> = upcoming_cron_runs_system(now, &cron, PREVIEW_RUNS)
+                .iter()
+                .map(DateTime::to_rfc3339)
+                .collect();
+            json!({
+                "valid": true,
+                "expression": cron.as_str(),
+                "description": cron.describe(Lang::from_code(&query.lang)),
+                "next_runs": runs,
+            })
+        }
+        (Err(reason), _) => {
+            let reason = reason.to_string();
+            let reason = reason
+                .strip_prefix("invalid cron expression: ")
+                .unwrap_or(&reason);
+            json!({"valid": false, "error": reason})
+        }
+        (Ok(_), None) => {
+            return error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "internal server error",
+                "/api/v1/schedules/cron-preview",
+            );
+        }
+    };
+    Json(json!({"data": data})).into_response()
 }
 
 /// List schedules with matching file counts and their next local-calendar run.

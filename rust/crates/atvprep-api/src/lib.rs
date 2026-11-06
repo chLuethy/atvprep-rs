@@ -35,6 +35,7 @@ use axum::routing::get;
 use crate::errors::ProblemDetail;
 use crate::state::AppState;
 
+#[allow(clippy::too_many_lines)] // one flat table of routes
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/ws", get(ws::upgrade))
@@ -97,6 +98,10 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/v1/schedules",
             get(schedule_routes::list).post(schedule_routes::create),
+        )
+        .route(
+            "/api/v1/schedules/cron-preview",
+            get(schedule_routes::cron_preview),
         )
         .route(
             "/api/v1/schedules/{schedule_id}",
@@ -634,6 +639,65 @@ mod tests {
                 .status(),
             StatusCode::CREATED
         );
+    }
+
+    #[tokio::test]
+    async fn cron_preview_describes_and_lists_the_next_runs() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        let auth = routes_auth::service(&state, &conn).unwrap();
+        let session = auth.create().unwrap();
+        let app = router(state.clone());
+        let get = |query: &str, authenticated: bool| {
+            let mut request = axum::http::Request::builder()
+                .uri(format!("/api/v1/schedules/cron-preview{query}"))
+                .header("origin", "http://localhost");
+            if authenticated {
+                request = request.header(
+                    "cookie",
+                    format!("__Host-atvprep_session={}", session.token),
+                );
+            }
+            let request = request.body(axum::body::Body::empty()).unwrap();
+            let app = app.clone();
+            async move {
+                let response = app.oneshot(request).await.unwrap();
+                let status = response.status();
+                let body: serde_json::Value =
+                    serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap())
+                        .unwrap_or(serde_json::Value::Null);
+                (status, body)
+            }
+        };
+        let (status, _) = get("?expression=0%203%20*%20*%20*", false).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+
+        let (status, body) = get("?expression=0%203%20*%20*%201-5", true).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["data"]["valid"], true);
+        assert_eq!(body["data"]["expression"], "0 3 * * 1-5");
+        assert_eq!(body["data"]["description"], "At 03:00, on weekdays");
+        let runs = body["data"]["next_runs"].as_array().unwrap();
+        assert_eq!(runs.len(), 5);
+        let parsed: Vec<_> = runs
+            .iter()
+            .map(|run| chrono::DateTime::parse_from_rfc3339(run.as_str().unwrap()).unwrap())
+            .collect();
+        assert!(parsed.windows(2).all(|pair| pair[0] < pair[1]));
+
+        let (_, body) = get("?expression=*/15%20*%20*%20*%20*&lang=de", true).await;
+        assert_eq!(body["data"]["description"], "Alle 15 Minuten");
+
+        let (status, body) = get("?expression=61%20*%20*%20*%20*", true).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["data"]["valid"], false);
+        assert_eq!(body["data"]["error"], "minute: 61 is out of range 0-59");
+        assert!(body["data"].get("next_runs").is_none());
+
+        let (status, body) = get("", true).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["data"]["valid"], false);
     }
 
     #[tokio::test]

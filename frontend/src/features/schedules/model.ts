@@ -26,6 +26,46 @@ export function describeDays(days: number[]): string {
   return sorted.map((day) => t(DAYS[day]?.short ?? "")).join(" ");
 }
 
+/** The cron the server stores for days (Monday is 0) and a time, written the way the server writes it. */
+export function weeklyCron(days: number[], time: string): string {
+  const [hour = "0", minute = "0"] = time.split(":");
+  const weekdays = [...new Set(days.map((day) => (day + 1) % 7))].sort((a, b) => a - b);
+  return `${Number(minute)} ${Number(hour)} * * ${weekdays.join(",")}`;
+}
+
+/**
+ * The days and time a cron stands for, when the simple mode can say the same: one minute, one hour,
+ * any day of the month and month, and weekdays as numbers or plain ranges. Anything else is null.
+ * This only decides which editor mode fits; the meaning of an expression comes from the server.
+ */
+export function simpleForm(cron: string): { days: number[]; time: string } | null {
+  const match = /^(\d{1,2}) (\d{1,2}) \* \* (\*|\d(?:-\d)?(?:,\d(?:-\d)?)*)$/.exec(cron.trim());
+  if (!match) return null;
+  const minute = Number(match[1]);
+  const hour = Number(match[2]);
+  if (minute > 59 || hour > 23) return null;
+  const days = new Set<number>();
+  for (const part of (match[3] ?? "*") === "*" ? ["0-6"] : (match[3] ?? "").split(",")) {
+    const [from = 0, to = from] = part.split("-").map(Number);
+    if (from > to || to > 7) return null;
+    for (let weekday = from; weekday <= to; weekday += 1) days.add((weekday + 6) % 7);
+  }
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return { days: [...days].sort((a, b) => a - b), time: `${pad(hour)}:${pad(minute)}` };
+}
+
+/** When a schedule runs: days and time if the simple mode can say it, else the cron itself. */
+export function describeWhen(schedule: Pick<Schedule, "cron" | "days" | "time">): string {
+  return simpleForm(schedule.cron) ? `${describeDays(schedule.days)} · ${schedule.time}` : schedule.cron;
+}
+
+/** Cron examples the guide offers, each with what it means. */
+export const CRON_EXAMPLES: ReadonlyArray<{ cron: string; meaning: string }> = [
+  { cron: "0 3 * * 1-5", meaning: N("Weekdays at 03:00") },
+  { cron: "*/15 * * * *", meaning: N("Every 15 minutes") },
+  { cron: "0 */6 * * *", meaning: N("Every 6 hours, on the hour") },
+];
+
 const ACTION_LABEL: Record<Action, string> = { verify: N("Verify"), fix: N("Fix"), convert: N("Convert"), scan: N("Scan") };
 export const actionName = (action: Action): string => t(ACTION_LABEL[action]);
 
@@ -77,6 +117,49 @@ export function describeLast(schedule: Pick<Schedule, "last_run_at" | "last_resu
 
 const NOT_APPROVED = "not approved to change files. Turn the schedule on again.";
 N("Not approved to change files. Turn the schedule on again.");
+
+export type SortKey = "next" | "name" | "last";
+export type StatusFilter = "on" | "paused";
+export type ListFilter = { actions: Action[]; statuses: StatusFilter[] };
+
+export const SORT_KEYS: ReadonlyArray<{ key: SortKey; label: string }> = [
+  { key: "next", label: N("Next run") },
+  { key: "name", label: N("Name") },
+  { key: "last", label: N("Last run") },
+];
+export const LIST_ACTIONS: ReadonlyArray<Action> = ["verify", "fix", "convert", "scan"];
+export const LIST_STATUSES: ReadonlyArray<{ status: StatusFilter; label: string }> = [
+  { status: "on", label: N("On") },
+  { status: "paused", label: N("Paused") },
+];
+
+const time = (value: string | null): number | null => {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+/** A sorted copy: next run soonest first, last run newest first; schedules without that time come last. */
+export function sortSchedules(rows: readonly Schedule[], key: SortKey): Schedule[] {
+  const byName = (a: Schedule, b: Schedule) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  const byTime = (pick: (row: Schedule) => string | null, newestFirst: boolean) => (a: Schedule, b: Schedule) => {
+    const left = time(pick(a));
+    const right = time(pick(b));
+    if (left === null && right === null) return byName(a, b);
+    if (left === null) return 1;
+    if (right === null) return -1;
+    return (newestFirst ? right - left : left - right) || byName(a, b);
+  };
+  const compare = key === "name" ? byName : key === "last" ? byTime((row) => row.last_run_at, true) : byTime((row) => row.next_run_at, false);
+  return [...rows].sort(compare);
+}
+
+/** Rows matching any chosen action and any chosen status; an empty choice matches everything. */
+export function filterSchedules(rows: readonly Schedule[], filter: ListFilter): Schedule[] {
+  return rows.filter((row) =>
+    (filter.actions.length === 0 || filter.actions.includes(row.action)) &&
+    (filter.statuses.length === 0 || filter.statuses.includes(row.enabled ? "on" : "paused")));
+}
 
 /** What the last run says. The server writes it in English; the ones it writes itself are put into the chosen language. */
 export function describeResult(result: string | null): string {
