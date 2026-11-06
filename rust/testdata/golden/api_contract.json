@@ -2,7 +2,7 @@
   "cases": [
     {
       "expected": {
-        "completed": 33
+        "completed": 34
       },
       "input": {
         "steps": [
@@ -615,6 +615,23 @@
                   }
                 ],
                 "meta": {}
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/schedules/cron-preview?expression=61%20*%20*%20*%20*"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "error": "minute: 61 is out of range 0-59",
+                  "valid": false
+                }
               },
               "status": 200
             }
