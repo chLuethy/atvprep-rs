@@ -282,6 +282,76 @@ mod tests {
         }
     }
 
+    fn database_at(version: usize) -> (Db, Conn) {
+        let db = Db::memory().unwrap();
+        let conn = db.conn().unwrap();
+        for stage in &STAGES[..version] {
+            conn.raw().execute_batch(stage).unwrap();
+        }
+        conn.raw()
+            .execute_batch(&format!("PRAGMA user_version = {version}"))
+            .unwrap();
+        (db, conn)
+    }
+
+    #[test]
+    fn a_version_2_database_upgrades_to_current_and_keeps_its_schedules() {
+        let (_db, mut conn) = database_at(2);
+        exec(
+            &conn,
+            "INSERT INTO schedules(id, name, action, days_mask, time_of_day, max_files, enabled, cron)
+             VALUES (4, 'nightly', 'verify', 31, '02:15', 12, 1, '15 2 * * 1-5')",
+        )
+        .unwrap();
+        migrate(&mut conn).unwrap();
+        assert_eq!(version(&conn).unwrap(), VERSION);
+        let row: String = conn
+            .raw()
+            .query_row(
+                "SELECT concat_ws('|', name, action, days_mask, time_of_day, max_files, enabled, cron) FROM schedules WHERE id=4",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(row, "nightly|verify|31|02:15|12|1|15 2 * * 1-5");
+        exec(
+            &conn,
+            "INSERT INTO schedules(name, action, days_mask, time_of_day) VALUES ('s', 'scan', 1, '01:00')",
+        )
+        .unwrap();
+        conn.raw().prepare("SELECT 1 FROM schedule_runs").unwrap();
+        conn.raw()
+            .prepare("SELECT approval_mac FROM schedules")
+            .unwrap();
+    }
+
+    #[test]
+    fn a_version_3_database_upgrades_to_current_and_keeps_its_scan_schedules() {
+        let (_db, mut conn) = database_at(3);
+        exec(
+            &conn,
+            "INSERT INTO schedules(id, name, action, days_mask, time_of_day, cron, enabled)
+             VALUES (6, 'scan all', 'scan', 127, '04:00', '0 4 * * *', 1)",
+        )
+        .unwrap();
+        migrate(&mut conn).unwrap();
+        assert_eq!(version(&conn).unwrap(), VERSION);
+        let row: String = conn
+            .raw()
+            .query_row(
+                "SELECT concat_ws('|', name, action, cron, enabled, approval_mac) FROM schedules WHERE id=6",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(row, "scan all|scan|0 4 * * *|1");
+        exec(
+            &conn,
+            "INSERT INTO schedule_runs(schedule_id, started_at, trigger, result) VALUES (6, 'now', 'manual', 'done')",
+        )
+        .unwrap();
+    }
+
     #[test]
     fn a_version_4_database_upgrades_to_5_and_keeps_its_schedule_runs() {
         let db = Db::memory().unwrap();

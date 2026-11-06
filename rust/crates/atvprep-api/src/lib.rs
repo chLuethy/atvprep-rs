@@ -701,7 +701,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines)] // One session walks create, list and preview of cron schedules.
     async fn schedules_are_stored_and_returned_as_cron() {
         let state = state();
         let mut conn = state.db.conn().unwrap();
