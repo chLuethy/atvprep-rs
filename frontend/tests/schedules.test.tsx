@@ -1,7 +1,8 @@
 import { fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
+import { setLanguage } from "../src/lib/i18n";
 import { SchedulesPage } from "../src/features/schedules/SchedulesPage";
-import { describeDays, describeResult, describeTarget, simpleForm, stateChoices, weeklyCron } from "../src/features/schedules/model";
+import { describeDays, describeProblem, describeResult, describeTarget, simpleForm, stateChoices, weeklyCron } from "../src/features/schedules/model";
 import type { Schedule } from "../src/features/schedules/loaders";
 
 type Api = { request: (path: string, init?: RequestInit) => Promise<Response> };
@@ -381,6 +382,24 @@ describe("SchedulesPage", () => {
     await fireEvent.click(within(editor).getByRole("button", { name: "Save schedule" }));
 
     expect(await within(editor).findByRole("alert")).toHaveTextContent("The server said: unknown library");
+  });
+
+  it("shows the server's refusal of a limit in the chosen language", async () => {
+    setLanguage("de");
+    try {
+      expect(describeProblem("Files per run may be at most 12 for this action.")).toBe("Dateien pro Lauf dürfen bei dieser Aktion höchstens 12 betragen.");
+      expect(describeProblem("A schedule that changes files may run at most every 15 minutes; this one runs every 10.")).toBe("Ein Zeitplan, der Dateien ändert, darf höchstens alle 15 Minuten laufen; dieser läuft alle 10.");
+      expect(describeProblem("unknown library")).toBe("unknown library");
+      const state = makeApi([], { "POST /schedules": () => new Response(JSON.stringify({ detail: "Files per run may be at most 12 for this action." }), { status: 422 }) });
+      const view = render(() => <SchedulesPage api={state.api} />);
+      await fireEvent.click(await view.findByRole("button", { name: /Neuer Zeitplan/ }));
+      const editor = await view.findByRole("region", { name: "Neuer Zeitplan" });
+      await fireEvent.input(within(editor).getByLabelText("Name"), { target: { value: "x" } });
+      await fireEvent.click(within(editor).getByRole("button", { name: "Zeitplan speichern" }));
+      expect(await within(editor).findByRole("alert")).toHaveTextContent("Dateien pro Lauf dürfen bei dieser Aktion höchstens 12 betragen.");
+    } finally {
+      setLanguage("en");
+    }
   });
 
   it("opens the editor with N and closes it with Escape", async () => {

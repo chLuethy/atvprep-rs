@@ -37,6 +37,8 @@ export const deSchedules: Record<string, string | readonly [string, string]> = {
   "Set a time.": "Eine Uhrzeit festlegen.",
   "Missed: not started within {minutes} minutes of its slot": "Verpasst: nicht innerhalb von {minutes} Minuten nach dem Slot gestartet",
   "Adjust the schedule or check that the manager is running.": "Passe den Zeitplan an oder prüfe, ob der Manager läuft.",
+  "A schedule that changes files may run at most every {minutes} minutes; this one runs every {found}.": "Ein Zeitplan, der Dateien ändert, darf höchstens alle {minutes} Minuten laufen; dieser läuft alle {found}.",
+  "Files per run may be at most {max} for this action.": "Dateien pro Lauf dürfen bei dieser Aktion höchstens {max} betragen.",
   "Paused: {reason}": "Pausiert: {reason}",
   "it runs more often than every {minutes} minutes (every {found}). Adjust the schedule.": "er läuft öfter als alle {minutes} Minuten (alle {found}). Passe den Zeitplan an.",
   "it takes more than {max} files per run. Adjust the schedule.": "er nimmt mehr als {max} Dateien pro Lauf. Passe den Zeitplan an.",

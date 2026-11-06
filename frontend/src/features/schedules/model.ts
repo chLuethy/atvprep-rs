@@ -191,3 +191,14 @@ export function describeResult(result: string | null): string {
   }
   return result;
 }
+/**
+ * A sentence of the server about a refused limit (minimum interval, files per run), in the chosen
+ * language. Any other text is returned as it is.
+ */
+export function describeProblem(text: string): string {
+  const interval = /^A schedule that changes files may run at most every (\d+) minutes; this one runs every (\d+)\.$/.exec(text);
+  if (interval) return t("A schedule that changes files may run at most every {minutes} minutes; this one runs every {found}.", { minutes: interval[1] ?? "", found: interval[2] ?? "" });
+  const files = /^Files per run may be at most (\d+) for this action\.$/.exec(text);
+  if (files) return t("Files per run may be at most {max} for this action.", { max: files[1] ?? "" });
+  return text;
+}

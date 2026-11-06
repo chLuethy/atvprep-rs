@@ -10,7 +10,7 @@ import {
 } from "./loaders";
 import {
   actionName, CRON_EXAMPLES, DAYS, defaultState, describeLast, describeNext, describeResult,
-  describeTarget, describeWhen, EVERY_DAY, filterSchedules, simpleForm, sortSchedules, stateChoices, WEEKDAYS,
+  describeProblem, describeTarget, describeWhen, EVERY_DAY, filterSchedules, simpleForm, sortSchedules, stateChoices, WEEKDAYS,
   weeklyCron, type ListFilter, type SortKey,
 } from "./model";
 import { ListToolbar } from "./ListToolbar";
@@ -22,7 +22,7 @@ type Asking = { id: string; kind: "delete" | "enable" } | null;
 
 const blank = (): ScheduleInput => ({ name: "", action: "verify", rootId: null, complianceState: defaultState("verify"), days: [...WEEKDAYS], time: "03:00", cron: null, maxFiles: 25 });
 
-const problem = (detail: string | undefined, fallback: string) => (detail ? t("{fallback} The server said: {detail}.", { fallback, detail }) : fallback);
+const problem = (detail: string | undefined, fallback: string) => (detail ? t("{fallback} The server said: {detail}.", { fallback, detail: describeProblem(detail) }) : fallback);
 
 /** Timetables that verify, fix or convert the files that match a filter, or scan the libraries. */
 export const SchedulesPage: Component<{ api: Api }> = (props) => {
@@ -127,7 +127,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
     if (value.cron !== null) {
       const state = preview();
       if (!value.cron.trim()) found.push(t("Enter a cron expression."));
-      else if (state?.kind === "invalid") found.push(state.error);
+      else if (state?.kind === "invalid") found.push(describeProblem(state.error));
       else if (state === null) found.push(t("Checking the expression."));
     } else {
       if (value.days.length === 0) found.push(t("Pick at least one day."));
@@ -210,7 +210,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
         <div id="sched-cron-result" class="cron-result" aria-live="polite">
           {(() => {
             const state = preview();
-            if (state?.kind === "invalid") return <p class="notice bad">{state.error}</p>;
+            if (state?.kind === "invalid") return <p class="notice bad">{describeProblem(state.error)}</p>;
             if (state?.kind === "error") return <p class="muted">{t("Unable to check the expression right now. The server checks it when you save.")}</p>;
             if (state?.kind !== "ok") return null;
             return (
