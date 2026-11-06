@@ -8,6 +8,7 @@
 use chrono::{DateTime, Datelike, Local, LocalResult, NaiveDate, Offset, TimeZone, Timelike, Utc};
 
 use crate::clock::format_micros;
+use crate::cron::CronExpr;
 use crate::deployment_gate::DeploymentGate;
 use crate::jobs::{Jobs, NewJob};
 use crate::repo::Ctx;
@@ -307,6 +308,70 @@ pub fn next_run_at_system(
     next_run_at(now, enabled, days_mask, time, &Local)
 }
 
+/// The cron a schedule row runs on: its `cron` column, or, while that is empty (a row written
+/// by the previous binary), the one its legacy weekday mask and time of day stand for.
+///
+/// # Errors
+///
+/// [`Error::Invalid`] when the stored cron or the legacy time is malformed.
+pub fn effective_cron(cron: Option<&str>, days_mask: u8, time_of_day: &str) -> Result<CronExpr> {
+    match cron.map(str::trim).filter(|text| !text.is_empty()) {
+        Some(text) => CronExpr::parse(text),
+        None => Ok(CronExpr::from_weekdays(
+            days_mask,
+            TimeOfDay::parse(time_of_day)?,
+        )),
+    }
+}
+
+/// Find the next future cron slot as a UTC instant in an explicitly supplied timezone.
+///
+/// DST is handled exactly like the weekly slots: see [`local_to_utc`].
+#[must_use]
+pub fn next_cron_run_at<Tz>(
+    now: DateTime<Utc>,
+    enabled: bool,
+    cron: &CronExpr,
+    timezone: &Tz,
+) -> Option<DateTime<Utc>>
+where
+    Tz: TimeZone,
+    Tz::Offset: Offset,
+{
+    if !enabled {
+        return None;
+    }
+    let local_now = now.with_timezone(timezone);
+    let mut slot = cron.next_slot(
+        LocalDateTime::new(
+            local_now.year(),
+            u8::try_from(local_now.month()).ok()?,
+            u8::try_from(local_now.day()).ok()?,
+            u8::try_from(local_now.hour()).ok()?,
+            u8::try_from(local_now.minute()).ok()?,
+        )
+        .ok()?,
+    );
+    while let Some(local_slot) = slot {
+        let utc = local_to_utc(local_slot, timezone)?;
+        if utc > now {
+            return Some(utc);
+        }
+        slot = cron.next_slot(local_slot);
+    }
+    None
+}
+
+/// [`next_cron_run_at`] in the manager host's local timezone.
+#[must_use]
+pub fn next_cron_run_at_system(
+    now: DateTime<Utc>,
+    enabled: bool,
+    cron: &CronExpr,
+) -> Option<DateTime<Utc>> {
+    next_cron_run_at(now, enabled, cron, &Local)
+}
+
 /// Run one schedule or record why it could not queue work.
 ///
 /// Schedule execution is deliberately read-only: only `verify` is queued. Historical `fix` and
@@ -423,7 +488,7 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
         u8::try_from(local_now.minute()).unwrap_or(0),
     )?;
     let mut statement = ctx.conn.prepare(
-        "SELECT id, days_mask, time_of_day, armed_at FROM schedules WHERE enabled=1 ORDER BY id",
+        "SELECT id, days_mask, time_of_day, armed_at, cron FROM schedules WHERE enabled=1 ORDER BY id",
     )?;
     let schedules = statement
         .query_map([], |row| {
@@ -432,17 +497,18 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
                 row.get::<_, u8>(1)?,
                 row.get::<_, String>(2)?,
                 row.get::<_, String>(3)?,
+                row.get::<_, Option<String>>(4)?,
             ))
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
     drop(statement);
     let mut ran = 0;
-    for (id, mask, time, armed_at) in schedules {
+    for (id, mask, time, armed_at, cron) in schedules {
         // One corrupt row must not stop every schedule after it.
-        let Ok(time_of_day) = TimeOfDay::parse(&time) else {
+        let Ok(cron) = effective_cron(cron.as_deref(), mask, &time) else {
             continue;
         };
-        let Some(slot) = latest_slot(local, mask, time_of_day) else {
+        let Some(slot) = cron.latest_slot(local) else {
             continue;
         };
         let Some(slot_utc) = local_to_utc(slot, &Local) else {
@@ -691,6 +757,34 @@ mod tests {
             local_to_utc(local(2026, 3, 29, 2, 30), &timezone),
             Some(utc(2026, 3, 29, 1, 30))
         );
+    }
+
+    #[test]
+    fn cron_runs_agree_with_weekly_runs_across_dst_boundaries() {
+        let timezone = chrono_tz::Europe::Zurich;
+        let mask = days_to_mask(&[0, 1, 2, 3, 4, 5, 6]);
+        let cron = effective_cron(None, mask, "02:30").unwrap();
+        for (year, month, day) in [(2026, 3, 28), (2026, 3, 29), (2026, 10, 24), (2026, 10, 25)] {
+            for hour in 0..24 {
+                let now = utc(year, month, day, hour, 0);
+                assert_eq!(
+                    next_cron_run_at(now, true, &cron, &timezone),
+                    next_run_at(now, true, mask, time("02:30"), &timezone),
+                    "{now}"
+                );
+            }
+        }
+        assert!(next_cron_run_at(utc(2026, 3, 29, 0, 0), false, &cron, &timezone).is_none());
+    }
+
+    #[test]
+    fn a_blank_cron_falls_back_to_the_legacy_columns() {
+        assert_eq!(
+            effective_cron(Some(" "), 1, "03:00").unwrap().as_str(),
+            "0 3 * * 1"
+        );
+        assert!(effective_cron(None, 1, "bad").is_err());
+        assert!(effective_cron(Some("nonsense"), 1, "03:00").is_err());
     }
 
     #[test]

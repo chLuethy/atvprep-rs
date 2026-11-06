@@ -3,10 +3,15 @@
 use crate::db::Conn;
 use crate::{Error, Result};
 
-const BASE: &str = include_str!("migrations/0001_base.sql");
+/// Migration stages in order; stage `n` takes a database from version `n - 1` to `n`.
+/// To extend: add `000N_name.sql`, append it here and raise [`VERSION`].
+const STAGES: [&str; 2] = [
+    include_str!("migrations/0001_base.sql"),
+    include_str!("migrations/0002_cron.sql"),
+];
 
 /// The version this build creates and understands.
-pub const VERSION: i64 = 1;
+pub const VERSION: i64 = 2;
 
 /// Every table of the base schema.
 pub const TABLES: [&str; 22] = [
@@ -40,28 +45,38 @@ fn version(conn: &Conn) -> Result<i64> {
         .query_row("PRAGMA user_version", [], |row| row.get(0))?)
 }
 
-/// Create the schema on an empty database; do nothing on a current one.
+/// Create the schema on an empty database, upgrade an older one; do nothing on a current one.
 ///
 /// # Errors
 ///
 /// The database was written by a newer build, or the SQL fails.
 pub fn migrate(conn: &mut Conn) -> Result<()> {
-    match version(conn)? {
-        0 => conn.transaction(|tx| {
-            // Another process may have created the schema between the check and this write lock.
-            let current: i64 = tx.query_row("PRAGMA user_version", [], |row| row.get(0))?;
-            if current == VERSION {
-                return Ok(());
-            }
-            tx.execute_batch(BASE)?;
-            tx.execute_batch(&format!("PRAGMA user_version = {VERSION}"))?;
-            Ok(())
-        }),
-        VERSION => Ok(()),
-        other => Err(Error::Invalid(format!(
-            "database schema version {other} is newer than this build understands ({VERSION})"
-        ))),
+    let found = version(conn)?;
+    if found > VERSION {
+        return Err(newer(found));
     }
+    if found == VERSION {
+        return Ok(());
+    }
+    conn.transaction(|tx| {
+        // Another process may have migrated between the check and this write lock.
+        let current: i64 = tx.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        if current > VERSION {
+            return Err(newer(current));
+        }
+        let done = usize::try_from(current).unwrap_or(0);
+        for stage in &STAGES[done..] {
+            tx.execute_batch(stage)?;
+        }
+        tx.execute_batch(&format!("PRAGMA user_version = {VERSION}"))?;
+        Ok(())
+    })
+}
+
+fn newer(found: i64) -> Error {
+    Error::Invalid(format!(
+        "database schema version {found} is newer than this build understands ({VERSION})"
+    ))
 }
 
 #[cfg(test)]
@@ -147,6 +162,64 @@ mod tests {
         migrate(&mut conn).unwrap();
         migrate(&mut conn).unwrap();
         assert_eq!(version(&conn).unwrap(), VERSION);
+    }
+
+    #[test]
+    fn a_version_1_database_upgrades_and_keeps_every_weekday_combination_on_its_slots() {
+        use crate::cron::CronExpr;
+        use crate::schedules::{LocalDateTime, TimeOfDay, latest_slot};
+
+        let db = Db::memory().unwrap();
+        let mut conn = db.conn().unwrap();
+        conn.raw().execute_batch(STAGES[0]).unwrap();
+        conn.raw().execute_batch("PRAGMA user_version = 1").unwrap();
+        for mask in 1..=127 {
+            let time = ["00:00", "03:05", "12:30", "23:59"][mask % 4];
+            exec(
+                &conn,
+                &format!(
+                    "INSERT INTO schedules(id, name, action, days_mask, time_of_day)
+                     VALUES ({mask}, 's', 'verify', {mask}, '{time}')"
+                ),
+            )
+            .unwrap();
+        }
+        migrate(&mut conn).unwrap();
+        assert_eq!(version(&conn).unwrap(), VERSION);
+        let rows: Vec<(u8, String, String)> = conn
+            .raw()
+            .prepare("SELECT days_mask, time_of_day, cron FROM schedules ORDER BY id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .map(|row| row.unwrap())
+            .collect();
+        assert_eq!(rows.len(), 127);
+        assert_eq!(rows[0], (1, "03:05".to_owned(), "5 3 * * 1".to_owned()));
+        // Sunday only is cron weekday 0.
+        assert_eq!(rows[63], (64, "00:00".to_owned(), "0 0 * * 0".to_owned()));
+        // Same slots as before, over two weeks of every hour.
+        let start = LocalDateTime::new(2026, 10, 19, 0, 0).unwrap();
+        for (mask, time, cron) in rows {
+            let cron = CronExpr::parse(&cron).unwrap();
+            let time = TimeOfDay::parse(&time).unwrap();
+            for step in 0..14 * 24 {
+                let now = start
+                    .add_days(step / 24)
+                    .with_time(TimeOfDay::parse(&format!("{:02}:30", step % 24)).unwrap());
+                assert_eq!(
+                    cron.latest_slot(now),
+                    latest_slot(now, mask, time),
+                    "mask {mask} at {now:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_fresh_database_runs_every_stage() {
+        let (_db, conn) = fresh();
+        conn.raw().prepare("SELECT cron FROM schedules").unwrap();
     }
 
     #[test]

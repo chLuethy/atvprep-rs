@@ -3,6 +3,7 @@
 
 pub mod approval;
 pub mod clock;
+pub mod cron;
 pub mod db;
 pub mod deployment_gate;
 pub mod error;
