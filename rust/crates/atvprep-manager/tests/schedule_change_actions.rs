@@ -144,12 +144,16 @@ fn a_slot_on_time_runs_but_a_missed_one_is_never_caught_up() {
         };
         assert_eq!(run_due_schedules(ctx).unwrap(), 0, "{action} missed");
         assert!(jobs(&conn).is_empty());
-        assert!(
+        // It is noted once as missed, with the two-minute window as the reason.
+        assert_eq!(
             conn.raw()
-                .query_row("SELECT last_slot_at FROM schedules", [], |row| row
-                    .get::<_, Option<String>>(0))
-                .unwrap()
-                .is_none()
+                .query_row(
+                    "SELECT group_concat(kind || ':' || result) FROM schedule_runs",
+                    [],
+                    |row| row.get::<_, String>(0)
+                )
+                .unwrap(),
+            "missed:Missed: not started within 2 minutes of its slot"
         );
     }
     // Checking keeps its six-hour catch-up.

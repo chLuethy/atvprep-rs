@@ -12,6 +12,7 @@ use crate::clock::format_micros;
 use crate::cron::CronExpr;
 use crate::deployment_gate::DeploymentGate;
 use crate::jobs::{Jobs, NewJob};
+use crate::limits;
 use crate::repo::Ctx;
 use crate::scans::Scans;
 use crate::{Error, Result};
@@ -702,6 +703,44 @@ fn finish_run(
     Ok(())
 }
 
+/// Pause a schedule that breaks a limit, end its approval and put the reason into its history.
+fn pause_over_limit(ctx: Ctx<'_>, schedule_id: i64, violation: &limits::Violation) -> Result<()> {
+    ctx.conn.execute(
+        "UPDATE schedules SET enabled=0, approved_by=NULL, approved_at=NULL, approval_mac=NULL WHERE id=?1",
+        [schedule_id],
+    )?;
+    finish_run(
+        ctx,
+        schedule_id,
+        None,
+        &ctx.clock.now(),
+        &format!("Paused: {violation}"),
+        None,
+        None,
+    )
+}
+
+/// Note a slot the manager did not trigger within its window in the schedule's history, with no job.
+///
+/// The claim on the slot (done by the caller) keeps later ticks from noting it again; the unique
+/// index on missed entries guarantees it even if two schedulers raced past the claim.
+fn note_missed(ctx: Ctx<'_>, schedule_id: i64, slot: &str, window_micros: i64) -> Result<()> {
+    ctx.conn.execute(
+        "INSERT OR IGNORE INTO schedule_runs(schedule_id, slot, started_at, trigger, result, kind)
+         VALUES (?1, ?2, ?3, 'scheduled', ?4, 'missed')",
+        rusqlite::params![
+            schedule_id,
+            slot,
+            ctx.clock.now(),
+            format!(
+                "Missed: not started within {} minutes of its slot",
+                window_micros / 60_000_000
+            )
+        ],
+    )?;
+    Ok(())
+}
+
 /// Run enabled schedules whose latest local slot is no more than six hours old; schedules that
 /// change files only run in the minute of their slot.
 ///
@@ -726,9 +765,7 @@ pub fn run_due_schedules(ctx: Ctx<'_>) -> Result<usize> {
 
 fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
     let gate = DeploymentGate(ctx).status()?;
-    if !gate.healthy || gate.mode != "open" || gate.phase != "steady" {
-        return Ok(0);
-    }
+    let gate_open = gate.healthy && gate.mode == "open" && gate.phase == "steady";
     let now_micros = ctx.clock.now_micros();
     let Some(now_utc) = DateTime::<Utc>::from_timestamp_micros(now_micros) else {
         return Ok(0);
@@ -742,7 +779,7 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
         u8::try_from(local_now.minute()).unwrap_or(0),
     )?;
     let mut statement = ctx.conn.prepare(
-        "SELECT id, days_mask, time_of_day, armed_at, cron, action FROM schedules WHERE enabled=1 ORDER BY id",
+        "SELECT id, days_mask, time_of_day, armed_at, cron, action, max_files FROM schedules WHERE enabled=1 ORDER BY id",
     )?;
     let schedules = statement
         .query_map([], |row| {
@@ -753,16 +790,24 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
                 row.get::<_, String>(3)?,
                 row.get::<_, Option<String>>(4)?,
                 row.get::<_, String>(5)?,
+                row.get::<_, i64>(6)?,
             ))
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
     drop(statement);
     let mut ran = 0;
-    for (id, mask, time, armed_at, cron, action) in schedules {
+    for (id, mask, time, armed_at, cron, action, max_files) in schedules {
         // One corrupt row must not stop every schedule after it.
         let Ok(cron) = effective_cron(cron.as_deref(), mask, &time) else {
             continue;
         };
+        // A schedule saved before a limit existed does not run on unnoticed: it is paused and says why.
+        if let Err(violation) = limits::check(&action, &cron, max_files)
+            && gate_open
+        {
+            pause_over_limit(ctx, id, &violation)?;
+            continue;
+        }
         let Some(slot) = cron.latest_slot(local) else {
             continue;
         };
@@ -770,18 +815,29 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
             continue;
         };
         let slot_micros = slot_utc.timestamp_micros();
-        if slot_micros > now_micros
-            || now_micros - slot_micros
-                > if matches!(action.as_str(), "fix" | "convert") {
-                    ON_TIME_MICROS
-                } else {
-                    CATCH_UP_MICROS
-                }
-            || format_micros(slot_micros) <= armed_at
-        {
+        // A slot before arming never ran and never will; one in the future is not due yet.
+        if slot_micros > now_micros || format_micros(slot_micros) <= armed_at {
             continue;
         }
+        let window = if limits::changes_files(&action) {
+            ON_TIME_MICROS
+        } else {
+            CATCH_UP_MICROS
+        };
+        let missed = now_micros - slot_micros > window;
         let slot_text = format_micros(slot_micros);
+        if !gate_open {
+            // Nothing runs behind a closed gate, and that is expected. A slot still inside its window
+            // stays open for the catch-up; one that has left it is used up silently, so reopening the
+            // gate never reports it as missed.
+            if missed {
+                ctx.conn.execute(
+                    "UPDATE schedules SET last_slot_at=?1 WHERE id=?2 AND (last_slot_at IS NULL OR last_slot_at < ?1)",
+                    rusqlite::params![slot_text, id],
+                )?;
+            }
+            continue;
+        }
         // A failing schedule rolls back alone: its claim is retried next pass, the others still run.
         ctx.conn.execute_batch("SAVEPOINT schedule_run")?;
         let outcome = (|| -> Result<bool> {
@@ -789,6 +845,10 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
                 "UPDATE schedules SET last_slot_at=?1 WHERE id=?2 AND (last_slot_at IS NULL OR last_slot_at < ?1)",
                 rusqlite::params![slot_text, id],
             )? == 1 {
+                if missed {
+                    note_missed(ctx, id, &slot_text, window)?;
+                    return Ok(false);
+                }
                 let _ = run_recorded(ctx, id, Some(&slot_text))?;
                 return Ok(true);
             }

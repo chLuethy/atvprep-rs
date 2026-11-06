@@ -175,5 +175,30 @@ export function describeResult(result: string | null): string {
     const reason = refused[1] ?? "";
     return t("Not queued: {reason}", { reason: reason === NOT_APPROVED ? t("Not approved to change files. Turn the schedule on again.") : reason });
   }
+  const missed = /^Missed: not started within (\d+) minutes of its slot$/.exec(result);
+  if (missed) return t("Missed: not started within {minutes} minutes of its slot", { minutes: missed[1] ?? "" });
+  const paused = /^Paused: ([\s\S]*)$/.exec(result);
+  if (paused) {
+    const reason = paused[1] ?? "";
+    const interval = /^A schedule that changes files may run at most every (\d+) minutes; this one runs every (\d+)\.$/.exec(reason);
+    const files = /^Files per run may be at most (\d+) for this action\.$/.exec(reason);
+    const known = interval
+      ? t("it runs more often than every {minutes} minutes (every {found}). Adjust the schedule.", { minutes: interval[1] ?? "", found: interval[2] ?? "" })
+      : files
+        ? t("it takes more than {max} files per run. Adjust the schedule.", { max: files[1] ?? "" })
+        : reason;
+    return t("Paused: {reason}", { reason: known });
+  }
   return result;
+}
+/**
+ * A sentence of the server about a refused limit (minimum interval, files per run), in the chosen
+ * language. Any other text is returned as it is.
+ */
+export function describeProblem(text: string): string {
+  const interval = /^A schedule that changes files may run at most every (\d+) minutes; this one runs every (\d+)\.$/.exec(text);
+  if (interval) return t("A schedule that changes files may run at most every {minutes} minutes; this one runs every {found}.", { minutes: interval[1] ?? "", found: interval[2] ?? "" });
+  const files = /^Files per run may be at most (\d+) for this action\.$/.exec(text);
+  if (files) return t("Files per run may be at most {max} for this action.", { max: files[1] ?? "" });
+  return text;
 }

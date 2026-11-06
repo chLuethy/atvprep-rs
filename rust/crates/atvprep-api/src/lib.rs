@@ -816,6 +816,205 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_missed_slot_is_listed_in_the_history_as_missed() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        conn.raw()
+            .execute_batch(
+                "INSERT INTO schedules(id,name,action,days_mask,time_of_day,enabled) VALUES(1,'Nightly','verify',1,'12:30',1);
+                 INSERT INTO schedule_runs(schedule_id,slot,started_at,trigger,result,kind) VALUES(1,'2026-11-05 12:30:00.000000','2026-11-05 20:00:00.000000','scheduled','Missed: not started within 360 minutes of its slot','missed');",
+            )
+            .unwrap();
+        let auth = routes_auth::service(&state, &conn).unwrap();
+        let session = auth.create().unwrap();
+        let request = axum::http::Request::builder()
+            .uri("/api/v1/schedules")
+            .header("origin", "http://localhost")
+            .header(
+                "cookie",
+                format!("__Host-atvprep_session={}", session.token),
+            )
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let response = router(state.clone()).oneshot(request).await.unwrap();
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        let runs = body["data"][0]["runs"].as_array().unwrap();
+        assert_eq!(runs.len(), 1);
+        assert_eq!(runs[0]["kind"], "missed");
+        assert_eq!(runs[0]["trigger"], "scheduled");
+        assert_eq!(
+            runs[0]["result"],
+            "Missed: not started within 360 minutes of its slot"
+        );
+        assert!(runs[0]["job_id"].is_null());
+    }
+
+    #[tokio::test]
+    #[allow(clippy::too_many_lines)] // One session walks every limit through create, update, preview and list.
+    async fn schedule_limits_are_enforced_on_save_and_published() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        conn.raw()
+            .execute_batch(
+                "INSERT INTO schedules(id,name,action,days_mask,time_of_day,max_files,enabled) VALUES(1,'Old fix','fix',1,'12:30',20,0);",
+            )
+            .unwrap();
+        let auth = routes_auth::service(&state, &conn).unwrap();
+        let session = auth.create().unwrap();
+        let app = router(state.clone());
+        let send = |method: &'static str, path: String, body: serde_json::Value, key: &str| {
+            let csrf = auth
+                .issue_csrf(
+                    &session.token,
+                    method,
+                    &path,
+                    if method == "POST" {
+                        "create-schedule"
+                    } else {
+                        "update-schedule"
+                    },
+                )
+                .unwrap();
+            let request = axum::http::Request::builder()
+                .method(method)
+                .uri(path)
+                .header("origin", "http://localhost")
+                .header(
+                    "cookie",
+                    format!("__Host-atvprep_session={}", session.token),
+                )
+                .header("x-csrf-token", csrf)
+                .header("idempotency-key", key.to_owned())
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(body.to_string()))
+                .unwrap();
+            let app = app.clone();
+            async move {
+                let response = app.oneshot(request).await.unwrap();
+                let status = response.status();
+                let body: serde_json::Value =
+                    serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap())
+                        .unwrap_or(serde_json::Value::Null);
+                (status, body)
+            }
+        };
+        let create = |name: &str, action: &str, cron: &str, max: i64, key: &str| {
+            send(
+                "POST",
+                "/api/v1/schedules".into(),
+                serde_json::json!({"name":name,"action":action,"cron":cron,"max_files":max}),
+                key,
+            )
+        };
+        // Too frequent for a schedule that changes files, with the minimum named.
+        for (key, cron) in [("a", "0,10 * * * *"), ("b", "* * * * *")] {
+            let (status, body) = create("x", "fix", cron, 5, key).await;
+            assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{cron}");
+            assert!(body["detail"].as_str().unwrap().contains("15"), "{body}");
+        }
+        // Too many files, with the limit named.
+        for (key, action, max, limit) in [
+            ("c", "fix", 13, "12"),
+            ("d", "convert", 7, "6"),
+            ("e", "verify", 501, "500"),
+        ] {
+            let (status, body) = create("x", action, "*/15 * * * *", max, key).await;
+            assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{action}");
+            assert!(body["detail"].as_str().unwrap().contains(limit), "{body}");
+        }
+        // At the limits, and the actions without one.
+        for (key, action, cron, max) in [
+            ("f", "fix", "*/15 * * * *", 12),
+            ("g", "convert", "0,30 * * * *", 6),
+            ("h", "verify", "* * * * *", 500),
+            ("i", "scan", "* * * * *", 25),
+        ] {
+            let (status, body) = create(action, action, cron, max, key).await;
+            assert_eq!(status, StatusCode::CREATED, "{action}: {body}");
+        }
+        // An old schedule over a limit is rejected on its next save, but may still be paused.
+        let opaque = crate::opaque::Opaque::new(state.api_secret.as_bytes());
+        let old = format!("/api/v1/schedules/{}", opaque.encode("sc", 1));
+        let (status, body) = send(
+            "PATCH",
+            old.clone(),
+            serde_json::json!({"name":"Renamed"}),
+            "j",
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+        assert!(body["detail"].as_str().unwrap().contains("12"), "{body}");
+        let (status, _) = send(
+            "PATCH",
+            old.clone(),
+            serde_json::json!({"cron":"* * * * *","max_files":12}),
+            "l",
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        let (status, _) = send(
+            "PATCH",
+            old.clone(),
+            serde_json::json!({"enabled":false}),
+            "n",
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "pausing is always allowed");
+        let (status, _) = send(
+            "PATCH",
+            old,
+            serde_json::json!({"max_files":12,"name":"Renamed"}),
+            "k",
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        // The preview takes the action; the list publishes the limits.
+        let get = |uri: String| {
+            let request = axum::http::Request::builder()
+                .uri(uri)
+                .header("origin", "http://localhost")
+                .header(
+                    "cookie",
+                    format!("__Host-atvprep_session={}", session.token),
+                )
+                .body(axum::body::Body::empty())
+                .unwrap();
+            let app = app.clone();
+            async move {
+                let response = app.oneshot(request).await.unwrap();
+                serde_json::from_slice::<serde_json::Value>(
+                    &to_bytes(response.into_body(), 65536).await.unwrap(),
+                )
+                .unwrap()
+            }
+        };
+        let fix =
+            get("/api/v1/schedules/cron-preview?expression=0,10%20*%20*%20*%20*&action=fix".into())
+                .await;
+        assert_eq!(fix["data"]["valid"], false);
+        assert!(
+            fix["data"]["error"].as_str().unwrap().contains("15"),
+            "{fix}"
+        );
+        let verify = get(
+            "/api/v1/schedules/cron-preview?expression=0,10%20*%20*%20*%20*&action=verify".into(),
+        )
+        .await;
+        assert_eq!(verify["data"]["valid"], true);
+        let none =
+            get("/api/v1/schedules/cron-preview?expression=0,10%20*%20*%20*%20*".into()).await;
+        assert_eq!(none["data"]["valid"], true);
+        let listed = get("/api/v1/schedules".into()).await;
+        assert_eq!(
+            listed["meta"]["limits"],
+            serde_json::json!({"min_change_interval_minutes":15,"max_files":{"verify":500,"fix":12,"convert":6}})
+        );
+    }
+
+    #[tokio::test]
     #[allow(clippy::too_many_lines)] // One walk through run, replay, legacy run and delete.
     async fn schedule_run_and_delete_are_idempotent_and_an_unapproved_changing_run_queues_nothing()
     {
@@ -863,6 +1062,7 @@ mod tests {
         let runs = shown["data"]["runs"].as_array().unwrap();
         assert_eq!(runs.len(), 1);
         assert_eq!(runs[0]["trigger"], "manual");
+        assert_eq!(runs[0]["kind"], "run");
         assert_eq!(runs[0]["result"], "Queued 1 file");
         assert!(runs[0]["job_id"].as_str().unwrap().starts_with("j_"));
         let replay = app.clone().oneshot(run()).await.unwrap();

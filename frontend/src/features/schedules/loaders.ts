@@ -11,6 +11,8 @@ export const changesFiles = (action: Action): boolean => action === "fix" || act
 
 /** One entry of a schedule's history: a run at its slot or by hand. */
 export type ScheduleRun = {
+  /** A run that was started, or a slot the manager did not trigger in time. */
+  kind?: "run" | "missed";
   started_at: string;
   trigger: "scheduled" | "manual";
   result: string;
@@ -44,14 +46,34 @@ export type Schedule = {
   runs?: ScheduleRun[];
 };
 
-export type SchedulesResult = { kind: "ok"; items: Schedule[] } | { kind: "error" } | { kind: "session" };
+/** The limits the server enforces on a schedule; the page shows them but never decides them. */
+export type Limits = {
+  /** The shortest gap between two runs of a schedule that changes files. */
+  minChangeIntervalMinutes: number;
+  /** The most files per run, by action. A scan has none. */
+  maxFiles: Partial<Record<Action, number>>;
+};
+
+export type SchedulesResult = { kind: "ok"; items: Schedule[]; limits: Limits | null } | { kind: "error" } | { kind: "session" };
+
+type LimitsWire = { min_change_interval_minutes?: unknown; max_files?: Record<string, unknown> };
+
+function readLimits(wire: LimitsWire | undefined): Limits | null {
+  if (!wire || typeof wire.min_change_interval_minutes !== "number") return null;
+  const maxFiles: Limits["maxFiles"] = {};
+  for (const action of ["verify", "fix", "convert", "scan"] as const) {
+    const value = wire.max_files?.[action];
+    if (typeof value === "number") maxFiles[action] = value;
+  }
+  return { minChangeIntervalMinutes: wire.min_change_interval_minutes, maxFiles };
+}
 
 export async function loadSchedules(api: Api): Promise<SchedulesResult> {
   try {
     const response = await api.request("/schedules");
     if (!response.ok) return { kind: "error" };
-    const body = (await response.json()) as { data?: Schedule[] };
-    return { kind: "ok", items: body.data ?? [] };
+    const body = (await response.json()) as { data?: Schedule[]; meta?: { limits?: LimitsWire } };
+    return { kind: "ok", items: body.data ?? [], limits: readLimits(body.meta?.limits) };
   } catch (error) {
     return error instanceof SessionError ? { kind: "session" } : { kind: "error" };
   }
@@ -154,9 +176,10 @@ export type CronPreview =
   | { kind: "invalid"; error: string }
   | { kind: "error" };
 
-export async function previewCron(api: Api, expression: string, lang: string): Promise<CronPreview> {
+/** `action` lets the server apply that action's limits (the minimum interval) to the expression. */
+export async function previewCron(api: Api, expression: string, lang: string, action: Action): Promise<CronPreview> {
   try {
-    const response = await api.request(`/schedules/cron-preview?expression=${encodeURIComponent(expression)}&lang=${encodeURIComponent(lang)}`);
+    const response = await api.request(`/schedules/cron-preview?expression=${encodeURIComponent(expression)}&lang=${encodeURIComponent(lang)}&action=${action}`);
     if (!response.ok) return { kind: "error" };
     const body = (await response.json()) as { data?: { valid?: boolean; description?: string; next_runs?: string[]; error?: string } };
     const data = body.data;
