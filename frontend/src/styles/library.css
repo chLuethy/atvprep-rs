@@ -139,6 +139,8 @@ details summary { cursor: pointer; color: var(--muted); }
 .overview { height: 100%; overflow: auto; padding: 20px max(16px, env(safe-area-inset-right, 0px)) 32px 24px; max-width: 880px; }
 .overview h1 { margin: 0 0 4px; font-size: var(--text-md); letter-spacing: var(--tracking-title); }
 .ov-sec { margin-top: 22px; }
+.orphans + .orphans { margin-top: 14px; }
+.orphans ul { margin: 4px 0 8px; font-size: var(--text-sm); overflow-wrap: anywhere; }
 .ov-sec h2 { margin: 0 0 8px; }
 .needs { gap: 4px; }
 .needs a { display: block; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); text-decoration: none; font-weight: 500; }

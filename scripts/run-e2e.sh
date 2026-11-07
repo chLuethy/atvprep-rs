@@ -63,7 +63,11 @@ stop
 printf 'synthetic e2e media' > "$work/media/Sample Movie.mp4"
 size=$(wc -c < "$work/media/Sample Movie.mp4" | tr -d ' ')
 fingerprint=$(shasum -a 256 "$work/media/Sample Movie.mp4" | cut -d' ' -f1)
+# A leftover partial rewrite beside the source, as a crash would leave it, and the scan that found it.
+leftover=".tmp_fixmeta_enc.Sample Movie.4711-0a1b2c3d.mp4"
+printf 'partial rewrite' > "$work/media/$leftover"
 sqlite3 "$work/manager.sqlite" <<SQL
+INSERT INTO scan_runs(id,root_id,generation,status,finished_at,orphans_json) VALUES(100,1,100,'succeeded',datetime('now'),'{"count":1,"bytes":15,"files":[{"relative_path":"$leftover","size":15,"modified_at":"2026-11-01 10:00:00"}]}');
 INSERT OR IGNORE INTO library_roots(id,name,canonical_path) VALUES(1,'E2E Library','$(cd "$work/media" && pwd -P)');
 INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,scanned_device,scanned_inode,scanned_ctime_ns,discovery_state,compliance_state,workflow_state,desired_action) VALUES
  (1,1,'Sample Movie.mp4','movie','.mp4',$size,1,'$fingerprint',1,1,1,'present','clean','idle','none'),

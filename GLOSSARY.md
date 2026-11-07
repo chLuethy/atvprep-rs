@@ -108,5 +108,5 @@ _Avoid_: Sauber, Clean (nur der interne Zustandsname)
 Merkmale einer Datei, die unabhängig vom Zustand gelten und sich überschneiden dürfen: zu konvertieren, Re-Encode nötig, Einbetten offen, konvertiert (Original behalten). In der Bibliothek zeigen gewählte Eigenschaften nur Dateien, die alle gewählten haben.
 
 **Verwaiste Teilüberarbeitung**:
-Eine halbfertige Arbeitsdatei (`.tmp_fixmeta_…`), die nach einem Absturz oder Abbruch neben der Quelle zurückbleibt. Ist nie ein Ergebnis und wird beim Start des Managers aufgeräumt.
+Eine halbfertige Arbeitsdatei (`.tmp_fixmeta_…`), die nach einem Absturz oder Abbruch neben der Quelle zurückbleibt. Ist nie ein Ergebnis und wird beim Start des Managers aufgeräumt. Was der Start-Aufräumlauf stehen lässt (jüngere Dateien, lebende PID), meldet der Scan: Anzahl, Größe und eine kurze Liste im Scan-Ergebnis, ein Hinweis in der Übersicht nur bei Treffern. Der Betreiber entfernt sie dort nach Bestätigung mit Anzahl und Größe; der Server löscht nur, wenn beides noch stimmt, nur Dateien mit dem exakten Namensmuster innerhalb einer Bibliothek und nie im Verzeichnis eines Items mit Status „claimed“ oder „running“ (nur dasselbe Verzeichnis, keine Unterverzeichnisse). Jede Löschung steht als Ereignis `orphan.removed` im Verlauf, die Sammelmeldung `orphan.cleanup` in der letzten Aktivität.
 _Avoid_: Temp-Datei, Leiche

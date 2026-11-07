@@ -1,14 +1,16 @@
-import { createResource, For, Show, type Component, type JSX } from "solid-js";
+import { createResource, createSignal, For, Index, Show, type Component, type JSX } from "solid-js";
 import { Button, StatusChip } from "../../ui";
 import { actionLabel, jobProgress, jobTitle, jobTone } from "../activity/model";
 import type { JobRow } from "../activity/loaders";
 import { ScanControl } from "../scan/ScanControl";
+import { Orphans, type OrphanHit } from "./Orphans";
 import { N, t, tn } from "../../lib/i18n";
 import { celebrateToday } from "../../lib/celebrate";
 
-type OverviewApi = { request: (path: string) => Promise<Response> };
+type OverviewApi = { request: (path: string, init?: RequestInit) => Promise<Response> };
 
 type Overview = {
+  orphans: OrphanHit[];
   files: Record<string, number>;
   jobs: Record<string, number>;
   reencode: number;
@@ -24,6 +26,7 @@ async function load(api: OverviewApi): Promise<Overview> {
     files: summary.data?.files ?? {},
     jobs: summary.data?.jobs ?? {},
     reencode: summary.data?.reencode ?? 0,
+    orphans: summary.data?.orphans ?? [],
     activity: activity.data ?? [],
     queue: { total: queue.data?.total ?? 0, jobs: queue.data?.jobs ?? [] },
   };
@@ -43,6 +46,7 @@ const TOPICS: Record<string, string> = {
   "job.transition": N("Job changed state"),
   "job.item.transition": N("A file moved on"),
   "job.log": N("Log output"),
+  "orphan.cleanup": N("Leftover files removed"),
 };
 
 /** Rows for the "Needs you" list, worst first; each says what it is and leads to the place that fixes it. */
@@ -62,6 +66,7 @@ function attention(files: Record<string, number>, jobs: Record<string, number>):
 /** Where to look first: what needs you, how healthy the library is, what is running. */
 export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: string) => void }> = (props) => {
   const [overview, { refetch }] = createResource(() => load(props.api));
+  const [removed, setRemoved] = createSignal<string | null>(null);
 
   const link = (href: string, content: JSX.Element, className = "") => (
     <a
@@ -90,6 +95,16 @@ export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: str
             const rows = () => attention(data().files, data().jobs);
             return (
               <>
+                <Show when={removed()}><p class="notice ok" role="status">{removed()}</p></Show>
+                <Show when={data().orphans.length > 0}>
+                  <section class="ov-sec" role="region" aria-label={t("Leftover files")}>
+                    <h2>{t("Leftover files")}</h2>
+                    <Index each={data().orphans}>{(hit) => (
+                      <Orphans api={props.api} hit={hit()} onChanged={() => void refetch()} onDone={(message) => { setRemoved(message); void refetch(); }} />
+                    )}</Index>
+                  </section>
+                </Show>
+
                 <section class="ov-sec" role="region" aria-label={t("Needs you")}>
                   <h2>{t("Needs you")}</h2>
                   <Show when={rows().length > 0} fallback={<p class="muted">{t("Nothing needs you.")}</p>}>

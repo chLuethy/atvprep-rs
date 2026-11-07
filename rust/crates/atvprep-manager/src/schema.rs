@@ -5,17 +5,18 @@ use crate::{Error, Result};
 
 /// Migration stages in order; stage `n` takes a database from version `n - 1` to `n`.
 /// To extend: add `000N_name.sql`, append it here and raise [`VERSION`].
-const STAGES: [&str; 6] = [
+const STAGES: [&str; 7] = [
     include_str!("migrations/0001_base.sql"),
     include_str!("migrations/0002_cron.sql"),
     include_str!("migrations/0003_scan_action.sql"),
     include_str!("migrations/0004_schedule_runs.sql"),
     include_str!("migrations/0005_schedule_approval.sql"),
     include_str!("migrations/0006_missed_slots.sql"),
+    include_str!("migrations/0007_scan_orphans.sql"),
 ];
 
 /// The version this build creates and understands.
-pub const VERSION: i64 = 6;
+pub const VERSION: i64 = 7;
 
 /// Every table of the current schema.
 pub const TABLES: [&str; 23] = [

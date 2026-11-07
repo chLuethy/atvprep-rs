@@ -53,7 +53,11 @@ pub(crate) fn view(event: &EventRow, opaque: &Opaque) -> Value {
     let payload: Value =
         serde_json::from_str(&event.payload).unwrap_or_else(|_| json!({"truncated":true}));
     let payload = crate::redact::bounded_event_payload(&payload);
-    let kind = if event.entity_type == "job" { "j" } else { "i" };
+    let kind = match event.entity_type.as_str() {
+        "job" => "j",
+        "library_root" => "r",
+        _ => "i",
+    };
     json!({"id":opaque.encode("e",event.id),"sequence":event.id,"job_id":event.job.map(|id|opaque.encode("j",id)),
         "item_id":event.item.map(|id|opaque.encode("i",id)),"topic":safe_head(&event.topic,2048),
         "entity_type":safe_head(&event.entity_type,2048),"entity_id":opaque.encode(kind,event.entity_id),

@@ -59,6 +59,10 @@ pub fn router(state: AppState) -> Router {
             axum::routing::post(routes_deployment::open),
         )
         .route("/api/v1/roots", get(read::roots))
+        .route(
+            "/api/v1/roots/{root_id}/orphans/remove",
+            axum::routing::post(routes_scans::remove_orphans),
+        )
         .route("/api/v1/dashboard", get(read::dashboard))
         .route("/api/v1/dashboard/summary", get(read::dashboard))
         .route("/api/v1/dashboard/activity", get(read::activity))

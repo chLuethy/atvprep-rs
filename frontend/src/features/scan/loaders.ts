@@ -18,7 +18,33 @@ export async function loadRoots(api: Api): Promise<RootsResult> {
   }
 }
 
-export type ScanResult = { ok: true } | { ok: false; session: boolean };
+export type RemoveOrphansResult =
+  | { kind: "ok"; removed: number; bytes: number }
+  | { kind: "changed" }
+  | { kind: "session" }
+  | { kind: "error" };
+
+/**
+ * Delete the leftover partial rewrites of one library after the operator confirmed their count and
+ * size. The server deletes nothing when the files differ from that. The caller owns the key.
+ */
+export async function removeOrphans(api: Api, rootId: string, count: number, bytes: number, idempotencyKey: string): Promise<RemoveOrphansResult> {
+  try {
+    const response = await api.request(`/roots/${encodeURIComponent(rootId)}/orphans/remove`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify({ count, bytes }),
+    });
+    if (response.status === 409) return { kind: "changed" };
+    if (!response.ok) return { kind: "error" };
+    const body = (await response.json().catch(() => ({}))) as { data?: { removed?: number; bytes?: number } };
+    return { kind: "ok", removed: body.data?.removed ?? 0, bytes: body.data?.bytes ?? 0 };
+  } catch (error) {
+    return error instanceof SessionError ? { kind: "session" } : { kind: "error" };
+  }
+}
+
+export type ScanResult ={ ok: true } | { ok: false; session: boolean };
 
 /** Queue a manual scan of one library. The caller owns the idempotency key so a retried click reuses it. */
 export async function requestScan(api: Api, rootId: string, idempotencyKey: string): Promise<ScanResult> {

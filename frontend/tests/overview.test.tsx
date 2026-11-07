@@ -1,4 +1,4 @@
-import { fireEvent, render, within } from "@solidjs/testing-library";
+import { fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
 import { OverviewPage } from "../src/features/overview/OverviewPage";
 
@@ -164,6 +164,100 @@ describe("OverviewPage: running and recent", () => {
     expect(within(recent).getByText("Job queued")).toBeInTheDocument();
     expect(within(recent).getByText("Retry queued")).toBeInTheDocument();
     expect(within(recent).getByText("something.else")).toBeInTheDocument();
+  });
+});
+
+describe("OverviewPage: leftover partial rewrites", () => {
+  const hit = { root_id: "r_1", name: "Movies", count: 3, bytes: 2_684_354_560, files: [
+    { relative_path: "Show/.tmp_fixmeta_enc.Film.4711-0a1b2c3d.mp4", size: 1_073_741_824, modified_at: "2026-11-01T10:00:00" },
+  ] };
+  const withHits = (extra: Record<string, unknown> = {}) => base({
+    "/dashboard": { data: { files: { clean: 3 }, scans: {}, jobs: {}, orphans: [hit] } },
+    ...extra,
+  });
+
+  it("shows nothing without hits", async () => {
+    const view = render(() => <OverviewPage api={api(base()) as never} />);
+    await view.findByRole("region", { name: "Library health" });
+
+    expect(view.queryByRole("region", { name: "Leftover files" })).toBeNull();
+  });
+
+  it("names count, library, size and the first files when there are hits", async () => {
+    const view = render(() => <OverviewPage api={api(withHits()) as never} />);
+
+    const section = await view.findByRole("region", { name: "Leftover files" });
+
+    expect(within(section).getByText("3 leftover files in Movies (2.5 GB)")).toBeInTheDocument();
+    expect(within(section).getByText(/Show\/\.tmp_fixmeta_enc\.Film\.4711-0a1b2c3d\.mp4/)).toBeInTheDocument();
+    expect(within(section).getByText("and 2 more")).toBeInTheDocument();
+  });
+
+  it("deletes only after a confirmation that names count and size, then reloads", async () => {
+    let removed = false;
+    const calls: Array<{ path: string; init?: RequestInit }> = [];
+    const mock = {
+      request: vi.fn(async (path: string, init?: RequestInit) => {
+        calls.push({ path, init });
+        if (init?.method === "POST") { removed = true; return new Response(JSON.stringify({ data: { removed: 3, bytes: 2_684_354_560 } })); }
+        const responses = withHits({ "/dashboard": { data: { files: { clean: 3 }, scans: {}, jobs: {}, orphans: removed ? [] : [hit] } } });
+        return new Response(JSON.stringify(responses[path as keyof typeof responses] ?? {}));
+      }),
+    };
+    const view = render(() => <OverviewPage api={mock as never} />);
+    const section = await view.findByRole("region", { name: "Leftover files" });
+
+    fireEvent.click(within(section).getByRole("button", { name: "Remove leftovers" }));
+    const confirm = await view.findByRole("region", { name: "Confirm removing leftovers" });
+    expect(within(confirm).getByText("Delete 3 files, 2.5 GB in total?")).toBeInTheDocument();
+    expect(calls.some((call) => call.init?.method === "POST")).toBe(false);
+
+    fireEvent.click(within(confirm).getByRole("button", { name: "Delete leftovers" }));
+
+    expect(await view.findByText("Removed 3 leftover files (2.5 GB).")).toBeInTheDocument();
+    const post = calls.find((call) => call.init?.method === "POST");
+    expect(post?.path).toBe("/roots/r_1/orphans/remove");
+    expect(JSON.parse(String(post?.init?.body))).toEqual({ count: 3, bytes: 2_684_354_560 });
+    await waitFor(() => expect(view.queryByRole("region", { name: "Leftover files" })).toBeNull());
+  });
+
+  it("keeps everything when the operator keeps the files", async () => {
+    const responses = withHits();
+    const mock = { request: vi.fn(async (path: string, _init?: RequestInit) => new Response(JSON.stringify(responses[path as keyof typeof responses] ?? {}))) };
+    const view = render(() => <OverviewPage api={mock as never} />);
+    const section = await view.findByRole("region", { name: "Leftover files" });
+
+    fireEvent.click(within(section).getByRole("button", { name: "Remove leftovers" }));
+    fireEvent.click(await view.findByRole("button", { name: "Keep" }));
+
+    expect(view.queryByRole("region", { name: "Confirm removing leftovers" })).toBeNull();
+    expect(mock.request.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === "POST")).toBe(false);
+  });
+
+  it("says so when the files changed since the scan", async () => {
+    const mock = {
+      request: vi.fn(async (path: string, init?: RequestInit) => {
+        if (init?.method === "POST") return new Response(JSON.stringify({ data: { count: 4, bytes: 5 } }), { status: 409 });
+        const responses = withHits();
+        return new Response(JSON.stringify(responses[path as keyof typeof responses] ?? {}));
+      }),
+    };
+    const view = render(() => <OverviewPage api={mock as never} />);
+    const section = await view.findByRole("region", { name: "Leftover files" });
+
+    fireEvent.click(within(section).getByRole("button", { name: "Remove leftovers" }));
+    fireEvent.click(await view.findByRole("button", { name: "Delete leftovers" }));
+
+    expect(await view.findByRole("alert")).toHaveTextContent("The leftovers changed since the scan. Check the new numbers and try again.");
+  });
+
+  it("names the cleanup in recent activity", async () => {
+    const view = render(() => <OverviewPage api={api(base({
+      "/dashboard/activity?limit=8": { data: [{ id: "e1", kind: "job_event", topic: "orphan.cleanup" }] },
+    })) as never} />);
+
+    const recent = await view.findByRole("region", { name: "Recent activity" });
+    expect(within(recent).getByText("Leftover files removed")).toBeInTheDocument();
   });
 });
 
