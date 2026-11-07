@@ -10,6 +10,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use atvprep_core::prepare::paths::parse_temp_name;
 
+use rusqlite::OptionalExtension;
+
 use crate::Result;
 use crate::clock::format_micros;
 use crate::deployment_gate::DeploymentGate;
@@ -63,7 +65,7 @@ pub fn sweep(ctx: Ctx<'_>) -> Result<OrphanSweep> {
                     && std::fs::remove_file(entry.path()).is_ok()
                 {
                     removed += 1;
-                    record(ctx, *root_id, root, &entry.path())?;
+                    record(ctx, *root_id, root, &entry.path(), None)?;
                 }
             }
         }
@@ -128,18 +130,223 @@ fn pid_alive(pid: u32) -> bool {
     )
 }
 
-fn record(ctx: Ctx<'_>, root_id: i64, root: &Path, path: &Path) -> Result<()> {
+fn record(
+    ctx: Ctx<'_>,
+    root_id: i64,
+    root: &Path,
+    path: &Path,
+    manual_size: Option<u64>,
+) -> Result<()> {
     let relative = path.strip_prefix(root).unwrap_or(path).to_string_lossy();
+    let payload = match manual_size {
+        Some(size) => serde_json::json!({
+            "root_id": root_id, "relative_path": relative, "size": size, "trigger": "manual"
+        }),
+        None => serde_json::json!({ "root_id": root_id, "relative_path": relative }),
+    };
+    insert_event(ctx, "orphan.removed", root_id, &payload)
+}
+
+fn insert_event(
+    ctx: Ctx<'_>,
+    topic: &str,
+    root_id: i64,
+    payload: &serde_json::Value,
+) -> Result<()> {
     let now = ctx.clock.now_micros();
     ctx.conn.execute(
         "INSERT INTO events(topic, entity_type, entity_id, payload_json, created_at, expires_at)
-         VALUES ('orphan.removed', 'library_root', ?1, ?2, ?3, ?4)",
+         VALUES (?1, 'library_root', ?2, ?3, ?4, ?5)",
         rusqlite::params![
+            topic,
             root_id,
-            serde_json::json!({ "root_id": root_id, "relative_path": relative }).to_string(),
+            payload.to_string(),
             format_micros(now),
             format_micros(now + RETENTION_MICROS),
         ],
     )?;
     Ok(())
+}
+
+/// How many entries of the list a scan report keeps; count and bytes always cover all of them.
+const REPORT_LIST_MAX: usize = 20;
+
+/// A working file that matches the exact pattern, whatever its age or the state of its PID.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Orphan {
+    pub relative_path: String,
+    pub size: u64,
+    /// Modification time in microseconds since the Unix epoch.
+    pub modified_micros: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RemoveOutcome {
+    Removed {
+        count: usize,
+        bytes: u64,
+    },
+    /// The files differ from what the operator confirmed; nothing was deleted.
+    Changed {
+        count: usize,
+        bytes: u64,
+    },
+}
+
+fn root_path(ctx: Ctx<'_>, root_id: i64) -> Result<Option<PathBuf>> {
+    Ok(ctx
+        .conn
+        .query_row(
+            "SELECT canonical_path FROM library_roots WHERE id=?1",
+            [root_id],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()?
+        .map(PathBuf::from))
+}
+
+/// Every file of one library that has the working-file name, except in directories where a
+/// claimed or running item works. Symbolic links are neither listed nor followed.
+///
+/// # Errors
+///
+/// SQLite fails.
+pub fn find(ctx: Ctx<'_>, root_id: i64) -> Result<Vec<Orphan>> {
+    let Some(root) = root_path(ctx, root_id)? else {
+        return Ok(Vec::new());
+    };
+    let busy = busy_directories(ctx, &[(root_id, root.clone())])?;
+    let mut found = Vec::new();
+    let mut directories = vec![root.clone()];
+    while let Some(directory) = directories.pop() {
+        let Ok(entries) = std::fs::read_dir(&directory) else {
+            continue;
+        };
+        let busy_here = busy.contains(&directory);
+        for entry in entries.flatten() {
+            let Ok(kind) = entry.file_type() else {
+                continue;
+            };
+            if kind.is_dir() {
+                directories.push(entry.path());
+            } else if kind.is_file()
+                && !busy_here
+                && parse_temp_name(&entry.file_name().to_string_lossy()).is_some()
+                && let Ok(meta) = entry.metadata()
+            {
+                let modified = meta
+                    .modified()
+                    .ok()
+                    .and_then(|m| m.duration_since(UNIX_EPOCH).ok());
+                found.push(Orphan {
+                    relative_path: entry
+                        .path()
+                        .strip_prefix(&root)
+                        .unwrap_or(&entry.path())
+                        .to_string_lossy()
+                        .into_owned(),
+                    size: meta.len(),
+                    modified_micros: modified
+                        .and_then(|d| i64::try_from(d.as_micros()).ok())
+                        .unwrap_or(0),
+                });
+            }
+        }
+    }
+    found.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
+    Ok(found)
+}
+
+/// Store the leftovers of a library on a finished scan. No leftovers store nothing.
+///
+/// # Errors
+///
+/// SQLite fails.
+pub fn report_for_scan(ctx: Ctx<'_>, scan_id: i64, root_id: i64) -> Result<()> {
+    let found = find(ctx, root_id)?;
+    let report = (!found.is_empty()).then(|| {
+        serde_json::json!({
+            "count": found.len(),
+            "bytes": found.iter().map(|o| o.size).sum::<u64>(),
+            "files": found.iter().take(REPORT_LIST_MAX).map(|o| serde_json::json!({
+                "relative_path": o.relative_path,
+                "size": o.size,
+                "modified_at": format_micros(o.modified_micros),
+            })).collect::<Vec<_>>(),
+        })
+        .to_string()
+    });
+    ctx.conn.execute(
+        "UPDATE scan_runs SET orphans_json=?1 WHERE id=?2",
+        rusqlite::params![report, scan_id],
+    )?;
+    Ok(())
+}
+
+fn refresh_latest_report(ctx: Ctx<'_>, root_id: i64) -> Result<()> {
+    let latest: Option<i64> = ctx
+        .conn
+        .query_row(
+            "SELECT id FROM scan_runs WHERE root_id=?1 AND status='succeeded'
+             ORDER BY generation DESC, id DESC LIMIT 1",
+            [root_id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    match latest {
+        Some(scan_id) => report_for_scan(ctx, scan_id, root_id),
+        None => Ok(()),
+    }
+}
+
+/// Delete the leftovers of one library after the operator confirmed `confirmed_count` files of
+/// `confirmed_bytes` together. When the files found now differ, nothing is deleted and the fresh
+/// numbers return. Only files with the exact working-file name inside the library go, and none in
+/// a directory where a claimed or running item works. Each deletion is recorded, plus one summary.
+///
+/// # Errors
+///
+/// SQLite fails.
+pub fn remove(
+    ctx: Ctx<'_>,
+    root_id: i64,
+    confirmed_count: usize,
+    confirmed_bytes: u64,
+) -> Result<RemoveOutcome> {
+    let found = find(ctx, root_id)?;
+    let bytes: u64 = found.iter().map(|o| o.size).sum();
+    if found.len() != confirmed_count || bytes != confirmed_bytes {
+        refresh_latest_report(ctx, root_id)?;
+        return Ok(RemoveOutcome::Changed {
+            count: found.len(),
+            bytes,
+        });
+    }
+    let Some(root) = root_path(ctx, root_id)? else {
+        return Ok(RemoveOutcome::Removed { count: 0, bytes: 0 });
+    };
+    let (mut count, mut removed_bytes) = (0, 0);
+    for orphan in &found {
+        let path = root.join(&orphan.relative_path);
+        // A link swapped in since `find` must not be followed.
+        let is_file = std::fs::symlink_metadata(&path).is_ok_and(|m| m.is_file());
+        if is_file && std::fs::remove_file(&path).is_ok() {
+            count += 1;
+            removed_bytes += orphan.size;
+            record(ctx, root_id, &root, &path, Some(orphan.size))?;
+        }
+    }
+    if count > 0 {
+        insert_event(
+            ctx,
+            "orphan.cleanup",
+            root_id,
+            &serde_json::json!({ "root_id": root_id, "count": count, "bytes": removed_bytes }),
+        )?;
+    }
+    refresh_latest_report(ctx, root_id)?;
+    Ok(RemoveOutcome::Removed {
+        count,
+        bytes: removed_bytes,
+    })
 }
