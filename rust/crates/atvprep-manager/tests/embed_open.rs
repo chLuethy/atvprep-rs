@@ -1,4 +1,4 @@
-//! "Einbetten offen": eine Datei mit einer einbettbaren Untertiteldatei daneben, berechnet beim Lesen.
+//! "Embed open": a file with an embeddable subtitle file beside it, computed on read.
 use atvprep_manager::{
     db::{Conn, Db},
     embed, schema,
@@ -17,7 +17,7 @@ fn seed(db: &Db) -> Conn {
     conn
 }
 
-/// Eine Datei samt Sidecars; `streams` ist das ffprobe-Ergebnis, `None` heißt: nie geprüft.
+/// A file with its sidecars; `streams` is the ffprobe result, `None` means never checked.
 fn add_file(conn: &Conn, id: i64, state: &str, sidecars: &[&str], streams: Option<&str>) {
     let raw = conn.raw();
     raw.execute(

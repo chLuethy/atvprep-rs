@@ -12,6 +12,7 @@ use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
 use crate::{extract::AuthenticatedSession, opaque::Opaque, state::AppState};
+use atvprep_manager::media_sql;
 
 /// Aggregate the file, scan and job counts used by the dashboard.
 pub async fn dashboard(State(state): State<AppState>, _session: AuthenticatedSession) -> Response {
@@ -27,7 +28,7 @@ pub async fn dashboard(State(state): State<AppState>, _session: AuthenticatedSes
         // "Ready" is a clean file with nothing left to embed; those with an open embedding count apart.
         let open = atvprep_manager::embed::open_media_ids(conn.raw()).map_err(|_| ())?;
         let open_json = serde_json::to_string(&open).map_err(|_| ())?;
-        let embed_open: i64 = conn.raw().query_row("SELECT count(*) FROM media_files WHERE compliance_state='clean' AND id IN (SELECT value FROM json_each(?1))", [&open_json], |row| row.get(0)).map_err(|_| ())?;
+        let embed_open: i64 = conn.raw().query_row(&format!("SELECT count(*) FROM media_files m WHERE m.compliance_state='clean' AND {}", media_sql::embed_open("?1")), [&open_json], |row| row.get(0)).map_err(|_| ())?;
         if embed_open > 0 {
             if let Some(clean) = files.get_mut("clean") { *clean -= embed_open; if *clean == 0 { files.remove("clean"); } }
             files.insert("embed_open".to_owned(), embed_open);
@@ -36,10 +37,10 @@ pub async fn dashboard(State(state): State<AppState>, _session: AuthenticatedSes
         let scans = counts("SELECT status,count(*) FROM scan_runs GROUP BY status ORDER BY status")?;
         let jobs = counts("SELECT status,count(*) FROM jobs GROUP BY status ORDER BY status")?;
         let (missing, convert, reencode, converted): (i64,i64,i64,i64) = conn.raw().query_row(
-            "SELECT COALESCE(SUM(CASE WHEN m.discovery_state='missing' AND m.dismissed_at IS NULL THEN 1 ELSE 0 END),0),
-             COALESCE(SUM(CASE WHEN m.discovery_state='present' AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov') AND NOT EXISTS (SELECT 1 FROM media_files s WHERE s.root_id=m.root_id AND s.discovery_state='present' AND s.relative_path=substr(m.relative_path,1,length(m.relative_path)-length(m.suffix))||'.mp4') THEN 1 ELSE 0 END),0),
-             COALESCE(SUM(CASE WHEN m.discovery_state='present' AND m.needs_reencode=1 THEN 1 ELSE 0 END),0),
-             COALESCE(SUM(CASE WHEN m.discovery_state='present' AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov') AND EXISTS (SELECT 1 FROM media_files s WHERE s.root_id=m.root_id AND s.discovery_state='present' AND s.relative_path=substr(m.relative_path,1,length(m.relative_path)-length(m.suffix))||'.mp4') THEN 1 ELSE 0 END),0) FROM media_files m", [],
+            &format!("SELECT COALESCE(SUM(CASE WHEN m.discovery_state='missing' AND m.dismissed_at IS NULL THEN 1 ELSE 0 END),0),
+             COALESCE(SUM(CASE WHEN m.discovery_state='present' AND {} THEN 1 ELSE 0 END),0),
+             COALESCE(SUM(CASE WHEN m.discovery_state='present' AND {} THEN 1 ELSE 0 END),0),
+             COALESCE(SUM(CASE WHEN m.discovery_state='present' AND {} THEN 1 ELSE 0 END),0) FROM media_files m", media_sql::TO_CONVERT, media_sql::NEEDS_REENCODE, media_sql::CONVERTED), [],
             |row| Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?))).map_err(|_| ())?;
         let setting: Option<String> = conn.raw().query_row("SELECT value_json FROM runtime_settings WHERE key='delete_original'", [], |row| row.get(0)).optional().map_err(|_| ())?;
         let delete_original = setting.and_then(|value| serde_json::from_str::<bool>(&value).ok()).unwrap_or(false);

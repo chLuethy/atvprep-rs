@@ -16,6 +16,7 @@ pub mod leases;
 pub mod library;
 pub mod limits;
 pub mod media;
+pub mod media_sql;
 pub mod models;
 pub mod procid;
 pub mod repo;

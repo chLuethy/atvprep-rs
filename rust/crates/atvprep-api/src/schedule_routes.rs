@@ -11,7 +11,7 @@ use crate::{
 use atvprep_manager::{
     approval::{ApprovalVerifier, ScheduleParams},
     cron::{CronExpr, Lang},
-    limits,
+    limits, media_sql,
     repo::Ctx,
     schedules::{
         TimeOfDay, days_to_mask, delete_original_setting, effective_cron, mask_to_days,
@@ -526,7 +526,7 @@ fn views(conn: &rusqlite::Connection, state: &AppState) -> Result<(Vec<Value>, b
         let matching: Option<i64> = if scan {
             None
         } else {
-            Some(conn.query_row(&format!("SELECT count(*) FROM media_files m WHERE m.discovery_state='present' AND (?1 IS NULL OR m.root_id=?1) AND (?2 IS NULL OR m.compliance_state=?2) AND NOT EXISTS(SELECT 1 FROM job_items i WHERE i.media_file_id=m.id AND i.action IN ('fix','convert') AND i.status NOT IN {}) AND (CASE WHEN ?3 IN ('fix','convert') THEN NOT EXISTS(SELECT 1 FROM media_files sibling WHERE sibling.root_id=m.root_id AND sibling.discovery_state='present' AND sibling.relative_path=substr(m.relative_path,1,length(m.relative_path)-length(m.suffix))||'.mp4' AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov')) AND (lower(m.suffix) NOT IN ('.mp4','.m4v','.mov') OR m.compliance_state IN ('warning','blocker') OR m.desired_action='fix' OR m.id IN (SELECT value FROM json_each(?5))) AND (?4 OR m.needs_reencode=0) ELSE lower(m.suffix) IN ('.mp4','.m4v','.mov') END)",ItemStatus::terminal_sql_list()),rusqlite::params![root,compliance,action,allow_reencode,embed_open],|row|row.get(0)).map_err(|_|())?)
+            Some(conn.query_row(&format!("SELECT count(*) FROM media_files m WHERE m.discovery_state='present' AND (?1 IS NULL OR m.root_id=?1) AND (?2 IS NULL OR m.compliance_state=?2) AND NOT EXISTS(SELECT 1 FROM job_items i WHERE i.media_file_id=m.id AND i.action IN ('fix','convert') AND i.status NOT IN {}) AND (CASE WHEN ?3 IN ('fix','convert') THEN {} ELSE {} END)",ItemStatus::terminal_sql_list(),media_sql::change_candidate("?4","?5"),media_sql::MP4_LIKE),rusqlite::params![root,compliance,action,allow_reencode,embed_open],|row|row.get(0)).map_err(|_|())?)
         };
         let last_run = last_run.map(|value| timestamp(&value).replace('Z', "+00:00"));
         let runs = recent_runs(conn, &opaque, id)?;

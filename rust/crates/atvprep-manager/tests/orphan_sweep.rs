@@ -1,10 +1,11 @@
-//! Der Start-Aufräumlauf löscht nur verwaiste Teilüberarbeitungen und lässt alles andere stehen.
+//! The start-up sweep deletes only orphaned partial rewrites and leaves everything else alone.
 use std::{
     fs::{self, File},
     path::Path,
     time::{Duration, SystemTime},
 };
 
+use atvprep_core::prepare::paths::TEMP_PREFIX;
 use atvprep_manager::{
     clock::SystemClock,
     db::{Conn, Db},
@@ -43,7 +44,7 @@ fn dead_pid() -> u32 {
 }
 
 fn temp(dir: &Path, pid: u32, stem: &str) -> std::path::PathBuf {
-    let path = dir.join(format!(".tmp_fixmeta_enc.{stem}.{pid}-0a1b2c3d.mp4"));
+    let path = dir.join(format!("{TEMP_PREFIX}enc.{stem}.{pid}-0a1b2c3d.mp4"));
     fs::write(&path, "half").unwrap();
     path
 }
@@ -156,7 +157,7 @@ fn similarly_named_files_stay() {
     let names = [
         "Film.TMP.mkv".to_owned(),
         format!("Film.mp4.tmp_moov.{pid}-0a1b2c3d"),
-        format!(".tmp_fixmeta_enc.Film.{pid}-0a1b2c3d.mkv"),
+        format!("{TEMP_PREFIX}enc.Film.{pid}-0a1b2c3d.mkv"),
         format!("tmp_fixmeta_enc.Film.{pid}-0a1b2c3d.mp4"),
     ];
     for name in &names {
@@ -186,4 +187,43 @@ fn nothing_is_removed_while_the_gate_is_closed() {
     assert!(!outcome.ran);
     assert_eq!(outcome.removed, 0);
     assert!(leftover.exists());
+}
+
+#[test]
+fn the_sweep_continues_when_an_event_cannot_be_written() {
+    let root = tempfile::tempdir().unwrap();
+    let (_db, conn) = setup(root.path());
+    let first = temp(root.path(), dead_pid(), "One");
+    let second = temp(root.path(), dead_pid(), "Two");
+    aged(&first, 60);
+    aged(&second, 60);
+    conn.raw()
+        .execute_batch(
+            "CREATE TRIGGER no_events BEFORE INSERT ON events
+             BEGIN SELECT RAISE(ABORT, 'events are read-only'); END;",
+        )
+        .unwrap();
+
+    let outcome = run(&conn);
+
+    assert_eq!(outcome.removed, 2);
+    assert!(!first.exists());
+    assert!(!second.exists());
+}
+
+#[test]
+fn a_symlink_with_the_working_file_name_is_neither_followed_nor_removed() {
+    let root = tempfile::tempdir().unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    let (_db, conn) = setup(root.path());
+    let target = temp(outside.path(), dead_pid(), "Out");
+    aged(&target, 60);
+    let link = root.path().join(target.file_name().unwrap());
+    std::os::unix::fs::symlink(&target, &link).unwrap();
+    std::os::unix::fs::symlink(outside.path(), root.path().join("Dir")).unwrap();
+
+    assert_eq!(run(&conn).removed, 0);
+
+    assert!(target.exists());
+    assert!(link.symlink_metadata().is_ok());
 }

@@ -1,5 +1,5 @@
-//! "Einbetten offen" in Liste, Zählern, Filtern und Zeitplan-Trefferzahl: Dateien mit einbettbarem
-//! Sidecar sind nicht "Bereit", der gespeicherte Zustand bleibt `clean`.
+//! "Embed open" in the list, counters, filters and the schedule hit count: files with an embeddable
+//! sidecar are not "ready"; the stored state stays `clean`.
 use atvprep_api::{
     auth::AuthService, config::ManagerConfig, opaque::Opaque, router, state::AppState,
 };
@@ -36,7 +36,7 @@ impl Api {
         serde_json::from_slice(&to_bytes(response.into_body(), 1 << 20).await.unwrap()).unwrap()
     }
 
-    /// Anzeigepfade der Dateien, die die Liste zu einem Filter liefert.
+    /// Display paths of the files the list returns for a filter.
     async fn names(&self, query: &str) -> Vec<String> {
         let body = self.get(&format!("/api/v1/files?{query}")).await;
         let mut names: Vec<String> = body["data"]
@@ -50,8 +50,8 @@ impl Api {
     }
 }
 
-/// 1 bereit ohne Sidecar, 2 sauber mit offenem Sidecar, 3 Warnung mit offenem Sidecar,
-/// 4 sauber mit bereits eingebettetem Sidecar; dazu ein Reparieren-Zeitplan für die Bibliothek.
+/// 1 ready without sidecar, 2 clean with open sidecar, 3 warning with open sidecar,
+/// 4 clean with an already embedded sidecar; plus a repair schedule for the library.
 fn api() -> Api {
     let db = Db::memory().unwrap();
     let mut conn = db.conn().unwrap();
@@ -127,7 +127,7 @@ async fn the_ready_filter_leaves_out_open_embeds_and_a_filter_finds_them() {
         api.names("compliance_state=embed").await,
         ["open.mp4", "warn.mp4"]
     );
-    // "Bereit" abwählen blendet nur die wirklich bereiten aus.
+    // Hiding "ready" hides only the truly ready files.
     assert_eq!(api.names("hide=clean").await, ["open.mp4", "warn.mp4"]);
 }
 
@@ -152,17 +152,17 @@ impl Api {
 #[tokio::test]
 async fn properties_show_only_files_that_have_all_of_them() {
     let api = api();
-    // Keine Auswahl: nichts wird gefiltert.
+    // No selection: nothing is filtered.
     assert_eq!(
         api.names("has=").await,
         ["done.mp4", "open.mp4", "ready.mp4", "warn.mp4"]
     );
-    // Eine Eigenschaft zeigt nur Dateien mit ihr.
+    // One trait shows only files that have it.
     assert_eq!(api.names("has=embed").await, ["open.mp4", "warn.mp4"]);
     assert_eq!(api.names("has=reencode").await, ["done.mp4", "warn.mp4"]);
-    // Zwei Eigenschaften zeigen die Schnittmenge (UND).
+    // Two traits show the intersection (AND).
     assert_eq!(api.names("has=embed,reencode").await, ["warn.mp4"]);
-    // Kombination mit Status-Ausblenden.
+    // Combined with hiding states.
     assert_eq!(api.names("has=embed&hide=warning").await, ["open.mp4"]);
     assert_eq!(
         api.names("has=embed,reencode&hide=warning").await,
@@ -189,14 +189,14 @@ async fn property_counts_follow_the_current_selection() {
         let data = &body["data"];
         ["convert", "reencode", "embed", "converted"].map(|key| data[key].as_u64().unwrap())
     };
-    // Ohne Auswahl: jede Eigenschaft für sich.
+    // No selection: each trait on its own.
     assert_eq!(counts(api.get("/api/v1/files/counts").await), [0, 2, 2, 0]);
-    // Mit "Einbetten offen" gewählt bleibt je Eigenschaft die Schnittmenge.
+    // With "embed open" selected, each trait yields the intersection.
     assert_eq!(
         counts(api.get("/api/v1/files/counts?has=embed").await),
         [0, 1, 2, 0]
     );
-    // Status-Ausblenden wirkt mit.
+    // Hiding states applies as well.
     assert_eq!(
         counts(api.get("/api/v1/files/counts?hide=warning").await),
         [0, 1, 1, 0]
@@ -242,6 +242,6 @@ async fn a_file_reports_its_open_embed_in_the_detail() {
 async fn a_repair_schedule_counts_clean_files_with_an_open_embed() {
     let api = api();
     let body = api.get("/api/v1/schedules").await;
-    // open.mp4 (sauber, Einbetten offen); warn.mp4 braucht ein Neu-Kodieren und zählt nicht, ebenso wenig ready.mp4 und done.mp4.
+    // open.mp4 (clean, embed open); warn.mp4 needs a re-encode and does not count, nor do ready.mp4 and done.mp4.
     assert_eq!(body["data"][0]["matching"], 1);
 }

@@ -1,6 +1,7 @@
-//! Verwaiste Teilüberarbeitungen: Meldung am Scan und Entfernen von Hand.
+//! Orphaned partial rewrites: report on the scan and removal by hand.
 use std::{fs, path::Path};
 
+use atvprep_core::prepare::paths::TEMP_PREFIX;
 use atvprep_manager::{
     clock::SystemClock,
     db::{Conn, Db},
@@ -32,7 +33,7 @@ fn ctx(conn: &Conn) -> Ctx<'_> {
 fn leftover(dir: &Path, pid: u32, stem: &str, bytes: usize) {
     fs::create_dir_all(dir).unwrap();
     fs::write(
-        dir.join(format!(".tmp_fixmeta_enc.{stem}.{pid}-0a1b2c3d.mp4")),
+        dir.join(format!("{TEMP_PREFIX}enc.{stem}.{pid}-0a1b2c3d.mp4")),
         vec![b'x'; bytes],
     )
     .unwrap();
@@ -50,13 +51,13 @@ fn events(conn: &Conn, topic: &str) -> Vec<String> {
         .unwrap()
 }
 
-fn add_running_item(conn: &Conn, relative: &str) {
+fn add_running_item(conn: &Conn, relative: &str, status: &str) {
     conn.raw()
         .execute_batch(&format!(
             "INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action)
              VALUES(1,1,'{relative}','video','.mkv',1,1,'x','present','unknown','running','fix');
              INSERT INTO jobs(id,action,status) VALUES(1,'fix','running');
-             INSERT INTO job_items(job_id,media_file_id,action,position,status) VALUES(1,1,'fix',1,'running');"
+             INSERT INTO job_items(job_id,media_file_id,action,position,status) VALUES(1,1,'fix',1,'{status}');"
         ))
         .unwrap();
 }
@@ -74,7 +75,7 @@ fn find_lists_young_and_live_leftovers_with_path_and_size() {
     assert!(
         found[0]
             .relative_path
-            .starts_with("Show/.tmp_fixmeta_enc.Film.")
+            .starts_with(&format!("Show/{TEMP_PREFIX}enc.Film."))
     );
     assert_eq!(found[0].size, 5);
 }
@@ -85,13 +86,14 @@ fn find_skips_similar_names_and_the_directory_of_a_running_item() {
     let (_db, conn) = setup(root.path());
     fs::write(root.path().join("Film.TMP.mp4"), "x").unwrap();
     fs::write(
-        root.path().join(".tmp_fixmeta_enc.Film.1-0A1B2C3D.mp4"),
+        root.path()
+            .join(format!("{TEMP_PREFIX}enc.Film.1-0A1B2C3D.mp4")),
         "x",
     )
     .unwrap();
     leftover(&root.path().join("Busy"), 4711, "Film", 1);
-    add_running_item(&conn, "Busy/Film.mkv");
-    // Ein Unterverzeichnis ist ein anderes Verzeichnis: die Sperre gilt nur für das gleiche.
+    add_running_item(&conn, "Busy/Film.mkv", "running");
+    // A subdirectory is a different directory: the lock applies to the same one only.
     leftover(&root.path().join("Busy/Sub"), 4711, "Film", 1);
 
     let found = orphans::find(ctx(&conn), 1).unwrap();
@@ -136,21 +138,50 @@ fn remove_refuses_and_reports_fresh_numbers_when_the_set_changed() {
 }
 
 #[test]
-fn remove_leaves_files_in_the_directory_of_a_running_item() {
+fn remove_leaves_files_in_the_directory_of_a_claimed_or_running_item() {
+    for status in ["claimed", "running"] {
+        let root = tempfile::tempdir().unwrap();
+        let (_db, conn) = setup(root.path());
+        leftover(&root.path().join("Busy"), 4711, "Film", 2);
+        add_running_item(&conn, "Busy/Film.mkv", status);
+
+        let outcome = orphans::remove(ctx(&conn), 1, 0, 0).unwrap();
+
+        assert_eq!(
+            outcome,
+            RemoveOutcome::Removed { count: 0, bytes: 0 },
+            "{status}"
+        );
+        assert!(
+            fs::read_dir(root.path().join("Busy")).unwrap().any(|e| {
+                e.unwrap()
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(TEMP_PREFIX)
+            }),
+            "{status}"
+        );
+        assert!(events(&conn, "orphan.removed").is_empty(), "{status}");
+    }
+}
+
+#[test]
+fn remove_continues_when_an_event_cannot_be_written() {
     let root = tempfile::tempdir().unwrap();
     let (_db, conn) = setup(root.path());
-    leftover(&root.path().join("Busy"), 4711, "Film", 2);
-    add_running_item(&conn, "Busy/Film.mkv");
+    leftover(&root.path().join("A"), 4711, "One", 3);
+    leftover(&root.path().join("B"), 4711, "Two", 4);
+    conn.raw()
+        .execute_batch(
+            "CREATE TRIGGER no_events BEFORE INSERT ON events
+             BEGIN SELECT RAISE(ABORT, 'events are read-only'); END;",
+        )
+        .unwrap();
 
-    let outcome = orphans::remove(ctx(&conn), 1, 0, 0).unwrap();
+    let outcome = orphans::remove(ctx(&conn), 1, 2, 7).unwrap();
 
-    assert_eq!(outcome, RemoveOutcome::Removed { count: 0, bytes: 0 });
-    assert!(fs::read_dir(root.path().join("Busy")).unwrap().any(|e| {
-        e.unwrap()
-            .file_name()
-            .to_string_lossy()
-            .starts_with(".tmp_fixmeta_")
-    }));
+    assert_eq!(outcome, RemoveOutcome::Removed { count: 2, bytes: 7 });
+    assert!(orphans::find(ctx(&conn), 1).unwrap().is_empty());
 }
 
 #[test]
