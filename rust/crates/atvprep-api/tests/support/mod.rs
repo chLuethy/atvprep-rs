@@ -96,7 +96,7 @@ impl Contract {
             clock: self.state.clock.as_ref(),
         };
         let mut new = NewJob::new("fix", &[1]);
-        new.settings_snapshot = json!({"pipeline":"prepare","policy":"copy-only-v1","delete_original":false,"delete_original_confirmed":false,"manual_approval":true,"approved_by":1,"approved_at":0});
+        new.settings_snapshot = json!({"pipeline":"prepare","policy":"copy-only-v2","delete_original":false,"delete_original_confirmed":false,"manual_approval":true,"approved_by":1,"approved_at":0});
         let job = Jobs(ctx).create(&new).unwrap();
         assert_eq!(job.id, 2);
         ctx.conn
@@ -156,6 +156,8 @@ impl Contract {
                     media_id: item.media_file_id,
                     action: &item.action,
                     identity: &identity,
+                    reencode: item.settings_snapshot["reencode"] == json!(true),
+                    delete_original: item.settings_snapshot["delete_original"] == json!(true),
                 };
                 assert_eq!(prepare_policy_block(&item.settings_snapshot), None);
                 assert_eq!(item.settings_snapshot["approved_by"], person);

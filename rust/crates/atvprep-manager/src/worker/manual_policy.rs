@@ -1,4 +1,5 @@
 //! Last-moment validation of signed manual approvals.
+use super::process::PrepareMode;
 use crate::{
     Error, Result,
     approval::{ApprovalItem, ApprovalVerifier, prepare_policy_block},
@@ -10,8 +11,8 @@ use crate::{
 };
 use serde_json::Value;
 
-/// Check a changing item's approval against the identity of its opened input.
-/// The caller must retain that same open input through execution.
+/// Check a changing item's approval against the identity of its opened input and report how
+/// the approval lets it run. The caller must retain that same open input through execution.
 ///
 /// # Errors
 /// Rejects missing signatures, stale input, revoked/expired sessions and database failures.
@@ -21,7 +22,7 @@ pub fn authorize_prepare(
     verifier: &ApprovalVerifier,
     current_identity: &[Value; 4],
     idle_seconds: i64,
-) -> Result<()> {
+) -> Result<PrepareMode> {
     let item = Jobs(ctx)
         .get_item(item_id)?
         .ok_or_else(|| Error::Invalid("job item not found".to_owned()))?;
@@ -57,6 +58,10 @@ pub fn authorize_prepare(
         // schedule, valid for the schedule as it is right now, is its approval.
         return authorize_schedule_job(ctx, snapshot, verifier);
     }
+    let mode = PrepareMode {
+        reencode: snapshot["reencode"] == Value::Bool(true),
+        delete_original: snapshot["delete_original"] == Value::Bool(true),
+    };
     if let Some(reason) = verifier.check(
         snapshot,
         &ApprovalItem {
@@ -64,6 +69,8 @@ pub fn authorize_prepare(
             media_id: item.media_file_id,
             action: &item.action,
             identity: &identity,
+            reencode: mode.reencode,
+            delete_original: mode.delete_original,
         },
         ctx.clock.now_micros() / 1_000_000,
     ) {
@@ -79,7 +86,7 @@ pub fn authorize_prepare(
             "The approving session is no longer active. Queue the fix again.".to_owned(),
         ));
     }
-    Ok(())
+    Ok(mode)
 }
 
 /// A schedule's job may change files only while the schedule is on and carries a signature
@@ -89,7 +96,7 @@ fn authorize_schedule_job(
     ctx: Ctx<'_>,
     snapshot: &Value,
     verifier: &ApprovalVerifier,
-) -> Result<()> {
+) -> Result<PrepareMode> {
     let refuse = |reason: &str| Err(Error::Invalid(reason.to_owned()));
     let Some(id) = snapshot["schedule_id"].as_i64() else {
         return refuse("The job names no valid schedule.");
@@ -112,7 +119,16 @@ fn authorize_schedule_job(
     if snapshot.get("schedule_params") != Some(&params.to_json()) {
         return refuse("The schedule changed after this job was queued.");
     }
-    Ok(())
+    // The item's own decision is not signed; the schedule's permission is. An item may re-encode
+    // only while the signed schedule allows it.
+    let reencode = snapshot["reencode"] == Value::Bool(true);
+    if reencode && !params.allow_reencode {
+        return refuse("The schedule does not allow a re-encode.");
+    }
+    Ok(PrepareMode {
+        reencode,
+        delete_original: params.delete_original,
+    })
 }
 
 #[cfg(test)]
@@ -149,11 +165,13 @@ mod tests {
                 media_id: 1,
                 action: "fix",
                 identity: &identity,
+                reencode: false,
+                delete_original: false,
             },
             1,
             clock.now_micros() / 1_000_000,
         );
-        let snapshot = json!({"pipeline":"prepare","policy":"copy-only-v1","manual_approval":true,"approved_by":1,"approved_at":clock.now_micros()/1_000_000,"approval_mac":signature});
+        let snapshot = json!({"pipeline":"prepare","policy":"copy-only-v2","reencode":false,"manual_approval":true,"approved_by":1,"approved_at":clock.now_micros()/1_000_000,"approval_mac":signature});
         conn.raw()
             .execute(
                 "UPDATE job_items SET settings_snapshot_json=?1 WHERE id=1",
@@ -212,7 +230,7 @@ mod tests {
                 .unwrap();
         };
         let queue = |params: &ScheduleParams<'_>| {
-            let snapshot = json!({"pipeline":"prepare","policy":"copy-only-v1","manual_approval":false,
+            let snapshot = json!({"pipeline":"prepare","policy":"copy-only-v2","reencode":false,"manual_approval":false,
                 "schedule_id":1,"schedule_params":params.to_json()});
             conn.raw()
                 .execute(
@@ -276,5 +294,174 @@ mod tests {
 
         sql("DELETE FROM schedules WHERE id=1");
         assert!(!allowed(&verifier), "schedule deleted");
+    }
+
+    /// A signed manual item with one file whose approval carries `reencode` and `delete_original`.
+    fn manual_item(reencode: bool, delete_original: bool) -> (crate::db::Conn, [Value; 4], i64) {
+        let db = Db::memory().unwrap();
+        let mut conn = db.conn().unwrap();
+        schema::migrate(&mut conn).unwrap();
+        let clock = FixedClock(1_700_000_000_000_000);
+        let ctx = Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        };
+        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/library');
+            INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES(1,1,'film.mp4','video','.mp4',1,1,'fp','present','clean','idle','none');
+            INSERT INTO jobs(id,action,status,trigger) VALUES(1,'fix','queued','manual');
+            INSERT INTO job_items(id,job_id,media_file_id,action,position,status) VALUES(1,1,1,'fix',0,'queued');
+            INSERT INTO auth_sessions(id,session_token_hash,csrf_secret_hash,expires_at,last_seen_at) VALUES(1,'token-hash','csrf-hash','2999-01-01','2999-01-01');").unwrap();
+        let identity = [json!(1), json!(2), json!(3), json!("sidecars")];
+        InputSnapshots(ctx).record(1,&json!({"file_device":1,"file_inode":2,"file_ctime_ns":3,"sidecar_fingerprint":"sidecars"})).unwrap();
+        let signature = ApprovalVerifier::new(b"secret").unwrap().sign(
+            &ApprovalItem {
+                job_id: 1,
+                media_id: 1,
+                action: "fix",
+                identity: &identity,
+                reencode,
+                delete_original,
+            },
+            1,
+            clock.now_micros() / 1_000_000,
+        );
+        let snapshot = json!({"pipeline":"prepare","policy":"copy-only-v2","reencode":reencode,"delete_original":delete_original,"manual_approval":true,"approved_by":1,"approved_at":clock.now_micros()/1_000_000,"approval_mac":signature});
+        conn.raw()
+            .execute(
+                "UPDATE job_items SET settings_snapshot_json=?1 WHERE id=1",
+                [snapshot.to_string()],
+            )
+            .unwrap();
+        (conn, identity, clock.now_micros())
+    }
+
+    #[test]
+    fn a_manual_approval_reports_the_signed_mode() {
+        let verifier = ApprovalVerifier::new(b"secret").unwrap();
+        for (reencode, delete_original) in [(false, false), (true, false), (true, true)] {
+            let (conn, identity, now) = manual_item(reencode, delete_original);
+            let clock = FixedClock(now);
+            let ctx = Ctx {
+                conn: conn.raw(),
+                clock: &clock,
+            };
+            assert_eq!(
+                authorize_prepare(ctx, 1, &verifier, &identity, 3600).unwrap(),
+                PrepareMode {
+                    reencode,
+                    delete_original
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn a_re_encode_added_to_a_manual_item_after_signing_is_refused() {
+        let verifier = ApprovalVerifier::new(b"secret").unwrap();
+        let (conn, identity, now) = manual_item(false, false);
+        let clock = FixedClock(now);
+        let ctx = Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        };
+        for edit in [
+            "json_set(settings_snapshot_json,'$.reencode',json('true'))",
+            "json_set(settings_snapshot_json,'$.delete_original',json('true'))",
+            "json_set(settings_snapshot_json,'$.policy','copy-only-v1')",
+            "json_remove(settings_snapshot_json,'$.reencode')",
+        ] {
+            let (conn, _, _) = manual_item(false, false);
+            conn.raw()
+                .execute(
+                    &format!("UPDATE job_items SET settings_snapshot_json={edit}"),
+                    [],
+                )
+                .unwrap();
+            let ctx = Ctx {
+                conn: conn.raw(),
+                clock: &clock,
+            };
+            assert!(
+                authorize_prepare(ctx, 1, &verifier, &identity, 3600).is_err(),
+                "{edit}"
+            );
+        }
+        assert!(authorize_prepare(ctx, 1, &verifier, &identity, 3600).is_ok());
+    }
+
+    #[test]
+    fn a_schedule_item_re_encodes_only_under_a_signed_permission() {
+        use crate::approval::ScheduleParams;
+        let db = Db::memory().unwrap();
+        let mut conn = db.conn().unwrap();
+        schema::migrate(&mut conn).unwrap();
+        let clock = FixedClock(1_700_000_000_000_000);
+        let ctx = Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        };
+        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/library');
+            INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES(1,1,'film.mp4','video','.mp4',1,1,'fp','present','warning','idle','none');
+            INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,max_files,enabled) VALUES(1,'s','fix',1,127,'03:00',25,1);
+            INSERT INTO jobs(id,action,status,trigger) VALUES(1,'fix','queued','manual');
+            INSERT INTO job_items(id,job_id,media_file_id,action,position,status) VALUES(1,1,1,'fix',0,'queued');").unwrap();
+        let identity = [json!(1), json!(2), json!(3), json!("sidecars")];
+        InputSnapshots(ctx).record(1,&json!({"file_device":1,"file_inode":2,"file_ctime_ns":3,"sidecar_fingerprint":"sidecars"})).unwrap();
+        let verifier = ApprovalVerifier::new(b"secret").unwrap();
+        let params = |allow_reencode| ScheduleParams {
+            schedule_id: 1,
+            action: "fix",
+            root_id: Some(1),
+            compliance_state: None,
+            max_files: 25,
+            delete_original: false,
+            allow_reencode,
+        };
+        let queue = |allow_reencode: bool, item_reencode: bool| {
+            let snapshot = json!({"pipeline":"prepare","policy":"copy-only-v2","reencode":item_reencode,"manual_approval":false,
+                "schedule_id":1,"schedule_params":params(allow_reencode).to_json()});
+            conn.raw()
+                .execute(
+                    "UPDATE job_items SET settings_snapshot_json=?1 WHERE id=1",
+                    [snapshot.to_string()],
+                )
+                .unwrap();
+        };
+        let sign = |allow_reencode: bool| {
+            conn.raw()
+                .execute(
+                    "UPDATE schedules SET allow_reencode=?2, approved_by=1, approved_at=1700000000, approval_mac=?1 WHERE id=1",
+                    rusqlite::params![
+                        verifier.sign_schedule(&params(allow_reencode), 1, 1_700_000_000),
+                        allow_reencode
+                    ],
+                )
+                .unwrap();
+        };
+        let run = || authorize_prepare(ctx, 1, &verifier, &identity, 3600);
+
+        sign(false);
+        queue(false, false);
+        assert_eq!(run().unwrap(), PrepareMode::default());
+        // The item claims a re-encode that the signature never covered.
+        queue(false, true);
+        assert!(run().is_err(), "no signed permission");
+
+        sign(true);
+        queue(true, true);
+        assert_eq!(
+            run().unwrap(),
+            PrepareMode {
+                reencode: true,
+                delete_original: false
+            }
+        );
+        queue(true, false);
+        assert_eq!(run().unwrap(), PrepareMode::default());
+
+        // Withdrawing the permission after queueing refuses the item, as for every parameter.
+        sign(false);
+        queue(true, true);
+        assert!(run().is_err(), "permission withdrawn after queueing");
     }
 }

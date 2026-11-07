@@ -258,8 +258,9 @@ export type JobResult = { ok: true } | { ok: false; session: boolean; detail?: s
  * Queues a manual job: verify reads MP4 files, inspect reads any file again with ffprobe, prepare makes any
  * container an MP4 that Apple TV plays. The server takes at most 100 files per job.
  * Starting a prepare is the explicit approval (`manual_approval`), bound to the session by the server.
- * It never asks to delete an original. A prepare that includes a file needing a re-encode only runs with
- * `confirmReencode`; the server refuses it otherwise. The caller owns the idempotency key so a retried
+ * It never asks to delete an original itself. A prepare that includes a file needing a re-encode only
+ * re-encodes with `confirmReencode` (the server refuses it otherwise), and then only while the
+ * `delete_original` setting is on. The caller owns the idempotency key so a retried
  * attempt reuses it.
  */
 export async function queueJob(

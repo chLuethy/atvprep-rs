@@ -231,7 +231,7 @@ fn a_manager_contract_runs_the_pinned_leaf() {
 
 #[test]
 fn worker_hands_a_pinned_directory_to_the_real_cli() {
-    use atvprep_manager::worker::process::{StopReason, run_pinned_prepare};
+    use atvprep_manager::worker::process::{PrepareMode, StopReason, run_pinned_prepare};
     use std::{collections::BTreeMap, time::Duration};
     let directory = tempfile::tempdir().unwrap();
     copy_fixture(directory.path(), "plain_faststart.mp4", "pinned.mp4");
@@ -243,6 +243,7 @@ fn worker_hands_a_pinned_directory_to_the_real_cli() {
     let result = run_pinned_prepare(
         Path::new(env!("CARGO_BIN_EXE_atvprep")),
         &target,
+        PrepareMode::default(),
         &environment,
         Duration::from_secs(30),
         Duration::from_millis(100),
@@ -253,6 +254,74 @@ fn worker_hands_a_pinned_directory_to_the_real_cli() {
     let output = String::from_utf8_lossy(&result.output);
     assert!(output.contains("ATVPREP-OUTCOME "), "{output}");
     assert_ne!(result.exit_code, Some(2), "{output}");
+}
+
+/// The worker's three ways to start `atvprep prepare` on a file that needs a video re-encode
+/// (`high10.mp4`), with the real CLI, ffmpeg and ffprobe (ADR 0007).
+fn high10() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/prepare/high10.mp4")
+}
+
+fn run_high10(
+    mode: atvprep_manager::worker::process::PrepareMode,
+) -> (String, Option<i32>, PathBuf, tempfile::TempDir) {
+    use atvprep_manager::worker::process::{StopReason, run_pinned_prepare};
+    use std::{collections::BTreeMap, time::Duration};
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("film.mp4");
+    std::fs::copy(high10(), &path).unwrap();
+    let target = atvprep_core::fd_fix_contract::FdFixTarget::for_path(&path).unwrap();
+    let environment =
+        BTreeMap::from([("PATH".to_owned(), std::env::var("PATH").unwrap_or_default())]);
+    let result = run_pinned_prepare(
+        Path::new(env!("CARGO_BIN_EXE_atvprep")),
+        &target,
+        mode,
+        &environment,
+        Duration::from_secs(300),
+        Duration::from_millis(500),
+        || false,
+    )
+    .unwrap();
+    assert_eq!(result.reason, StopReason::Exited);
+    (
+        String::from_utf8_lossy(&result.output).into_owned(),
+        result.exit_code,
+        path,
+        directory,
+    )
+}
+
+#[test]
+fn the_worker_re_encodes_for_real_only_with_the_approved_mode() {
+    use atvprep_manager::worker::process::PrepareMode;
+    let original = std::fs::read(high10()).unwrap();
+
+    // Copy-only, as every item without a re-encode decision: refused, the file stays.
+    let (output, code, path, _dir) = run_high10(PrepareMode::default());
+    assert_ne!(code, Some(0), "{output}");
+    assert_eq!(std::fs::read(&path).unwrap(), original, "{output}");
+
+    // Re-encode approved but the original may not be replaced: reported, untouched.
+    let (output, code, path, _dir) = run_high10(PrepareMode {
+        reencode: true,
+        delete_original: false,
+    });
+    assert_eq!(code, Some(0), "{output}");
+    assert!(
+        output.contains("ATVPREP-OUTCOME reencode_needed"),
+        "{output}"
+    );
+    assert_eq!(std::fs::read(&path).unwrap(), original, "{output}");
+
+    // Re-encode approved with delete_original: the file is replaced by the encoded one.
+    let (output, code, path, _dir) = run_high10(PrepareMode {
+        reencode: true,
+        delete_original: true,
+    });
+    assert_eq!(code, Some(0), "{output}");
+    assert!(output.contains("ATVPREP-OUTCOME reencoded"), "{output}");
+    assert_ne!(std::fs::read(&path).unwrap(), original, "{output}");
 }
 
 #[test]
@@ -465,7 +534,7 @@ fn worker_executes_a_claimed_verification_and_releases_its_permit() {
     let ids = [media.id];
     let mut prepare = NewJob::new("fix", &ids);
     prepare.trigger = "manual";
-    prepare.settings_snapshot = serde_json::json!({"pipeline":"prepare","policy":"copy-only-v1","manual_approval":true,"approved_by":session.id,"approved_at":ctx.clock.now_micros()/1_000_000,"delete_original":false,"delete_original_confirmed":false});
+    prepare.settings_snapshot = serde_json::json!({"pipeline":"prepare","policy":"copy-only-v2","reencode":false,"manual_approval":true,"approved_by":session.id,"approved_at":ctx.clock.now_micros()/1_000_000,"delete_original":false,"delete_original_confirmed":false});
     let job = Jobs(ctx).create(&prepare).unwrap();
     let queued = Jobs(ctx).items(job.id).unwrap().remove(0);
     let recorded = atvprep_manager::snapshots::InputSnapshots(ctx)
@@ -485,7 +554,9 @@ fn worker_executes_a_claimed_verification_and_releases_its_permit() {
             job_id: job.id,
             media_id: media.id,
             action: "fix",
-            identity: &identity
+            identity: &identity,
+            reencode: false,
+            delete_original: false
         },
         session.id,
         signed["approved_at"].as_i64().unwrap()
@@ -666,4 +737,62 @@ fn without_a_command_the_help_is_printed_and_the_exit_code_is_1() {
         .unwrap();
     assert_eq!(output.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&output.stdout).contains("Usage:"));
+}
+
+/// A cancelled re-encode leaves neither a partial file nor a changed original (ADR 0007). A stand-in
+/// ffmpeg writes half an output and then hangs, so there is a partial file to clean up.
+#[test]
+fn cancelling_a_re_encode_removes_the_partial_file() {
+    use atvprep_manager::worker::process::{PrepareMode, StopReason, run_pinned_prepare};
+    use std::os::unix::fs::PermissionsExt;
+    use std::{collections::BTreeMap, time::Duration};
+    let tools = tempfile::tempdir().unwrap();
+    let fake = tools.path().join("ffmpeg");
+    std::fs::write(
+        &fake,
+        "#!/bin/sh\nfor last; do :; done\nprintf partial > \"$last\"\nexec sleep 60\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("film.mp4");
+    std::fs::copy(high10(), &path).unwrap();
+    let original = std::fs::read(&path).unwrap();
+    let target = atvprep_core::fd_fix_contract::FdFixTarget::for_path(&path).unwrap();
+    let search = format!(
+        "{}:{}",
+        tools.path().display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    let environment = BTreeMap::from([("PATH".to_owned(), search)]);
+    let watched = directory.path().to_path_buf();
+    let result = run_pinned_prepare(
+        Path::new(env!("CARGO_BIN_EXE_atvprep")),
+        &target,
+        PrepareMode {
+            reencode: true,
+            delete_original: true,
+        },
+        &environment,
+        Duration::from_secs(60),
+        Duration::from_secs(2),
+        // Cancel once the stand-in has written its partial file.
+        move || {
+            std::fs::read_dir(&watched).unwrap().flatten().any(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".tmp_fixmeta_")
+            })
+        },
+    )
+    .unwrap();
+    assert_eq!(result.reason, StopReason::Cancelled);
+    let leftovers: Vec<_> = std::fs::read_dir(directory.path())
+        .unwrap()
+        .flatten()
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(leftovers, ["film.mp4"], "{leftovers:?}");
+    assert_eq!(std::fs::read(&path).unwrap(), original);
 }

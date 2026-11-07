@@ -580,7 +580,7 @@ fn run_change_schedule(
     }
     let delete_original = delete_original_setting(ctx.conn)?;
     let mut statement = ctx.conn.prepare(&format!(
-        "SELECT m.id FROM media_files m
+        "SELECT m.id, m.needs_reencode FROM media_files m
          WHERE m.discovery_state='present'
            AND (?1 IS NULL OR m.root_id=?1)
            AND (?2 IS NULL OR m.compliance_state=?2)
@@ -593,7 +593,7 @@ fn run_change_schedule(
         crate::media_sql::change_candidate("?3", "?5")
     ))?;
     let embed_open = crate::embed::open_media_ids_json(ctx.conn)?;
-    let media_ids = statement
+    let selected = statement
         .query_map(
             rusqlite::params![
                 row.root_id,
@@ -602,10 +602,11 @@ fn run_change_schedule(
                 row.max_files,
                 embed_open
             ],
-            |r| r.get(0),
+            |r| Ok((r.get::<_, i64>(0)?, r.get::<_, bool>(1)?)),
         )?
-        .collect::<std::result::Result<Vec<i64>, _>>()?;
+        .collect::<std::result::Result<Vec<_>, _>>()?;
     drop(statement);
+    let media_ids: Vec<i64> = selected.iter().map(|(id, _)| *id).collect();
     if media_ids.is_empty() {
         return finish("No matching files".to_owned(), None);
     }
@@ -619,9 +620,15 @@ fn run_change_schedule(
         &media_ids,
     );
     job.trigger = "manual";
+    // Only a file that needs it, under a schedule the operator signed for it (ADR 0007).
+    job.reencode_media = selected
+        .iter()
+        .filter(|(_, needs)| *needs && row.allow_reencode)
+        .map(|(id, _)| *id)
+        .collect();
     job.settings_snapshot = serde_json::json!({
         "pipeline": "prepare",
-        "policy": "copy-only-v1",
+        "policy": crate::approval::PREPARE_POLICY,
         "delete_original": delete_original,
         "delete_original_confirmed": false,
         "manual_approval": false,

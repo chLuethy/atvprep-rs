@@ -323,7 +323,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
               <input type="checkbox" checked={draft().allowReencode} aria-describedby="sched-reencode-hint" onChange={(event) => patch({ allowReencode: event.currentTarget.checked })} />
               {" "}{t("Re-encode allowed")}
             </label>
-            <span id="sched-reencode-hint" class="muted">{t("Without this, the schedule skips files that need a re-encode. Changing it ends your approval.")}</span>
+            <span id="sched-reencode-hint" class="muted">{t("With this, the schedule re-encodes files that need it and replaces the original, but only while the setting “delete_original” is on; otherwise those files stay unchanged and the run reports a re-encode as needed. Without it, such files are skipped. Changing it ends your approval.")}</span>
           </div>
         </Show>
       </div>
@@ -379,6 +379,14 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
     </ul>
   );
 
+  /** What a re-encode does under this schedule, given the signed permission and the `delete_original` setting. */
+  const reencodeStatement = (allowed: boolean, deleteOriginal: boolean | null): string => {
+    if (!allowed) return t("Re-encoding is not allowed: files that need a re-encode are skipped. Originals are kept.");
+    if (deleteOriginal === true) return t("Re-encoding is allowed: files that need it are re-encoded and replace the original.");
+    if (deleteOriginal === false) return t("Re-encoding is allowed, but the setting “delete_original” is off: files that need it stay unchanged and the run reports a re-encode as needed.");
+    return t("Re-encoding is allowed. It replaces the original and only runs while the setting “delete_original” is on; that setting cannot be checked right now.");
+  };
+
   const renderEnableQuestion = (schedule: Schedule) => (
     <div class="confirm" role="region" aria-label={t("Turn on {name}", { name: schedule.name })}>
       <p>{t("Turn on “{name}”? From then on it changes files in your library by itself, up to {count} per run, until you pause it.", { name: schedule.name, count: schedule.max_files ?? 0 })}</p>
@@ -386,13 +394,13 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
         {(known) => (
           <>
             <p><b>{tn("{count} file matches now", "{count} files match now", known().matching)}</b></p>
-            <p>{known().deleteOriginal === null
-              ? t("Unable to check whether originals are deleted.")
-              : known().deleteOriginal ? t("Originals are deleted.") : t("Originals are kept.")}</p>
+            <p>{reencodeStatement(schedule.allow_reencode === true, known().deleteOriginal)}</p>
           </>
         )}
       </Show>
-      <p>{schedule.allow_reencode ? t("Re-encoding is allowed.") : t("Re-encoding is not allowed: files that need a re-encode are skipped.")}</p>
+      <Show when={!facts()}>
+        <p>{reencodeStatement(schedule.allow_reencode === true, null)}</p>
+      </Show>
       <p class="muted">{t("Your approval applies to these settings only. It ends when you change the library, the filter, the files per run or the re-encode permission, or when you pause the schedule.")}</p>
       <Show when={rowError()}><p class="notice bad" role="alert">{rowError()}</p></Show>
       <div class="insp-actions">

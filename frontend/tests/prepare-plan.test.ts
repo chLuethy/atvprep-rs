@@ -20,12 +20,13 @@ describe("prepareConfirm", () => {
     expect(plan.lines).toEqual(["Prepare writes an MP4 next to this .mkv file. The original is kept."]);
   });
 
-  it("a re-encode needs an explicit release and never deletes an original", () => {
+  it("a re-encode needs an explicit release and says it replaces the original only with delete_original", () => {
     const plan = prepareConfirm({ suffix: ".mp4", needs_reencode: true }, []);
 
     expect(plan.reencode).toBe(true);
-    expect(plan.lines).toEqual(["The video has to be re-encoded. That takes longer and changes the file more deeply, so it needs your explicit confirmation."]);
-    expect(plan.lines.join(" ")).not.toMatch(/delet|replaced/i);
+    expect(plan.lines).toEqual(["The video has to be re-encoded. That takes longer and replaces the original, so it needs your explicit confirmation. It only runs while the setting “delete_original” is on; otherwise the file stays as it is and the job reports that a re-encode is needed."]);
+    expect(plan.lines.join(" ")).toMatch(/replaces the original/);
+    expect(plan.lines.join(" ")).toMatch(/otherwise the file stays as it is/);
   });
 
   it("predicts a re-encode of another container from its codecs", () => {

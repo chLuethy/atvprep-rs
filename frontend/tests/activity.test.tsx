@@ -314,6 +314,22 @@ describe("JobDetail: what happened", () => {
     expect(why).toHaveTextContent("the file changed while it was being rewritten");
   });
 
+  it("says on the item that a needed re-encode was not run, although the job succeeded", async () => {
+    const skipped = item({ error_code: "reencode_not_run", error_detail: "Re-encode needed, not run: the file stays as it was." });
+    const view = render(() => <JobDetail api={detailApi({}, [skipped])} jobId="j_1" />);
+
+    const note = await view.findByRole("status", { name: "Re-encode not run" });
+    expect(note).toHaveTextContent("Re-encode needed, not run");
+    expect(note).toHaveTextContent("the file stays as it was");
+    expect(note).toHaveTextContent("only runs while the setting “delete_original” is on");
+  });
+
+  it("shows no re-encode note on an item that ran normally", async () => {
+    const view = render(() => <JobDetail api={detailApi()} jobId="j_1" />);
+    await view.findByRole("heading", { name: "Heat" });
+    expect(view.queryByRole("status", { name: "Re-encode not run" })).not.toBeInTheDocument();
+  });
+
   it("does not show a failure section for a job that did not fail", async () => {
     const view = render(() => <JobDetail api={detailApi()} jobId="j_1" />);
     await view.findByRole("heading", { name: "Heat" });
