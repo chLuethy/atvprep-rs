@@ -38,6 +38,8 @@ export const deInspector: Record<string, string | [string, string]> = {
   "No job history": "Kein Auftragsverlauf",
   "Loading file detail": "Dateidetails werden geladen",
   "Unable to load inspections": "Inspektionen konnten nicht geladen werden",
+  "Last preparation interrupted": "Letzte Überarbeitung unterbrochen",
+  "Prepare again": "Erneut überarbeiten",
   "Prepare preview": "Vorschau zum Überarbeiten",
   "Confirm prepare": "Überarbeiten bestätigen",
   "Prepare queued": "Überarbeitung eingereiht",
@@ -47,7 +49,8 @@ export const deInspector: Record<string, string | [string, string]> = {
   "Unable to queue the preparation. Try again.": "Die Überarbeitung konnte nicht eingereiht werden. Versuche es erneut.",
   "Preparation queued. The new MP4 appears in the library after the next scan.": "Überarbeitung eingereiht. Die neue MP4 erscheint nach dem nächsten Scan in der Bibliothek.",
   "A preparation for this file is already in progress.": "Für diese Datei läuft bereits eine Überarbeitung.",
-  "The video would need a re-encode. Prepare does not re-encode: the run stops and the file stays as it is.": "Das Video müsste neu kodiert werden. Das Überarbeiten kodiert nicht neu: Der Lauf bricht ab und die Datei bleibt unverändert.",
+  "The video has to be re-encoded. That takes longer and changes the file more deeply, so it needs your explicit confirmation.": "Das Video muss neu kodiert werden. Das dauert länger und ändert die Datei tiefgreifender, deshalb brauchst du dafür eine ausdrückliche Bestätigung.",
+  "Confirm with re-encode": "Mit Re-Encode bestätigen",
   "Prepare rewrites this MP4 in place where needed. Files already at the target are left alone.": "Beim Überarbeiten wird diese MP4 bei Bedarf an Ort und Stelle neu geschrieben. Dateien, die schon dem Ziel entsprechen, bleiben unverändert.",
   "Prepare writes an MP4 next to this {suffix} file. The original is kept.": "Beim Überarbeiten wird neben dieser {suffix}-Datei eine MP4 geschrieben. Das Original bleibt erhalten.",
 };

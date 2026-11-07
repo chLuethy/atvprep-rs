@@ -79,6 +79,19 @@ describe("LibraryPage: the list", () => {
     expect(table).toHaveTextContent("10 GB");
   });
 
+  it("marks a file whose last preparation was interrupted in the list", async () => {
+    const rows = [
+      file({ id: "m_f1", display_path: "Film/A/A.mp4", size: GB, compliance_state: "warning", last_interrupted: true }),
+      file({ id: "m_f2", display_path: "Film/B/B.mp4", size: GB, compliance_state: "warning", last_interrupted: false }),
+    ];
+    const { api } = makeApi({ rows });
+    const view = renderLibrary(api);
+
+    await view.findByRole("link", { name: "A" });
+    expect(rowNamed(view, "A")).toHaveTextContent("Last preparation interrupted");
+    expect(rowNamed(view, "B")).not.toHaveTextContent("Last preparation interrupted");
+  });
+
   it("opens a file in the inspector when its row or title is chosen", async () => {
     open.mockClear();
     const { api } = makeApi();
@@ -291,15 +304,22 @@ describe("LibraryPage: the re-encode state", () => {
     expect(view.getByRole("checkbox", { name: /Converted, original kept/ })).toBeChecked();
   });
 
-  it("does not offer a video that needs a re-encode for preparation: Prepare cannot do that", async () => {
+  it("previews a video that needs a re-encode and queues it only with the explicit confirmation", async () => {
     const reencode = file({ id: "m_r1", display_path: "Film/Big (2020)/Big (2020).mp4", size: GB, compliance_state: "blocker", desired_action: "fix", needs_reencode: true,
       compliance_reasons: ["[blocker] video-reencode: the video needs a re-encode"] });
     const { api, posts } = makeApi({ rows: [reencode] });
     const view = renderLibrary(api);
     await pickRow(view, "Big (2020)");
 
-    expect(view.getByRole("button", { name: /preview and prepare/i })).toBeDisabled();
+    await fireEvent.click(view.getByRole("button", { name: /preview and prepare/i }));
+    const preview = view.getByRole("region", { name: "Prepare preview" });
+    expect(within(preview).queryByRole("button", { name: "Prepare 1 file" })).not.toBeInTheDocument();
+    expect(within(preview).getByRole("button", { name: "Without re-encode" })).toBeDisabled();
     expect(posts()).toHaveLength(0);
+
+    await fireEvent.click(within(preview).getByRole("button", { name: "With re-encode (1)" }));
+    await waitFor(() => expect(posts()).toHaveLength(1));
+    expect(JSON.parse(String(posts()[0]!.init?.body))).toEqual({ action: "prepare", media_ids: ["m_r1"], manual_approval: true, confirm_reencode: true });
   });
 });
 
@@ -308,7 +328,7 @@ describe("LibraryPage: a mixed selection with a re-encode", () => {
     compliance_reasons: ["[blocker] video-reencode: the video needs a re-encode"] });
   const mkv = file({ id: "m_k1", display_path: "Film/Lynley (2001)/Lynley (2001).mkv", suffix: ".mkv", size: GB, compliance_state: "unknown", desired_action: "convert" });
 
-  it("queues only the file Prepare can handle, in one job, and says it skipped the other", async () => {
+  it("without re-encode queues only the other files, in one job, without a confirmation", async () => {
     const { api, posts } = makeApi({ rows: [reencode, mkv] });
     const view = renderLibrary(api);
     await pickRow(view, "Big (2020)");
@@ -317,11 +337,24 @@ describe("LibraryPage: a mixed selection with a re-encode", () => {
     await fireEvent.click(view.getByRole("button", { name: /preview and prepare/i }));
     const preview = view.getByRole("region", { name: "Prepare preview" });
     expect(preview).toHaveTextContent("The original is kept.");
-    expect(preview).toHaveTextContent("1 selected file skipped");
-    await fireEvent.click(within(preview).getByRole("button", { name: "Prepare 1 file" }));
+    expect(preview).toHaveTextContent("1 of 2 files need a re-encode");
+    await fireEvent.click(within(preview).getByRole("button", { name: "Without re-encode" }));
 
     await waitFor(() => expect(posts()).toHaveLength(1));
     expect(JSON.parse(String(posts()[0]!.init?.body))).toEqual({ action: "prepare", media_ids: ["m_k1"], manual_approval: true });
+  });
+
+  it("with re-encode queues every selected file in one confirmed job", async () => {
+    const { api, posts } = makeApi({ rows: [reencode, mkv] });
+    const view = renderLibrary(api);
+    await pickRow(view, "Big (2020)");
+    await pickRow(view, "Lynley (2001)");
+
+    await fireEvent.click(view.getByRole("button", { name: /preview and prepare/i }));
+    await fireEvent.click(within(view.getByRole("region", { name: "Prepare preview" })).getByRole("button", { name: "With re-encode (1)" }));
+
+    await waitFor(() => expect(posts()).toHaveLength(1));
+    expect(JSON.parse(String(posts()[0]!.init?.body))).toEqual({ action: "prepare", media_ids: ["m_r1", "m_k1"], manual_approval: true, confirm_reencode: true });
   });
 
   it("keeps the files in the preview when the queue is refused, and queues them once on a retry", async () => {

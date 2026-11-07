@@ -483,21 +483,24 @@ describe("Inspector: converting a file that is not an MP4", () => {
     expect(within(confirm).queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("says Prepare does not re-encode and does not queue such a file", async () => {
-    const posted: string[] = [];
+  it("asks for an explicit confirmation of the re-encode before it queues such a file", async () => {
+    const posted: unknown[] = [];
     const api = forMkv("vp9", 1080, "dts", { "/jobs": () => response({ id: "j_9" }, 201) });
     const original = api.request;
     api.request = vi.fn(async (path: string, init?: RequestInit) => {
-      if (path === "/jobs") posted.push(path);
+      if (path === "/jobs") posted.push(JSON.parse(String(init?.body)));
       return original(path, init);
     });
     const view = render(() => <Inspector api={api} fileId="m_f1" />);
 
     await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
     const confirm = await view.findByRole("region", { name: "Prepare" });
-    await waitFor(() => expect(within(confirm).getByRole("alert")).toHaveTextContent(/Prepare does not re-encode/));
-    expect(within(confirm).getByRole("button", { name: "Confirm prepare" })).toBeDisabled();
+    await waitFor(() => expect(within(confirm).getByRole("alert")).toHaveTextContent(/has to be re-encoded/));
+    expect(within(confirm).queryByRole("button", { name: "Confirm prepare" })).not.toBeInTheDocument();
     expect(posted).toEqual([]);
+
+    await fireEvent.click(within(confirm).getByRole("button", { name: "Confirm with re-encode" }));
+    await waitFor(() => expect(posted).toEqual([{ action: "prepare", media_ids: ["m_f1"], manual_approval: true, confirm_reencode: true }]));
   });
 
   it("keeps Verify and Fix for MP4 files and never offers Convert there", async () => {
@@ -589,5 +592,25 @@ describe("Inspector: external subtitle files", () => {
     setVersion(1);
 
     await waitFor(() => expect(view.getByRole("list", { name: "Sidecar files" })).toHaveTextContent("English: not used, the file already has this subtitle"));
+  });
+});
+
+describe("Inspector: an interrupted preparation", () => {
+  it("notes the interruption and starts the normal manual preparation again, never on its own", async () => {
+    const onFix = vi.fn();
+    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response({ ...detail, last_interrupted: true }) })} fileId="m_f1" onFix={onFix} />);
+
+    expect(await view.findByText("Last preparation interrupted")).toBeInTheDocument();
+    expect(onFix).not.toHaveBeenCalled();
+    await fireEvent.click(view.getByRole("button", { name: "Prepare again" }));
+    expect(onFix).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows nothing when the last preparation was not interrupted", async () => {
+    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response({ ...detail, last_interrupted: false }) })} fileId="m_f1" onFix={vi.fn()} />);
+
+    await view.findByRole("heading", { name: "Pretty Woman (1990)" });
+    expect(view.queryByText("Last preparation interrupted")).not.toBeInTheDocument();
+    expect(view.queryByRole("button", { name: "Prepare again" })).not.toBeInTheDocument();
   });
 });

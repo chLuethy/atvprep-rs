@@ -83,6 +83,7 @@ export const FileTable: Component<{
                   onClick={(event) => { event.preventDefault(); props.onSelect(file, event); }}
                 >{title()}</a>
                 <Show when={name().folder}><span class="file-folder mono">{name().folder}</span></Show>
+                <Show when={file.last_interrupted && !file.fix_status}><span class="interrupted-note">{t("Last preparation interrupted")}</span></Show>
               </td>
               <td class="col-status"><StatusChip kind={verdict().kind} icon={verdict().icon}>{verdict().label}</StatusChip></td>
               <td class="col-reason muted"><span class="reason-text">{reason()}</span></td>

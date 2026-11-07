@@ -10,6 +10,9 @@ import { baseName, estimateMinutes, formatSize, languageName, parseReason, verdi
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
 const KIND_LABEL: Record<ChangeKind, string> = { patch: N("Patch"), remux: N("Remux"), reencode: N("Re-encode"), none: N("Unchanged") };
 
+/** "with" confirms the re-encode of every file that needs one, for this job only; "without" leaves those files out. */
+export type ReencodeChoice = "with" | "without";
+
 /**
  * What Prepare would touch, shown before anything runs. The changes per file are derived from the
  * verify report (see fixPlan.ts), not simulated: the fix itself decides the final result.
@@ -17,7 +20,7 @@ const KIND_LABEL: Record<ChangeKind, string> = { patch: N("Patch"), remux: N("Re
 export const FixPreview: Component<{
   files: FileRow[];
   skipped: number;
-  onQueue: () => Promise<JobResult>;
+  onQueue: (reencode: ReencodeChoice) => Promise<JobResult>;
   onClose: () => void;
 }> = (props) => {
   const [busy, setBusy] = createSignal(false);
@@ -30,12 +33,14 @@ export const FixPreview: Component<{
   /** An MP4 that is only rewritten in place: one sentence for all of them instead of one each. */
   const plain = (file: FileRow) => isMp4Like(file.suffix) && !confirms(file).reencode;
 
-  const queue = async () => {
+  const reencodeCount = () => props.files.filter((file) => confirms(file).reencode).length;
+
+  const queue = async (choice: ReencodeChoice) => {
     if (busy()) return;
     setBusy(true);
     setFailure(null);
     try {
-      const result = await props.onQueue();
+      const result = await props.onQueue(choice);
       if (!result.ok) setFailure(result.session ? "session" : "queue");
     } finally {
       setBusy(false);
@@ -106,10 +111,21 @@ export const FixPreview: Component<{
       <p class="muted">{t("Derived from the verify report. The fix itself decides the final result.")}</p>
       <Show when={failure() === "queue"}><p class="notice bad" role="alert">{t("Unable to queue the prepare job. Try again.")}</p></Show>
       <Show when={failure() === "session"}><p class="notice bad" role="alert">{t(SESSION_EXPIRED)}</p></Show>
+      <Show when={reencodeCount() > 0}>
+        <p class="notice warn" role="alert">{tn("{reencode} of {count} file needs a re-encode. That takes longer and changes the file more deeply. Choose whether to re-encode it in this job.", "{reencode} of {count} files need a re-encode. That takes longer and changes the files more deeply. Choose whether to re-encode them in this job.", count(), { reencode: reencodeCount() })}</p>
+      </Show>
       <div class="insp-actions">
-        <Button variant="primary" disabled={busy() || count() === 0} onClick={() => void queue()}>
-          {tn("Prepare {count} file", "Prepare {count} files", count())}
-        </Button>
+        <Show
+          when={reencodeCount() > 0}
+          fallback={
+            <Button variant="primary" disabled={busy() || count() === 0} onClick={() => void queue("without")}>
+              {tn("Prepare {count} file", "Prepare {count} files", count())}
+            </Button>
+          }
+        >
+          <Button variant="primary" disabled={busy()} onClick={() => void queue("with")}>{t("With re-encode ({count})", { count: reencodeCount() })}</Button>
+          <Button disabled={busy() || reencodeCount() === count()} onClick={() => void queue("without")}>{t("Without re-encode")}</Button>
+        </Show>
         <Button variant="quiet" onClick={props.onClose}>{t("Cancel")}</Button>
       </div>
     </div>

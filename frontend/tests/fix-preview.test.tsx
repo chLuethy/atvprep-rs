@@ -1,4 +1,4 @@
-import { render, within } from "@solidjs/testing-library";
+import { fireEvent, render, within } from "@solidjs/testing-library";
 import { describe, expect, it } from "vitest";
 import { FixPreview } from "../src/features/files/FixPreview";
 import type { FileRow } from "../src/features/files/loaders";
@@ -9,7 +9,8 @@ const row = (over: Partial<FileRow> = {}): FileRow => ({
   compliance_reasons: [], ...over,
 });
 
-const show = (file: FileRow) => render(() => <FixPreview files={[file]} skipped={0} onQueue={async () => ({ ok: true })} onClose={() => {}} />);
+const queued: string[] = [];
+const show = (file: FileRow) => render(() => <FixPreview files={[file]} skipped={0} onQueue={async (reencode) => { queued.push(reencode); return { ok: true }; }} onClose={() => {}} />);
 
 describe("FixPreview: subtitles to embed", () => {
   it("names each subtitle that will be merged, with its language and kind", () => {
@@ -52,5 +53,24 @@ describe("FixPreview: subtitles to embed", () => {
   it("mentions no subtitles when none are waiting", () => {
     const view = show(row({ compliance_state: "warning", compliance_reasons: ["[warning] apple-tags: 4 tracks lack an elng tag"] }));
     expect(view.queryByRole("list", { name: "Subtitles to embed" })).not.toBeInTheDocument();
+  });
+});
+
+describe("FixPreview: re-encode", () => {
+  it("names how many files need a re-encode and offers both ways", async () => {
+    queued.length = 0;
+    const view = show(row({ needs_reencode: true, compliance_state: "warning" }));
+
+    expect(view.getByText(/1 of 1 file needs a re-encode/)).toBeInTheDocument();
+    expect(view.queryByRole("button", { name: "Prepare 1 file" })).not.toBeInTheDocument();
+    await fireEvent.click(view.getByRole("button", { name: "With re-encode (1)" }));
+    expect(queued).toEqual(["with"]);
+  });
+
+  it("offers a plain prepare when no file needs a re-encode", () => {
+    const view = show(row({ compliance_state: "warning", compliance_reasons: ["[warning] apple-tags: 4 tracks lack an elng tag"] }));
+
+    expect(view.getByRole("button", { name: "Prepare 1 file" })).toBeInTheDocument();
+    expect(view.queryByRole("button", { name: /re-encode/i })).not.toBeInTheDocument();
   });
 });

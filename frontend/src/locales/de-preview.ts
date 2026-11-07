@@ -38,4 +38,10 @@ export const dePreview: Record<string, string | readonly [string, string]> = {
   "Load more sidecars": "Weitere Begleitdateien laden",
   "Unable to queue the prepare job. Try again.": "Der Überarbeitungs-Auftrag konnte nicht eingereiht werden. Versuche es erneut.",
   "Prepare {count} file": ["{count} Datei überarbeiten", "{count} Dateien überarbeiten"],
+  "{reencode} of {count} file needs a re-encode. That takes longer and changes the file more deeply. Choose whether to re-encode it in this job.": [
+    "{reencode} von {count} Datei muss neu kodiert werden. Das dauert länger und ändert die Datei tiefgreifender. Entscheide, ob sie in diesem Auftrag neu kodiert wird.",
+    "{reencode} von {count} Dateien müssen neu kodiert werden. Das dauert länger und ändert die Dateien tiefgreifender. Entscheide, ob sie in diesem Auftrag neu kodiert werden.",
+  ],
+  "With re-encode ({count})": "Mit Re-Encode ({count})",
+  "Without re-encode": "Ohne Re-Encode",
 };
