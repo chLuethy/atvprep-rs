@@ -71,6 +71,8 @@ pub struct MediaFile {
     pub discovery_state: String,
     pub compliance_state: String,
     pub compliance_reasons: Vec<String>,
+    /// The check found that the video must be re-encoded (independent of the state).
+    pub needs_reencode: bool,
     pub workflow_state: String,
     pub desired_action: String,
     pub last_seen_at: String,
@@ -100,6 +102,7 @@ impl MediaFile {
             discovery_state: row.get("discovery_state")?,
             compliance_state: row.get("compliance_state")?,
             compliance_reasons: serde_json::from_str(&reasons).unwrap_or_default(),
+            needs_reencode: row.get("needs_reencode")?,
             workflow_state: row.get("workflow_state")?,
             desired_action: row.get("desired_action")?,
             last_seen_at: row.get("last_seen_at")?,

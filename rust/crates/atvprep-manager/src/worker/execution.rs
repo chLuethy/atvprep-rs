@@ -455,7 +455,7 @@ fn complete_prepare(
     if changed {
         crate::media::Media(write).upsert(media.root_id, relative, &observed.meta, None)?;
         tx.execute(
-            "UPDATE media_files SET compliance_state='unknown',compliance_reasons=?1 WHERE id=?2",
+            "UPDATE media_files SET compliance_state='unknown',compliance_reasons=?1,needs_reencode=0 WHERE id=?2",
             rusqlite::params![
                 "[\"Changed by Prepare; verification is required.\"]",
                 media.id
