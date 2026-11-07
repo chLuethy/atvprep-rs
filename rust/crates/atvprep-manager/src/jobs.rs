@@ -1,7 +1,7 @@
 //! Jobs and their items: queueing, claiming under the executor lease, heartbeats, retries.
 //! Status changes go through the state machine (`state_machine.rs`), not through this module.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use rusqlite::{OptionalExtension, named_params};
 use serde_json::{Value, json};
@@ -26,6 +26,9 @@ pub struct NewJob<'a> {
     pub settings_snapshot: Value,
     /// Raw input overrides stored on the item, by media id.
     pub input_snapshots: BTreeMap<i64, Value>,
+    /// Media allowed to be re-encoded in this job (ADR 0007). Only read for the prepare policy:
+    /// every item then records `reencode` true or false.
+    pub reencode_media: BTreeSet<i64>,
 }
 
 impl<'a> NewJob<'a> {
@@ -38,6 +41,7 @@ impl<'a> NewJob<'a> {
             settings_revision: 0,
             settings_snapshot: json!({}),
             input_snapshots: BTreeMap::new(),
+            reencode_media: BTreeSet::new(),
         }
     }
 }
@@ -60,6 +64,19 @@ struct ItemSeed<'a> {
     origin_item_id: Option<i64>,
     input: &'a Value,
     settings: &'a Value,
+    /// The item's re-encode decision; recorded only for jobs under the prepare policy.
+    reencode: bool,
+}
+
+/// The snapshot of one item: the job's, plus its own re-encode decision under the prepare policy.
+fn item_settings(job: &Value, reencode: bool) -> Value {
+    let mut settings = job.clone();
+    if job.get("policy").and_then(Value::as_str) == Some(crate::approval::PREPARE_POLICY)
+        && let Some(object) = settings.as_object_mut()
+    {
+        object.insert("reencode".to_owned(), json!(reencode));
+    }
+    settings
 }
 
 pub struct Jobs<'a>(pub Ctx<'a>);
@@ -148,7 +165,7 @@ impl Jobs<'_> {
                 seed.position,
                 seed.origin_item_id,
                 seed.input.to_string(),
-                seed.settings.to_string()
+                item_settings(seed.settings, seed.reencode).to_string()
             ],
         )?;
         let id = self.0.conn.last_insert_rowid();
@@ -207,6 +224,7 @@ impl Jobs<'_> {
                 origin_item_id: None,
                 input: &input,
                 settings: &new.settings_snapshot,
+                reencode: new.reencode_media.contains(media_id),
             })?;
         }
         Events(self.0).append(
@@ -382,6 +400,7 @@ impl Jobs<'_> {
                 origin_item_id: Some(old.id),
                 input: &old.input_snapshot,
                 settings: &snapshot,
+                reencode: old.settings_snapshot.get("reencode") == Some(&Value::Bool(true)),
             })?;
         }
         Events(self.0).append(

@@ -235,6 +235,7 @@ async fn turning_on_needs_confirmation_and_every_change_of_parameters_or_pause_r
         json!({"clear_compliance_state":true}),
         json!({"root_id": Opaque::new(SECRET.as_bytes()).encode("r", 1)}),
         json!({"clear_root":true}),
+        json!({"allow_reencode":true}),
     ] {
         let (status, _) = h
             .patch(&token, json!({"enabled":true,"confirm_changes_files":true}))
@@ -290,6 +291,82 @@ async fn turning_on_needs_confirmation_and_every_change_of_parameters_or_pause_r
         .execute("INSERT INTO runtime_settings(key,value_json,value_type,revision) VALUES('delete_original','true','bool',1)", [])
         .unwrap();
     assert!(!h.approval_holds(id));
+}
+
+#[tokio::test]
+async fn the_re_encode_permission_starts_off_is_signed_and_shown() {
+    let h = Harness::new();
+    // Created off, and only schedules that change files have it.
+    let (status, body) = h.create(new_schedule("fix")).await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    assert_eq!(body["data"]["allow_reencode"], false);
+    let token = body["data"]["id"].as_str().unwrap().to_owned();
+    let id = Opaque::new(SECRET.as_bytes()).decode(&token, "sc").unwrap();
+    let (_, body) = h
+        .create(json!({"name":"Check","action":"verify","days":[0],"time":"03:00"}))
+        .await;
+    assert!(body["data"]["allow_reencode"].is_null(), "{body}");
+    let mut input = new_schedule("convert");
+    input["allow_reencode"] = json!(true);
+    let (status, body) = h.create(input).await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    assert_eq!(body["data"]["allow_reencode"], true);
+    let mut input = json!({"name":"Check","action":"verify","days":[0],"time":"03:00"});
+    input["allow_reencode"] = json!(true);
+    assert_eq!(h.create(input).await.0, StatusCode::UNPROCESSABLE_ENTITY);
+
+    // Turning on together with the permission signs it.
+    let (status, body) = h
+        .patch(
+            &token,
+            json!({"allow_reencode":true,"enabled":true,"confirm_changes_files":true}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["data"]["allow_reencode"], true);
+    assert_eq!(body["data"]["enabled"], true);
+    assert!(h.approval_holds(id));
+    // Withdrawing it pauses and revokes.
+    let (status, body) = h.patch(&token, json!({"allow_reencode":false})).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["data"]["allow_reencode"], false);
+    assert_eq!(body["data"]["enabled"], false);
+    assert!(!h.approval_holds(id));
+    // Saving the same value is not a change.
+    let (status, _) = h
+        .patch(&token, json!({"enabled":true,"confirm_changes_files":true}))
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, body) = h.patch(&token, json!({"allow_reencode":false})).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["data"]["enabled"], true);
+    assert!(h.approval_holds(id));
+}
+
+#[tokio::test]
+async fn matching_counts_re_encode_files_only_with_the_permission() {
+    let h = Harness::new();
+    let (_, body) = h.create(new_schedule("fix")).await;
+    let token = body["data"]["id"].as_str().unwrap().to_owned();
+    h.state
+        .db
+        .conn()
+        .unwrap()
+        .raw()
+        .execute_batch(
+            "INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action,needs_reencode)
+             VALUES(3,1,'a.mkv','video','.mkv',1,1,'a','present','warning','idle','none',1),
+                   (4,1,'b.mkv','video','.mkv',1,1,'b','present','warning','idle','none',0);
+             INSERT OR REPLACE INTO runtime_settings(key,value_json,value_type,revision) VALUES('delete_original','true','bool',1);",
+        )
+        .unwrap();
+    let (_, body) = h.patch(&token, json!({"name":"x"})).await;
+    assert_eq!(
+        body["data"]["matching"], 2,
+        "delete_original does not decide"
+    );
+    let (_, body) = h.patch(&token, json!({"allow_reencode":true})).await;
+    assert_eq!(body["data"]["matching"], 3);
 }
 
 #[tokio::test]

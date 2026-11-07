@@ -1,0 +1,24 @@
+# Re-Encode ist eine eigene Freigabe
+
+Ein Re-Encode ändert eine Datei tiefgreifender und dauert länger als das Reparieren der Metadaten. Bisher entschied ein Nebeneffekt darüber, ob ein Zeitplan Dateien mit nötigem Re-Encode mitnimmt: Nur wenn die Einstellung `delete_original` an war, wurden sie berücksichtigt. Ein Betreiber konnte also nicht ausdrücklich „ja, neu kodieren“ sagen, und wer `delete_original` ansah, entschied unbemerkt mit.
+
+Jetzt ist „Re-Encode nötig“ eine Eigenschaft der Datei, die „Prüfen“ festhält (siehe Glossar), und das Neu-Kodieren braucht in jedem Fall eine ausdrückliche Freigabe:
+
+- **Manuell:** Die Vorschau nennt, wie viele der gewählten Dateien neu kodiert werden müssen. Der Betreiber löst entweder „Mit Re-Encode“ (bestätigt, gilt nur für diesen Auftrag) oder „Ohne Re-Encode“ aus. Der Server lehnt einen Auftrag mit Re-Encode-Dateien ohne Bestätigung ab; die Oberfläche allein reicht nicht.
+- **Zeitplan:** Der Zeitplan hat ein eigenes Feld „Re-Encode erlaubt“ (Standard aus). Es gehört zu den signierten Parametern (siehe ADR 0006): Änderung oder Pausieren entzieht die Freigabe, Anschalten signiert neu. Die Kopplung an `delete_original` entfällt; `delete_original` bleibt Teil der Signatur, steuert aber nicht mehr, welche Dateien in Frage kommen.
+
+Bestehende Zeitpläne bekommen „Re-Encode erlaubt = aus“. Weil sich ihre signierten Parameter ändern, verlieren eingeschaltete Zeitpläne bei der Umstellung die Freigabe und werden pausiert; der Verlauf nennt den Grund. Das ist unbequem, aber die Alternative wäre, eine Signatur über Parameter gelten zu lassen, die es beim Signieren nicht gab.
+
+Verworfen: die Kopplung an `delete_original` beibehalten. Sie wäre bequemer, aber zwei unabhängige Entscheidungen („Original löschen“ und „neu kodieren“) hingen an einem Schalter.
+
+## Ausführung: Kopiermodus, Policy `copy-only-v2` (Ticket 48)
+
+Bis hierher regelte die Freigabe nur, welche Dateien in einen Auftrag kommen. Ausgeführt wurde ein Re-Encode nie: Der Worker startete jeden Auftrag mit `--copy-only`, und die Pipeline bricht dann bei einem nötigen Re-Encode ab. Damit „Re-Encode erlaubt“ und die Bestätigung im manuellen Auftrag etwas bewirken, gilt jetzt:
+
+- **Policy `copy-only-v2`:** Jedes Item trägt das Feld `reencode`. Der Server berechnet es beim Einreihen aus dem gespeicherten Merkmal „Re-Encode nötig“ und der Freigabe (Bestätigung im manuellen Auftrag, signiertes „Re-Encode erlaubt“ im Zeitplan). Im manuellen Auftrag gehen `reencode` und die Einstellung `delete_original` in die Signatur des Items ein; wer sie nachträglich im Datenbankeintrag ändert, bricht die Signatur. Im Zeitplan ist die Freigabe die Zeitplan-Signatur: Der Worker lässt `reencode = true` nur zu, wenn die aktuell geprüften, signierten Parameter „Re-Encode erlaubt“ enthalten. Aufträge unter `copy-only-v1` weist der Worker ab („neu einreihen“). Ein Wiederholen übernimmt die Entscheidung je Datei.
+- **Kopieren bleibt der Normalfall:** Nur ein Item mit `reencode = true` läuft ohne `--copy-only`. Alle anderen Items eines Auftrags, auch in einer gemischten Auswahl, laufen unverändert im Kopiermodus. Der Worker verlässt sich nur auf das Feld des Items, nicht auf die aktuelle Dateieigenschaft.
+- **Kopplung an `delete_original`:** Ein Re-Encode ersetzt eine MP4 an Ort und Stelle, bei einem anderen Container löscht er nach erfolgreicher Prüfung das Original. Die Pipeline führt ihn deshalb nur mit `delete_original` aus. Der Worker reicht `--delete-original` nur für Items mit `reencode = true` weiter und nur, wenn die Einstellung im Item (manuell, signiert) beziehungsweise im Zeitplan (signiert) gilt. Die beiden Entscheidungen bleiben getrennt: „Re-Encode erlaubt“ sagt, dass neu kodiert werden darf, `delete_original` sagt, dass das Original dafür ersetzt werden darf. Ohne `delete_original` bleibt die Datei unverändert; das Ergebnis „Re-Encode nötig, nicht ausgeführt“ steht im Job-Verlauf (Fehlercode `reencode_not_run`, Status des Items bleibt „erfolgreich“) und in der Oberfläche. Vorschau, Inspector, Zeitplan-Formular und Anschalt-Bestätigung sagen das vorher.
+- **Zeit und Last:** Items mit `reencode = true` haben eine eigene Zeitgrenze von 4 Stunden (benannte Konstante `REENCODE_TIMEOUT`); die Lease wird währenddessen weiter erneuert. Alle anderen Items behalten die kürzere, konfigurierte Grenze. Es läuft weiter höchstens ein Medien-Item gleichzeitig, die `max_files`-Grenzen aus ADR 0006 bleiben.
+- **Abbrechen:** Der Manager beendet einen Lauf mit SIGTERM an die Prozessgruppe. `atvprep prepare` fängt SIGTERM jetzt ab, damit es nach dem Ende von ffmpeg die Teildatei selbst entfernt, statt sie dem Aufräumlauf zu überlassen. Nach der Gnadenfrist folgt weiter SIGKILL.
+
+Nicht echt getestet im Manager-Lauf: ein Re-Encode, der länger als wenige Sekunden dauert. Die Zeitgrenze wird als reine Funktion geprüft, das Verhalten der 4 Stunden selbst nicht abgewartet.

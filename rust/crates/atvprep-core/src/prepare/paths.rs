@@ -33,6 +33,20 @@ pub fn temp_name(stem: &str, tag: &str) -> String {
     format!("{TEMP_PREFIX}{tag}{}{unique}", &stem[..end])
 }
 
+/// The PID inside a working-file name, or `None` when `name` is not exactly
+/// `.tmp_fixmeta_<tag><stem>.<pid>-<8 lowercase hex>.mp4` (the shape `temp_name` makes).
+#[must_use]
+pub fn parse_temp_name(name: &str) -> Option<u32> {
+    let rest = name.strip_prefix(TEMP_PREFIX)?.strip_suffix(".mp4")?;
+    let (_, unique) = rest.rsplit_once('.')?;
+    let (pid, salt) = unique.split_once('-')?;
+    let hex = salt.len() == 8 && salt.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'));
+    if pid.is_empty() || !pid.bytes().all(|b| b.is_ascii_digit()) || !hex {
+        return None;
+    }
+    pid.parse().ok()
+}
+
 fn is_mp4_like(path: &Path) -> bool {
     path.extension()
         .is_some_and(|e| MP4_LIKE.iter().any(|m| e.eq_ignore_ascii_case(m)))
@@ -207,6 +221,31 @@ mod tests {
         let short = temp_name("Movie", "");
         assert!(short.starts_with(".tmp_fixmeta_Movie."));
         assert!(short.contains(&format!(".{}-", std::process::id())));
+    }
+
+    #[test]
+    fn working_file_names_are_recognized_exactly_and_yield_their_pid() {
+        assert_eq!(
+            parse_temp_name(".tmp_fixmeta_enc.Film (2020).4711-0a1b2c3d.mp4"),
+            Some(4711)
+        );
+        assert_eq!(parse_temp_name(".tmp_fixmeta_.1-deadbeef.mp4"), Some(1));
+        assert_eq!(
+            parse_temp_name(&temp_name("Movie", "enc.")),
+            Some(std::process::id())
+        );
+        for other in [
+            "Film.TMP.mkv",
+            "tmp_fixmeta_a.1-deadbeef.mp4",
+            ".tmp_fixmeta_a.1-deadbeef.mkv",
+            ".tmp_fixmeta_a.1-DEADBEEF.mp4",
+            ".tmp_fixmeta_a.x-deadbeef.mp4",
+            ".tmp_fixmeta_a.1-deadbee.mp4",
+            ".tmp_fixmeta_a.99999999999-deadbeef.mp4",
+            "Film.mp4.tmp_moov.1-abcdef",
+        ] {
+            assert_eq!(parse_temp_name(other), None, "{other}");
+        }
     }
 
     #[test]

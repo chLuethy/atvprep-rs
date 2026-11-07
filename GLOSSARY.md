@@ -65,7 +65,7 @@ _Avoid_: Undo
 Die ausdrückliche Betreiberentscheidung, dass ein Release nach dem Releasefenster in Ordnung ist. Erst danach wird das Gate geöffnet.
 
 **Zeitplan**:
-Eine wiederkehrende Regel, die zu festen Zeitpunkten (Cron-Ausdruck, Serverzeit) eine Aktion auslöst: Prüfen, Reparieren, Konvertieren oder Scannen. Die Aktion eines Zeitplans ändert sich nach dem Anlegen nicht mehr. Ein Zeitplan, der Dateien ändert (Reparieren, Konvertieren), startet pausiert, braucht ein `max_files` und wird bewusst angeschaltet; das Anschalten erzeugt die Signatur des Betreibers (HMAC, gebunden an Zeitplan-ID, Aktion, Bibliothek, Filter, `max_files` und die Einstellung `delete_original`). Jede Änderung dieser Parameter oder ein Pausieren entzieht die Freigabe; erneutes Anschalten signiert neu. Ein Auftrag aus einem Zeitplan darf Dateien nur mit gültiger, zu den aktuellen Parametern passender Signatur ändern, sonst wird er abgelehnt (siehe ADR 0006). Verpasste Läufe von Reparieren und Konvertieren werden nie nachgeholt. Für Prüfen und Scannen gilt: Nur der jüngste verpasste Slot wird nachgeholt, und nur innerhalb eines Fensters von 6 Stunden. Ein Slot vor dem Einschalten oder Ändern des Zeitplans läuft nie. Ein Slot, den der Manager nicht innerhalb des Fensters sah (2 Minuten bei Reparieren und Konvertieren, 6 Stunden bei Prüfen und Scannen), wird genau einmal als „Verpasst“ (Slot, Grund) im Verlauf vermerkt, ohne Job; die Oberfläche rät, den Zeitplan anzupassen oder den Manager-Betrieb zu prüfen. Slots vor dem Einschalten, bei Pause oder geschlossenem Gate werden nicht vermerkt. Grenzen, die der Server beim Anlegen und Ändern prüft: Reparieren und Konvertieren laufen höchstens alle 15 Minuten (kleinster Abstand zweier Slots, auch bei Listen wie `0,10 * * * *`); Prüfen und Scannen haben keinen Mindestabstand. `max_files` ist je Aktion begrenzt (Prüfen 500, Reparieren 12, Konvertieren 6; Scannen hat keines). Ein bestehender Zeitplan über einer Grenze wird beim nächsten Speichern abgelehnt; ein eingeschalteter wird beim Auslösen pausiert und im Verlauf vermerkt (siehe ADR 0006).
+Eine wiederkehrende Regel, die zu festen Zeitpunkten (Cron-Ausdruck, Serverzeit) eine Aktion auslöst: Prüfen, Reparieren, Konvertieren oder Scannen. Die Aktion eines Zeitplans ändert sich nach dem Anlegen nicht mehr. Ein Zeitplan, der Dateien ändert (Reparieren, Konvertieren), startet pausiert, braucht ein `max_files` und wird bewusst angeschaltet; das Anschalten erzeugt die Signatur des Betreibers (HMAC, gebunden an Zeitplan-ID, Aktion, Bibliothek, Filter, `max_files`, die Einstellung `delete_original` und die Freigabe „Re-Encode erlaubt“). Jede Änderung dieser Parameter oder ein Pausieren entzieht die Freigabe; erneutes Anschalten signiert neu. Ein Auftrag aus einem Zeitplan darf Dateien nur mit gültiger, zu den aktuellen Parametern passender Signatur ändern, sonst wird er abgelehnt (siehe ADR 0006 und 0007). Ein Zeitplan nimmt Dateien mit „Re-Encode nötig“ nur mit, wenn „Re-Encode erlaubt“ gesetzt ist (Standard aus); kodiert werden sie dann nur, wenn zusätzlich `delete_original` gilt (siehe Kopiermodus). Verpasste Läufe von Reparieren und Konvertieren werden nie nachgeholt. Für Prüfen und Scannen gilt: Nur der jüngste verpasste Slot wird nachgeholt, und nur innerhalb eines Fensters von 6 Stunden. Ein Slot vor dem Einschalten oder Ändern des Zeitplans läuft nie. Ein Slot, den der Manager nicht innerhalb des Fensters sah (2 Minuten bei Reparieren und Konvertieren, 6 Stunden bei Prüfen und Scannen), wird genau einmal als „Verpasst“ (Slot, Grund) im Verlauf vermerkt, ohne Job; die Oberfläche rät, den Zeitplan anzupassen oder den Manager-Betrieb zu prüfen. Slots vor dem Einschalten, bei Pause oder geschlossenem Gate werden nicht vermerkt. Grenzen, die der Server beim Anlegen und Ändern prüft: Reparieren und Konvertieren laufen höchstens alle 15 Minuten (kleinster Abstand zweier Slots, auch bei Listen wie `0,10 * * * *`); Prüfen und Scannen haben keinen Mindestabstand. `max_files` ist je Aktion begrenzt (Prüfen 500, Reparieren 12, Konvertieren 6; Scannen hat keines). Ein bestehender Zeitplan über einer Grenze wird beim nächsten Speichern abgelehnt; ein eingeschalteter wird beim Auslösen pausiert und im Verlauf vermerkt (siehe ADR 0006).
 _Avoid_: Schedule, Cronjob, Prepare (die Aktion heißt Reparieren oder Konvertieren)
 
 **Lauf**:
@@ -90,3 +90,29 @@ Der Zustand eines Scan-Laufs (`ScanStatus`), getrennt vom Job-Lebenszyklus: `que
 
 **Terminal**:
 Ein Status, aus dem kein weiterer Übergang mehr erwartet wird: die Arbeit ist auf die eine oder andere Weise beendet und ändert sich nicht mehr. Die Typen bieten dafür `is_terminal()` und, für SQL, `terminal_sql_list()`; Übergänge prüft `can_become()`.
+
+## Dateien und Prüfergebnis
+
+**Re-Encode nötig**:
+Eine Eigenschaft einer Datei, die „Prüfen" festhält: Das Video muss neu kodiert werden, damit die Datei den Anforderungen genügt. Sie ist unabhängig vom Zustand (bereit, Warnung, Blocker) und wird mit dem Prüfergebnis gespeichert, nicht aus Begründungstexten erraten.
+_Avoid_: Video-Reencode (technischer Regelname)
+
+**Kopiermodus**:
+Die Betriebsart, in der der Manager `atvprep prepare` mit `--copy-only` startet: Streams werden nur kopiert, nie neu kodiert. Alle Items laufen im Kopiermodus, außer einem Item, dessen Freigabe das Neu-Kodieren ausdrücklich einschließt (Feld `reencode` des Items, Policy `copy-only-v2`). Ein Item mit `reencode` läuft ohne `--copy-only`; das Neu-Kodieren ersetzt die MP4 an Ort und Stelle und läuft deshalb nur, wenn zusätzlich die Einstellung `delete_original` gilt. Ohne sie bleibt die Datei unverändert und das Ergebnis lautet „Re-Encode nötig, nicht ausgeführt“ (siehe ADR 0007).
+
+**Policy-Version**:
+Die Kennung (`copy-only-v1`, `copy-only-v2`), unter der ein Job eingereiht wurde. Der Worker führt nur Jobs der aktuellen Version aus; ältere werden abgewiesen („neu einreihen“). Version 2 trägt je Item das Feld `reencode`, das der Server beim Einreihen aus „Re-Encode nötig“ und der Freigabe berechnet und das in die Signatur eingeht.
+
+**Einbetten offen**:
+Eine Eigenschaft einer Datei, bei der mindestens eine Untertiteldatei daneben liegt, die sich noch einbetten lässt. Ändert den gespeicherten Zustand nicht, aber die Datei gilt dann nicht als bereit.
+
+**Bereit**:
+Eine Datei, deren Prüfung keine Verstöße ergab und bei der nichts mehr eingebettet werden kann.
+_Avoid_: Sauber, Clean (nur der interne Zustandsname)
+
+**Eigenschaften**:
+Merkmale einer Datei, die unabhängig vom Zustand gelten und sich überschneiden dürfen: zu konvertieren, Re-Encode nötig, Einbetten offen, konvertiert (Original behalten). In der Bibliothek zeigen gewählte Eigenschaften nur Dateien, die alle gewählten haben.
+
+**Verwaiste Teilüberarbeitung**:
+Eine halbfertige Arbeitsdatei, die nach einem Absturz oder Abbruch eines Reparierens oder Konvertierens neben der Quelle zurückbleibt. Ist nie ein Ergebnis und wird beim Start des Managers aufgeräumt. Was dabei stehen bleibt, weil es noch zu einem laufenden Vorgang gehören könnte, meldet der Scan; der Betreiber entfernt es dort nach Bestätigung mit Anzahl und Größe. Entfernt wird nur, wenn beides noch stimmt und die Datei nicht zu laufender Arbeit gehört. Jede Löschung steht im Verlauf.
+_Avoid_: Temp-Datei, Leiche

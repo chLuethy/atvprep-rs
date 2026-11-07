@@ -41,6 +41,7 @@
               "discovery_state": "present",
               "display_path": "Movie/film.mp4",
               "embed_sidecars": [],
+              "last_interrupted": false,
               "fix_status": null,
               "id": "<m:1>",
               "kind": "video",
@@ -152,6 +153,7 @@
                 "discovery_state": "present",
                 "display_path": "Movie/film.mp4",
                 "embed_sidecars": [],
+                "last_interrupted": false,
                 "fix_status": null,
                 "id": "<m:1>",
                 "kind": "video",
@@ -411,6 +413,7 @@
             "discovery_state": "present",
             "display_path": "Movie/film.mp4",
             "embed_sidecars": [],
+            "last_interrupted": false,
             "fix_status": null,
             "has_error": false,
             "id": "<m:1>",
@@ -963,6 +966,7 @@
             "convert": 0,
             "converted": 0,
             "delete_original": false,
+            "embed": 0,
             "files": {
               "clean": 1
             },

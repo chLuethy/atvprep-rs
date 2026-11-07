@@ -1,6 +1,7 @@
 //! Execute claimed inspection and verification items under leases and gate permits.
 use super::process::{
-    ProcessResult, StopReason, run_pinned_prepare_observed, run_pinned_probe, run_pinned_verify,
+    PrepareMode, ProcessResult, StopReason, run_pinned_prepare_observed, run_pinned_probe,
+    run_pinned_verify,
 };
 use crate::{
     Error, Result,
@@ -16,6 +17,26 @@ use std::{
     path::PathBuf,
     time::{Duration, Instant},
 };
+
+/// How long an item that may be re-encoded can run. Encoding a film takes hours; the lease keeps
+/// being renewed meanwhile. Every other item keeps the configured, shorter limit.
+pub const REENCODE_TIMEOUT: Duration = Duration::from_hours(4);
+
+/// The error code of an item that needed a re-encode which was not run (ADR 0007).
+pub const REENCODE_NOT_RUN: &str = "reencode_not_run";
+
+/// The machine line the media CLI prints when a file needs a re-encode it was not told to do.
+const REENCODE_NEEDED_LINE: &str = "ATVPREP-OUTCOME reencode_needed";
+
+/// The time limit of one changing item: longer only for an item approved to re-encode.
+#[must_use]
+pub fn prepare_timeout(configured: Duration, mode: PrepareMode) -> Duration {
+    if mode.reencode {
+        configured.max(REENCODE_TIMEOUT)
+    } else {
+        configured
+    }
+}
 
 /// Trusted runtime settings for the media CLI.
 #[derive(Clone)]
@@ -96,6 +117,7 @@ pub fn execute_claimed(
             return Err(Error::Invalid("verification input changed".to_owned()));
         }
         let changing = matches!(item.action.as_str(), "fix" | "convert");
+        let mut mode = PrepareMode::default();
         if changing {
             let verifier = config
                 .approvals
@@ -133,7 +155,7 @@ pub fn execute_claimed(
                 .settings_snapshot
                 .get("schedule_id")
                 .is_some_and(|id| !id.is_null());
-            super::manual_policy::authorize_prepare(
+            mode = super::manual_policy::authorize_prepare(
                 ctx,
                 item_id,
                 verifier,
@@ -151,9 +173,9 @@ pub fn execute_claimed(
                 Error::Invalid("approved input changed before execution".to_owned())
             })?;
         }
-        Ok((root, relative, target, recorded, changing))
+        Ok((root, relative, target, recorded, changing, mode))
     })();
-    let (root, relative, target, recorded, changing) = match checked {
+    let (root, relative, target, recorded, changing, mode) = match checked {
         Ok(checked) => checked,
         Err(error) => {
             if !matches!(error, Error::Conflict(_))
@@ -234,8 +256,9 @@ pub fn execute_claimed(
             run_pinned_prepare_observed(
                 &config.executable,
                 &target,
+                mode,
                 &config.environment,
-                config.timeout,
+                prepare_timeout(config.timeout, mode),
                 config.grace,
                 &mut cancelled,
                 |chunk| output.feed(chunk, false),
@@ -357,7 +380,17 @@ pub fn execute_claimed(
             fresh.status_version
         };
         JobStateMachine(ctx).transition_item(item_id, terminal, version, Some(fence), None)?;
+        // A file that needs a re-encode but was not told to (no `delete_original`) ends as a
+        // success with a visible result, not as a silent one.
+        let reencode_not_run = changing
+            && mode.reencode
+            && process.reason == StopReason::Exited
+            && process.exit_code == Some(0)
+            && String::from_utf8_lossy(&process.output)
+                .lines()
+                .any(|line| line.trim() == REENCODE_NEEDED_LINE);
         let code = match process.reason {
+            StopReason::Exited if reencode_not_run => Some(REENCODE_NOT_RUN),
             StopReason::TimedOut => Some("timeout"),
             StopReason::Cancelled => Some("cancelled"),
             StopReason::Exited if process.exit_code != Some(0) && !verified_with_findings => {
@@ -370,6 +403,15 @@ pub fn execute_claimed(
             return Err(Error::Conflict(
                 "worker lost its completion authority".to_owned(),
             ));
+        }
+        if reencode_not_run {
+            ctx.conn.execute(
+                "UPDATE job_items SET error_detail=?1 WHERE id=?2",
+                rusqlite::params![
+                    "Re-encode needed, not run: the file stays as it was. A re-encode replaces the original and only runs with delete_original turned on.",
+                    item_id
+                ],
+            )?;
         }
         super::recovery::Recovery(ctx).reconcile_idle_jobs()?;
         Ok(process)
@@ -455,7 +497,7 @@ fn complete_prepare(
     if changed {
         crate::media::Media(write).upsert(media.root_id, relative, &observed.meta, None)?;
         tx.execute(
-            "UPDATE media_files SET compliance_state='unknown',compliance_reasons=?1 WHERE id=?2",
+            "UPDATE media_files SET compliance_state='unknown',compliance_reasons=?1,needs_reencode=0 WHERE id=?2",
             rusqlite::params![
                 "[\"Changed by Prepare; verification is required.\"]",
                 media.id

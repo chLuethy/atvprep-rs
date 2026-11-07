@@ -1,14 +1,16 @@
-import { createResource, For, Show, type Component, type JSX } from "solid-js";
+import { createResource, createSignal, For, Index, Show, type Component, type JSX } from "solid-js";
 import { Button, StatusChip } from "../../ui";
 import { actionLabel, jobProgress, jobTitle, jobTone } from "../activity/model";
 import type { JobRow } from "../activity/loaders";
 import { ScanControl } from "../scan/ScanControl";
+import { Orphans, type OrphanHit } from "./Orphans";
 import { N, t, tn } from "../../lib/i18n";
 import { celebrateToday } from "../../lib/celebrate";
 
-type OverviewApi = { request: (path: string) => Promise<Response> };
+type OverviewApi = { request: (path: string, init?: RequestInit) => Promise<Response> };
 
 type Overview = {
+  orphans: OrphanHit[];
   files: Record<string, number>;
   jobs: Record<string, number>;
   reencode: number;
@@ -24,13 +26,15 @@ async function load(api: OverviewApi): Promise<Overview> {
     files: summary.data?.files ?? {},
     jobs: summary.data?.jobs ?? {},
     reencode: summary.data?.reencode ?? 0,
+    orphans: summary.data?.orphans ?? [],
     activity: activity.data ?? [],
     queue: { total: queue.data?.total ?? 0, jobs: queue.data?.jobs ?? [] },
   };
 }
 
-const STATES: ReadonlyArray<{ state: string; label: string; bar: string }> = [
+const STATES: ReadonlyArray<{ state: string; label: string; bar: string; filter?: string }> = [
   { state: "clean", label: N("Ready"), bar: "ok" },
+  { state: "embed_open", label: N("Embed open"), bar: "warn", filter: "embed" },
   { state: "warning", label: N("Warning"), bar: "warn" },
   { state: "blocker", label: N("Blocker"), bar: "bad" },
   { state: "unknown", label: N("Not verified"), bar: "neutral" },
@@ -43,6 +47,7 @@ const TOPICS: Record<string, string> = {
   "job.transition": N("Job changed state"),
   "job.item.transition": N("A file moved on"),
   "job.log": N("Log output"),
+  "orphan.cleanup": N("Leftover files removed"),
 };
 
 /** Rows for the "Needs you" list, worst first; each says what it is and leads to the place that fixes it. */
@@ -62,6 +67,7 @@ function attention(files: Record<string, number>, jobs: Record<string, number>):
 /** Where to look first: what needs you, how healthy the library is, what is running. */
 export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: string) => void }> = (props) => {
   const [overview, { refetch }] = createResource(() => load(props.api));
+  const [removed, setRemoved] = createSignal<string | null>(null);
 
   const link = (href: string, content: JSX.Element, className = "") => (
     <a
@@ -90,6 +96,16 @@ export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: str
             const rows = () => attention(data().files, data().jobs);
             return (
               <>
+                <Show when={removed()}><p class="notice ok" role="status">{removed()}</p></Show>
+                <Show when={data().orphans.length > 0}>
+                  <section class="ov-sec" role="region" aria-label={t("Leftover files")}>
+                    <h2>{t("Leftover files")}</h2>
+                    <Index each={data().orphans}>{(hit) => (
+                      <Orphans api={props.api} hit={hit()} onChanged={() => void refetch()} onDone={(message) => { setRemoved(message); void refetch(); }} />
+                    )}</Index>
+                  </section>
+                </Show>
+
                 <section class="ov-sec" role="region" aria-label={t("Needs you")}>
                   <h2>{t("Needs you")}</h2>
                   <Show when={rows().length > 0} fallback={<p class="muted">{t("Nothing needs you.")}</p>}>
@@ -121,7 +137,7 @@ export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: str
                     </div>
                     <ul class="plain legend">
                       <For each={STATES.filter((entry) => (data().files[entry.state] ?? 0) > 0)}>{(entry) => (
-                        <li>{link(`/files?status=${entry.state}`, <><span class="count">{data().files[entry.state]}</span> {t(entry.label)}</>)}</li>
+                        <li>{link(`/files?status=${entry.filter ?? entry.state}`, <><span class="count">{data().files[entry.state]}</span> {t(entry.label)}</>)}</li>
                       )}</For>
                       <Show when={data().reencode > 0}>
                         <li>{link("/files?status=reencode", <><span class="count">{data().reencode}</span> {t("Need a video re-encode")}</>)}</li>

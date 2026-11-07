@@ -83,10 +83,149 @@ fn an_approved_fix_schedule_queues_a_job_bound_to_its_parameters() {
     let snapshot: serde_json::Value = serde_json::from_str(&queued[0].1).unwrap();
     assert_eq!(snapshot["schedule_id"], 1);
     assert_eq!(snapshot["pipeline"], "prepare");
-    assert_eq!(snapshot["policy"], "copy-only-v1");
+    assert_eq!(snapshot["policy"], "copy-only-v2");
     assert_eq!(snapshot["schedule_params"]["max_files"], 5);
     assert_eq!(snapshot["schedule_params"]["delete_original"], false);
     assert_eq!(snapshot["schedule_params"]["action"], "fix");
+}
+
+/// Mark file 3 (the mkv) as needing a re-encode; files 1 and 2 stay as they are.
+fn mark_mkv_needing_reencode(conn: &Conn) {
+    conn.raw()
+        .execute("UPDATE media_files SET needs_reencode=1 WHERE id=3", [])
+        .unwrap();
+}
+
+fn set_delete_original(conn: &Conn, value: bool) {
+    conn.raw()
+        .execute(
+            "INSERT OR REPLACE INTO runtime_settings(key,value_json,value_type,revision) VALUES('delete_original',?1,'bool',1)",
+            [value.to_string()],
+        )
+        .unwrap();
+}
+
+#[test]
+fn a_schedule_without_the_re_encode_permission_leaves_out_files_that_need_one() {
+    for delete_original in [false, true] {
+        let db = Db::memory().unwrap();
+        let conn = seed(&db, "fix", 0, true);
+        mark_mkv_needing_reencode(&conn);
+        set_delete_original(&conn, delete_original);
+        let clock = FixedClock(NOW);
+        let ctx = Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        };
+        // delete_original no longer decides: only the warning mp4 is taken.
+        assert_eq!(
+            run_schedule(ctx, 1).unwrap(),
+            "Queued 1 file",
+            "delete_original={delete_original}"
+        );
+        let snapshot: serde_json::Value = serde_json::from_str(&jobs(&conn)[0].1).unwrap();
+        assert_eq!(snapshot["schedule_params"]["allow_reencode"], false);
+    }
+}
+
+#[test]
+fn a_schedule_with_the_re_encode_permission_takes_those_files_too() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db, "fix", 0, true);
+    mark_mkv_needing_reencode(&conn);
+    conn.raw()
+        .execute("UPDATE schedules SET allow_reencode=1", [])
+        .unwrap();
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    assert_eq!(run_schedule(ctx, 1).unwrap(), "Queued 2 files");
+    let snapshot: serde_json::Value = serde_json::from_str(&jobs(&conn)[0].1).unwrap();
+    assert_eq!(snapshot["schedule_params"]["allow_reencode"], true);
+    // Only the file that needs it is queued to re-encode; the other one is merely repaired.
+    assert_eq!(
+        item_decisions(&conn),
+        [(2, serde_json::json!(false)), (3, serde_json::json!(true))]
+    );
+}
+
+#[test]
+fn a_schedule_with_the_permission_does_not_re_encode_a_file_that_does_not_need_it() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db, "fix", 0, true);
+    conn.raw()
+        .execute("UPDATE schedules SET allow_reencode=1", [])
+        .unwrap();
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    assert_eq!(run_schedule(ctx, 1).unwrap(), "Queued 2 files");
+    assert_eq!(
+        item_decisions(&conn),
+        [(2, serde_json::json!(false)), (3, serde_json::json!(false))]
+    );
+}
+
+/// The re-encode decision recorded on each queued item, by media id.
+fn item_decisions(conn: &Conn) -> Vec<(i64, serde_json::Value)> {
+    let mut statement = conn
+        .raw()
+        .prepare(
+            "SELECT media_file_id, settings_snapshot_json FROM job_items ORDER BY media_file_id",
+        )
+        .unwrap();
+    statement
+        .query_map([], |row| {
+            let snapshot: serde_json::Value =
+                serde_json::from_str(&row.get::<_, String>(1)?).unwrap();
+            Ok((row.get(0)?, snapshot["reencode"].clone()))
+        })
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap()
+}
+
+#[test]
+fn a_fix_schedule_takes_a_clean_mp4_with_an_open_embed() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db, "fix", 0, true);
+    // one.mp4 is clean but has a German .srt beside it that is not embedded yet.
+    conn.raw()
+        .execute_batch(
+            "INSERT INTO sidecars(media_file_id,relative_path,fingerprint) VALUES(1,'one.de.srt','x');
+             INSERT INTO inspections(media_file_id,source_fingerprint,input_fingerprint,tool_name,tool_version,result)
+             VALUES(1,'s','one','ffprobe','1','{\"streams\":[]}');",
+        )
+        .unwrap();
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    assert_eq!(run_schedule(ctx, 1).unwrap(), "Queued 3 files");
+}
+
+#[test]
+fn a_fix_schedule_leaves_a_clean_mp4_whose_sidecar_is_already_embedded() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db, "fix", 0, true);
+    conn.raw()
+        .execute_batch(
+            "INSERT INTO sidecars(media_file_id,relative_path,fingerprint) VALUES(1,'one.de.srt','x');
+             INSERT INTO inspections(media_file_id,source_fingerprint,input_fingerprint,tool_name,tool_version,result)
+             VALUES(1,'s','one','ffprobe','1','{\"streams\":[{\"codec_type\":\"subtitle\",\"codec_name\":\"mov_text\",\"tags\":{\"language\":\"deu\"}}]}');",
+        )
+        .unwrap();
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    assert_eq!(run_schedule(ctx, 1).unwrap(), "Queued 2 files");
 }
 
 #[test]

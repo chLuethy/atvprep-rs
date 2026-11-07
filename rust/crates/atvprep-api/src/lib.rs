@@ -59,6 +59,10 @@ pub fn router(state: AppState) -> Router {
             axum::routing::post(routes_deployment::open),
         )
         .route("/api/v1/roots", get(read::roots))
+        .route(
+            "/api/v1/roots/{root_id}/orphans/remove",
+            axum::routing::post(routes_scans::remove_orphans),
+        )
         .route("/api/v1/dashboard", get(read::dashboard))
         .route("/api/v1/dashboard/summary", get(read::dashboard))
         .route("/api/v1/dashboard/activity", get(read::activity))
@@ -112,6 +116,7 @@ pub fn router(state: AppState) -> Router {
             axum::routing::post(schedule_routes::run),
         )
         .route("/api/v1/job-items/{item_id}/log", get(read_jobs::item_log))
+        .route("/api/v1/files/counts", get(read_files::trait_counts))
         .route("/api/v1/files/{media_id}/jobs", get(read_jobs::file_jobs))
         .route("/api/v1/files", get(read_files::list))
         .route(
@@ -470,11 +475,12 @@ mod tests {
         atvprep_manager::schema::migrate(&mut conn).unwrap();
         conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private');
         INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action,compliance_reasons,dismissed_at) VALUES
-        (1,1,'film.mkv','video','.mkv',1,1,'a','present','warning','idle','none','[\"[video] video-reencode: required\"]',NULL),
+        (1,1,'film.mkv','video','.mkv',1,1,'a','present','warning','idle','none','[\"[warning] video-reencode: required\"]',NULL),
         (2,1,'film.mp4','video','.mp4',1,1,'b','present','clean','idle','none','[]',NULL),
         (3,1,'other.mkv','video','.mkv',1,1,'c','present','unknown','idle','none','[]',NULL),
         (4,1,'gone.mkv','video','.mkv',1,1,'d','missing','unknown','idle','none','[]',NULL),
         (5,1,'dismissed.mkv','video','.mkv',1,1,'e','missing','unknown','idle','none','[]','2026-01-01');
+        UPDATE media_files SET needs_reencode=1 WHERE id=1;
         INSERT INTO jobs(action,status) VALUES('verify','queued'); INSERT INTO scan_runs(root_id,generation,status) VALUES(1,1,'succeeded');
         INSERT INTO runtime_settings(key,value_json,value_type,revision) VALUES('delete_original','true','bool',1);").unwrap();
         let token = routes_auth::service(&state, &conn)

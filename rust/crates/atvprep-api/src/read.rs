@@ -12,6 +12,7 @@ use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
 use crate::{extract::AuthenticatedSession, opaque::Opaque, state::AppState};
+use atvprep_manager::media_sql;
 
 /// Aggregate the file, scan and job counts used by the dashboard.
 pub async fn dashboard(State(state): State<AppState>, _session: AuthenticatedSession) -> Response {
@@ -23,18 +24,51 @@ pub async fn dashboard(State(state): State<AppState>, _session: AuthenticatedSes
             let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?))).map_err(|_| ())?;
             rows.collect::<Result<BTreeMap<_,_>,_>>().map_err(|_| ())
         };
-        let files = counts("SELECT compliance_state,count(*) FROM media_files WHERE NOT (discovery_state='missing' AND dismissed_at IS NOT NULL) GROUP BY compliance_state ORDER BY compliance_state")?;
+        let mut files = counts("SELECT compliance_state,count(*) FROM media_files WHERE NOT (discovery_state='missing' AND dismissed_at IS NOT NULL) GROUP BY compliance_state ORDER BY compliance_state")?;
+        // "Ready" is a clean file with nothing left to embed; those with an open embedding count apart.
+        let open = atvprep_manager::embed::open_media_ids(conn.raw()).map_err(|_| ())?;
+        let open_json = serde_json::to_string(&open).map_err(|_| ())?;
+        let embed_open: i64 = conn.raw().query_row(&format!("SELECT count(*) FROM media_files m WHERE m.compliance_state='clean' AND {}", media_sql::embed_open("?1")), [&open_json], |row| row.get(0)).map_err(|_| ())?;
+        if embed_open > 0 {
+            if let Some(clean) = files.get_mut("clean") { *clean -= embed_open; if *clean == 0 { files.remove("clean"); } }
+            files.insert("embed_open".to_owned(), embed_open);
+        }
+        let embed = i64::try_from(open.len()).map_err(|_| ())?;
         let scans = counts("SELECT status,count(*) FROM scan_runs GROUP BY status ORDER BY status")?;
         let jobs = counts("SELECT status,count(*) FROM jobs GROUP BY status ORDER BY status")?;
         let (missing, convert, reencode, converted): (i64,i64,i64,i64) = conn.raw().query_row(
-            "SELECT COALESCE(SUM(CASE WHEN m.discovery_state='missing' AND m.dismissed_at IS NULL THEN 1 ELSE 0 END),0),
-             COALESCE(SUM(CASE WHEN m.discovery_state='present' AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov') AND NOT EXISTS (SELECT 1 FROM media_files s WHERE s.root_id=m.root_id AND s.discovery_state='present' AND s.relative_path=substr(m.relative_path,1,length(m.relative_path)-length(m.suffix))||'.mp4') THEN 1 ELSE 0 END),0),
-             COALESCE(SUM(CASE WHEN m.discovery_state='present' AND m.compliance_reasons LIKE '%] video-reencode:%' THEN 1 ELSE 0 END),0),
-             COALESCE(SUM(CASE WHEN m.discovery_state='present' AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov') AND EXISTS (SELECT 1 FROM media_files s WHERE s.root_id=m.root_id AND s.discovery_state='present' AND s.relative_path=substr(m.relative_path,1,length(m.relative_path)-length(m.suffix))||'.mp4') THEN 1 ELSE 0 END),0) FROM media_files m", [],
+            &format!("SELECT COALESCE(SUM(CASE WHEN m.discovery_state='missing' AND m.dismissed_at IS NULL THEN 1 ELSE 0 END),0),
+             COALESCE(SUM(CASE WHEN m.discovery_state='present' AND {} THEN 1 ELSE 0 END),0),
+             COALESCE(SUM(CASE WHEN m.discovery_state='present' AND {} THEN 1 ELSE 0 END),0),
+             COALESCE(SUM(CASE WHEN m.discovery_state='present' AND {} THEN 1 ELSE 0 END),0) FROM media_files m", media_sql::TO_CONVERT, media_sql::NEEDS_REENCODE, media_sql::CONVERTED), [],
             |row| Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?))).map_err(|_| ())?;
         let setting: Option<String> = conn.raw().query_row("SELECT value_json FROM runtime_settings WHERE key='delete_original'", [], |row| row.get(0)).optional().map_err(|_| ())?;
         let delete_original = setting.and_then(|value| serde_json::from_str::<bool>(&value).ok()).unwrap_or(false);
-        Ok::<_, ()>(json!({"data":{"files":files,"missing":missing,"convert":convert,"reencode":reencode,"converted":converted,"delete_original":delete_original,"scans":scans,"jobs":jobs},"meta":{}}))
+        // Leftovers per library from its latest successful scan; only libraries with hits appear.
+        let orphans = {
+            let opaque = Opaque::new(state.api_secret.as_bytes());
+            let mut stmt = conn.raw().prepare(
+                "SELECT r.id, r.name, s.orphans_json FROM library_roots r JOIN scan_runs s ON s.id =
+                     (SELECT id FROM scan_runs WHERE root_id = r.id AND status='succeeded' ORDER BY generation DESC, id DESC LIMIT 1)
+                 WHERE s.orphans_json IS NOT NULL ORDER BY r.id"
+            ).map_err(|_| ())?;
+            let rows = stmt.query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?))).map_err(|_| ())?;
+            let mut hits = Vec::new();
+            for row in rows {
+                let (root_id, name, stored) = row.map_err(|_| ())?;
+                if let Value::Object(mut report) = orphans_view(Some(stored), true) {
+                    report.insert("root_id".to_owned(), json!(opaque.encode("r", root_id)));
+                    report.insert("name".to_owned(), json!(name));
+                    hits.push(Value::Object(report));
+                }
+            }
+            hits
+        };
+        let mut summary = json!({"files":files,"missing":missing,"convert":convert,"reencode":reencode,"embed":embed,"converted":converted,"delete_original":delete_original,"scans":scans,"jobs":jobs});
+        if !orphans.is_empty() {
+            summary["orphans"] = Value::Array(orphans);
+        }
+        Ok::<_, ()>(json!({"data":summary,"meta":{}}))
     }).await;
     match result {
         Ok(Ok(body)) => Json(body).into_response(),
@@ -166,7 +200,7 @@ pub async fn activity(
     };
     let result=tokio::task::spawn_blocking(move ||{
         let conn=state.db.conn().map_err(|_|())?;
-        let mut stmt=conn.raw().prepare("SELECT id,topic,created_at FROM events WHERE job_id IS NOT NULL AND (?1 IS NULL OR created_at<?1 OR (created_at=?1 AND id<?2)) ORDER BY created_at DESC,id DESC LIMIT ?3").map_err(|_|())?;
+        let mut stmt=conn.raw().prepare("SELECT id,topic,created_at FROM events WHERE (job_id IS NOT NULL OR topic='orphan.cleanup') AND (?1 IS NULL OR created_at<?1 OR (created_at=?1 AND id<?2)) ORDER BY created_at DESC,id DESC LIMIT ?3").map_err(|_|())?;
         let rows=stmt.query_map(params![cursor.as_ref().map(|c|&c.0),cursor.as_ref().map(|c|c.1),i64::try_from(limit+1).map_err(|_|())?],|row|Ok((row.get::<_,i64>(0)?,row.get::<_,String>(1)?,row.get::<_,String>(2)?))).map_err(|_|())?;
         let mut data=Vec::new();let mut last=None;let mut used=0usize;let mut more=false;let mut truncated=false;
         for row in rows {
@@ -208,16 +242,35 @@ pub(crate) fn page_meta(limit: Option<usize>, next: Option<&str>, truncated: boo
     json!({"limit":limit,"next_cursor":next,"current_cursor":null,"current_sequence":null,"truncated":truncated,"facets":{}})
 }
 
-fn scan_view(row: &rusqlite::Row<'_>, opaque: &Opaque) -> rusqlite::Result<(i64, Value)> {
+/// The leftover partial rewrites a scan found, or `null` without hits. The list view keeps count
+/// and size only so that a page of scans stays small.
+fn orphans_view(stored: Option<String>, with_files: bool) -> Value {
+    let Some(mut report) = stored.and_then(|text| serde_json::from_str::<Value>(&text).ok()) else {
+        return Value::Null;
+    };
+    if !with_files && let Some(object) = report.as_object_mut() {
+        object.remove("files");
+    }
+    report
+}
+
+fn scan_view(
+    row: &rusqlite::Row<'_>,
+    opaque: &Opaque,
+    with_files: bool,
+) -> rusqlite::Result<(i64, Value)> {
     let id: i64 = row.get(0)?;
     let root_id: i64 = row.get(1)?;
-    Ok((
-        id,
-        json!({"id":opaque.encode("s", id), "root_id":opaque.encode("r", root_id),
+    let mut view = json!({"id":opaque.encode("s", id), "root_id":opaque.encode("r", root_id),
         "generation":row.get::<_, i64>(2)?, "status":row.get::<_, String>(3)?,
         "started_at":row.get::<_, Option<String>>(4)?.map(|v| timestamp(&v)),
-        "finished_at":row.get::<_, Option<String>>(5)?.map(|v| timestamp(&v))}),
-    ))
+        "finished_at":row.get::<_, Option<String>>(5)?.map(|v| timestamp(&v))});
+    // Without hits the key is absent: the scan says nothing about leftovers.
+    let orphans = orphans_view(row.get(6)?, with_files);
+    if !orphans.is_null() {
+        view["orphans"] = orphans;
+    }
+    Ok((id, view))
 }
 
 /// List scans using a cursor bound to this endpoint.
@@ -257,9 +310,9 @@ pub async fn scans(
     };
     let result = tokio::task::spawn_blocking(move || {
         let conn = state.db.conn().map_err(|_| ())?;
-        let mut stmt = conn.raw().prepare("SELECT id,root_id,generation,status,started_at,finished_at FROM scan_runs WHERE id>?1 AND (?2 IS NULL OR root_id=?2) AND (?3 IS NULL OR status=?3) ORDER BY id LIMIT ?4").map_err(|_| ())?;
+        let mut stmt = conn.raw().prepare("SELECT id,root_id,generation,status,started_at,finished_at,orphans_json FROM scan_runs WHERE id>?1 AND (?2 IS NULL OR root_id=?2) AND (?3 IS NULL OR status=?3) ORDER BY id LIMIT ?4").map_err(|_| ())?;
         let status = query.status.filter(|s| !s.is_empty());
-        let rows = stmt.query_map(params![after,root,status,i64::try_from(limit + 1).map_err(|_| ())?], |row| scan_view(row, &opaque)).map_err(|_| ())?;
+        let rows = stmt.query_map(params![after,root,status,i64::try_from(limit + 1).map_err(|_| ())?], |row| scan_view(row, &opaque, false)).map_err(|_| ())?;
         let mut data = Vec::new();
         let mut last_id = None;
         let mut used = 0_usize;
@@ -305,7 +358,7 @@ pub async fn scan(
     };
     let result = tokio::task::spawn_blocking(move || {
         let conn = state.db.conn().map_err(|_| ())?;
-        conn.raw().query_row("SELECT id,root_id,generation,status,started_at,finished_at FROM scan_runs WHERE id=?1", [id], |row| scan_view(row, &opaque)).optional().map_err(|_| ())
+        conn.raw().query_row("SELECT id,root_id,generation,status,started_at,finished_at,orphans_json FROM scan_runs WHERE id=?1", [id], |row| scan_view(row, &opaque, true)).optional().map_err(|_| ())
     }).await;
     match result {
         Ok(Ok(Some((_, data)))) => {

@@ -101,6 +101,7 @@ fn refused_after(change: &str) {
         compliance_state: None,
         max_files: 5,
         delete_original: false,
+        allow_reencode: false,
     };
     ctx.conn
         .execute(
@@ -150,6 +151,11 @@ fn pausing_the_schedule_ends_its_queued_item() {
 #[test]
 fn editing_max_files_ends_its_queued_item() {
     refused_after("UPDATE schedules SET max_files=6 WHERE id=1");
+}
+
+#[test]
+fn granting_the_re_encode_permission_ends_its_queued_item() {
+    refused_after("UPDATE schedules SET allow_reencode=1 WHERE id=1");
 }
 
 #[test]

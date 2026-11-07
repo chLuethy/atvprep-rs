@@ -285,6 +285,15 @@ pub fn run_prepare(
     if let Some(code) = reject_flag_mix(ctx, matches, quarantine.is_some()) {
         return code;
     }
+    // The manager cancels a run by sending SIGTERM to the whole process group. ffmpeg ends on it;
+    // this process must outlive it for the one step that removes the partial file, so it only
+    // notes the signal instead of dying on the spot. The manager's KILL after its grace period
+    // still ends a run that does not follow.
+    let terminated = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let _ = signal_hook::flag::register(
+        signal_hook::consts::SIGTERM,
+        std::sync::Arc::clone(&terminated),
+    );
     let target = match manager_target(matches) {
         Ok(target) => target,
         Err(error) => {

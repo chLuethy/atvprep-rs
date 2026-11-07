@@ -26,6 +26,8 @@ export type FileRow = {
   needs_reencode?: boolean;
   /** Another container whose converted MP4 is already kept next to it; there is nothing left to prepare. */
   converted_kept?: boolean;
+  /** The newest preparation of this file was interrupted and nothing ran or was inspected since. */
+  last_interrupted?: boolean;
   /** The same files by name, language (three letter code) and kind (normal, forced, sdh). */
   embed_sidecars?: Array<{ name: string; language: string; kind: string }>;
 };
@@ -154,7 +156,7 @@ export async function loadSidecars(api: Api, mediaId: string): Promise<SidecarSt
   return loadSidecarsPage(api, mediaId);
 }
 
-export type FilesQuery = { q: string; complianceState: string; /** Comma separated states whose files are left out. */ hide?: string; cursor: string | null; sort?: { key: string; dir: 1 | -1 } | null };
+export type FilesQuery = { q: string; complianceState: string; /** Comma separated states whose files are left out. */ hide?: string; /** Comma separated properties a file must all have. */ has?: string; cursor: string | null; sort?: { key: string; dir: 1 | -1 } | null };
 export type FilePage = { items: FileRow[]; nextCursor: string | null; error: boolean; session: boolean };
 
 export async function loadFiles(api: Api, query: FilesQuery): Promise<FilePage> {
@@ -162,6 +164,7 @@ export async function loadFiles(api: Api, query: FilesQuery): Promise<FilePage> 
   if (query.q) params.set("q", query.q);
   if (query.complianceState) params.set("compliance_state", query.complianceState);
   if (query.hide) params.set("hide", query.hide);
+  if (query.has) params.set("has", query.has);
   if (query.cursor) params.set("cursor", query.cursor);
   if (query.sort) {
     params.set("sort", query.sort.key);
@@ -183,6 +186,8 @@ export type Summary = {
   convert: number;
   /** Files whose video has to be re-encoded. */
   reencode: number;
+  /** Files with a subtitle file that can still be embedded. */
+  embed: number;
   /** Other containers whose converted MP4 is kept next to them. */
   converted: number;
   jobsActive: boolean;
@@ -194,9 +199,29 @@ export async function loadSummary(api: Api): Promise<Summary | null> {
   try {
     const response = await api.request("/dashboard");
     if (!response.ok) return null;
-    const body = (await response.json()) as { data?: { files?: Record<string, number>; missing?: number; convert?: number; reencode?: number; converted?: number; jobs?: Record<string, number> } };
+    const body = (await response.json()) as { data?: { files?: Record<string, number>; missing?: number; convert?: number; reencode?: number; embed?: number; converted?: number; jobs?: Record<string, number> } };
     const jobs = body.data?.jobs ?? {};
-    return { counts: body.data?.files ?? null, missing: body.data?.missing ?? 0, convert: body.data?.convert ?? 0, reencode: body.data?.reencode ?? 0, converted: body.data?.converted ?? 0, jobsActive: (jobs.queued ?? 0) + (jobs.running ?? 0) > 0, jobs: { running: jobs.running ?? 0, queued: jobs.queued ?? 0 } };
+    return { counts: body.data?.files ?? null, missing: body.data?.missing ?? 0, convert: body.data?.convert ?? 0, reencode: body.data?.reencode ?? 0, embed: body.data?.embed ?? 0, converted: body.data?.converted ?? 0, jobsActive: (jobs.queued ?? 0) + (jobs.running ?? 0) > 0, jobs: { running: jobs.running ?? 0, queued: jobs.queued ?? 0 } };
+  } catch {
+    return null;
+  }
+}
+
+/** How many files each property shows with the current selection, keyed by property token. */
+export type TraitCounts = Record<string, number>;
+
+/** What each property box would show if it were ticked as well, for the current status and property selection. */
+export async function loadTraitCounts(api: Api, where: { state?: string; hide?: string; has?: string }): Promise<TraitCounts | null> {
+  const params = new URLSearchParams();
+  if (where.state) params.set("compliance_state", where.state);
+  if (where.hide) params.set("hide", where.hide);
+  if (where.has) params.set("has", where.has);
+  try {
+    const response = await api.request(`/files/counts${params.size > 0 ? `?${params}` : ""}`);
+    if (!response.ok) return null;
+    const data = ((await response.json()) as { data?: unknown }).data;
+    if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+    return Object.fromEntries(Object.entries(data).filter((entry): entry is [string, number] => typeof entry[1] === "number"));
   } catch {
     return null;
   }
@@ -233,17 +258,20 @@ export type JobResult = { ok: true } | { ok: false; session: boolean; detail?: s
  * Queues a manual job: verify reads MP4 files, inspect reads any file again with ffprobe, prepare makes any
  * container an MP4 that Apple TV plays. The server takes at most 100 files per job.
  * Starting a prepare is the explicit approval (`manual_approval`), bound to the session by the server.
- * It never asks to delete an original, and a file that would need a re-encode ends as a failed item that says so.
- * The caller owns the idempotency key so a retried attempt reuses it.
+ * It never asks to delete an original itself. A prepare that includes a file needing a re-encode only
+ * re-encodes with `confirmReencode` (the server refuses it otherwise), and then only while the
+ * `delete_original` setting is on. The caller owns the idempotency key so a retried
+ * attempt reuses it.
  */
 export async function queueJob(
   api: Api,
   action: "prepare" | "verify" | "inspect",
   mediaIds: string[],
   idempotencyKey: string,
+  options: { confirmReencode?: boolean } = {},
 ): Promise<JobResult> {
   const body = action === "prepare"
-    ? { action, media_ids: mediaIds, manual_approval: true }
+    ? { action, media_ids: mediaIds, manual_approval: true, ...(options.confirmReencode ? { confirm_reencode: true } : {}) }
     : { action, media_ids: mediaIds, manual_approval: false };
   try {
     const response = await api.request("/jobs", {

@@ -13,10 +13,13 @@ export type Verdict = { kind: ChipKind; icon: IconName; label: string };
 const humanize = (value: string) => value.replaceAll("_", " ").replace(/^\w/, (character) => character.toUpperCase());
 
 /** Only a verify report can make a file Ready; an unverified file is never shown as fine. */
-export function verdictOf(file: { compliance_state: string; discovery_state?: string; compliance_reasons?: string[] | undefined }): Verdict {
+export function verdictOf(file: { compliance_state: string; discovery_state?: string; compliance_reasons?: string[] | undefined; pending_sidecars?: number | undefined }): Verdict {
   if (file.discovery_state === "missing") return { kind: "bad", icon: "x", label: t("Missing") };
   switch (file.compliance_state) {
-    case "clean": return { kind: "ok", icon: "check", label: t("Ready") };
+    // Clean is only Ready while nothing is left to embed; the stored state stays clean.
+    case "clean":
+      if ((file.pending_sidecars ?? 0) > 0) return { kind: "warn", icon: "dot", label: t("Embed open") };
+      return { kind: "ok", icon: "check", label: t("Ready") };
     case "warning": return { kind: "warn", icon: "warn", label: t("Warning") };
     case "blocker": {
       const outcome = blockerVerdict((file.compliance_reasons ?? []).map(parseReason));

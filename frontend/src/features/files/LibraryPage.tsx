@@ -6,14 +6,14 @@ import { ColumnsView, type ColumnAction, type Picked } from "./ColumnsView";
 import { RowMenu, type MenuItem } from "./RowMenu";
 import { additive, copyText, selectionMenu } from "./selection";
 import { loadBelow } from "./browse";
-import { hiddenSet, knownState, normalizeHidden, setGroupHidden, STATE_FILTERS, TRAIT_FILTERS, toggleHidden, type FilterEntry } from "./filters";
+import { hasSet, hiddenSet, knownState, normalizeHas, normalizeHidden, setGroupHidden, STATE_FILTERS, TRAIT_FILTERS, toggleHas, toggleHidden, type FilterEntry } from "./filters";
 import { FileTable, type Sort, type SortKey } from "./FileTable";
-import { FixPreview } from "./FixPreview";
+import { FixPreview, type ReencodeChoice } from "./FixPreview";
 import { preparable } from "./preparePlan";
 import { isMp4Like } from "./convertPlan";
 import { Inspector } from "./Inspector";
 import { ScanControl } from "../scan/ScanControl";
-import { dismissMissing, loadFiles, rawId, loadSummary, queueJob, type Api, type FileRow, type JobResult } from "./loaders";
+import { dismissMissing, loadFiles, rawId, loadSummary, loadTraitCounts, queueJob, type Api, type FileRow, type JobResult } from "./loaders";
 import { formatSize, estimateMinutes, baseName, verdictOf } from "./model";
 import { isTyping } from "../../lib/keys";
 import { reuseUnchanged } from "../../lib/stable";
@@ -26,11 +26,14 @@ function readView(): "list" | "columns" {
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
 const INSPECT_BATCH = 100;
 
-/** One row of tick boxes. A ticked box shows its files; unticking hides them. */
+/**
+ * One row of tick boxes. `ticked` says which boxes are ticked: for the states that is every box that is not
+ * hidden, for the properties only the chosen ones.
+ */
 const FilterGroup: Component<{
   title: string;
   entries: ReadonlyArray<FilterEntry>;
-  hidden: ReadonlySet<string>;
+  ticked: (token: string) => boolean;
   count: (token: string) => number | null;
   onToggle: (token: string) => void;
   onAll?: () => void;
@@ -39,7 +42,7 @@ const FilterGroup: Component<{
   <div class="filter-group" role="group" aria-label={props.title}>
     <span class="filter-title">{props.title}</span>
     <For each={props.entries}>{(entry) => {
-      const shown = () => !props.hidden.has(entry.token);
+      const shown = () => props.ticked(entry.token);
       return (
         <label class="filter-check" classList={{ off: !shown() }}>
           <input type="checkbox" checked={shown()} onChange={() => props.onToggle(entry.token)} />
@@ -73,7 +76,9 @@ export const LibraryPage: Component<{
   status?: string | undefined;
   /** The states left out, comma separated, as the address carries them. */
   hide?: string | undefined;
-  onFilter?: (filter: { status: string; hide: string }) => void;
+  /** The properties a file must all have, comma separated, as the address carries them. */
+  has?: string | undefined;
+  onFilter?: (filter: { status: string; hide: string; has: string }) => void;
   onOpen: (id: string | undefined) => void;
 }> = (props) => {
   const [rows, setRows] = createSignal<FileRow[]>([]);
@@ -85,6 +90,9 @@ export const LibraryPage: Component<{
   const [state, setState] = createSignal(knownState(props.status));
   const [hide, setHide] = createSignal(normalizeHidden(props.hide));
   const hidden = createMemo(() => hiddenSet(hide()));
+  const [has, setHas] = createSignal(normalizeHas(props.has));
+  const chosen = createMemo(() => hasSet(has()));
+  const [traitCounts, setTraitCounts] = createSignal<Record<string, number> | null>(null);
   const [query, setQuery] = createSignal("");
   const [search, setSearch] = createSignal("");
   const [sort, setSort] = createSignal<Sort>(null);
@@ -116,6 +124,7 @@ export const LibraryPage: Component<{
   const [missing, setMissing] = createSignal(0);
   const [convertible, setConvertible] = createSignal(0);
   const [reencodeCount, setReencodeCount] = createSignal(0);
+  const [embedCount, setEmbedCount] = createSignal(0);
   const [convertedCount, setConvertedCount] = createSignal(0);
   const [removeOpen, setRemoveOpen] = createSignal(false);
   const [removeBusy, setRemoveBusy] = createSignal(false);
@@ -146,7 +155,7 @@ export const LibraryPage: Component<{
     } else {
       setLoadingMore(true);
     }
-    const page = await loadFiles(props.api, { q: query(), complianceState: state(), hide: hide(), cursor, sort: sort() });
+    const page = await loadFiles(props.api, { q: query(), complianceState: state(), hide: hide(), has: has(), cursor, sort: sort() });
     if (mine !== generation) return;
     setLoadingMore(false);
     if (page.error) {
@@ -175,7 +184,7 @@ export const LibraryPage: Component<{
     let cursor: string | null = null;
     const fresh: FileRow[] = [];
     for (let index = 0; index < pages; index += 1) {
-      const page = await loadFiles(props.api, { q: query(), complianceState: state(), hide: hide(), cursor, sort: sort() });
+      const page = await loadFiles(props.api, { q: query(), complianceState: state(), hide: hide(), has: has(), cursor, sort: sort() });
       if (mine !== generation || page.error) return;
       fresh.push(...page.items);
       cursor = page.nextCursor;
@@ -189,14 +198,20 @@ export const LibraryPage: Component<{
     setRows(reuseUnchanged(fresh, rows(), (row) => row.display_path));
     setNextCursor(cursor);
   };
+  /** What each property would show with the current selection; without an answer the whole-library counts stay. */
+  const refreshTraitCounts = async () => {
+    setTraitCounts(await loadTraitCounts(props.api, { state: state() || undefined, hide: hide() || undefined, has: has() || undefined }));
+  };
   const refreshSummary = async () => {
     const summary = await loadSummary(props.api);
     if (!summary) return;
     if (summary.counts) setCounts(summary.counts);
     setJobsActive(summary.jobsActive);
+    void refreshTraitCounts();
     setMissing(summary.missing);
     setConvertible(summary.convert);
     setReencodeCount(summary.reencode);
+    setEmbedCount(summary.embed);
     setConvertedCount(summary.converted);
   };
   const openRemove = () => { removeKey = crypto.randomUUID(); setRemoveError(null); setRemoveOpen(true); };
@@ -234,7 +249,9 @@ export const LibraryPage: Component<{
 
   createEffect(on(() => props.status, (next) => setState(knownState(next)), { defer: true }));
   createEffect(on(() => props.hide, (next) => setHide(normalizeHidden(next)), { defer: true }));
-  createEffect(on([state, hide, query], () => void load(true)));
+  createEffect(on(() => props.has, (next) => setHas(normalizeHas(next)), { defer: true }));
+  createEffect(on([state, hide, has, query], () => void load(true)));
+  createEffect(on([state, hide, has], () => void refreshTraitCounts()));
   createEffect(on(sort, () => void load(true, null, true), { defer: true }));
   onMount(() => void refreshSummary());
 
@@ -250,19 +267,27 @@ export const LibraryPage: Component<{
   // Nothing found and nothing filtered out: the library has not been scanned, as opposed to a search with no hits.
   const firstRun = () => total() === 0 && !filtered() && query() === "";
   /** Anything is left out of the list besides what the search leaves out. */
-  const filtered = () => state() !== "" || hide() !== "";
-  const changeFilter = (next: { status: string; hide: string }) => {
+  const filtered = () => state() !== "" || hide() !== "" || has() !== "";
+  const changeFilter = (next: { status: string; hide: string; has: string }) => {
     setState(next.status);
     setHide(next.hide);
+    setHas(next.has);
     props.onFilter?.(next);
   };
   const clearFilters = () => {
-    changeFilter({ status: "", hide: "" });
+    changeFilter({ status: "", hide: "", has: "" });
     setSearch("");
     setQuery("");
   };
   const entryLabel = (token: string) => t([...STATE_FILTERS, ...TRAIT_FILTERS].find((entry) => entry.token === token)?.label ?? token);
-  const chipCount = (filterState: string) => (filterState === "" ? total() : filterState === "missing" ? missing() : filterState === "convert" ? convertible() : filterState === "reencode" ? reencodeCount() : filterState === "converted" ? convertedCount() : counts()?.[filterState] ?? 0);
+  // The unfiltered total of each trait; the faceted count (traitCounts) wins when the server sent one.
+  const traitTotal: Record<string, () => number> = { convert: convertible, reencode: reencodeCount, embed: embedCount, converted: convertedCount };
+  const chipCount = (filterState: string) => {
+    if (filterState === "") return total();
+    if (filterState === "missing") return missing();
+    if (TRAIT_FILTERS.some((entry) => entry.token === filterState)) return traitCounts()?.[filterState] ?? traitTotal[filterState]?.() ?? 0;
+    return counts()?.[filterState] ?? 0;
+  };
 
   // Where a Shift-click or Shift-arrow range starts, like the Finder's anchor.
   let anchorId: string | undefined;
@@ -354,13 +379,15 @@ export const LibraryPage: Component<{
     setPreviewRows(selection);
   };
   const previewFiles = () => previewRows() ?? [];
-  const queuePrepare = async (): Promise<JobResult> => {
-    const rowsToQueue = preparableRows(previewFiles());
+  const queuePrepare = async (choice: ReencodeChoice): Promise<JobResult> => {
+    const confirmReencode = choice === "with";
+    // Without the confirmation the files that need a re-encode stay out of the job.
+    const rowsToQueue = preparableRows(previewFiles()).filter((row) => confirmReencode || !row.needs_reencode);
     const queued = new Set<string>();
     let failure: JobResult | null = null;
     const ids = rowsToQueue.map((row) => row.id);
     if (ids.length > 0) {
-      const result = await queueJob(props.api, "prepare", ids, keyFor("preview", ids.join(",")));
+      const result = await queueJob(props.api, "prepare", ids, keyFor("preview", ids.join(","), confirmReencode), { confirmReencode });
       if (result.ok) ids.forEach((id) => queued.add(id));
       else failure = result;
     }
@@ -421,7 +448,7 @@ export const LibraryPage: Component<{
     let truncated = false;
     for (const folder of colPicked().folders) {
       if (!folder.rootId) continue;
-      const result = await loadBelow(props.api, { rootId: folder.rootId, path: folder.path, state: state() || undefined, hide: hide() || undefined });
+      const result = await loadBelow(props.api, { rootId: folder.rootId, path: folder.path, state: state() || undefined, hide: hide() || undefined, has: has() || undefined });
       if (result.kind !== "ok") return { rows: found, truncated, error: result.kind };
       result.files.forEach(add);
       truncated ||= result.truncated;
@@ -568,25 +595,25 @@ export const LibraryPage: Component<{
           </Show>
           <div class="filters" role="group" aria-label={t("Filter by status")}>
             <Show when={state() !== ""}>
-              <button type="button" class="filter-only" aria-label={t("Remove filter: only {name}", { name: entryLabel(state()) })} onClick={() => changeFilter({ status: "", hide: hide() })}>
+              <button type="button" class="filter-only" aria-label={t("Remove filter: only {name}", { name: entryLabel(state()) })} onClick={() => changeFilter({ status: "", hide: hide(), has: has() })}>
                 {t("Only {name}", { name: entryLabel(state()) })} <Icon name="x" size={12} />
               </button>
             </Show>
             <FilterGroup
               title={t("Status")}
               entries={STATE_FILTERS}
-              hidden={hidden()}
+              ticked={(token) => !hidden().has(token)}
               count={chipCount}
-              onToggle={(token) => changeFilter({ status: state(), hide: toggleHidden(hide(), token) })}
-              onAll={() => changeFilter({ status: state(), hide: setGroupHidden(hide(), STATE_FILTERS, false) })}
-              onNone={() => changeFilter({ status: state(), hide: setGroupHidden(hide(), STATE_FILTERS, true) })}
+              onToggle={(token) => changeFilter({ status: state(), hide: toggleHidden(hide(), token), has: has() })}
+              onAll={() => changeFilter({ status: state(), hide: setGroupHidden(hide(), STATE_FILTERS, false), has: has() })}
+              onNone={() => changeFilter({ status: state(), hide: setGroupHidden(hide(), STATE_FILTERS, true), has: has() })}
             />
             <FilterGroup
               title={t("Properties")}
               entries={TRAIT_FILTERS}
-              hidden={hidden()}
+              ticked={(token) => chosen().has(token)}
               count={chipCount}
-              onToggle={(token) => changeFilter({ status: state(), hide: toggleHidden(hide(), token) })}
+              onToggle={(token) => changeFilter({ status: state(), hide: hide(), has: toggleHas(has(), token) })}
             />
             <Show when={filtered()}>
               <Button variant="quiet" class="filter-reset" onClick={clearFilters}>{t("Show all files")}</Button>
@@ -598,7 +625,7 @@ export const LibraryPage: Component<{
         <Show when={actionError()}><p class="notice bad lib-notice" role="alert">{actionError()}</p></Show>
 
         <Show when={showColumns()}>
-          <ColumnsView api={props.api} state={state()} hide={hide()} version={inspectorVersion()} activeId={props.activeId} clearToken={clearToken()} onOpen={props.onOpen} onSelection={setColPicked} onAction={(action) => void actOnColumns(action)} />
+          <ColumnsView api={props.api} state={state()} hide={hide()} has={has()} version={inspectorVersion()} activeId={props.activeId} clearToken={clearToken()} onOpen={props.onOpen} onSelection={setColPicked} onAction={(action) => void actOnColumns(action)} />
         </Show>
         <div class="lib-scroll" hidden={showColumns()}>
           <Show when={phase() !== "loading"} fallback={<p class="muted pad">{t("Loading files")}</p>}>

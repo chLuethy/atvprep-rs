@@ -110,6 +110,7 @@ function csrfAction(method: string, path: string): string {
   if (method === "POST" && path === "/api/v1/jobs") return "create-job";
   if (method === "POST" && path.endsWith("/inspect")) return "inspect";
   if (method === "POST" && path === "/api/v1/scans") return "scan";
+  if (method === "POST" && /^\/api\/v1\/roots\/[^/]+\/orphans\/remove$/.test(path)) return "remove-orphans";
   if (method === "POST" && path === "/api/v1/jobs/clear") return "clear-jobs";
   if (method === "POST" && path === "/api/v1/files/dismiss-missing") return "dismiss-missing";
   if (method === "POST" && path === "/api/v1/schedules") return "create-schedule";

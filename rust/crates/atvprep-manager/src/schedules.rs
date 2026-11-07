@@ -504,6 +504,7 @@ pub struct ScheduleApproval {
     pub root_id: Option<i64>,
     pub compliance_state: Option<String>,
     pub max_files: i64,
+    pub allow_reencode: bool,
     pub enabled: bool,
     pub approved_by: Option<i64>,
     pub approved_at: Option<i64>,
@@ -518,7 +519,7 @@ impl ScheduleApproval {
     /// SQLite rejects the read.
     pub fn load(conn: &rusqlite::Connection, id: i64) -> Result<Option<Self>> {
         Ok(rusqlite::OptionalExtension::optional(conn.query_row(
-            "SELECT id, action, root_id, compliance_state, max_files, enabled, approved_by, approved_at, approval_mac
+            "SELECT id, action, root_id, compliance_state, max_files, enabled, approved_by, approved_at, approval_mac, allow_reencode
              FROM schedules WHERE id=?1",
             [id],
             |row| {
@@ -532,6 +533,7 @@ impl ScheduleApproval {
                     approved_by: row.get(6)?,
                     approved_at: row.get(7)?,
                     approval_mac: row.get(8)?,
+                    allow_reencode: row.get(9)?,
                 })
             },
         ))?)
@@ -547,6 +549,7 @@ impl ScheduleApproval {
             compliance_state: self.compliance_state.as_deref(),
             max_files: self.max_files,
             delete_original,
+            allow_reencode: self.allow_reencode,
         }
     }
 }
@@ -577,35 +580,33 @@ fn run_change_schedule(
     }
     let delete_original = delete_original_setting(ctx.conn)?;
     let mut statement = ctx.conn.prepare(&format!(
-        "SELECT m.id FROM media_files m
+        "SELECT m.id, m.needs_reencode FROM media_files m
          WHERE m.discovery_state='present'
            AND (?1 IS NULL OR m.root_id=?1)
            AND (?2 IS NULL OR m.compliance_state=?2)
            AND NOT EXISTS (SELECT 1 FROM job_items i WHERE i.media_file_id=m.id
                            AND i.action IN ('fix','convert')
                            AND i.status NOT IN {})
-           AND NOT EXISTS (SELECT 1 FROM media_files sibling
-                           WHERE sibling.root_id=m.root_id AND sibling.discovery_state='present'
-                             AND sibling.relative_path=substr(m.relative_path,1,length(m.relative_path)-length(m.suffix))||'.mp4'
-                             AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov'))
-           AND (lower(m.suffix) NOT IN ('.mp4','.m4v','.mov')
-                OR m.compliance_state IN ('warning','blocker') OR m.desired_action='fix')
-           AND (?3 OR m.compliance_reasons NOT LIKE '%] video-reencode:%')
+           AND {}
          ORDER BY m.id LIMIT ?4",
-        ItemStatus::terminal_sql_list()
+        ItemStatus::terminal_sql_list(),
+        crate::media_sql::change_candidate("?3", "?5")
     ))?;
-    let media_ids = statement
+    let embed_open = crate::embed::open_media_ids_json(ctx.conn)?;
+    let selected = statement
         .query_map(
             rusqlite::params![
                 row.root_id,
                 row.compliance_state,
-                delete_original,
-                row.max_files
+                row.allow_reencode,
+                row.max_files,
+                embed_open
             ],
-            |r| r.get(0),
+            |r| Ok((r.get::<_, i64>(0)?, r.get::<_, bool>(1)?)),
         )?
-        .collect::<std::result::Result<Vec<i64>, _>>()?;
+        .collect::<std::result::Result<Vec<_>, _>>()?;
     drop(statement);
+    let media_ids: Vec<i64> = selected.iter().map(|(id, _)| *id).collect();
     if media_ids.is_empty() {
         return finish("No matching files".to_owned(), None);
     }
@@ -619,9 +620,15 @@ fn run_change_schedule(
         &media_ids,
     );
     job.trigger = "manual";
+    // Only a file that needs it, under a schedule the operator signed for it (ADR 0007).
+    job.reencode_media = selected
+        .iter()
+        .filter(|(_, needs)| *needs && row.allow_reencode)
+        .map(|(id, _)| *id)
+        .collect();
     job.settings_snapshot = serde_json::json!({
         "pipeline": "prepare",
-        "policy": "copy-only-v1",
+        "policy": crate::approval::PREPARE_POLICY,
         "delete_original": delete_original,
         "delete_original_confirmed": false,
         "manual_approval": false,

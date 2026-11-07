@@ -70,6 +70,7 @@ impl<'a> WorkerService<'a> {
             identity,
             idle_seconds,
         )
+        .map(|_| ())
     }
 
     #[must_use]

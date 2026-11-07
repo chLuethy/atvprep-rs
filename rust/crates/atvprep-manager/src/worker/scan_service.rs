@@ -217,6 +217,11 @@ pub fn run(
         // Superseded by a newer scan or cut off from its lease: its own finish would be a no-op.
         let _ = crate::db::retry_busy(|| Scans(ctx).abandon(scan.id));
     }
+    if result.is_ok() {
+        // The report is a hint; a scan that succeeded stays succeeded if it cannot be written.
+        let _ =
+            crate::db::retry_busy(|| super::orphans::report_for_scan(ctx, scan.id, scan.root_id));
+    }
     let release = gate.release_permit(&permit);
     match result {
         Ok(result) => {
