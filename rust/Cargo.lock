@@ -34,7 +34,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "atvprep"
-version = "0.5.6"
+version = "0.5.7"
 dependencies = [
  "atvprep-api",
  "atvprep-core",
@@ -54,7 +54,7 @@ dependencies = [
 
 [[package]]
 name = "atvprep-api"
-version = "0.5.6"
+version = "0.5.7"
 dependencies = [
  "atvprep-core",
  "atvprep-manager",
@@ -81,7 +81,7 @@ dependencies = [
 
 [[package]]
 name = "atvprep-core"
-version = "0.5.6"
+version = "0.5.7"
 dependencies = [
  "atvprep-testkit",
  "regex",
@@ -93,7 +93,7 @@ dependencies = [
 
 [[package]]
 name = "atvprep-deploy"
-version = "0.5.6"
+version = "0.5.7"
 dependencies = [
  "atvprep-core",
  "atvprep-manager",
@@ -110,7 +110,7 @@ dependencies = [
 
 [[package]]
 name = "atvprep-manager"
-version = "0.5.6"
+version = "0.5.7"
 dependencies = [
  "atvprep-core",
  "atvprep-testkit",
@@ -128,7 +128,7 @@ dependencies = [
 
 [[package]]
 name = "atvprep-testkit"
-version = "0.5.6"
+version = "0.5.7"
 dependencies = [
  "serde",
  "serde_json",
