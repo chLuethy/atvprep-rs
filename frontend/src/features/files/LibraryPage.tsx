@@ -8,7 +8,7 @@ import { additive, copyText, selectionMenu } from "./selection";
 import { loadBelow } from "./browse";
 import { hiddenSet, knownState, normalizeHidden, setGroupHidden, STATE_FILTERS, TRAIT_FILTERS, toggleHidden, type FilterEntry } from "./filters";
 import { FileTable, type Sort, type SortKey } from "./FileTable";
-import { FixPreview } from "./FixPreview";
+import { FixPreview, type ReencodeChoice } from "./FixPreview";
 import { preparable } from "./preparePlan";
 import { isMp4Like } from "./convertPlan";
 import { Inspector } from "./Inspector";
@@ -356,13 +356,15 @@ export const LibraryPage: Component<{
     setPreviewRows(selection);
   };
   const previewFiles = () => previewRows() ?? [];
-  const queuePrepare = async (): Promise<JobResult> => {
-    const rowsToQueue = preparableRows(previewFiles());
+  const queuePrepare = async (choice: ReencodeChoice): Promise<JobResult> => {
+    const confirmReencode = choice === "with";
+    // Without the confirmation the files that need a re-encode stay out of the job.
+    const rowsToQueue = preparableRows(previewFiles()).filter((row) => confirmReencode || !row.needs_reencode);
     const queued = new Set<string>();
     let failure: JobResult | null = null;
     const ids = rowsToQueue.map((row) => row.id);
     if (ids.length > 0) {
-      const result = await queueJob(props.api, "prepare", ids, keyFor("preview", ids.join(",")));
+      const result = await queueJob(props.api, "prepare", ids, keyFor("preview", ids.join(","), confirmReencode), { confirmReencode });
       if (result.ok) ids.forEach((id) => queued.add(id));
       else failure = result;
     }

@@ -566,3 +566,109 @@ async fn file_listing_filters_sorts_and_paginates() {
         422
     );
 }
+
+#[tokio::test]
+async fn interrupted_revision_is_flagged_until_a_later_item_or_inspection() {
+    let db = Db::memory().unwrap();
+    let mut conn = db.conn().unwrap();
+    schema::migrate(&mut conn).unwrap();
+    conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private');
+        INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES
+        (1,1,'A.mp4','video','.mp4',1,1,'a','present','warning','idle','none'),
+        (2,1,'B.mp4','video','.mp4',1,1,'b','present','clean','idle','none'),
+        (3,1,'C.mp4','video','.mp4',1,1,'c','present','clean','idle','none'),
+        (4,1,'D.mp4','video','.mp4',1,1,'d','present','clean','idle','none'),
+        (5,1,'E.mp4','video','.mp4',1,1,'e','present','clean','idle','none');
+        INSERT INTO jobs(id,action,status) VALUES (1,'fix','failed'),(2,'convert','failed'),(3,'verify','succeeded'),(4,'fix','failed'),(5,'inspect','queued');
+        INSERT INTO job_items(id,job_id,media_file_id,action,position,status,finished_at) VALUES
+        (1,1,1,'fix',0,'interrupted','2026-01-01T10:00:00Z'),
+        (2,2,2,'convert',0,'interrupted','2026-01-01T10:00:00Z'),
+        (3,3,2,'verify',0,'succeeded','2026-01-01T11:00:00Z'),
+        (4,4,3,'fix',0,'interrupted','2026-01-01T10:00:00Z'),
+        (5,4,4,'fix',0,'succeeded','2026-01-01T10:00:00Z'),
+        (6,1,5,'fix',0,'interrupted','2026-01-01T10:00:00Z'),
+        (7,5,5,'inspect',0,'queued',NULL);
+        INSERT INTO inspections(media_file_id,source_fingerprint,input_fingerprint,tool_name,tool_version,result,created_at)
+        VALUES (3,'c','c','ffprobe','1','{}','2026-01-01 12:00:00');").unwrap();
+    let state = AppState::new(
+        db,
+        ManagerConfig {
+            api_secret: Some(SECRET.to_owned()),
+            allowed_origins: vec!["http://testserver".to_owned()],
+            ..ManagerConfig::default()
+        },
+    )
+    .unwrap();
+    let auth = AuthService::with_csrf_ttl(
+        Ctx {
+            conn: conn.raw(),
+            clock: state.clock.as_ref(),
+        },
+        28_800,
+        3_600,
+        900,
+    )
+    .unwrap();
+    let session = auth.create().unwrap();
+    let app = router(state);
+    let get = |path: String| {
+        Request::get(path)
+            .header("origin", "http://testserver")
+            .header(
+                "cookie",
+                format!("__Host-atvprep_session={}", session.token),
+            )
+            .body(Body::empty())
+            .unwrap()
+    };
+    let body: Value = serde_json::from_slice(
+        &to_bytes(
+            app.clone()
+                .oneshot(get("/api/v1/files?sort=title".to_owned()))
+                .await
+                .unwrap()
+                .into_body(),
+            65536,
+        )
+        .await
+        .unwrap(),
+    )
+    .unwrap();
+    let flags: Vec<(String, bool)> = body["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|file| {
+            (
+                file["display_path"].as_str().unwrap().to_owned(),
+                file["last_interrupted"].as_bool().unwrap(),
+            )
+        })
+        .collect();
+    // A: interrupted fix, nothing since. B: later verify item. C: re-inspected afterwards.
+    // D: last item succeeded. E: only a queued inspection followed, which has not run yet.
+    assert_eq!(
+        flags,
+        vec![
+            ("A.mp4".to_owned(), true),
+            ("B.mp4".to_owned(), false),
+            ("C.mp4".to_owned(), false),
+            ("D.mp4".to_owned(), false),
+            ("E.mp4".to_owned(), true),
+        ]
+    );
+    let token = Opaque::new(SECRET).encode("m", 1);
+    let detail: Value = serde_json::from_slice(
+        &to_bytes(
+            app.oneshot(get(format!("/api/v1/files/{token}")))
+                .await
+                .unwrap()
+                .into_body(),
+            65536,
+        )
+        .await
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(detail["data"]["last_interrupted"], true);
+}

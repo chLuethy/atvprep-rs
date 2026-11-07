@@ -26,6 +26,8 @@ export type FileRow = {
   needs_reencode?: boolean;
   /** Another container whose converted MP4 is already kept next to it; there is nothing left to prepare. */
   converted_kept?: boolean;
+  /** The newest preparation of this file was interrupted and nothing ran or was inspected since. */
+  last_interrupted?: boolean;
   /** The same files by name, language (three letter code) and kind (normal, forced, sdh). */
   embed_sidecars?: Array<{ name: string; language: string; kind: string }>;
 };
@@ -235,17 +237,19 @@ export type JobResult = { ok: true } | { ok: false; session: boolean; detail?: s
  * Queues a manual job: verify reads MP4 files, inspect reads any file again with ffprobe, prepare makes any
  * container an MP4 that Apple TV plays. The server takes at most 100 files per job.
  * Starting a prepare is the explicit approval (`manual_approval`), bound to the session by the server.
- * It never asks to delete an original, and a file that would need a re-encode ends as a failed item that says so.
- * The caller owns the idempotency key so a retried attempt reuses it.
+ * It never asks to delete an original. A prepare that includes a file needing a re-encode only runs with
+ * `confirmReencode`; the server refuses it otherwise. The caller owns the idempotency key so a retried
+ * attempt reuses it.
  */
 export async function queueJob(
   api: Api,
   action: "prepare" | "verify" | "inspect",
   mediaIds: string[],
   idempotencyKey: string,
+  options: { confirmReencode?: boolean } = {},
 ): Promise<JobResult> {
   const body = action === "prepare"
-    ? { action, media_ids: mediaIds, manual_approval: true }
+    ? { action, media_ids: mediaIds, manual_approval: true, ...(options.confirmReencode ? { confirm_reencode: true } : {}) }
     : { action, media_ids: mediaIds, manual_approval: false };
   try {
     const response = await api.request("/jobs", {
