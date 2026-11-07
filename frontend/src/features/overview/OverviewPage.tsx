@@ -29,8 +29,9 @@ async function load(api: OverviewApi): Promise<Overview> {
   };
 }
 
-const STATES: ReadonlyArray<{ state: string; label: string; bar: string }> = [
+const STATES: ReadonlyArray<{ state: string; label: string; bar: string; filter?: string }> = [
   { state: "clean", label: N("Ready"), bar: "ok" },
+  { state: "embed_open", label: N("Embed open"), bar: "warn", filter: "embed" },
   { state: "warning", label: N("Warning"), bar: "warn" },
   { state: "blocker", label: N("Blocker"), bar: "bad" },
   { state: "unknown", label: N("Not verified"), bar: "neutral" },
@@ -121,7 +122,7 @@ export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: str
                     </div>
                     <ul class="plain legend">
                       <For each={STATES.filter((entry) => (data().files[entry.state] ?? 0) > 0)}>{(entry) => (
-                        <li>{link(`/files?status=${entry.state}`, <><span class="count">{data().files[entry.state]}</span> {t(entry.label)}</>)}</li>
+                        <li>{link(`/files?status=${entry.filter ?? entry.state}`, <><span class="count">{data().files[entry.state]}</span> {t(entry.label)}</>)}</li>
                       )}</For>
                       <Show when={data().reencode > 0}>
                         <li>{link("/files?status=reencode", <><span class="count">{data().reencode}</span> {t("Need a video re-encode")}</>)}</li>

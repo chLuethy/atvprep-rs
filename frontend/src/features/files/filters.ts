@@ -21,6 +21,7 @@ export const STATE_FILTERS: ReadonlyArray<FilterEntry> = [
 export const TRAIT_FILTERS: ReadonlyArray<FilterEntry> = [
   { token: "convert", label: N("To convert") },
   { token: "reencode", label: N("Needs re-encode") },
+  { token: "embed", label: N("Embed open") },
   { token: "converted", label: N("Converted, original kept") },
 ];
 

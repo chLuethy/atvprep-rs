@@ -116,6 +116,7 @@ export const LibraryPage: Component<{
   const [missing, setMissing] = createSignal(0);
   const [convertible, setConvertible] = createSignal(0);
   const [reencodeCount, setReencodeCount] = createSignal(0);
+  const [embedCount, setEmbedCount] = createSignal(0);
   const [convertedCount, setConvertedCount] = createSignal(0);
   const [removeOpen, setRemoveOpen] = createSignal(false);
   const [removeBusy, setRemoveBusy] = createSignal(false);
@@ -197,6 +198,7 @@ export const LibraryPage: Component<{
     setMissing(summary.missing);
     setConvertible(summary.convert);
     setReencodeCount(summary.reencode);
+    setEmbedCount(summary.embed);
     setConvertedCount(summary.converted);
   };
   const openRemove = () => { removeKey = crypto.randomUUID(); setRemoveError(null); setRemoveOpen(true); };
@@ -262,7 +264,7 @@ export const LibraryPage: Component<{
     setQuery("");
   };
   const entryLabel = (token: string) => t([...STATE_FILTERS, ...TRAIT_FILTERS].find((entry) => entry.token === token)?.label ?? token);
-  const chipCount = (filterState: string) => (filterState === "" ? total() : filterState === "missing" ? missing() : filterState === "convert" ? convertible() : filterState === "reencode" ? reencodeCount() : filterState === "converted" ? convertedCount() : counts()?.[filterState] ?? 0);
+  const chipCount = (filterState: string) => (filterState === "" ? total() : filterState === "missing" ? missing() : filterState === "convert" ? convertible() : filterState === "reencode" ? reencodeCount() : filterState === "embed" ? embedCount() : filterState === "converted" ? convertedCount() : counts()?.[filterState] ?? 0);
 
   // Where a Shift-click or Shift-arrow range starts, like the Finder's anchor.
   let anchorId: string | undefined;

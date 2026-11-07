@@ -8,6 +8,12 @@ describe("library filter list", () => {
     expect(normalizeHidden(new Set(["missing", "warning"]))).toBe("warning,missing");
   });
 
+  it("offers Embed open next to the other file traits", () => {
+    expect(TRAIT_FILTERS.map((entry) => entry.token)).toContain("embed");
+    expect(knownState("embed")).toBe("embed");
+    expect(normalizeHidden("embed,clean")).toBe("clean,embed");
+  });
+
   it("flips one entry between shown and hidden", () => {
     expect(toggleHidden("", "clean")).toBe("clean");
     expect(toggleHidden("clean", "warning")).toBe("clean,warning");

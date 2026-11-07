@@ -305,6 +305,11 @@
             "title": "Delete Original",
             "type": "boolean"
           },
+          "embed": {
+            "default": 0,
+            "title": "Embed",
+            "type": "integer"
+          },
           "files": {
             "additionalProperties": {
               "type": "integer"

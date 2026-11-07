@@ -23,7 +23,16 @@ pub async fn dashboard(State(state): State<AppState>, _session: AuthenticatedSes
             let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?))).map_err(|_| ())?;
             rows.collect::<Result<BTreeMap<_,_>,_>>().map_err(|_| ())
         };
-        let files = counts("SELECT compliance_state,count(*) FROM media_files WHERE NOT (discovery_state='missing' AND dismissed_at IS NOT NULL) GROUP BY compliance_state ORDER BY compliance_state")?;
+        let mut files = counts("SELECT compliance_state,count(*) FROM media_files WHERE NOT (discovery_state='missing' AND dismissed_at IS NOT NULL) GROUP BY compliance_state ORDER BY compliance_state")?;
+        // "Ready" is a clean file with nothing left to embed; those with an open embedding count apart.
+        let open = atvprep_manager::embed::open_media_ids(conn.raw()).map_err(|_| ())?;
+        let open_json = serde_json::to_string(&open).map_err(|_| ())?;
+        let embed_open: i64 = conn.raw().query_row("SELECT count(*) FROM media_files WHERE compliance_state='clean' AND id IN (SELECT value FROM json_each(?1))", [&open_json], |row| row.get(0)).map_err(|_| ())?;
+        if embed_open > 0 {
+            if let Some(clean) = files.get_mut("clean") { *clean -= embed_open; if *clean == 0 { files.remove("clean"); } }
+            files.insert("embed_open".to_owned(), embed_open);
+        }
+        let embed = i64::try_from(open.len()).map_err(|_| ())?;
         let scans = counts("SELECT status,count(*) FROM scan_runs GROUP BY status ORDER BY status")?;
         let jobs = counts("SELECT status,count(*) FROM jobs GROUP BY status ORDER BY status")?;
         let (missing, convert, reencode, converted): (i64,i64,i64,i64) = conn.raw().query_row(
@@ -34,7 +43,7 @@ pub async fn dashboard(State(state): State<AppState>, _session: AuthenticatedSes
             |row| Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?))).map_err(|_| ())?;
         let setting: Option<String> = conn.raw().query_row("SELECT value_json FROM runtime_settings WHERE key='delete_original'", [], |row| row.get(0)).optional().map_err(|_| ())?;
         let delete_original = setting.and_then(|value| serde_json::from_str::<bool>(&value).ok()).unwrap_or(false);
-        Ok::<_, ()>(json!({"data":{"files":files,"missing":missing,"convert":convert,"reencode":reencode,"converted":converted,"delete_original":delete_original,"scans":scans,"jobs":jobs},"meta":{}}))
+        Ok::<_, ()>(json!({"data":{"files":files,"missing":missing,"convert":convert,"reencode":reencode,"embed":embed,"converted":converted,"delete_original":delete_original,"scans":scans,"jobs":jobs},"meta":{}}))
     }).await;
     match result {
         Ok(Ok(body)) => Json(body).into_response(),

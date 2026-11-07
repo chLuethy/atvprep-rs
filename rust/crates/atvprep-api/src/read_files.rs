@@ -78,6 +78,7 @@ fn known_state(state: &str) -> bool {
             | "convert"
             | "reencode"
             | "converted"
+            | "embed"
     )
 }
 
@@ -125,6 +126,7 @@ fn browse_input_error(query: &BrowseQuery, below: bool) -> Option<&'static str> 
     None
 }
 
+#[allow(clippy::too_many_lines)] // Keep validation and its parameterized query together.
 async fn browse_inner(state: AppState, query: BrowseQuery, below: bool) -> Response {
     const PATH: &str = "/api/v1/browse";
     if let Some(message) = browse_input_error(&query, below) {
@@ -154,16 +156,27 @@ async fn browse_inner(state: AppState, query: BrowseQuery, below: bool) -> Respo
         );
     }
     let folder = folder.to_owned();
+    let Some(open) = embed_open_json(&state).await else {
+        return error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "internal server error",
+            PATH,
+        );
+    };
+    let open_ids: std::collections::BTreeSet<i64> = serde_json::from_str::<Vec<i64>>(&open)
+        .unwrap_or_default()
+        .into_iter()
+        .collect();
     let mut values: Vec<rusqlite::types::Value> = Vec::new();
     let mut clauses =
         vec!["NOT (m.discovery_state='missing' AND m.dismissed_at IS NOT NULL)".to_owned()];
     if let Some(value) = query.state.as_deref() {
-        clauses.push(state_clause(value, &mut values));
+        clauses.push(state_clause(value, &open, &mut values));
     }
     let mut hidden = Vec::new();
     if let Some(hide) = query.hide.as_deref() {
         for token in hide.split(',').filter(|token| !token.is_empty()) {
-            hidden.push(state_clause(token, &mut values));
+            hidden.push(state_clause(token, &open, &mut values));
         }
     }
     if !hidden.is_empty() {
@@ -194,7 +207,7 @@ async fn browse_inner(state: AppState, query: BrowseQuery, below: bool) -> Respo
         let mut stmt=conn.prepare(&format!("SELECT m.id,m.root_id,m.relative_path,m.discovery_state,m.compliance_state FROM media_files m WHERE {filter} ORDER BY lower(m.relative_path),m.id")).map_err(|_|())?;
         let rows=stmt.query_map(rusqlite::params_from_iter(values.iter()),|row|Ok((row.get::<_,i64>(0)?,row.get::<_,i64>(1)?,row.get::<_,String>(2)?,row.get::<_,String>(3)?,row.get::<_,String>(4)?))).map_err(|_|())?;
         let mut counts:BTreeMap<String,BTreeMap<String,u64>>=BTreeMap::new();let mut ids=Vec::new();let mut extra=false;
-        for row in rows {let(id,root_id,path,discovery,compliance)=row.map_err(|_|())?;let key=if matches!(query.state.as_deref(),Some("convert"|"converted"|"reencode")){query.state.clone().unwrap_or_default()}else if discovery=="missing" {"missing".to_owned()}else{compliance};
+        for row in rows {let(id,root_id,path,discovery,compliance)=row.map_err(|_|())?;let key=if matches!(query.state.as_deref(),Some("convert"|"converted"|"reencode"|"embed")){query.state.clone().unwrap_or_default()}else if discovery=="missing" {"missing".to_owned()}else if compliance=="clean" && open_ids.contains(&id) {"embed_open".to_owned()}else{compliance};
             let group=if root.is_none(){Some(root_id.to_string())}else if below{None}else{let rest=if folder.is_empty(){path.as_str()}else{path.strip_prefix(&format!("{folder}/")).unwrap_or("")};rest.split_once('/').map(|(name,_)|name.to_owned())};
             if let Some(group)=group {*counts.entry(group).or_default().entry(key).or_default()+=1;}else if root.is_some(){if ids.len()<500 {ids.push(id);}else{extra=true;}}
         }
@@ -221,8 +234,30 @@ async fn browse_inner(state: AppState, query: BrowseQuery, below: bool) -> Respo
 
 const CONVERTED: &str = "(lower(m.suffix) NOT IN ('.mp4','.m4v','.mov') AND EXISTS (SELECT 1 FROM media_files sibling WHERE sibling.root_id=m.root_id AND sibling.discovery_state='present' AND sibling.relative_path=substr(m.relative_path,1,length(m.relative_path)-length(m.suffix))||'.mp4'))";
 
-fn state_clause(state: &str, values: &mut Vec<rusqlite::types::Value>) -> String {
+/// The ids of the files whose embedding is still open, as a JSON list to bind to `json_each`.
+async fn embed_open_json(state: &AppState) -> Option<String> {
+    let state = state.clone();
+    tokio::task::spawn_blocking(move || {
+        let conn = state.db.conn().ok()?;
+        atvprep_manager::embed::open_media_ids_json(conn.raw()).ok()
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
+/// "Ready" is a clean file with nothing left to embed; "embed" is any file with an open embedding.
+fn state_clause(state: &str, open: &str, values: &mut Vec<rusqlite::types::Value>) -> String {
     match state {
+        "clean" => {
+            values.push(open.to_owned().into());
+            "(m.compliance_state='clean' AND m.id NOT IN (SELECT value FROM json_each(?)))"
+                .to_owned()
+        }
+        "embed" => {
+            values.push(open.to_owned().into());
+            "(m.discovery_state='present' AND m.id IN (SELECT value FROM json_each(?)))".to_owned()
+        }
         "missing" => "m.discovery_state='missing'".to_owned(),
         "convert" => format!(
             "(m.discovery_state='present' AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov') AND NOT {CONVERTED})"
@@ -302,6 +337,13 @@ pub async fn list(
         },
         None => 0,
     };
+    let Some(open) = embed_open_json(&state).await else {
+        return error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "internal server error",
+            PATH,
+        );
+    };
     let mut clauses =
         vec!["NOT (m.discovery_state='missing' AND m.dismissed_at IS NOT NULL)".to_owned()];
     let mut values: Vec<rusqlite::types::Value> = Vec::new();
@@ -327,7 +369,7 @@ pub async fn list(
         }
     }
     if let Some(value) = query.compliance_state.as_deref().filter(|s| !s.is_empty()) {
-        clauses.push(state_clause(value, &mut values));
+        clauses.push(state_clause(value, &open, &mut values));
     }
     if let Some(hide) = query.hide.as_deref() {
         let mut hidden = Vec::new();
@@ -343,10 +385,11 @@ pub async fn list(
                     | "convert"
                     | "reencode"
                     | "converted"
+                    | "embed"
             ) {
                 return error(StatusCode::UNPROCESSABLE_ENTITY, "unknown state", PATH);
             }
-            hidden.push(state_clause(token, &mut values));
+            hidden.push(state_clause(token, &open, &mut values));
         }
         if !hidden.is_empty() {
             clauses.push(format!("NOT ({})", hidden.join(" OR ")));
@@ -597,55 +640,13 @@ pub async fn detail(
     }
 }
 
-fn basename(path: &str) -> String {
-    let path = path.replace('\\', "/");
-    path.rsplit('/')
-        .next()
-        .filter(|name| !name.is_empty())
-        .unwrap_or("(unnamed sidecar)")
-        .to_owned()
-}
-
 fn outcomes(
     conn: &rusqlite::Connection,
     media: i64,
     file_name: &str,
     fingerprint: &str,
 ) -> Result<Vec<(i64, String, String, String)>, ()> {
-    let inspection:Option<(String,String)>=conn.query_row("SELECT input_fingerprint,result FROM inspections WHERE media_file_id=?1 AND tool_name='ffprobe' ORDER BY id DESC LIMIT 1",[media],|row|Ok((row.get(0)?,row.get(1)?))).optional().map_err(|_|())?;
-    let report = inspection.and_then(|(input, report)| {
-        (input == fingerprint)
-            .then(|| serde_json::from_str::<Value>(&report).ok())
-            .flatten()
-    });
-    let streams = report
-        .as_ref()
-        .and_then(|value| value.get("streams"))
-        .and_then(Value::as_array)
-        .map(Vec::as_slice);
-    let mut stmt = conn
-        .prepare("SELECT id,relative_path FROM sidecars WHERE media_file_id=?1 ORDER BY id")
-        .map_err(|_| ())?;
-    let names = stmt
-        .query_map([media], |row| {
-            Ok((row.get::<_, i64>(0)?, basename(&row.get::<_, String>(1)?)))
-        })
-        .map_err(|_| ())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|_| ())?;
-    let classified = atvprep_core::sidecars::classify_sidecars(
-        &basename(file_name),
-        &names
-            .iter()
-            .map(|(_, name)| name.clone())
-            .collect::<Vec<_>>(),
-        streams,
-    );
-    Ok(names
-        .into_iter()
-        .zip(classified)
-        .map(|((id, _), (name, lang, state))| (id, name, lang, state))
-        .collect())
+    atvprep_manager::embed::classify_media(conn, media, file_name, fingerprint).map_err(|_| ())
 }
 
 /// Return safe sidecar names and their current classification for one media file.
@@ -680,7 +681,7 @@ pub async fn sidecars(
         let mut stmt=conn.raw().prepare("SELECT id,relative_path,size,mtime_ns,fingerprint,created_at FROM sidecars WHERE media_file_id=?1 AND (?2 IS NULL OR id<?2) ORDER BY id DESC LIMIT ?3").map_err(|_|())?;
         let rows=stmt.query_map(params![media,before,i64::try_from(limit+1).map_err(|_|())?],|row| Ok((row.get::<_,i64>(0)?,row.get::<_,String>(1)?,row.get::<_,i64>(2)?,row.get::<_,i64>(3)?,row.get::<_,String>(4)?,row.get::<_,String>(5)?))).map_err(|_|())?;
         let mut data=Vec::new();let mut last=None;let mut used=0usize;let mut more=false;let mut truncated=false;
-        for row in rows {let (id,path,size,mtime,fp,created)=row.map_err(|_|())?;if data.len()==limit {more=true;break;}let (language,state)=outcomes.get(&id).cloned().unwrap_or_else(||("und".to_owned(),"unchecked".to_owned()));let value=json!({"id":opaque.encode("c",id),"media_id":opaque.encode("m",media),"name":basename(&path),"size":size,"mtime_ns":mtime,"fingerprint":crate::read_jobs::safe_head(&fp,2048),"created_at":timestamp(&created),"language":language,"state":state});let size=serde_json::to_vec(&value).map_err(|_|())?.len();if size>crate::bounds::MAX_ELEMENT_BYTES || used.saturating_add(size).saturating_add(data.len()+256)>crate::bounds::MAX_RESPONSE_BYTES{more=true;truncated=true;break;}used+=size;last=Some(id);data.push(value);}
+        for row in rows {let (id,path,size,mtime,fp,created)=row.map_err(|_|())?;if data.len()==limit {more=true;break;}let (language,state)=outcomes.get(&id).cloned().unwrap_or_else(||("und".to_owned(),"unchecked".to_owned()));let value=json!({"id":opaque.encode("c",id),"media_id":opaque.encode("m",media),"name":atvprep_manager::embed::basename(&path),"size":size,"mtime_ns":mtime,"fingerprint":crate::read_jobs::safe_head(&fp,2048),"created_at":timestamp(&created),"language":language,"state":state});let size=serde_json::to_vec(&value).map_err(|_|())?.len();if size>crate::bounds::MAX_ELEMENT_BYTES || used.saturating_add(size).saturating_add(data.len()+256)>crate::bounds::MAX_RESPONSE_BYTES{more=true;truncated=true;break;}used+=size;last=Some(id);data.push(value);}
         let next=if more{last.map(|id|opaque.encode("cursor:sidecars",id))}else{None};
         Ok::<_,()>(Some(json!({"data":data,"meta":page_meta(Some(limit),next.as_deref(),truncated)})))
     }).await;

@@ -589,18 +589,21 @@ fn run_change_schedule(
                              AND sibling.relative_path=substr(m.relative_path,1,length(m.relative_path)-length(m.suffix))||'.mp4'
                              AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov'))
            AND (lower(m.suffix) NOT IN ('.mp4','.m4v','.mov')
-                OR m.compliance_state IN ('warning','blocker') OR m.desired_action='fix')
+                OR m.compliance_state IN ('warning','blocker') OR m.desired_action='fix'
+                OR m.id IN (SELECT value FROM json_each(?5)))
            AND (?3 OR m.needs_reencode=0)
          ORDER BY m.id LIMIT ?4",
         ItemStatus::terminal_sql_list()
     ))?;
+    let embed_open = crate::embed::open_media_ids_json(ctx.conn)?;
     let media_ids = statement
         .query_map(
             rusqlite::params![
                 row.root_id,
                 row.compliance_state,
                 delete_original,
-                row.max_files
+                row.max_files,
+                embed_open
             ],
             |r| r.get(0),
         )?

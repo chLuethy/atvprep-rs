@@ -6,6 +6,7 @@ pub mod clock;
 pub mod cron;
 pub mod db;
 pub mod deployment_gate;
+pub mod embed;
 pub mod error;
 pub mod evaluate;
 pub mod events;

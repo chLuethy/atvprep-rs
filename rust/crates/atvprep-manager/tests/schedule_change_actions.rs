@@ -90,6 +90,45 @@ fn an_approved_fix_schedule_queues_a_job_bound_to_its_parameters() {
 }
 
 #[test]
+fn a_fix_schedule_takes_a_clean_mp4_with_an_open_embed() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db, "fix", 0, true);
+    // one.mp4 ist sauber, hat aber eine deutsche .srt daneben, die noch nicht eingebettet ist.
+    conn.raw()
+        .execute_batch(
+            "INSERT INTO sidecars(media_file_id,relative_path,fingerprint) VALUES(1,'one.de.srt','x');
+             INSERT INTO inspections(media_file_id,source_fingerprint,input_fingerprint,tool_name,tool_version,result)
+             VALUES(1,'s','one','ffprobe','1','{\"streams\":[]}');",
+        )
+        .unwrap();
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    assert_eq!(run_schedule(ctx, 1).unwrap(), "Queued 3 files");
+}
+
+#[test]
+fn a_fix_schedule_leaves_a_clean_mp4_whose_sidecar_is_already_embedded() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db, "fix", 0, true);
+    conn.raw()
+        .execute_batch(
+            "INSERT INTO sidecars(media_file_id,relative_path,fingerprint) VALUES(1,'one.de.srt','x');
+             INSERT INTO inspections(media_file_id,source_fingerprint,input_fingerprint,tool_name,tool_version,result)
+             VALUES(1,'s','one','ffprobe','1','{\"streams\":[{\"codec_type\":\"subtitle\",\"codec_name\":\"mov_text\",\"tags\":{\"language\":\"deu\"}}]}');",
+        )
+        .unwrap();
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    assert_eq!(run_schedule(ctx, 1).unwrap(), "Queued 2 files");
+}
+
+#[test]
 fn a_convert_schedule_honours_max_files() {
     let db = Db::memory().unwrap();
     let conn = seed(&db, "convert", 0, true);
