@@ -5,7 +5,10 @@ use crate::{
     read::{error, page_meta, timestamp},
     state::AppState,
 };
-use atvprep_manager::state_machine::ItemStatus;
+use atvprep_manager::{
+    media_sql::{self, CONVERTED, NEEDS_REENCODE, TO_CONVERT},
+    state_machine::ItemStatus,
+};
 use axum::{
     Json,
     extract::{Path, Query, State},
@@ -68,7 +71,7 @@ fn python_bool<'de, D: serde::Deserializer<'de>>(
         .transpose()
 }
 
-/// Zustände, die sich ausblenden lassen (`hide`).
+/// States that can be hidden (`hide`).
 fn status_token(token: &str) -> bool {
     matches!(
         token,
@@ -76,7 +79,7 @@ fn status_token(token: &str) -> bool {
     )
 }
 
-/// Eigenschaften, die sich überschneiden und nur positiv gewählt werden (`has`, UND).
+/// Traits that overlap and are only selected positively (`has`, AND).
 const TRAITS: [&str; 4] = ["convert", "reencode", "embed", "converted"];
 
 fn trait_token(token: &str) -> bool {
@@ -87,7 +90,7 @@ fn known_state(state: &str) -> bool {
     status_token(state) || trait_token(state)
 }
 
-/// `hide` nimmt nur Status, `has` nur Eigenschaften; beide sind kommagetrennt und begrenzt.
+/// `hide` takes only states, `has` only traits; both are comma-separated and bounded.
 fn list_input_error(hide: Option<&str>, has: Option<&str>) -> Option<&'static str> {
     for (value, allowed, too_long) in [
         (hide, status_token as fn(&str) -> bool, "hide is too long"),
@@ -108,8 +111,8 @@ fn list_input_error(hide: Option<&str>, has: Option<&str>) -> Option<&'static st
     None
 }
 
-/// Klauseln der Filter `hide` (eine Klausel: keiner der Zustände) und `has` (je Eigenschaft eine, UND).
-/// Die Tokens sind vorher mit `list_input_error` geprüft.
+/// Clauses of the `hide` filter (one clause: none of the states) and `has` (one per trait, AND).
+/// The tokens were validated with `list_input_error` beforehand.
 fn selection_clauses(
     hide: Option<&str>,
     has: &[&str],
@@ -286,7 +289,7 @@ pub struct CountsQuery {
     has: Option<String>,
 }
 
-/// Wie viele Dateien jede Eigenschaft zeigen würde, wenn man sie zur aktuellen Auswahl dazunimmt.
+/// How many files each trait would show if it were added to the current selection.
 pub async fn trait_counts(
     State(state): State<AppState>,
     _session: AuthenticatedSession,
@@ -356,8 +359,6 @@ pub async fn trait_counts(
     }
 }
 
-const CONVERTED: &str = "(lower(m.suffix) NOT IN ('.mp4','.m4v','.mov') AND EXISTS (SELECT 1 FROM media_files sibling WHERE sibling.root_id=m.root_id AND sibling.discovery_state='present' AND sibling.relative_path=substr(m.relative_path,1,length(m.relative_path)-length(m.suffix))||'.mp4'))";
-
 /// The ids of the files whose embedding is still open, as a JSON list to bind to `json_each`.
 async fn embed_open_json(state: &AppState) -> Option<String> {
     let state = state.clone();
@@ -375,19 +376,22 @@ fn state_clause(state: &str, open: &str, values: &mut Vec<rusqlite::types::Value
     match state {
         "clean" => {
             values.push(open.to_owned().into());
-            "(m.compliance_state='clean' AND m.id NOT IN (SELECT value FROM json_each(?)))"
-                .to_owned()
+            format!(
+                "(m.compliance_state='clean' AND {})",
+                media_sql::embed_not_open("?")
+            )
         }
         "embed" => {
             values.push(open.to_owned().into());
-            "(m.discovery_state='present' AND m.id IN (SELECT value FROM json_each(?)))".to_owned()
+            format!(
+                "(m.discovery_state='present' AND {})",
+                media_sql::embed_open("?")
+            )
         }
         "missing" => "m.discovery_state='missing'".to_owned(),
-        "convert" => format!(
-            "(m.discovery_state='present' AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov') AND NOT {CONVERTED})"
-        ),
+        "convert" => format!("(m.discovery_state='present' AND {TO_CONVERT})"),
         "converted" => format!("(m.discovery_state='present' AND {CONVERTED})"),
-        "reencode" => "(m.discovery_state='present' AND m.needs_reencode=1)".to_owned(),
+        "reencode" => format!("(m.discovery_state='present' AND {NEEDS_REENCODE})"),
         _ => {
             values.push(state.to_owned().into());
             "m.compliance_state=?".to_owned()
@@ -679,7 +683,7 @@ fn load_file(
     opaque: &Opaque,
     media: i64,
 ) -> Result<Option<Value>, ()> {
-    let row:Option<(Value,String,String)>=conn.query_row("SELECT m.root_id,m.relative_path,m.kind,m.suffix,m.size,m.mtime_ns,m.discovery_state,m.compliance_state,m.compliance_reasons,m.workflow_state,m.desired_action,m.last_seen_at,m.status_version,m.last_success_at,m.last_error,m.fingerprint, (SELECT count(*) FROM sidecars s WHERE s.media_file_id=m.id), EXISTS(SELECT 1 FROM inspections n WHERE n.media_file_id=m.id), EXISTS(SELECT 1 FROM media_files sibling WHERE sibling.root_id=m.root_id AND sibling.discovery_state='present' AND sibling.relative_path=substr(m.relative_path,1,length(m.relative_path)-length(m.suffix))||'.mp4' AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov')), m.needs_reencode FROM media_files m WHERE m.id=?1",[media],|row|{
+    let row:Option<(Value,String,String)>=conn.query_row(&format!("SELECT m.root_id,m.relative_path,m.kind,m.suffix,m.size,m.mtime_ns,m.discovery_state,m.compliance_state,m.compliance_reasons,m.workflow_state,m.desired_action,m.last_seen_at,m.status_version,m.last_success_at,m.last_error,m.fingerprint, (SELECT count(*) FROM sidecars s WHERE s.media_file_id=m.id), EXISTS(SELECT 1 FROM inspections n WHERE n.media_file_id=m.id), {CONVERTED}, m.needs_reencode FROM media_files m WHERE m.id=?1"),[media],|row|{
             let root:i64=row.get(0)?;let path:String=row.get(1)?;let reasons:String=row.get(8)?;let fingerprint:String=row.get(15)?;
             let parsed:Value=serde_json::from_str(&reasons).unwrap_or_else(|_|json!([]));
             let reasons:Vec<String>=parsed.as_array().map(|items|items.iter().filter_map(Value::as_str).map(str::to_owned).collect()).unwrap_or_default();

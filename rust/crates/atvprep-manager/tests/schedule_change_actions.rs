@@ -193,7 +193,7 @@ fn item_decisions(conn: &Conn) -> Vec<(i64, serde_json::Value)> {
 fn a_fix_schedule_takes_a_clean_mp4_with_an_open_embed() {
     let db = Db::memory().unwrap();
     let conn = seed(&db, "fix", 0, true);
-    // one.mp4 ist sauber, hat aber eine deutsche .srt daneben, die noch nicht eingebettet ist.
+    // one.mp4 is clean but has a German .srt beside it that is not embedded yet.
     conn.raw()
         .execute_batch(
             "INSERT INTO sidecars(media_file_id,relative_path,fingerprint) VALUES(1,'one.de.srt','x');

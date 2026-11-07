@@ -280,7 +280,14 @@ export const LibraryPage: Component<{
     setQuery("");
   };
   const entryLabel = (token: string) => t([...STATE_FILTERS, ...TRAIT_FILTERS].find((entry) => entry.token === token)?.label ?? token);
-  const chipCount = (filterState: string) => (TRAIT_FILTERS.some((entry) => entry.token === filterState) && traitCounts()?.[filterState] !== undefined ? traitCounts()![filterState]! : filterState === "" ? total() : filterState === "missing" ? missing() : filterState === "convert" ? convertible() : filterState === "reencode" ? reencodeCount() : filterState === "embed" ? embedCount() : filterState === "converted" ? convertedCount() : counts()?.[filterState] ?? 0);
+  // The unfiltered total of each trait; the faceted count (traitCounts) wins when the server sent one.
+  const traitTotal: Record<string, () => number> = { convert: convertible, reencode: reencodeCount, embed: embedCount, converted: convertedCount };
+  const chipCount = (filterState: string) => {
+    if (filterState === "") return total();
+    if (filterState === "missing") return missing();
+    if (TRAIT_FILTERS.some((entry) => entry.token === filterState)) return traitCounts()?.[filterState] ?? traitTotal[filterState]?.() ?? 0;
+    return counts()?.[filterState] ?? 0;
+  };
 
   // Where a Shift-click or Shift-arrow range starts, like the Finder's anchor.
   let anchorId: string | undefined;

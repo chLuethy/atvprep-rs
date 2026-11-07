@@ -587,16 +587,10 @@ fn run_change_schedule(
            AND NOT EXISTS (SELECT 1 FROM job_items i WHERE i.media_file_id=m.id
                            AND i.action IN ('fix','convert')
                            AND i.status NOT IN {})
-           AND NOT EXISTS (SELECT 1 FROM media_files sibling
-                           WHERE sibling.root_id=m.root_id AND sibling.discovery_state='present'
-                             AND sibling.relative_path=substr(m.relative_path,1,length(m.relative_path)-length(m.suffix))||'.mp4'
-                             AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov'))
-           AND (lower(m.suffix) NOT IN ('.mp4','.m4v','.mov')
-                OR m.compliance_state IN ('warning','blocker') OR m.desired_action='fix'
-                OR m.id IN (SELECT value FROM json_each(?5)))
-           AND (?3 OR m.needs_reencode=0)
+           AND {}
          ORDER BY m.id LIMIT ?4",
-        ItemStatus::terminal_sql_list()
+        ItemStatus::terminal_sql_list(),
+        crate::media_sql::change_candidate("?3", "?5")
     ))?;
     let embed_open = crate::embed::open_media_ids_json(ctx.conn)?;
     let selected = statement

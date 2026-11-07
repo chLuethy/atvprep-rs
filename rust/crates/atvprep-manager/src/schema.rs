@@ -516,6 +516,34 @@ mod tests {
     }
 
     #[test]
+    fn a_version_7_database_upgrades_to_8_and_adds_an_empty_orphan_report_to_its_scans() {
+        let (_db, mut conn) = database_at(7);
+        exec(
+            &conn,
+            "INSERT INTO library_roots(id, name, canonical_path) VALUES (1, 'r', '/r')",
+        )
+        .unwrap();
+        exec(
+            &conn,
+            "INSERT INTO scan_runs(id, root_id, generation, status) VALUES (1, 1, 1, 'succeeded')",
+        )
+        .unwrap();
+        assert!(
+            exec(&conn, "SELECT orphans_json FROM scan_runs").is_err(),
+            "the column is new in version 8"
+        );
+        migrate(&mut conn).unwrap();
+        assert_eq!(version(&conn).unwrap(), VERSION);
+        let stored: Option<String> = conn
+            .raw()
+            .query_row("SELECT orphans_json FROM scan_runs WHERE id=1", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(stored, None);
+    }
+
+    #[test]
     fn a_version_8_database_upgrades_to_9_and_pauses_switched_on_schedules_that_change_files() {
         let (_db, mut conn) = database_at(8);
         exec(
