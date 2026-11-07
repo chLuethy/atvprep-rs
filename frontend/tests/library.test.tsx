@@ -79,6 +79,19 @@ describe("LibraryPage: the list", () => {
     expect(table).toHaveTextContent("10 GB");
   });
 
+  it("marks a file whose last preparation was interrupted in the list", async () => {
+    const rows = [
+      file({ id: "m_f1", display_path: "Film/A/A.mp4", size: GB, compliance_state: "warning", last_interrupted: true }),
+      file({ id: "m_f2", display_path: "Film/B/B.mp4", size: GB, compliance_state: "warning", last_interrupted: false }),
+    ];
+    const { api } = makeApi({ rows });
+    const view = renderLibrary(api);
+
+    await view.findByRole("link", { name: "A" });
+    expect(rowNamed(view, "A")).toHaveTextContent("Last preparation interrupted");
+    expect(rowNamed(view, "B")).not.toHaveTextContent("Last preparation interrupted");
+  });
+
   it("opens a file in the inspector when its row or title is chosen", async () => {
     open.mockClear();
     const { api } = makeApi();

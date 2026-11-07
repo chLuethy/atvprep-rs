@@ -264,6 +264,15 @@ export const Inspector: Component<{
               {t("Re-inspect")}
             </Button>
           </div>
+          <Show when={f().last_interrupted && !f().fix_status}>
+            <p class="notice warn" role="status">
+              {t("Last preparation interrupted")}
+              <Show when={preparable(f()) && (isMp4Like(f().suffix) ? props.onFix : true)}>
+                {" "}
+                <Button variant="quiet" onClick={() => { if (isMp4Like(f().suffix)) props.onFix?.(f()); else { setConvertError(null); setConverting(true); } }}>{t("Prepare again")}</Button>
+              </Show>
+            </p>
+          </Show>
           <Show when={converting()}>
             <div class="confirm" role="region" aria-label={t("Prepare")} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); setConverting(false); } }}>
               <For each={confirm(f()).lines}>{(line) => (confirm(f()).reencode ? <p class="notice warn" role="alert">{line}</p> : <p>{line}</p>)}</For>
