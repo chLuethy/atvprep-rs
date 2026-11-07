@@ -1,14 +1,14 @@
-//! "Einbetten offen": welche Untertiteldateien neben einer Datei sich noch einbetten lassen.
+//! "Embed open": which subtitle files beside a file can still be embedded.
 //!
-//! Die Eigenschaft wird beim Lesen aus den Sidecars und dem aktuellen ffprobe-Ergebnis berechnet
-//! und nie gespeichert; der gespeicherte Prüfzustand bleibt unberührt.
+//! The trait is computed on read from the sidecars and the current ffprobe result
+//! and never stored; the stored check state stays untouched.
 
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::Value;
 
 use crate::Result;
 
-/// Letzter Pfadteil eines Sidecars; ein leerer Name bekommt einen Platzhalter.
+/// Last path component of a sidecar; an empty name gets a placeholder.
 #[must_use]
 pub fn basename(path: &str) -> String {
     let path = path.replace('\\', "/");
@@ -19,10 +19,10 @@ pub fn basename(path: &str) -> String {
         .to_owned()
 }
 
-/// Was ein Reparieren mit jedem Sidecar einer Datei täte, als `(sidecar_id, name, sprache, zustand)`.
+/// What a repair would do with each sidecar of a file, as `(sidecar_id, name, language, state)`.
 ///
-/// Der Vergleich mit den Spuren der Datei gilt nur, wenn das letzte ffprobe-Ergebnis zum aktuellen
-/// Fingerabdruck passt; sonst sind alle Sidecars `unchecked`.
+/// The comparison with the file's tracks applies only when the latest ffprobe result matches the current
+/// fingerprint; otherwise all sidecars are `unchecked`.
 ///
 /// # Errors
 ///
@@ -72,7 +72,7 @@ pub fn classify_media(
         .collect())
 }
 
-/// Die Ids aller vorhandenen Dateien mit mindestens einem einbettbaren Sidecar, aufsteigend.
+/// The ids of all existing files with at least one embeddable sidecar, ascending.
 ///
 /// # Errors
 ///
@@ -105,7 +105,7 @@ pub fn open_media_ids(conn: &Connection) -> Result<Vec<i64>> {
     Ok(open)
 }
 
-/// Die offenen Ids als JSON-Liste, um sie als ein Parameter an `json_each` zu binden.
+/// The open ids as a JSON list, to bind them as a single parameter to `json_each`.
 ///
 /// # Errors
 ///

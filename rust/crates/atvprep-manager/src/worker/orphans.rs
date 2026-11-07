@@ -65,7 +65,7 @@ pub fn sweep(ctx: Ctx<'_>) -> Result<OrphanSweep> {
                     && std::fs::remove_file(entry.path()).is_ok()
                 {
                     removed += 1;
-                    record(ctx, *root_id, root, &entry.path(), None)?;
+                    record(ctx, *root_id, root, &entry.path(), None);
                 }
             }
         }
@@ -130,13 +130,9 @@ fn pid_alive(pid: u32) -> bool {
     )
 }
 
-fn record(
-    ctx: Ctx<'_>,
-    root_id: i64,
-    root: &Path,
-    path: &Path,
-    manual_size: Option<u64>,
-) -> Result<()> {
+/// Record one deletion. The file is already gone, so a failure to write the event is logged and
+/// the run goes on instead of aborting half way.
+fn record(ctx: Ctx<'_>, root_id: i64, root: &Path, path: &Path, manual_size: Option<u64>) {
     let relative = path.strip_prefix(root).unwrap_or(path).to_string_lossy();
     let payload = match manual_size {
         Some(size) => serde_json::json!({
@@ -144,7 +140,12 @@ fn record(
         }),
         None => serde_json::json!({ "root_id": root_id, "relative_path": relative }),
     };
-    insert_event(ctx, "orphan.removed", root_id, &payload)
+    if let Err(error) = insert_event(ctx, "orphan.removed", root_id, &payload) {
+        eprintln!(
+            "manager: cannot record the removal of {}: {error}",
+            path.display()
+        );
+    }
 }
 
 fn insert_event(
@@ -333,16 +334,15 @@ pub fn remove(
         if is_file && std::fs::remove_file(&path).is_ok() {
             count += 1;
             removed_bytes += orphan.size;
-            record(ctx, root_id, &root, &path, Some(orphan.size))?;
+            record(ctx, root_id, &root, &path, Some(orphan.size));
         }
     }
     if count > 0 {
-        insert_event(
-            ctx,
-            "orphan.cleanup",
-            root_id,
-            &serde_json::json!({ "root_id": root_id, "count": count, "bytes": removed_bytes }),
-        )?;
+        let summary =
+            serde_json::json!({ "root_id": root_id, "count": count, "bytes": removed_bytes });
+        if let Err(error) = insert_event(ctx, "orphan.cleanup", root_id, &summary) {
+            eprintln!("manager: cannot record the orphan cleanup summary: {error}");
+        }
     }
     refresh_latest_report(ctx, root_id)?;
     Ok(RemoveOutcome::Removed {

@@ -18,6 +18,8 @@ use rustix::fs::{
 };
 use rustix::io::Errno;
 
+use crate::prepare::paths::TEMP_PREFIX;
+
 /// The inherited directory, the leaf name or the leaf identity is unsafe.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UnsafeFixTarget(pub String);
@@ -88,8 +90,6 @@ fn unsafe_target<T>(message: &str) -> Result<T> {
 
 /// `(device, inode, ctime in nanoseconds)`: what pins a leaf.
 type Identity = (i128, i128, i128);
-
-const TEMP_PREFIX: &str = ".tmp_fixmeta_";
 
 /// Descriptors a child process needs because an argument is a `/dev/fd/N` path.
 ///

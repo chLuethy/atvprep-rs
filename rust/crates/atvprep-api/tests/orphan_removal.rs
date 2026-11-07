@@ -1,10 +1,11 @@
-//! Verwaiste Teilüberarbeitungen: im Scan-Ergebnis und in der Übersicht gemeldet, nur nach
-//! Bestätigung mit Anzahl und Größe von Hand entfernt und im Ereignisverlauf sichtbar.
+//! Orphaned partial rewrites: reported in the scan result and the overview, removed by hand only after
+//! confirmation with count and size, and visible in the event history.
 use std::{fs, path::Path};
 
 use atvprep_api::{
     auth::AuthService, config::ManagerConfig, opaque::Opaque, router, state::AppState,
 };
+use atvprep_core::prepare::paths::TEMP_PREFIX;
 use atvprep_manager::{db::Db, repo::Ctx, schema};
 use axum::{
     body::{Body, to_bytes},
@@ -69,7 +70,7 @@ impl Harness {
         let dir = self.root.path().join(dir);
         fs::create_dir_all(&dir).unwrap();
         fs::write(
-            dir.join(format!(".tmp_fixmeta_enc.{stem}.4711-0a1b2c3d.mp4")),
+            dir.join(format!("{TEMP_PREFIX}enc.{stem}.4711-0a1b2c3d.mp4")),
             vec![b'x'; bytes],
         )
         .unwrap();
@@ -156,7 +157,7 @@ impl Harness {
                     if e.file_type().unwrap().is_dir() {
                         count(&e.path())
                     } else {
-                        usize::from(e.file_name().to_string_lossy().starts_with(".tmp_fixmeta_"))
+                        usize::from(e.file_name().to_string_lossy().starts_with(TEMP_PREFIX))
                     }
                 })
                 .sum()
@@ -188,7 +189,7 @@ async fn the_scan_result_names_count_size_and_list_and_says_nothing_without_hits
         orphans["files"][0]["relative_path"]
             .as_str()
             .unwrap()
-            .starts_with("Show/.tmp_fixmeta_enc.")
+            .starts_with(&format!("Show/{TEMP_PREFIX}enc."))
     );
     assert_eq!(orphans["files"][0]["size"], 5);
     assert!(orphans["files"][0]["modified_at"].is_string());

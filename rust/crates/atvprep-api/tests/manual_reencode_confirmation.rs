@@ -1,5 +1,5 @@
-//! Ein manueller Auftrag mit Re-Encode-Dateien braucht eine ausdrückliche Bestätigung (ADR 0007).
-//! Der Server lehnt ihn ohne `confirm_reencode` ab; die Oberfläche allein reicht nicht.
+//! A manual job with re-encode files needs an explicit confirmation (ADR 0007).
+//! The server rejects it without `confirm_reencode`; the UI alone is not enough.
 use atvprep_api::{
     auth::AuthService, config::ManagerConfig, opaque::Opaque, router, state::AppState,
 };
