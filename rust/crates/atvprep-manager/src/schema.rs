@@ -5,18 +5,19 @@ use crate::{Error, Result};
 
 /// Migration stages in order; stage `n` takes a database from version `n - 1` to `n`.
 /// To extend: add `000N_name.sql`, append it here and raise [`VERSION`].
-const STAGES: [&str; 7] = [
+const STAGES: [&str; 8] = [
     include_str!("migrations/0001_base.sql"),
     include_str!("migrations/0002_cron.sql"),
     include_str!("migrations/0003_scan_action.sql"),
     include_str!("migrations/0004_schedule_runs.sql"),
     include_str!("migrations/0005_schedule_approval.sql"),
     include_str!("migrations/0006_missed_slots.sql"),
-    include_str!("migrations/0007_scan_orphans.sql"),
+    include_str!("migrations/0007_needs_reencode.sql"),
+    include_str!("migrations/0008_scan_orphans.sql"),
 ];
 
 /// The version this build creates and understands.
-pub const VERSION: i64 = 7;
+pub const VERSION: i64 = 8;
 
 /// Every table of the current schema.
 pub const TABLES: [&str; 23] = [
@@ -439,6 +440,77 @@ mod tests {
                 "INSERT INTO schedule_runs(schedule_id, slot, started_at, trigger, result, kind) VALUES (3, 'z', 'now', 'scheduled', 'x', 'bogus')"
             )
             .is_err()
+        );
+    }
+
+    #[test]
+    fn a_version_6_database_upgrades_to_7_and_derives_the_re_encode_need_from_old_reasons() {
+        let (_db, mut conn) = database_at(6);
+        exec(
+            &conn,
+            "INSERT INTO library_roots(name, canonical_path) VALUES ('r', '/r')",
+        )
+        .unwrap();
+        let insert = |id: i64, state: &str, reasons: &str, discovery: &str| {
+            conn.raw()
+                .execute(
+                    "INSERT INTO media_files(id, root_id, relative_path, kind, suffix, size, mtime_ns, fingerprint,
+                       discovery_state, compliance_state, compliance_reasons, workflow_state, desired_action)
+                     VALUES (?1, 1, ?2, 'video', '.mkv', 1, 1, 'f', ?4, ?3, ?5, 'idle', 'none')",
+                    rusqlite::params![id, format!("f{id}.mkv"), state, discovery, reasons],
+                )
+                .unwrap();
+        };
+        insert(
+            1,
+            "warning",
+            r#"["[warning] video-reencode: video vc1 needs a re-encode to HEVC"]"#,
+            "present",
+        );
+        insert(
+            2,
+            "unknown",
+            r#"["Current ffprobe inspection is available.","[warning] video-reencode: x"]"#,
+            "present",
+        );
+        insert(
+            3,
+            "blocker",
+            r#"["[blocker] no-fragments: fragmented MP4"]"#,
+            "present",
+        );
+        insert(4, "clean", "[]", "present");
+        migrate(&mut conn).unwrap();
+        assert_eq!(version(&conn).unwrap(), VERSION);
+        let flags: Vec<i64> = conn
+            .raw()
+            .prepare("SELECT needs_reencode FROM media_files ORDER BY id")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap();
+        assert_eq!(flags, vec![1, 1, 0, 0]);
+        // A row written after the migration defaults to "no re-encode needed".
+        exec(
+            &conn,
+            "INSERT INTO media_files(id, root_id, relative_path, kind, suffix, size, mtime_ns, fingerprint,
+               discovery_state, compliance_state, workflow_state, desired_action)
+             VALUES (9, 1, 'new.mp4', 'video', '.mp4', 1, 1, 'f', 'present', 'unknown', 'idle', 'none')",
+        )
+        .unwrap();
+        let fresh: i64 = conn
+            .raw()
+            .query_row(
+                "SELECT needs_reencode FROM media_files WHERE id=9",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(fresh, 0);
+        assert!(
+            exec(&conn, "UPDATE media_files SET needs_reencode=2 WHERE id=9").is_err(),
+            "only 0 or 1"
         );
     }
 

@@ -47,4 +47,40 @@ test.describe("library journey", () => {
     await preview.getByRole("button", { name: "Cancel" }).click();
     await expect(page.getByRole("region", { name: "Prepare preview" })).toHaveCount(0);
   });
+
+  test("the preview names the files that need a re-encode and offers both ways", async ({ page }) => {
+    await openAndUnlock(page, "/files");
+
+    await page.getByRole("link", { name: "Old Codec Movie" }).click();
+    await page.getByRole("button", { name: /Prepare preview/ }).click();
+
+    const preview = page.getByRole("region", { name: "Prepare preview" });
+    await expect(preview).toContainText("Old Codec Movie");
+    await expect(preview).toContainText("1 of 1 file needs a re-encode");
+    await expect(preview.getByRole("button", { name: "With re-encode (1)" })).toBeEnabled();
+    // The only file needs a re-encode, so leaving it out would queue nothing.
+    await expect(preview.getByRole("button", { name: "Without re-encode" })).toBeDisabled();
+    await expect(preview.getByRole("button", { name: "Prepare 1 file" })).toHaveCount(0);
+
+    await preview.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByRole("region", { name: "Prepare preview" })).toHaveCount(0);
+  });
+
+  test("flags a file whose preparation was interrupted and prepares it again only by hand", async ({ page }) => {
+    await openAndUnlock(page, "/files");
+
+    const row = page.getByRole("link", { name: "Interrupted Movie" }).locator("xpath=ancestor::tr");
+    await expect(row).toContainText("Last preparation interrupted");
+    await expect(page.getByRole("link", { name: "Failed Movie" }).locator("xpath=ancestor::tr")).not.toContainText("Last preparation interrupted");
+
+    await page.getByRole("link", { name: "Interrupted Movie" }).click();
+    await expect(page.getByRole("heading", { name: "Interrupted Movie" })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "Last preparation interrupted" })).toBeVisible();
+
+    // Nothing is queued on its own; the button opens the normal preview with its confirmation.
+    await page.getByRole("button", { name: "Prepare again" }).click();
+    const preview = page.getByRole("region", { name: "Prepare preview" });
+    await expect(preview).toContainText("Nothing is written until you confirm.");
+    await preview.getByRole("button", { name: "Cancel" }).click();
+  });
 });

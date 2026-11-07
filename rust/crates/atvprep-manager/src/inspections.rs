@@ -76,11 +76,12 @@ impl Inspections<'_> {
             &media_fingerprint,
         );
         self.0.conn.execute(
-            "UPDATE media_files SET compliance_state=?2, compliance_reasons=?3 WHERE id=?1",
+            "UPDATE media_files SET compliance_state=?2, compliance_reasons=?3, needs_reencode=?4 WHERE id=?1",
             rusqlite::params![
                 inspection.media_file_id,
                 evaluation.state,
                 serde_json::to_string(&evaluation.reasons).unwrap_or_else(|_| "[]".to_owned()),
+                evaluation.needs_reencode,
             ],
         )?;
         Ok(())
@@ -209,7 +210,7 @@ impl Inspections<'_> {
                 self.project(&inspection)?;
             } else {
                 self.0.conn.execute(
-                    "UPDATE media_files SET compliance_state='unknown', compliance_reasons=?2 WHERE id=?1",
+                    "UPDATE media_files SET compliance_state='unknown', compliance_reasons=?2, needs_reencode=0 WHERE id=?1",
                     rusqlite::params![
                         id,
                         serde_json::json!(["No inspection is available for this media file."])

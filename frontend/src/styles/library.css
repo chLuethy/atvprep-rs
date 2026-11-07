@@ -231,3 +231,4 @@ details summary { cursor: pointer; color: var(--muted); }
 .row-menu-sep { height: 1px; margin: 4px 6px; background: var(--line); }
 .files-table tr.row[data-picked="true"] td { background: var(--accent-weak); }
 .files-table tr.row { user-select: none; }
+.file-cell .interrupted-note { display: block; font-size: var(--text-sm); color: var(--warn); }

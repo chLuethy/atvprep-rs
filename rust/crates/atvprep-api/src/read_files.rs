@@ -228,10 +228,7 @@ fn state_clause(state: &str, values: &mut Vec<rusqlite::types::Value>) -> String
             "(m.discovery_state='present' AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov') AND NOT {CONVERTED})"
         ),
         "converted" => format!("(m.discovery_state='present' AND {CONVERTED})"),
-        "reencode" => {
-            "(m.discovery_state='present' AND m.compliance_reasons LIKE '%] video-reencode:%')"
-                .to_owned()
-        }
+        "reencode" => "(m.discovery_state='present' AND m.needs_reencode=1)".to_owned(),
         _ => {
             values.push(state.to_owned().into());
             "m.compliance_state=?".to_owned()
@@ -531,11 +528,11 @@ fn load_file(
     opaque: &Opaque,
     media: i64,
 ) -> Result<Option<Value>, ()> {
-    let row:Option<(Value,String,String)>=conn.query_row("SELECT m.root_id,m.relative_path,m.kind,m.suffix,m.size,m.mtime_ns,m.discovery_state,m.compliance_state,m.compliance_reasons,m.workflow_state,m.desired_action,m.last_seen_at,m.status_version,m.last_success_at,m.last_error,m.fingerprint, (SELECT count(*) FROM sidecars s WHERE s.media_file_id=m.id), EXISTS(SELECT 1 FROM inspections n WHERE n.media_file_id=m.id), EXISTS(SELECT 1 FROM media_files sibling WHERE sibling.root_id=m.root_id AND sibling.discovery_state='present' AND sibling.relative_path=substr(m.relative_path,1,length(m.relative_path)-length(m.suffix))||'.mp4' AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov')) FROM media_files m WHERE m.id=?1",[media],|row|{
+    let row:Option<(Value,String,String)>=conn.query_row("SELECT m.root_id,m.relative_path,m.kind,m.suffix,m.size,m.mtime_ns,m.discovery_state,m.compliance_state,m.compliance_reasons,m.workflow_state,m.desired_action,m.last_seen_at,m.status_version,m.last_success_at,m.last_error,m.fingerprint, (SELECT count(*) FROM sidecars s WHERE s.media_file_id=m.id), EXISTS(SELECT 1 FROM inspections n WHERE n.media_file_id=m.id), EXISTS(SELECT 1 FROM media_files sibling WHERE sibling.root_id=m.root_id AND sibling.discovery_state='present' AND sibling.relative_path=substr(m.relative_path,1,length(m.relative_path)-length(m.suffix))||'.mp4' AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov')), m.needs_reencode FROM media_files m WHERE m.id=?1",[media],|row|{
             let root:i64=row.get(0)?;let path:String=row.get(1)?;let reasons:String=row.get(8)?;let fingerprint:String=row.get(15)?;
             let parsed:Value=serde_json::from_str(&reasons).unwrap_or_else(|_|json!([]));
             let reasons:Vec<String>=parsed.as_array().map(|items|items.iter().filter_map(Value::as_str).map(str::to_owned).collect()).unwrap_or_default();
-            let needs_reencode=reasons.iter().any(|reason|reason.contains("] video-reencode:"));
+            let needs_reencode:bool=row.get(19)?;
             let safe_reasons:Vec<String>=reasons.iter().map(|reason|crate::read_jobs::safe_head(reason,2048)).collect();
             let data=json!({"id":opaque.encode("m",media),"root_id":opaque.encode("r",root),"display_path":crate::read_jobs::subject(&path),
                 "kind":row.get::<_,String>(2)?,"suffix":row.get::<_,String>(3)?,"size":row.get::<_,i64>(4)?,"mtime_ns":row.get::<_,i64>(5)?,
@@ -555,6 +552,10 @@ fn load_file(
     data["embed_sidecars"] = json!(embedded);
     let fix_status:Option<String>=conn.query_row(&format!("SELECT CASE WHEN max(CASE WHEN status='running' THEN 2 WHEN status IN ('cancel_requested','cancelling') THEN 1 ELSE 0 END)=2 THEN 'running' WHEN max(CASE WHEN status='running' THEN 2 WHEN status IN ('cancel_requested','cancelling') THEN 1 ELSE 0 END)=1 THEN 'cancelling' ELSE 'queued' END FROM job_items WHERE media_file_id=?1 AND action IN ('fix','convert') AND status NOT IN {} HAVING count(*)>0",ItemStatus::terminal_sql_list()),[media],|row|row.get(0)).optional().map_err(|_|())?;
     data["fix_status"] = json!(fix_status);
+    // The newest item of the file that has started (any action) is an interrupted fix or convert, and no
+    // inspection was stored after it. Anything later clears the flag.
+    let last_interrupted:bool=conn.query_row("SELECT COALESCE((SELECT i.action IN ('fix','convert') AND i.status='interrupted' AND NOT EXISTS(SELECT 1 FROM inspections n WHERE n.media_file_id=?1 AND i.finished_at IS NOT NULL AND datetime(n.created_at)>datetime(i.finished_at)) FROM job_items i WHERE i.media_file_id=?1 AND i.status<>'queued' ORDER BY i.id DESC LIMIT 1),0)",[media],|row|row.get(0)).map_err(|_|())?;
+    data["last_interrupted"] = json!(last_interrupted);
     Ok(Some(data))
 }
 

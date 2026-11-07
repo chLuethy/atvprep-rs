@@ -197,13 +197,13 @@ export const Inspector: Component<{
   };
   const plan = () => convertPlan(summary()?.tracks ?? []);
   const confirm = (f: FileDetail) => prepareConfirm(f, summary()?.tracks ?? []);
-  const submitConvert = async () => {
+  const submitConvert = async (confirmReencode = false) => {
     if (convertBusy()) return;
     setConvertBusy(true);
     setConvertError(null);
     // The id the server put in the file it sent, as Verify does: the one in the address may be URL-encoded.
     const id = file()?.id ?? rawId(props.fileId);
-    const result = await queueJob(props.api, "prepare", [id], convertKey);
+    const result = await queueJob(props.api, "prepare", [id], confirmReencode ? `${convertKey}-reencode` : convertKey, { confirmReencode });
     setConvertBusy(false);
     if (!result.ok) {
       setConvertError(result.session ? t(SESSION_EXPIRED) : result.detail ? t("Unable to queue the preparation. The server said: {detail}.", { detail: result.detail }) : t("Unable to queue the preparation. Try again."));
@@ -264,6 +264,15 @@ export const Inspector: Component<{
               {t("Re-inspect")}
             </Button>
           </div>
+          <Show when={f().last_interrupted && !f().fix_status}>
+            <p class="notice warn" role="status">
+              {t("Last preparation interrupted")}
+              <Show when={preparable(f()) && (isMp4Like(f().suffix) ? props.onFix : true)}>
+                {" "}
+                <Button variant="quiet" onClick={() => { if (isMp4Like(f().suffix)) props.onFix?.(f()); else { setConvertError(null); setConverting(true); } }}>{t("Prepare again")}</Button>
+              </Show>
+            </p>
+          </Show>
           <Show when={converting()}>
             <div class="confirm" role="region" aria-label={t("Prepare")} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); setConverting(false); } }}>
               <For each={confirm(f()).lines}>{(line) => (confirm(f()).reencode ? <p class="notice warn" role="alert">{line}</p> : <p>{line}</p>)}</For>
@@ -272,7 +281,12 @@ export const Inspector: Component<{
               </ul>
               <Show when={convertError()}><p class="notice bad" role="alert">{convertError()}</p></Show>
               <div class="insp-actions">
-                <Button variant="primary" disabled={convertBusy() || confirm(f()).reencode} onClick={() => void submitConvert()}>{t("Confirm prepare")}</Button>
+                <Show
+                  when={confirm(f()).reencode}
+                  fallback={<Button variant="primary" disabled={convertBusy()} onClick={() => void submitConvert()}>{t("Confirm prepare")}</Button>}
+                >
+                  <Button variant="primary" disabled={convertBusy()} onClick={() => void submitConvert(true)}>{t("Confirm with re-encode")}</Button>
+                </Show>
                 <Button variant="quiet" onClick={() => setConverting(false)}>{t("Cancel")}</Button>
               </div>
             </div>

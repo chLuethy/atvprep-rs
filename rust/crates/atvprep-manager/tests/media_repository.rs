@@ -615,6 +615,48 @@ fn compliance_is_projected_conservatively_and_a_verify_verdict_survives_ffprobe(
     assert_eq!(compliance(&f, media.id).0, "blocker");
 }
 
+fn needs_reencode(f: &Fixture, id: i64) -> bool {
+    Media(f.ctx()).get(id).unwrap().unwrap().needs_reencode
+}
+
+#[test]
+fn the_re_encode_need_is_stored_with_the_check_result_independent_of_the_state() {
+    let f = Fixture::new();
+    let root = f.root();
+    let media = Media(f.ctx())
+        .create(root, "old.mkv", &meta("fp-1"))
+        .unwrap();
+    let inspections = Inspections(f.ctx());
+    assert!(!needs_reencode(&f, media.id));
+    // A pure media analysis: state unknown, but the need is known.
+    let vc1 = json!({"streams": [{"codec_type": "video", "codec_name": "vc1"}]});
+    inspections
+        .record(media.id, &inspection("ffprobe", "fp-1", &vc1), None)
+        .unwrap();
+    assert_eq!(compliance(&f, media.id).0, "unknown");
+    assert!(needs_reencode(&f, media.id));
+    // A verify report: state plus need, whatever the state.
+    let report = json!({"violations": [
+        {"rule": "video-reencode", "severity": "warning", "message": "video vc1 needs a re-encode"}]});
+    inspections
+        .record(media.id, &inspection("verify", "fp-1", &report), None)
+        .unwrap();
+    assert_eq!(compliance(&f, media.id).0, "warning");
+    assert!(needs_reencode(&f, media.id));
+    // The need goes away with a clean report, and backfill reproduces it.
+    let clean = json!({"violations": []});
+    inspections
+        .record(media.id, &inspection("verify", "fp-1", &clean), None)
+        .unwrap();
+    assert!(!needs_reencode(&f, media.id));
+    f.conn
+        .raw()
+        .execute("UPDATE media_files SET needs_reencode=1", [])
+        .unwrap();
+    inspections.backfill_compliance().unwrap();
+    assert!(!needs_reencode(&f, media.id));
+}
+
 #[test]
 fn a_verify_verdict_for_older_bytes_is_not_carried_over_to_a_changed_file() {
     let f = Fixture::new();

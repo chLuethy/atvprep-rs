@@ -92,6 +92,17 @@ describe("queueJob", () => {
     expect(JSON.stringify(calls)).not.toContain('"fix"');
   });
 
+  it("sends confirm_reencode only when the caller releases a re-encode", async () => {
+    const api = apiFor(() => json({ id: "j_1" }, 201));
+
+    await queueJob(api, "prepare", ["m_f1"], "key-4", { confirmReencode: true });
+    await queueJob(api, "prepare", ["m_f1"], "key-5", { confirmReencode: false });
+
+    const calls = (api.request as ReturnType<typeof vi.fn>).mock.calls as Array<[string, RequestInit]>;
+    expect(JSON.parse(String(calls[0]![1].body))).toEqual({ action: "prepare", media_ids: ["m_f1"], manual_approval: true, confirm_reencode: true });
+    expect(JSON.parse(String(calls[1]![1].body))).toEqual({ action: "prepare", media_ids: ["m_f1"], manual_approval: true });
+  });
+
   it("never asks to delete an original, whatever the caller passes", async () => {
     const api = apiFor(() => json({ id: "j_1" }, 201));
 

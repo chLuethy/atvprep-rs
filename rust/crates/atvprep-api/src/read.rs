@@ -29,7 +29,7 @@ pub async fn dashboard(State(state): State<AppState>, _session: AuthenticatedSes
         let (missing, convert, reencode, converted): (i64,i64,i64,i64) = conn.raw().query_row(
             "SELECT COALESCE(SUM(CASE WHEN m.discovery_state='missing' AND m.dismissed_at IS NULL THEN 1 ELSE 0 END),0),
              COALESCE(SUM(CASE WHEN m.discovery_state='present' AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov') AND NOT EXISTS (SELECT 1 FROM media_files s WHERE s.root_id=m.root_id AND s.discovery_state='present' AND s.relative_path=substr(m.relative_path,1,length(m.relative_path)-length(m.suffix))||'.mp4') THEN 1 ELSE 0 END),0),
-             COALESCE(SUM(CASE WHEN m.discovery_state='present' AND m.compliance_reasons LIKE '%] video-reencode:%' THEN 1 ELSE 0 END),0),
+             COALESCE(SUM(CASE WHEN m.discovery_state='present' AND m.needs_reencode=1 THEN 1 ELSE 0 END),0),
              COALESCE(SUM(CASE WHEN m.discovery_state='present' AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov') AND EXISTS (SELECT 1 FROM media_files s WHERE s.root_id=m.root_id AND s.discovery_state='present' AND s.relative_path=substr(m.relative_path,1,length(m.relative_path)-length(m.suffix))||'.mp4') THEN 1 ELSE 0 END),0) FROM media_files m", [],
             |row| Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?))).map_err(|_| ())?;
         let setting: Option<String> = conn.raw().query_row("SELECT value_json FROM runtime_settings WHERE key='delete_original'", [], |row| row.get(0)).optional().map_err(|_| ())?;
