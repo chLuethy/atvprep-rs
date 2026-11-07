@@ -5,7 +5,7 @@ use crate::{Error, Result};
 
 /// Migration stages in order; stage `n` takes a database from version `n - 1` to `n`.
 /// To extend: add `000N_name.sql`, append it here and raise [`VERSION`].
-const STAGES: [&str; 7] = [
+const STAGES: [&str; 8] = [
     include_str!("migrations/0001_base.sql"),
     include_str!("migrations/0002_cron.sql"),
     include_str!("migrations/0003_scan_action.sql"),
@@ -13,10 +13,11 @@ const STAGES: [&str; 7] = [
     include_str!("migrations/0005_schedule_approval.sql"),
     include_str!("migrations/0006_missed_slots.sql"),
     include_str!("migrations/0007_needs_reencode.sql"),
+    include_str!("migrations/0008_schedule_allow_reencode.sql"),
 ];
 
 /// The version this build creates and understands.
-pub const VERSION: i64 = 7;
+pub const VERSION: i64 = 8;
 
 /// Every table of the current schema.
 pub const TABLES: [&str; 23] = [
@@ -186,7 +187,7 @@ mod tests {
         exec(
             &conn,
             "INSERT INTO schedules(id, name, action, root_id, days_mask, time_of_day, max_files, enabled, armed_at, last_slot_at, last_run_at, last_job_id, last_result, created_at)
-             VALUES (7, 'old', 'convert', 1, 5, '03:30', 40, 1, 'a', 'b', 'c', 9, 'done', 'd')",
+             VALUES (7, 'old', 'convert', 1, 5, '03:30', 40, 0, 'a', 'b', 'c', 9, 'done', 'd')",
         )
         .unwrap();
         migrate(&mut conn).unwrap();
@@ -199,7 +200,7 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(row, "old|convert|1|5|03:30|40|1|a|b|c|9|done|d");
+        assert_eq!(row, "old|convert|1|5|03:30|40|0|a|b|c|9|done|d");
         exec(
             &conn,
             "INSERT INTO schedules(name, action, days_mask, time_of_day) VALUES ('s', 'scan', 1, '01:00')",
@@ -509,6 +510,65 @@ mod tests {
         assert_eq!(fresh, 0);
         assert!(
             exec(&conn, "UPDATE media_files SET needs_reencode=2 WHERE id=9").is_err(),
+            "only 0 or 1"
+        );
+    }
+
+    #[test]
+    fn a_version_7_database_upgrades_to_8_and_pauses_switched_on_schedules_that_change_files() {
+        let (_db, mut conn) = database_at(7);
+        exec(
+            &conn,
+            "INSERT INTO schedules(id, name, action, days_mask, time_of_day, max_files, enabled, approved_by, approved_at, approval_mac) VALUES
+               (1, 'repair', 'fix', 127, '03:00', 5, 1, 1, 1700000000, 'mac'),
+               (2, 'convert', 'convert', 127, '03:00', 5, 1, 1, 1700000000, 'mac'),
+               (3, 'repair paused', 'fix', 127, '03:00', 5, 0, NULL, NULL, NULL),
+               (4, 'check', 'verify', 127, '03:00', 5, 1, NULL, NULL, NULL),
+               (5, 'scan', 'scan', 127, '03:00', 5, 1, NULL, NULL, NULL)",
+        )
+        .unwrap();
+        migrate(&mut conn).unwrap();
+        assert_eq!(version(&conn).unwrap(), VERSION);
+        let rows: Vec<(i64, bool, bool, Option<String>, bool)> = conn
+            .raw()
+            .prepare("SELECT id, enabled, allow_reencode, approval_mac, last_result IS NOT NULL FROM schedules ORDER BY id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            rows,
+            vec![
+                (1, false, false, None, true),
+                (2, false, false, None, true),
+                (3, false, false, None, false),
+                (4, true, false, None, false),
+                (5, true, false, None, false),
+            ]
+        );
+        let history: Vec<(i64, String, String)> = conn
+            .raw()
+            .prepare("SELECT schedule_id, trigger, result FROM schedule_runs ORDER BY schedule_id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            history.len(),
+            2,
+            "only the two switched-on schedules get an entry"
+        );
+        assert!(
+            history
+                .iter()
+                .all(|(_, trigger, result)| trigger == "scheduled"
+                    && result.starts_with("Paused: ")
+                    && result.contains("re-encoding"))
+        );
+        assert!(
+            exec(&conn, "UPDATE schedules SET allow_reencode=2 WHERE id=1").is_err(),
             "only 0 or 1"
         );
     }

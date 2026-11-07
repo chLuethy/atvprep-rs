@@ -50,6 +50,8 @@ pub struct ScheduleParams<'a> {
     pub max_files: i64,
     /// The `delete_original` setting at the time of signing and of each run.
     pub delete_original: bool,
+    /// Whether the schedule may take files that need a re-encode (ADR 0007).
+    pub allow_reencode: bool,
 }
 
 impl ScheduleParams<'_> {
@@ -63,6 +65,7 @@ impl ScheduleParams<'_> {
             "compliance_state": self.compliance_state,
             "max_files": self.max_files,
             "delete_original": self.delete_original,
+            "allow_reencode": self.allow_reencode,
         })
     }
 }
@@ -158,13 +161,14 @@ impl ApprovalVerifier {
         approved_at: i64,
     ) -> HmacSha256 {
         self.mac_over(&json!([
-            "schedule-approval-v1",
+            "schedule-approval-v2",
             params.schedule_id,
             params.action,
             params.root_id,
             params.compliance_state,
             params.max_files,
             params.delete_original,
+            params.allow_reencode,
             approved_by,
             approved_at
         ]))
@@ -274,6 +278,7 @@ mod tests {
         compliance_state: Some("warning"),
         max_files: 25,
         delete_original: false,
+        allow_reencode: false,
     };
 
     #[test]
@@ -328,6 +333,14 @@ mod tests {
                 ..PARAMS
             })
             .is_some()
+        );
+        assert!(
+            other(ScheduleParams {
+                allow_reencode: true,
+                ..PARAMS
+            })
+            .is_some(),
+            "the re-encode permission is signed"
         );
         assert!(
             verifier

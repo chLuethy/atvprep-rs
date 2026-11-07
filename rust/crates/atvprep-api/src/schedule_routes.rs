@@ -200,6 +200,8 @@ pub struct ScheduleCreate {
     cron: Option<String>,
     /// Defaults to 25 for checking; required (1 to 500) for repairing and converting.
     max_files: Option<i64>,
+    /// Repair and conversion only: may the schedule take files that need a re-encode? Defaults to off.
+    allow_reencode: Option<bool>,
 }
 
 fn valid_days(days: &[u8]) -> bool {
@@ -255,6 +257,8 @@ pub struct ScheduleUpdate {
     time: Option<String>,
     cron: Option<String>,
     max_files: Option<i64>,
+    /// Repair and conversion only; part of what the operator signs when turning the schedule on.
+    allow_reencode: Option<bool>,
     enabled: Option<bool>,
     /// Required to turn on a schedule that changes files; the confirmation is what signs it.
     #[serde(default)]
@@ -272,6 +276,7 @@ type ExistingSchedule = (
     String,
     String,
     Option<String>,
+    bool,
 );
 
 /// Update the selection or timing of an existing schedule.
@@ -315,10 +320,10 @@ pub async fn update(
     mutate(state,headers,"PATCH",path,"update-schedule",body,move |ctx,state|{
         let id=schedule_id(&token,state)?;
         let existing:Option<ExistingSchedule>=ctx.conn.query_row(
-            "SELECT name,root_id,compliance_state,days_mask,time_of_day,max_files,enabled,action,armed_at,cron FROM schedules WHERE id=?1",[id],
-            |row|Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?,row.get(4)?,row.get(5)?,row.get(6)?,row.get(7)?,row.get(8)?,row.get(9)?))
+            "SELECT name,root_id,compliance_state,days_mask,time_of_day,max_files,enabled,action,armed_at,cron,allow_reencode FROM schedules WHERE id=?1",[id],
+            |row|Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?,row.get(4)?,row.get(5)?,row.get(6)?,row.get(7)?,row.get(8)?,row.get(9)?,row.get(10)?))
         ).optional().map_err(|_|MutationError::Database)?;
-        let (name,root,compliance,mask,time,max_files,enabled,action,armed,stored_cron)=existing.ok_or(MutationError::NotFound)?;
+        let (name,root,compliance,mask,time,max_files,enabled,action,armed,stored_cron,old_allow)=existing.ok_or(MutationError::NotFound)?;
         let (old_root,old_compliance)=(root,compliance.clone());
         let root=if payload.clear_root {None} else if let Some(value)=payload.root_id.as_deref(){
             let root=Opaque::new(state.api_secret.as_bytes()).decode(value,"r").map_err(|_|MutationError::InvalidInput("root_id must be an opaque identifier"))?;
@@ -326,6 +331,8 @@ pub async fn update(
             if !exists {return Err(MutationError::InvalidInput("unknown library"));}Some(root)
         } else {root};
         let scan=action=="scan";
+        if payload.allow_reencode.is_some() && !matches!(action.as_str(),"fix"|"convert") {return Err(MutationError::InvalidInput("allow_reencode applies to repairing and converting only"));}
+        let new_allow=payload.allow_reencode.unwrap_or(old_allow);
         let compliance=if scan || payload.clear_compliance_state {None}else{payload.compliance_state.clone().or(compliance)};
         let retimed=payload.cron.is_some() || payload.days.is_some() || payload.time.is_some();
         let rearm=retimed || (payload.enabled==Some(true) && !enabled);
@@ -353,14 +360,14 @@ pub async fn update(
         let mut approval:Option<(i64,i64,String)>=None;
         let mut keep_approval=!changes_files;
         if changes_files {
-            let params_changed=root!=old_root || compliance!=old_compliance || new_max!=max_files;
+            let params_changed=root!=old_root || compliance!=old_compliance || new_max!=max_files || new_allow!=old_allow;
             if payload.enabled==Some(true) {
                 if !payload.confirm_changes_files {return Err(MutationError::InvalidInput("turning on a schedule that changes files needs an explicit confirmation"));}
                 let approver=crate::routes_jobs::approver(ctx,state,&session_token)?;
                 let at=ctx.clock.now_micros()/1_000_000;
                 let verifier=ApprovalVerifier::new(state.approval_secret.as_bytes()).ok_or(MutationError::Database)?;
                 let delete_original=delete_original_setting(ctx.conn).map_err(|_|MutationError::Database)?;
-                let mac=verifier.sign_schedule(&ScheduleParams{schedule_id:id,action:&action,root_id:root,compliance_state:compliance.as_deref(),max_files:new_max,delete_original},approver,at);
+                let mac=verifier.sign_schedule(&ScheduleParams{schedule_id:id,action:&action,root_id:root,compliance_state:compliance.as_deref(),max_files:new_max,delete_original,allow_reencode:new_allow},approver,at);
                 approval=Some((approver,at,mac));
             } else if new_enabled && !params_changed {
                 keep_approval=true;
@@ -368,7 +375,7 @@ pub async fn update(
                 new_enabled=false;
             }
         }
-        ctx.conn.execute("UPDATE schedules SET name=?1,root_id=?2,compliance_state=?3,days_mask=?4,time_of_day=?5,max_files=?6,enabled=?7,armed_at=?8,cron=?9 WHERE id=?10",rusqlite::params![payload.name.unwrap_or(name),root,compliance,mask,time,new_max,new_enabled,if rearm {ctx.clock.now()} else {armed},cron,id]).map_err(|_|MutationError::Database)?;
+        ctx.conn.execute("UPDATE schedules SET name=?1,root_id=?2,compliance_state=?3,days_mask=?4,time_of_day=?5,max_files=?6,enabled=?7,armed_at=?8,cron=?9,allow_reencode=?11 WHERE id=?10",rusqlite::params![payload.name.unwrap_or(name),root,compliance,mask,time,new_max,new_enabled,if rearm {ctx.clock.now()} else {armed},cron,id,new_allow]).map_err(|_|MutationError::Database)?;
         if !keep_approval {
             let (by,at,mac)=approval.map_or((None,None,None),|(by,at,mac)|(Some(by),Some(at),Some(mac)));
             ctx.conn.execute("UPDATE schedules SET approved_by=?1,approved_at=?2,approval_mac=?3 WHERE id=?4",rusqlite::params![by,at,mac,id]).map_err(|_|MutationError::Database)?;
@@ -392,6 +399,8 @@ pub async fn create(
         || payload.name.chars().count() > 80
         || payload.max_files.is_some_and(|max| max < 1)
         || (matches!(payload.action.as_str(), "fix" | "convert") && payload.max_files.is_none())
+        || (payload.allow_reencode.is_some()
+            && !matches!(payload.action.as_str(), "fix" | "convert"))
         || payload.compliance_state.as_deref().is_some_and(|value| {
             !matches!(
                 value,
@@ -445,7 +454,7 @@ pub async fn create(
                 let exists:bool=tx.conn.query_row("SELECT EXISTS(SELECT 1 FROM library_roots WHERE id=?1)",[id],|row|row.get(0)).map_err(|_|MutationError::Database)?;
                 if !exists{return Err(MutationError::InvalidInput("unknown library"));}Some(id)
             }else{None};
-            tx.conn.execute("INSERT INTO schedules(name,action,root_id,compliance_state,days_mask,time_of_day,cron,max_files,enabled,armed_at) VALUES(?1,?9,?2,?3,?4,?5,?6,?7,?10,?8)",rusqlite::params![payload.name,root,if scan {None} else {payload.compliance_state.as_deref()},timing.days_mask,timing.time.to_string(),timing.cron.as_str(),if scan {default_max_files()} else {payload.max_files.unwrap_or_else(default_max_files)},tx.clock.now(),payload.action,!changes_files]).map_err(|_|MutationError::Database)?;
+            tx.conn.execute("INSERT INTO schedules(name,action,root_id,compliance_state,days_mask,time_of_day,cron,max_files,enabled,armed_at,allow_reencode) VALUES(?1,?9,?2,?3,?4,?5,?6,?7,?10,?8,?11)",rusqlite::params![payload.name,root,if scan {None} else {payload.compliance_state.as_deref()},timing.days_mask,timing.time.to_string(),timing.cron.as_str(),if scan {default_max_files()} else {payload.max_files.unwrap_or_else(default_max_files)},tx.clock.now(),payload.action,!changes_files,changes_files && payload.allow_reencode.unwrap_or(false)]).map_err(|_|MutationError::Database)?;
             let id=opaque.encode("sc",tx.conn.last_insert_rowid());
             let (rows,_)=views(tx.conn,&state).map_err(|()|MutationError::Database)?;
             let data=rows.into_iter().find(|value|value["id"].as_str()==Some(&id)).ok_or(MutationError::Database)?;
@@ -466,7 +475,7 @@ pub async fn create(
 fn views(conn: &rusqlite::Connection, state: &AppState) -> Result<(Vec<Value>, bool), ()> {
     let opaque = Opaque::new(state.api_secret.as_bytes());
     let now = DateTime::<Utc>::from_timestamp_micros(state.clock.now_micros()).ok_or(())?;
-    let mut stmt=conn.prepare("SELECT s.id,s.name,s.action,s.root_id,r.name,s.compliance_state,s.days_mask,s.time_of_day,s.max_files,s.enabled,s.last_run_at,s.last_result,s.last_job_id,s.cron FROM schedules s LEFT JOIN library_roots r ON r.id=s.root_id ORDER BY s.id").map_err(|_|())?;
+    let mut stmt=conn.prepare("SELECT s.id,s.name,s.action,s.root_id,r.name,s.compliance_state,s.days_mask,s.time_of_day,s.max_files,s.enabled,s.last_run_at,s.last_result,s.last_job_id,s.cron,s.allow_reencode FROM schedules s LEFT JOIN library_roots r ON r.id=s.root_id ORDER BY s.id").map_err(|_|())?;
     let rows = stmt
         .query_map([], |row| {
             Ok((
@@ -484,6 +493,7 @@ fn views(conn: &rusqlite::Connection, state: &AppState) -> Result<(Vec<Value>, b
                 row.get::<_, Option<String>>(11)?,
                 row.get::<_, Option<i64>>(12)?,
                 row.get::<_, Option<String>>(13)?,
+                row.get::<_, bool>(14)?,
             ))
         })
         .map_err(|_| ())?;
@@ -506,6 +516,7 @@ fn views(conn: &rusqlite::Connection, state: &AppState) -> Result<(Vec<Value>, b
             last_result,
             last_job,
             stored_cron,
+            allow_reencode,
         ) = row.map_err(|_| ())?;
         let mask = u8::try_from(mask).map_err(|_| ())?;
         let cron = effective_cron(stored_cron.as_deref(), mask, &clock).map_err(|_| ())?;
@@ -514,11 +525,15 @@ fn views(conn: &rusqlite::Connection, state: &AppState) -> Result<(Vec<Value>, b
         let matching: Option<i64> = if scan {
             None
         } else {
-            Some(conn.query_row(&format!("SELECT count(*) FROM media_files m WHERE m.discovery_state='present' AND (?1 IS NULL OR m.root_id=?1) AND (?2 IS NULL OR m.compliance_state=?2) AND NOT EXISTS(SELECT 1 FROM job_items i WHERE i.media_file_id=m.id AND i.action IN ('fix','convert') AND i.status NOT IN {}) AND (CASE WHEN ?3 IN ('fix','convert') THEN NOT EXISTS(SELECT 1 FROM media_files sibling WHERE sibling.root_id=m.root_id AND sibling.discovery_state='present' AND sibling.relative_path=substr(m.relative_path,1,length(m.relative_path)-length(m.suffix))||'.mp4' AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov')) AND (lower(m.suffix) NOT IN ('.mp4','.m4v','.mov') OR m.compliance_state IN ('warning','blocker') OR m.desired_action='fix') AND (?4 OR m.needs_reencode=0) ELSE lower(m.suffix) IN ('.mp4','.m4v','.mov') END)",ItemStatus::terminal_sql_list()),rusqlite::params![root,compliance,action,conn.query_row("SELECT COALESCE((SELECT value_json='true' FROM runtime_settings WHERE key='delete_original'),0)",[],|r|r.get::<_,bool>(0)).map_err(|_|())?],|row|row.get(0)).map_err(|_|())?)
+            Some(conn.query_row(&format!("SELECT count(*) FROM media_files m WHERE m.discovery_state='present' AND (?1 IS NULL OR m.root_id=?1) AND (?2 IS NULL OR m.compliance_state=?2) AND NOT EXISTS(SELECT 1 FROM job_items i WHERE i.media_file_id=m.id AND i.action IN ('fix','convert') AND i.status NOT IN {}) AND (CASE WHEN ?3 IN ('fix','convert') THEN NOT EXISTS(SELECT 1 FROM media_files sibling WHERE sibling.root_id=m.root_id AND sibling.discovery_state='present' AND sibling.relative_path=substr(m.relative_path,1,length(m.relative_path)-length(m.suffix))||'.mp4' AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov')) AND (lower(m.suffix) NOT IN ('.mp4','.m4v','.mov') OR m.compliance_state IN ('warning','blocker') OR m.desired_action='fix') AND (?4 OR m.needs_reencode=0) ELSE lower(m.suffix) IN ('.mp4','.m4v','.mov') END)",ItemStatus::terminal_sql_list()),rusqlite::params![root,compliance,action,allow_reencode],|row|row.get(0)).map_err(|_|())?)
         };
         let last_run = last_run.map(|value| timestamp(&value).replace('Z', "+00:00"));
         let runs = recent_runs(conn, &opaque, id)?;
         let value = json!({"id":opaque.encode("sc",id),"name":safe_head(&name,2048),"action":action,"root_id":root.map(|id|opaque.encode("r",id)),"root_name":root_name.map(|name|subject(&name)),"compliance_state":if scan {None} else {compliance},"cron":cron.as_str(),"days":mask_to_days(mask),"time":clock,"max_files":if scan {None} else {Some(max_files)},"enabled":enabled,"matching":matching,"next_run_at":next,"last_run_at":last_run,"last_result":last_result.map(|value|safe_head(&value,2048)),"last_job_id":last_job.map(|id|opaque.encode("j",id)),"runs":runs});
+        let mut value = value;
+        if matches!(action.as_str(), "fix" | "convert") {
+            value["allow_reencode"] = json!(allow_reencode);
+        }
         let size = serde_json::to_vec(&value).map_err(|_| ())?.len();
         if size > crate::bounds::MAX_ELEMENT_BYTES
             || used.saturating_add(size).saturating_add(data.len() + 128)
