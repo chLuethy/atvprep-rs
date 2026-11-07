@@ -47,7 +47,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          builder="atvprep-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          builder="atvprep-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT:-1}"
           docker buildx create --name "$builder" --driver docker-container
           trap 'docker buildx rm "$builder"' EXIT
           export BUILDX_BUILDER="$builder"
