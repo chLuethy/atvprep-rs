@@ -11,6 +11,8 @@ use serde_json::Value;
 pub struct Evaluation {
     pub state: &'static str,
     pub reasons: Vec<String>,
+    /// The video must be re-encoded to meet the requirements (stored with the result).
+    pub needs_reencode: bool,
 }
 
 const CURRENT_FFPROBE: &str =
@@ -21,6 +23,7 @@ fn unknown(reasons: Vec<String>) -> Evaluation {
     Evaluation {
         state: "unknown",
         reasons,
+        needs_reencode: false,
     }
 }
 
@@ -41,10 +44,14 @@ pub fn evaluate_inspection(
     match tool_name {
         "ffprobe" => {
             let mut reasons = vec![CURRENT_FFPROBE.to_owned()];
-            if let Some(reason) = video_reencode_reason(result, false, false) {
+            let reencode = video_reencode_reason(result, false, false);
+            if let Some(reason) = &reencode {
                 reasons.push(format!("[warning] video-reencode: {reason}"));
             }
-            unknown(reasons)
+            Evaluation {
+                needs_reencode: reencode.is_some(),
+                ..unknown(reasons)
+            }
         }
         "verify" => verify_verdict(result),
         _ => unknown(vec![
@@ -71,6 +78,7 @@ fn verify_verdict(result: &Value) -> Evaluation {
         return Evaluation {
             state: "clean",
             reasons: vec!["No compliance violations reported by verify.".to_owned()],
+            needs_reencode: false,
         };
     }
     found.sort_by_key(|(severity, rule, message)| (*severity != "blocker", *rule, *message));
@@ -81,5 +89,58 @@ fn verify_verdict(result: &Value) -> Evaluation {
             .iter()
             .map(|(severity, rule, message)| format!("[{severity}] {rule}: {message}"))
             .collect(),
+        needs_reencode: found.iter().any(|(_, rule, _)| *rule == "video-reencode"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn warning(rule: &str) -> Value {
+        json!({"rule": rule, "severity": "warning", "message": "m"})
+    }
+
+    fn vc1_video() -> Value {
+        json!({"streams": [{"codec_type": "video", "codec_name": "vc1",
+            "pix_fmt": "yuv420p", "width": 720, "height": 480}]})
+    }
+
+    #[test]
+    fn a_media_analysis_is_unknown_and_records_the_re_encode_need() {
+        let needing = evaluate_inspection("ffprobe", &vc1_video(), "f", "f");
+        assert_eq!(needing.state, "unknown");
+        assert!(needing.needs_reencode);
+        let fine = evaluate_inspection("ffprobe", &json!({}), "f", "f");
+        assert_eq!(fine.state, "unknown");
+        assert!(!fine.needs_reencode);
+    }
+
+    #[test]
+    fn a_verify_report_yields_state_and_the_re_encode_need() {
+        let report = json!({"violations": [warning("video-reencode")]});
+        let evaluation = evaluate_inspection("verify", &report, "f", "f");
+        assert_eq!(evaluation.state, "warning");
+        assert!(evaluation.needs_reencode);
+
+        let blocked = json!({"violations": [warning("video-reencode"),
+            {"rule": "no-fragments", "severity": "blocker", "message": "fragmented"}]});
+        let evaluation = evaluate_inspection("verify", &blocked, "f", "f");
+        assert_eq!(evaluation.state, "blocker");
+        assert!(evaluation.needs_reencode);
+
+        let other = json!({"violations": [warning("no-fragments")]});
+        assert!(!evaluate_inspection("verify", &other, "f", "f").needs_reencode);
+        let clean = json!({"violations": []});
+        assert!(!evaluate_inspection("verify", &clean, "f", "f").needs_reencode);
+    }
+
+    #[test]
+    fn a_stale_or_unsupported_inspection_does_not_claim_a_re_encode_need() {
+        let report = json!({"violations": [warning("video-reencode")]});
+        assert!(!evaluate_inspection("verify", &report, "old", "new").needs_reencode);
+        assert!(!evaluate_inspection("other", &report, "f", "f").needs_reencode);
     }
 }
