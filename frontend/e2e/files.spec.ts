@@ -32,6 +32,26 @@ test.describe("library journey", () => {
     await expect(page.getByText("Re-inspection queued", { exact: true })).toBeVisible();
   });
 
+  test("chosen properties show only files that have all of them, and nothing chosen shows everything", async ({ page }) => {
+    await openAndUnlock(page, "/files");
+    await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
+
+    await page.getByRole("checkbox", { name: /^Needs re-encode/ }).check();
+    await expect(page).toHaveURL(/has=reencode/);
+    await expect(page.getByRole("link", { name: "Old Codec Movie" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Failed Movie" })).toHaveCount(0);
+
+    // A second property narrows further: no file here has both.
+    await page.getByRole("checkbox", { name: /^Embed open/ }).check();
+    await expect(page).toHaveURL(/has=reencode%2Cembed/);
+    await expect(page.getByRole("link", { name: "Old Codec Movie" })).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Show all files" }).click();
+    await expect(page).not.toHaveURL(/has=/);
+    await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Old Codec Movie" })).toBeVisible();
+  });
+
   test("shows the scope of a prepare run before anything is queued", async ({ page }) => {
     await openAndUnlock(page, "/files");
 

@@ -58,6 +58,7 @@ const Column: Component<{
   place: Place;
   state: string;
   hide: string;
+  has: string;
   version: number;
   selected: (key: string) => boolean;
   focused: boolean;
@@ -67,8 +68,8 @@ const Column: Component<{
   onBackground: (index: number) => void;
 }> = (props) => {
   const [data, { refetch }] = createResource(
-    () => [props.place.rootId, props.place.path, props.state, props.hide ?? "", props.version] as const,
-    ([rootId, path, state, hide]) => loadBrowse(props.api, { rootId, path, state: state || undefined, hide: hide || undefined }),
+    () => [props.place.rootId, props.place.path, props.state, props.hide ?? "", props.has ?? "", props.version] as const,
+    ([rootId, path, state, hide, has]) => loadBrowse(props.api, { rootId, path, state: state || undefined, hide: hide || undefined, has: has || undefined }),
   );
   const loaded = () => data.latest;
   createEffect(() => {
@@ -98,7 +99,7 @@ const Column: Component<{
               <div class="col-note notice bad" role="alert"><p>{t("Unable to load this folder")}</p><Button onClick={() => void refetch()}>{t("Retry")}</Button></div>
             </Show>
             <Show when={value().kind === "ok" && entries().length === 0}>
-              <p class="col-note muted">{props.state || props.hide ? t("No files in this state") : t("Empty folder")}</p>
+              <p class="col-note muted">{props.state || props.hide || props.has ? t("No files in this state") : t("Empty folder")}</p>
             </Show>
             <For each={entries()}>{(entry) => (
               <div
@@ -155,6 +156,8 @@ export const ColumnsView: Component<{
   state: string;
   /** Comma separated states whose files are left out. */
   hide?: string;
+  /** Comma separated properties a file must all have. */
+  has?: string;
   /** Changes whenever the files may have changed under us (a job ended); columns read again. */
   version: number;
   /** The id of the file the inspector shows, if any. */
@@ -246,7 +249,7 @@ export const ColumnsView: Component<{
   const onBackground = (index: number) => { if (index !== active() || sel().length > 0) commit(index, [], null, null); };
 
   // A different state filter makes the folders it names a different set, so start from the libraries.
-  createEffect(on(() => [props.state, props.hide] as const, () => {
+  createEffect(on(() => [props.state, props.hide, props.has] as const, () => {
     batch(() => { setTrail([]); setSel([]); setAnchor(null); setCursor(null); setEntries({}); });
   }, { defer: true }));
   // The inspector was closed from outside: a file that was open is no longer selected.
@@ -384,6 +387,7 @@ export const ColumnsView: Component<{
             place={placeOf(index)}
             state={props.state}
             hide={props.hide ?? ""}
+            has={props.has ?? ""}
             version={props.version}
             selected={(key) => isSelected(index, key)}
             focused={active() === index}

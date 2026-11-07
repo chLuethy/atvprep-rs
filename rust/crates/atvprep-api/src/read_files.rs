@@ -33,6 +33,7 @@ pub struct FileQuery {
     suffix: Option<String>,
     compliance_state: Option<String>,
     hide: Option<String>,
+    has: Option<String>,
     workflow_state: Option<String>,
     discovery_state: Option<String>,
     desired_action: Option<String>,
@@ -51,6 +52,7 @@ pub struct BrowseQuery {
     path: Option<String>,
     state: Option<String>,
     hide: Option<String>,
+    has: Option<String>,
 }
 
 fn python_bool<'de, D: serde::Deserializer<'de>>(
@@ -66,20 +68,75 @@ fn python_bool<'de, D: serde::Deserializer<'de>>(
         .transpose()
 }
 
-fn known_state(state: &str) -> bool {
+/// Zustände, die sich ausblenden lassen (`hide`).
+fn status_token(token: &str) -> bool {
     matches!(
-        state,
-        "clean"
-            | "warning"
-            | "blocker"
-            | "unknown"
-            | "probe_failed"
-            | "missing"
-            | "convert"
-            | "reencode"
-            | "converted"
-            | "embed"
+        token,
+        "clean" | "warning" | "blocker" | "unknown" | "probe_failed" | "missing"
     )
+}
+
+/// Eigenschaften, die sich überschneiden und nur positiv gewählt werden (`has`, UND).
+const TRAITS: [&str; 4] = ["convert", "reencode", "embed", "converted"];
+
+fn trait_token(token: &str) -> bool {
+    TRAITS.contains(&token)
+}
+
+fn known_state(state: &str) -> bool {
+    status_token(state) || trait_token(state)
+}
+
+/// `hide` nimmt nur Status, `has` nur Eigenschaften; beide sind kommagetrennt und begrenzt.
+fn list_input_error(hide: Option<&str>, has: Option<&str>) -> Option<&'static str> {
+    for (value, allowed, too_long) in [
+        (hide, status_token as fn(&str) -> bool, "hide is too long"),
+        (has, trait_token as fn(&str) -> bool, "has is too long"),
+    ] {
+        let Some(value) = value else { continue };
+        if value.chars().count() > 128 {
+            return Some(too_long);
+        }
+        if value
+            .split(',')
+            .filter(|token| !token.is_empty())
+            .any(|token| !allowed(token))
+        {
+            return Some("unknown state");
+        }
+    }
+    None
+}
+
+/// Klauseln der Filter `hide` (eine Klausel: keiner der Zustände) und `has` (je Eigenschaft eine, UND).
+/// Die Tokens sind vorher mit `list_input_error` geprüft.
+fn selection_clauses(
+    hide: Option<&str>,
+    has: &[&str],
+    open: &str,
+    values: &mut Vec<rusqlite::types::Value>,
+) -> Vec<String> {
+    let mut clauses = Vec::new();
+    let hidden: Vec<String> = hide
+        .unwrap_or_default()
+        .split(',')
+        .filter(|token| !token.is_empty())
+        .map(|token| state_clause(token, open, values))
+        .collect();
+    if !hidden.is_empty() {
+        clauses.push(format!("NOT ({})", hidden.join(" OR ")));
+    }
+    for token in has {
+        clauses.push(state_clause(token, open, values));
+    }
+    clauses
+}
+
+fn has_tokens(has: Option<&str>) -> Vec<&str> {
+    has.unwrap_or_default()
+        .split(',')
+        .filter(|token| !token.is_empty())
+        .collect()
 }
 
 /// Browse roots or a single level in a library.
@@ -111,17 +168,8 @@ fn browse_input_error(query: &BrowseQuery, below: bool) -> Option<&'static str> 
     {
         return Some("unknown state");
     }
-    if let Some(hide) = query.hide.as_ref() {
-        if hide.chars().count() > 128 {
-            return Some("hide is too long");
-        }
-        if hide
-            .split(',')
-            .filter(|token| !token.is_empty())
-            .any(|token| !known_state(token))
-        {
-            return Some("unknown state");
-        }
+    if let Some(message) = list_input_error(query.hide.as_deref(), query.has.as_deref()) {
+        return Some(message);
     }
     None
 }
@@ -173,15 +221,14 @@ async fn browse_inner(state: AppState, query: BrowseQuery, below: bool) -> Respo
     if let Some(value) = query.state.as_deref() {
         clauses.push(state_clause(value, &open, &mut values));
     }
-    let mut hidden = Vec::new();
-    if let Some(hide) = query.hide.as_deref() {
-        for token in hide.split(',').filter(|token| !token.is_empty()) {
-            hidden.push(state_clause(token, &open, &mut values));
-        }
-    }
-    if !hidden.is_empty() {
-        clauses.push(format!("NOT ({})", hidden.join(" OR ")));
-    }
+    let selection = selection_clauses(
+        query.hide.as_deref(),
+        &has_tokens(query.has.as_deref()),
+        &open,
+        &mut values,
+    );
+    let hidden = selection;
+    clauses.extend(hidden.iter().cloned());
     let filtered = query.state.is_some() || !hidden.is_empty();
     if let Some(root) = root {
         clauses.push("m.root_id=?".to_owned());
@@ -224,6 +271,83 @@ async fn browse_inner(state: AppState, query: BrowseQuery, below: bool) -> Respo
     match result {
         Ok(Ok(Some(body))) => Json(body).into_response(),
         Ok(Ok(None)) => error(StatusCode::NOT_FOUND, "resource not found", PATH),
+        _ => error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "internal server error",
+            PATH,
+        ),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct CountsQuery {
+    compliance_state: Option<String>,
+    hide: Option<String>,
+    has: Option<String>,
+}
+
+/// Wie viele Dateien jede Eigenschaft zeigen würde, wenn man sie zur aktuellen Auswahl dazunimmt.
+pub async fn trait_counts(
+    State(state): State<AppState>,
+    _session: AuthenticatedSession,
+    Query(query): Query<CountsQuery>,
+) -> Response {
+    const PATH: &str = "/api/v1/files/counts";
+    if let Some(message) = list_input_error(query.hide.as_deref(), query.has.as_deref()) {
+        return error(StatusCode::UNPROCESSABLE_ENTITY, message, PATH);
+    }
+    if query
+        .compliance_state
+        .as_deref()
+        .is_some_and(|state| !known_state(state))
+    {
+        return error(StatusCode::UNPROCESSABLE_ENTITY, "unknown state", PATH);
+    }
+    let Some(open) = embed_open_json(&state).await else {
+        return error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "internal server error",
+            PATH,
+        );
+    };
+    let result = tokio::task::spawn_blocking(move || {
+        let conn = state.db.conn().map_err(|_| ())?;
+        let conn = conn.raw();
+        let mut data = serde_json::Map::new();
+        for token in TRAITS {
+            let mut values: Vec<rusqlite::types::Value> = Vec::new();
+            let mut clauses =
+                vec!["NOT (m.discovery_state='missing' AND m.dismissed_at IS NOT NULL)".to_owned()];
+            if let Some(value) = query.compliance_state.as_deref().filter(|s| !s.is_empty()) {
+                clauses.push(state_clause(value, &open, &mut values));
+            }
+            let mut has = has_tokens(query.has.as_deref());
+            if !has.contains(&token) {
+                has.push(token);
+            }
+            clauses.extend(selection_clauses(
+                query.hide.as_deref(),
+                &has,
+                &open,
+                &mut values,
+            ));
+            let count: i64 = conn
+                .query_row(
+                    &format!(
+                        "SELECT count(*) FROM media_files m WHERE {}",
+                        clauses.join(" AND ")
+                    ),
+                    rusqlite::params_from_iter(values.iter()),
+                    |row| row.get(0),
+                )
+                .map_err(|_| ())?;
+            data.insert(token.to_owned(), json!(count));
+        }
+        Ok::<_, ()>(json!({"data": data, "meta": {}}))
+    })
+    .await;
+    match result {
+        Ok(Ok(body)) => Json(body).into_response(),
         _ => error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "internal server error",
@@ -312,7 +436,6 @@ pub async fn list(
         ("kind", &query.kind),
         ("suffix", &query.suffix),
         ("compliance_state", &query.compliance_state),
-        ("hide", &query.hide),
         ("workflow_state", &query.workflow_state),
         ("discovery_state", &query.discovery_state),
         ("desired_action", &query.desired_action),
@@ -328,6 +451,9 @@ pub async fn list(
                 PATH,
             );
         }
+    }
+    if let Some(message) = list_input_error(query.hide.as_deref(), query.has.as_deref()) {
+        return error(StatusCode::UNPROCESSABLE_ENTITY, message, PATH);
     }
     let opaque = Opaque::new(state.api_secret.as_bytes());
     let after = match query.cursor.as_deref() {
@@ -371,30 +497,12 @@ pub async fn list(
     if let Some(value) = query.compliance_state.as_deref().filter(|s| !s.is_empty()) {
         clauses.push(state_clause(value, &open, &mut values));
     }
-    if let Some(hide) = query.hide.as_deref() {
-        let mut hidden = Vec::new();
-        for token in hide.split(',').filter(|s| !s.is_empty()) {
-            if !matches!(
-                token,
-                "clean"
-                    | "warning"
-                    | "blocker"
-                    | "unknown"
-                    | "probe_failed"
-                    | "missing"
-                    | "convert"
-                    | "reencode"
-                    | "converted"
-                    | "embed"
-            ) {
-                return error(StatusCode::UNPROCESSABLE_ENTITY, "unknown state", PATH);
-            }
-            hidden.push(state_clause(token, &open, &mut values));
-        }
-        if !hidden.is_empty() {
-            clauses.push(format!("NOT ({})", hidden.join(" OR ")));
-        }
-    }
+    clauses.extend(selection_clauses(
+        query.hide.as_deref(),
+        &has_tokens(query.has.as_deref()),
+        &open,
+        &mut values,
+    ));
     if let Some(sidecar) = query.has_sidecar {
         clauses.push(format!(
             "{}EXISTS (SELECT 1 FROM sidecars s WHERE s.media_file_id=m.id)",

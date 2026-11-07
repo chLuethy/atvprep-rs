@@ -32,6 +32,7 @@ const Library: ParentComponent<{ api: ManagerApi | undefined; fileId: string | u
   const base = (id: string | undefined) => (id ? `/files/${encodeURIComponent(id)}` : "/files");
   const status = () => (typeof params.status === "string" ? params.status : undefined);
   const hide = () => (typeof params.hide === "string" ? params.hide : undefined);
+  const has = () => (typeof params.has === "string" ? params.has : undefined);
   return (
     <Show when={props.api} fallback={<Files />}>
       {(api) => (
@@ -40,10 +41,12 @@ const Library: ParentComponent<{ api: ManagerApi | undefined; fileId: string | u
           activeId={props.fileId}
           status={status()}
           hide={hide()}
+          has={has()}
           onFilter={(next) => {
             const query = new URLSearchParams();
             if (next.status) query.set("status", next.status);
             if (next.hide) query.set("hide", next.hide);
+            if (next.has) query.set("has", next.has);
             navigate(`${base(props.fileId)}${query.size > 0 ? `?${query}` : ""}`, { replace: true });
           }}
           onOpen={(id) => navigate(`${base(id)}${location.search}`)}
