@@ -11,6 +11,7 @@ use atvprep::{Environment, Io, run};
 use atvprep_core::compliance::{Severity, Violation};
 use atvprep_core::console::SharedBuffer;
 use atvprep_core::verify::VerifyReport;
+use atvprep_manager::state_machine::ItemStatus;
 use atvprep_testkit::{fixture_path, load_golden};
 use serde::Deserialize;
 
@@ -332,7 +333,10 @@ fn worker_executes_a_claimed_verification_and_releases_its_permit() {
         String::from_utf8_lossy(&result.output)
     );
     let item = Jobs(ctx).get_item(item.id).unwrap().unwrap();
-    assert!(matches!(item.status.as_str(), "succeeded" | "failed"));
+    assert!(matches!(
+        item.status,
+        ItemStatus::Succeeded | ItemStatus::Failed
+    ));
     let permits: i64 = conn
         .raw()
         .query_row(
@@ -356,7 +360,7 @@ fn worker_executes_a_claimed_verification_and_releases_its_permit() {
     assert!(execute_claimed(ctx, item.id, "worker", fence, &missing).is_err());
     assert_eq!(
         Jobs(ctx).get_item(item.id).unwrap().unwrap().status,
-        "failed"
+        ItemStatus::Failed
     );
     let executable = std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default())
         .map(|directory| directory.join("ffprobe"))
@@ -533,7 +537,7 @@ fn worker_executes_a_claimed_verification_and_releases_its_permit() {
     );
     assert_eq!(
         Jobs(ctx).get_item(item.id).unwrap().unwrap().status,
-        "succeeded"
+        ItemStatus::Succeeded
     );
     assert!(String::from_utf8_lossy(&prepared.output).contains("ATVPREP-OUTCOME "));
     let tail: String = ctx

@@ -13,6 +13,7 @@ use atvprep_manager::repo::Ctx;
 use atvprep_manager::schema::migrate;
 use atvprep_manager::settings::Settings;
 use atvprep_manager::snapshots::InputSnapshots;
+use atvprep_manager::state_machine::JobStatus;
 use serde_json::json;
 
 const T0: i64 = 1_700_000_000_000_000;
@@ -410,14 +411,18 @@ fn clear_finished_hides_only_the_requested_finished_statuses() {
         "UPDATE jobs SET status='succeeded' WHERE id={}",
         ids[1]
     ));
-    assert_eq!(jobs.clear_finished(&["failed"]).unwrap(), 1);
-    assert_eq!(jobs.clear_finished(&["failed"]).unwrap(), 0);
+    assert_eq!(jobs.clear_finished(&[JobStatus::Failed]).unwrap(), 1);
+    assert_eq!(jobs.clear_finished(&[JobStatus::Failed]).unwrap(), 0);
     let cleared = |id: i64| jobs.get(id).unwrap().unwrap().cleared_at.is_some();
     assert_eq!(
         (cleared(ids[0]), cleared(ids[1]), cleared(ids[2])),
         (true, false, false)
     );
-    for status in ["queued", "running", "cancel_requested", "bogus"] {
+    for status in [
+        JobStatus::Queued,
+        JobStatus::Running,
+        JobStatus::CancelRequested,
+    ] {
         assert!(
             matches!(jobs.clear_finished(&[status]), Err(Error::Invalid(_))),
             "{status}"
@@ -598,4 +603,22 @@ fn runtime_settings_of_the_control_plane_are_read_with_a_floor_of_one() {
     jobs.set_runtime_setting("media_limit", &json!(-4), "int", 3)
         .unwrap();
     assert_eq!(jobs.read_runtime_int("media_limit", 3).unwrap(), 1);
+}
+
+#[test]
+fn a_stored_status_that_is_not_known_is_an_error_naming_the_value() {
+    let f = Fixture::new();
+    let media = f.media(&["a.mp4"]);
+    let jobs = Jobs(f.ctx());
+    let job = jobs.create(&NewJob::new("fix", &media)).unwrap();
+    let item = jobs.items(job.id).unwrap()[0].id;
+    f.sql("PRAGMA ignore_check_constraints=ON");
+    f.sql(&format!(
+        "UPDATE job_items SET status='bogus_item' WHERE id={item};
+         UPDATE jobs SET status='bogus_job' WHERE id={}",
+        job.id
+    ));
+
+    assert!(error_text(jobs.get_item(item)).contains("bogus_item"));
+    assert!(error_text(jobs.get(job.id)).contains("bogus_job"));
 }

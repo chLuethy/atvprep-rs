@@ -9,7 +9,7 @@ use crate::{
     leases::MediaExecutorLease,
     repo::Ctx,
     snapshots::{InputSnapshot, InputSnapshots},
-    state_machine::JobStateMachine,
+    state_machine::{ItemStatus, JobStateMachine, JobStatus},
 };
 use std::{
     collections::BTreeMap,
@@ -58,7 +58,7 @@ pub fn execute_claimed(
     if !matches!(
         item.action.as_str(),
         "verify" | "inspect" | "fix" | "convert"
-    ) || item.status != "claimed"
+    ) || item.status != ItemStatus::Claimed
     {
         return Err(Error::Invalid(
             "item is not a claimed verification".to_owned(),
@@ -66,7 +66,7 @@ pub fn execute_claimed(
     }
     let parent = crate::db::retry_busy(|| Jobs(ctx).get(item.job_id))?
         .ok_or_else(|| Error::Invalid("parent job not found".to_owned()))?;
-    if !matches!(parent.status.as_str(), "queued" | "running") {
+    if !matches!(parent.status, JobStatus::Queued | JobStatus::Running) {
         return Err(Error::Conflict(
             "parent job no longer accepts execution".to_owned(),
         ));
@@ -161,7 +161,7 @@ pub fn execute_claimed(
                 && JobStateMachine(ctx)
                     .transition_item(
                         item_id,
-                        "stale_input",
+                        ItemStatus::StaleInput,
                         item.status_version,
                         Some(fence),
                         Some(&serde_json::json!({"error": error.to_string()})),
@@ -185,7 +185,7 @@ pub fn execute_claimed(
         }
         JobStateMachine(ctx).transition_item(
             item_id,
-            "running",
+            ItemStatus::Running,
             item.status_version,
             Some(fence),
             None,
@@ -219,13 +219,13 @@ pub fn execute_claimed(
                 lost = true;
                 return true;
             }
-            let status: std::result::Result<String, _> = ctx.conn.query_row(
+            let status: std::result::Result<JobStatus, _> = ctx.conn.query_row(
                 "SELECT status FROM jobs WHERE id=?1",
                 [item.job_id],
                 |row| row.get(0),
             );
             status.map_or(true, |status| {
-                !matches!(status.as_str(), "queued" | "running")
+                !matches!(status, JobStatus::Queued | JobStatus::Running)
             })
         };
         let mut output =
@@ -333,21 +333,21 @@ pub fn execute_claimed(
             .get_item(item_id)?
             .ok_or_else(|| Error::Invalid("job item not found".to_owned()))?;
         let terminal = if shutdown_requested {
-            "interrupted"
+            ItemStatus::Interrupted
         } else if process.reason == StopReason::Cancelled {
-            "cancelled"
+            ItemStatus::Cancelled
         } else if process.reason == StopReason::Exited
             && (process.exit_code == Some(0) || verified_with_findings)
         {
-            "succeeded"
+            ItemStatus::Succeeded
         } else {
-            "failed"
+            ItemStatus::Failed
         };
-        let version = if fresh.status == "cancel_requested" {
+        let version = if fresh.status == ItemStatus::CancelRequested {
             JobStateMachine(ctx)
                 .transition_item(
                     item_id,
-                    "cancelling",
+                    ItemStatus::Cancelling,
                     fresh.status_version,
                     Some(fence),
                     None,
@@ -384,11 +384,11 @@ pub fn execute_claimed(
             let cleanup = (|| -> Result<()> {
                 if authority(ctx, item_id, owner, fence).unwrap_or(false)
                     && let Ok(Some(fresh)) = Jobs(ctx).get_item(item_id)
-                    && fresh.status == "running"
+                    && fresh.status == ItemStatus::Running
                 {
                     JobStateMachine(ctx).transition_item(
                         item_id,
-                        "failed",
+                        ItemStatus::Failed,
                         fresh.status_version,
                         Some(fence),
                         None,

@@ -1,6 +1,6 @@
 # atvprep Auslieferung
 
-Wie atvprep gebaut, signiert, auf dem Host `mm` und in den Servarr-Containern installiert, aktualisiert und zurückgenommen wird.
+Wie atvprep gebaut, signiert, auf dem Host `mm` und in den Servarr-Containern installiert, aktualisiert und zurückgenommen wird, und wie es zur Laufzeit Arbeit und deren Status führt.
 
 ## Language
 
@@ -74,3 +74,19 @@ _Avoid_: Ausführung, Run (nur in der Oberfläche)
 
 **Slot**:
 Der geplante Zeitpunkt eines Laufs, wie ihn der Cron-Ausdruck des Zeitplans ergibt.
+
+## Arbeit und Status
+
+**Job-Status**:
+Der Zustand eines Jobs (`JobStatus`), abgeleitet aus seinen Item-Status: `queued`, `running`, `cancel_requested`, `succeeded`, `partial_success`, `failed`, `cancelled`. Terminal sind `succeeded`, `partial_success`, `failed` und `cancelled`.
+_Avoid_: Parent-Status
+
+**Item-Status**:
+Der Zustand eines Items eines Jobs (`ItemStatus`): `queued`, `claimed`, `running`, `cancel_requested`, `cancelling`, `succeeded`, `failed`, `stale_input`, `cancelled`, `interrupted`. Terminal sind `succeeded`, `failed`, `stale_input`, `cancelled` und `interrupted`.
+_Avoid_: Child-Status
+
+**Scan-Status**:
+Der Zustand eines Scan-Laufs (`ScanStatus`), getrennt vom Job-Lebenszyklus: `queued`, `claimed`, `running`, `succeeded`, `failed`, `cancelled`, `interrupted`. Terminal sind `succeeded`, `failed`, `cancelled` und `interrupted`.
+
+**Terminal**:
+Ein Status, aus dem kein weiterer Übergang mehr erwartet wird: die Arbeit ist auf die eine oder andere Weise beendet und ändert sich nicht mehr. Die Typen bieten dafür `is_terminal()` und, für SQL, `terminal_sql_list()`; Übergänge prüft `can_become()`.

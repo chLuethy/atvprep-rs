@@ -11,11 +11,11 @@ use crate::events::Events;
 use crate::models::{Job, JobItem};
 use crate::repo::Ctx;
 use crate::snapshots::{InputSnapshot, InputSnapshots, build_for_media, compare_snapshot};
+use crate::state_machine::{ItemStatus, JobStatus};
 use crate::{Error, Result};
 
 const ACTIONS: [&str; 4] = ["inspect", "verify", "fix", "convert"];
 const TRIGGERS: [&str; 3] = ["automatic", "manual", "retry"];
-const ITEM_DONE: &str = "('succeeded','failed','cancelled','interrupted','stale_input')";
 
 /// What a new job is made of.
 pub struct NewJob<'a> {
@@ -124,8 +124,9 @@ impl Jobs<'_> {
     fn active_mutation_exists(&self, media_ids: &[i64]) -> Result<bool> {
         let sql = format!(
             "SELECT 1 FROM job_items WHERE media_file_id IN ({}) AND action IN ('fix','convert')
-             AND status NOT IN {ITEM_DONE} LIMIT 1",
-            item_columns_in(media_ids)
+             AND status NOT IN {} LIMIT 1",
+            item_columns_in(media_ids),
+            ItemStatus::terminal_sql_list()
         );
         Ok(self
             .0
@@ -269,9 +270,8 @@ impl Jobs<'_> {
     /// # Errors
     ///
     /// Only finished statuses may be cleared.
-    pub fn clear_finished(&self, statuses: &[&str]) -> Result<usize> {
-        let allowed = ["succeeded", "partial_success", "failed", "cancelled"];
-        if statuses.is_empty() || !statuses.iter().all(|s| allowed.contains(s)) {
+    pub fn clear_finished(&self, statuses: &[JobStatus]) -> Result<usize> {
+        if statuses.is_empty() || !statuses.iter().all(|s| s.is_terminal()) {
             return Err(Error::Invalid(
                 "only finished jobs can be cleared".to_owned(),
             ));
@@ -323,20 +323,14 @@ impl Jobs<'_> {
         let old_items = self.items(job_id)?;
         let retry_items: Vec<&JobItem> = old_items
             .iter()
-            .filter(|i| matches!(i.status.as_str(), "failed" | "stale_input" | "interrupted"))
+            .filter(|i| {
+                matches!(
+                    i.status,
+                    ItemStatus::Failed | ItemStatus::StaleInput | ItemStatus::Interrupted
+                )
+            })
             .collect();
-        let finished = [
-            "succeeded",
-            "cancelled",
-            "failed",
-            "stale_input",
-            "interrupted",
-        ];
-        if retry_items.is_empty()
-            || old_items
-                .iter()
-                .any(|i| !finished.contains(&i.status.as_str()))
-        {
+        if retry_items.is_empty() || old_items.iter().any(|i| !i.status.is_terminal()) {
             return Err(Error::Invalid(
                 "job has no retryable failed items".to_owned(),
             ));

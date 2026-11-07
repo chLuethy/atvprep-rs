@@ -12,6 +12,7 @@ use atvprep_manager::{
     repo::Ctx,
     schedules::run_schedule,
     schema,
+    state_machine::ItemStatus,
     worker::execution::{ExecutionConfig, execute_claimed},
 };
 use std::{collections::BTreeMap, os::unix::fs::MetadataExt, path::PathBuf, time::Duration};
@@ -126,7 +127,7 @@ fn refused_after(change: &str) {
     assert!(execute_claimed(ctx, item.id, "worker", fence, &config()).is_err());
 
     let ended = Jobs(ctx).get_item(item.id).unwrap().unwrap();
-    assert_eq!(ended.status, "stale_input", "{change}");
+    assert_eq!(ended.status, ItemStatus::StaleInput, "{change}");
     // The refusal is not transient, so it must not keep the single heavy slot occupied.
     let other = Jobs(ctx)
         .create(&NewJob::new("fix", &[world.media]))

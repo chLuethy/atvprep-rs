@@ -15,6 +15,7 @@ use crate::jobs::{Jobs, NewJob};
 use crate::limits;
 use crate::repo::Ctx;
 use crate::scans::Scans;
+use crate::state_machine::ItemStatus;
 use crate::{Error, Result};
 
 const CATCH_UP_MICROS: i64 = 6 * 60 * 60 * 1_000_000;
@@ -430,7 +431,7 @@ fn run_recorded(ctx: Ctx<'_>, schedule_id: i64, slot: Option<&str>) -> Result<St
     if matches!(action.as_str(), "fix" | "convert") {
         return run_change_schedule(ctx, schedule_id, &action, &now, slot);
     }
-    let mut statement = ctx.conn.prepare(
+    let mut statement = ctx.conn.prepare(&format!(
         "SELECT media_files.id FROM media_files
          WHERE discovery_state='present'
            AND lower(suffix) IN ('.mp4','.m4v','.mov')
@@ -438,11 +439,12 @@ fn run_recorded(ctx: Ctx<'_>, schedule_id: i64, slot: Option<&str>) -> Result<St
            AND (?2 IS NULL OR compliance_state=?2)
            AND id NOT IN (SELECT media_file_id FROM job_items
                           WHERE action IN ('fix','convert')
-                            AND status NOT IN ('succeeded','failed','cancelled','interrupted','stale_input'))
+                            AND status NOT IN {})
          ORDER BY (SELECT max(id) FROM job_items AS prior
                    WHERE prior.media_file_id=media_files.id AND prior.action='verify') ASC,
                   media_files.id ASC LIMIT ?3",
-    )?;
+        ItemStatus::terminal_sql_list()
+    ))?;
     let media_ids = statement
         .query_map(
             rusqlite::params![root_id, compliance_state, max_files],
@@ -574,14 +576,14 @@ fn run_change_schedule(
         );
     }
     let delete_original = delete_original_setting(ctx.conn)?;
-    let mut statement = ctx.conn.prepare(
+    let mut statement = ctx.conn.prepare(&format!(
         "SELECT m.id FROM media_files m
          WHERE m.discovery_state='present'
            AND (?1 IS NULL OR m.root_id=?1)
            AND (?2 IS NULL OR m.compliance_state=?2)
            AND NOT EXISTS (SELECT 1 FROM job_items i WHERE i.media_file_id=m.id
                            AND i.action IN ('fix','convert')
-                           AND i.status NOT IN ('succeeded','failed','cancelled','interrupted','stale_input'))
+                           AND i.status NOT IN {})
            AND NOT EXISTS (SELECT 1 FROM media_files sibling
                            WHERE sibling.root_id=m.root_id AND sibling.discovery_state='present'
                              AND sibling.relative_path=substr(m.relative_path,1,length(m.relative_path)-length(m.suffix))||'.mp4'
@@ -590,7 +592,8 @@ fn run_change_schedule(
                 OR m.compliance_state IN ('warning','blocker') OR m.desired_action='fix')
            AND (?3 OR m.compliance_reasons NOT LIKE '%] video-reencode:%')
          ORDER BY m.id LIMIT ?4",
-    )?;
+        ItemStatus::terminal_sql_list()
+    ))?;
     let media_ids = statement
         .query_map(
             rusqlite::params![

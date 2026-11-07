@@ -6,6 +6,7 @@ use crate::{
 use atvprep_manager::{
     deployment_gate::{DeploymentGate, Operator},
     repo::Ctx,
+    state_machine::{ItemStatus, ScanStatus},
 };
 use axum::{
     Json,
@@ -42,11 +43,24 @@ fn checked_view(ctx: Ctx<'_>) -> Result<Value, MutationError> {
         .map_err(|_| MutationError::Database)?;
     let (changed_by_kind, changed_at) =
         metadata.map_or((None, None), |(actor, at)| (actor, Some(at)));
-    let items:i64=ctx.conn.query_row("SELECT count(*) FROM job_items WHERE status IN ('claimed','running','cancel_requested','cancelling')",[],|r|r.get(0)).map_err(|_|MutationError::Database)?;
+    let items: i64 = ctx
+        .conn
+        .query_row(
+            &format!(
+                "SELECT count(*) FROM job_items WHERE status IN {}",
+                ItemStatus::active_sql_list()
+            ),
+            [],
+            |r| r.get(0),
+        )
+        .map_err(|_| MutationError::Database)?;
     let scans: i64 = ctx
         .conn
         .query_row(
-            "SELECT count(*) FROM scan_runs WHERE status IN ('claimed','running')",
+            &format!(
+                "SELECT count(*) FROM scan_runs WHERE status IN {}",
+                ScanStatus::active_sql_list()
+            ),
             [],
             |r| r.get(0),
         )

@@ -8,7 +8,7 @@ use crate::deployment_gate::DeploymentGate;
 use crate::jobs::{Jobs, NewJob};
 use crate::models::JobItem;
 use crate::repo::Ctx;
-use crate::state_machine::JobStateMachine;
+use crate::state_machine::{ItemStatus, JobStateMachine};
 use crate::{Error, Result};
 
 const DEFAULT_LIMIT: i64 = 100;
@@ -103,7 +103,7 @@ impl Recovery<'_> {
         }
         let mut summary = self.recover_expired_items(limit)?;
         for item in before {
-            let current: Option<String> = self
+            let current: Option<ItemStatus> = self
                 .0
                 .conn
                 .query_row(
@@ -112,7 +112,7 @@ impl Recovery<'_> {
                     |row| row.get(0),
                 )
                 .optional()?;
-            if current.as_deref() != Some("interrupted") {
+            if current != Some(ItemStatus::Interrupted) {
                 continue;
             }
             // Work the user cancelled must not come back as a retry.
@@ -258,7 +258,7 @@ impl Recovery<'_> {
                 .collect::<std::result::Result<Vec<_>, _>>()?;
             drop(queued);
             for (item, version) in items {
-                states.transition_item(item, "cancelled", version, None, None)?;
+                states.transition_item(item, ItemStatus::Cancelled, version, None, None)?;
             }
             let (active, version): (i64, i64) = self.0.conn.query_row(
                 "SELECT (SELECT count(*) FROM job_items WHERE job_id=jobs.id
