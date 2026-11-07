@@ -594,3 +594,23 @@ describe("Inspector: external subtitle files", () => {
     await waitFor(() => expect(view.getByRole("list", { name: "Sidecar files" })).toHaveTextContent("English: not used, the file already has this subtitle"));
   });
 });
+
+describe("Inspector: an interrupted preparation", () => {
+  it("notes the interruption and starts the normal manual preparation again, never on its own", async () => {
+    const onFix = vi.fn();
+    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response({ ...detail, last_interrupted: true }) })} fileId="m_f1" onFix={onFix} />);
+
+    expect(await view.findByText("Last preparation interrupted")).toBeInTheDocument();
+    expect(onFix).not.toHaveBeenCalled();
+    await fireEvent.click(view.getByRole("button", { name: "Prepare again" }));
+    expect(onFix).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows nothing when the last preparation was not interrupted", async () => {
+    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response({ ...detail, last_interrupted: false }) })} fileId="m_f1" onFix={vi.fn()} />);
+
+    await view.findByRole("heading", { name: "Pretty Woman (1990)" });
+    expect(view.queryByText("Last preparation interrupted")).not.toBeInTheDocument();
+    expect(view.queryByRole("button", { name: "Prepare again" })).not.toBeInTheDocument();
+  });
+});

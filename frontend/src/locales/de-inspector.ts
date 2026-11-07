@@ -38,6 +38,8 @@ export const deInspector: Record<string, string | [string, string]> = {
   "No job history": "Kein Auftragsverlauf",
   "Loading file detail": "Dateidetails werden geladen",
   "Unable to load inspections": "Inspektionen konnten nicht geladen werden",
+  "Last preparation interrupted": "Letzte Überarbeitung unterbrochen",
+  "Prepare again": "Erneut überarbeiten",
   "Prepare preview": "Vorschau zum Überarbeiten",
   "Confirm prepare": "Überarbeiten bestätigen",
   "Prepare queued": "Überarbeitung eingereiht",

@@ -68,12 +68,14 @@ INSERT OR IGNORE INTO library_roots(id,name,canonical_path) VALUES(1,'E2E Librar
 INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,scanned_device,scanned_inode,scanned_ctime_ns,discovery_state,compliance_state,workflow_state,desired_action,needs_reencode) VALUES
  (1,1,'Sample Movie.mp4','movie','.mp4',$size,1,'$fingerprint',1,1,1,'present','clean','idle','none',0),
  (2,1,'Failed Movie.mp4','movie','.mp4',$size,1,'$fingerprint',1,2,1,'present','warning','action_required','fix',0),
- (3,1,'Old Codec Movie.mp4','movie','.mp4',$size,1,'$fingerprint',1,3,1,'present','warning','action_required','fix',1);
+ (3,1,'Interrupted Movie.mp4','movie','.mp4',$size,1,'$fingerprint',1,3,1,'present','warning','action_required','fix',0),
+ (4,1,'Old Codec Movie.mp4','movie','.mp4',$size,1,'$fingerprint',1,4,1,'present','warning','action_required','fix',1);
 INSERT INTO inspections(media_file_id,source_fingerprint,input_fingerprint,tool_name,tool_version,result) VALUES(1,'$fingerprint','$fingerprint','ffprobe','e2e','{"format":{"format_name":"mp4"}}');
-INSERT INTO jobs(id,action,status,trigger,total_count,failed_count,error) VALUES(1,'verify','queued','manual',1,0,NULL),(2,'fix','failed','manual',1,1,'synthetic e2e failure');
-INSERT INTO job_items(id,job_id,media_file_id,action,position,status,attempt,error_code,error_detail,input_snapshot_json,log_tail) VALUES
- (1,1,1,'verify',1,'queued',0,NULL,NULL,'{"relative_path":"Sample Movie.mp4"}','synthetic executor log'),
- (2,2,2,'fix',1,'failed',1,'synthetic_failure','synthetic e2e failure','{"relative_path":"Failed Movie.mp4"}','synthetic executor log');
+INSERT INTO jobs(id,action,status,trigger,total_count,failed_count,error) VALUES(1,'verify','queued','manual',1,0,NULL),(2,'fix','failed','manual',1,1,'synthetic e2e failure'),(3,'fix','failed','manual',1,1,'worker stopped');
+INSERT INTO job_items(id,job_id,media_file_id,action,position,status,attempt,error_code,error_detail,input_snapshot_json,log_tail,finished_at) VALUES
+ (1,1,1,'verify',1,'queued',0,NULL,NULL,'{"relative_path":"Sample Movie.mp4"}','synthetic executor log',NULL),
+ (2,2,2,'fix',1,'failed',1,'synthetic_failure','synthetic e2e failure','{"relative_path":"Failed Movie.mp4"}','synthetic executor log',NULL),
+ (3,3,3,'fix',1,'interrupted',1,'worker_stopped','The worker stopped while this ran.','{"relative_path":"Interrupted Movie.mp4"}','synthetic executor log','2999-01-01T00:00:00Z');
 INSERT INTO events(job_id,topic,entity_type,entity_id,payload_json,expires_at) VALUES(1,'job.created','job',1,'{"action":"verify","source":"e2e"}',datetime('now','+1 day'));
 -- Keep the fixture stable: the real workers must not pick it up.
 INSERT OR IGNORE INTO scheduler_leases(id) VALUES(1);
