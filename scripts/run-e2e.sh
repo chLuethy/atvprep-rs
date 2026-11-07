@@ -7,7 +7,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 (cd frontend && npm run build)
-cargo build --locked --manifest-path rust/Cargo.toml -p atvprep
+# Build from rust/ so rustup picks up rust/rust-toolchain.toml (CI has no default toolchain).
+(cd rust && cargo build --locked -p atvprep)
 
 work=$(mktemp -d)
 server=
