@@ -54,6 +54,9 @@ impl RetentionPolicy {
     }
 }
 
+/// Runs kept in the history of each schedule.
+const SCHEDULE_RUNS_KEPT: i64 = 10;
+
 #[derive(Default)]
 pub struct RetentionSummary {
     pub events: usize,
@@ -62,6 +65,7 @@ pub struct RetentionSummary {
     pub jobs: usize,
     pub logs: usize,
     pub permits: usize,
+    pub schedule_runs: usize,
 }
 
 /// The database-global lease held by one maintenance worker.
@@ -397,6 +401,17 @@ impl<'a> MaintenanceLease<'a> {
         } else {
             0
         };
+        let schedule_runs = if self.held(owner_id)? {
+            self.ctx.conn.execute(
+                "DELETE FROM schedule_runs WHERE id IN (
+                   SELECT id FROM (SELECT id, row_number() OVER (PARTITION BY schedule_id ORDER BY id DESC) AS rank
+                                   FROM schedule_runs)
+                   WHERE rank > ?1 ORDER BY id LIMIT ?2)",
+                rusqlite::params![SCHEDULE_RUNS_KEPT, batch],
+            )?
+        } else {
+            0
+        };
         Ok(RetentionSummary {
             events,
             authentication: sessions + idempotency + csrf,
@@ -404,6 +419,7 @@ impl<'a> MaintenanceLease<'a> {
             jobs,
             logs,
             permits,
+            schedule_runs,
         })
     }
 }

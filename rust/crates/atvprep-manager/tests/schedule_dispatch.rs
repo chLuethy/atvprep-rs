@@ -55,6 +55,49 @@ fn a_failed_queue_insert_does_not_consume_the_slot() {
     assert_eq!(run_due_schedules(ctx).unwrap(), 0);
 }
 #[test]
+fn a_dispatched_slot_is_recorded_as_a_scheduled_run() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    assert_eq!(run_due_schedules(ctx).unwrap(), 1);
+    assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+    let (slot, last_slot, trigger, result, job): (String, String, String, String, Option<i64>) =
+        conn.raw()
+            .query_row(
+                "SELECT r.slot, s.last_slot_at, r.trigger, r.result, r.job_id
+                 FROM schedule_runs r JOIN schedules s ON s.id=r.schedule_id",
+                [],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                    ))
+                },
+            )
+            .unwrap();
+    assert_eq!((slot, trigger.as_str()), (last_slot, "scheduled"));
+    assert_eq!(result, "Queued 1 file");
+    assert_eq!(job, Some(1));
+    // A manual run adds an entry without a slot.
+    run_schedule(ctx, 1).unwrap();
+    let manual: i64 = conn
+        .raw()
+        .query_row(
+            "SELECT count(*) FROM schedule_runs WHERE trigger='manual' AND slot IS NULL",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(manual, 1);
+}
+#[test]
 fn a_failing_or_corrupt_schedule_does_not_block_the_ones_after_it() {
     let db = Db::memory().unwrap();
     let conn = seed(&db);
@@ -73,6 +116,50 @@ fn a_failing_or_corrupt_schedule_does_not_block_the_ones_after_it() {
     conn.raw().execute("INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,max_files,enabled,armed_at) VALUES(2,'bad','verify',1,127,'not-a-time',1,1,'2000-01-01'),(3,'good','verify',1,127,?1,1,1,'2000-01-01')",[time]).unwrap();
     conn.raw().execute_batch("CREATE TRIGGER refuse_first BEFORE UPDATE OF last_slot_at ON schedules WHEN NEW.id=1 BEGIN SELECT RAISE(ABORT,'first refused'); END;").unwrap();
     assert_eq!(run_due_schedules(ctx).unwrap(), 1);
+}
+fn local_minute_offset(minutes: i64) -> (String, String) {
+    let at = DateTime::<Utc>::from_timestamp_micros(NOW)
+        .unwrap()
+        .with_timezone(&Local)
+        + Duration::minutes(minutes);
+    (at.format("%-M").to_string(), at.format("%-H").to_string())
+}
+#[test]
+fn the_cron_decides_the_slot_not_the_legacy_columns() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    // The legacy columns say 00:00; the cron says half an hour ago, then half an hour ahead.
+    conn.raw().execute("DELETE FROM schedules", []).unwrap();
+    let (minute, hour) = local_minute_offset(-30);
+    let cron = format!("{minute} {hour} * * *");
+    conn.raw().execute("INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,max_files,enabled,armed_at,cron) VALUES(1,'c','verify',1,127,'00:00',1,1,'2000-01-01',?1)",[cron]).unwrap();
+    assert_eq!(run_due_schedules(ctx).unwrap(), 1);
+    assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+    let (minute, hour) = local_minute_offset(30);
+    let cron = format!("{minute} {hour} * * *");
+    conn.raw()
+        .execute("UPDATE schedules SET cron=?1, last_slot_at=NULL", [cron])
+        .unwrap();
+    assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+}
+#[test]
+fn an_invalid_cron_is_skipped() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    conn.raw()
+        .execute("UPDATE schedules SET cron='nonsense' WHERE id=1", [])
+        .unwrap();
+    assert_eq!(run_due_schedules(ctx).unwrap(), 0);
 }
 #[test]
 fn competing_dispatchers_claim_each_slot_once() {
@@ -152,14 +239,146 @@ fn dispatch_respects_catchup_arming_pause_and_gate() {
             0,
             "{mode}"
         );
-        assert_eq!(
-            conn.raw()
-                .query_row("SELECT last_slot_at FROM schedules", [], |row| row
-                    .get::<_, Option<String>>(0))
-                .unwrap(),
-            None
-        );
+        // Only a slot the manager saw too late is noted; before arming, paused or behind the gate is expected.
+        let noted: i64 = conn
+            .raw()
+            .query_row("SELECT count(*) FROM schedule_runs", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(noted, i64::from(mode == "late"), "{mode}");
+        if mode != "late" {
+            assert_eq!(
+                conn.raw()
+                    .query_row("SELECT last_slot_at FROM schedules", [], |row| row
+                        .get::<_, Option<String>>(0))
+                    .unwrap(),
+                None
+            );
+        }
     }
+}
+#[test]
+fn slots_that_pass_behind_a_closed_gate_are_never_reported_when_it_reopens() {
+    for (hours, action) in [(7, "verify"), (1, "fix")] {
+        let db = Db::memory().unwrap();
+        let conn = seed(&db);
+        let clock = FixedClock(NOW);
+        let ctx = Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        };
+        let time = (DateTime::<Utc>::from_timestamp_micros(NOW)
+            .unwrap()
+            .with_timezone(&Local)
+            - Duration::hours(hours))
+        .format("%H:%M")
+        .to_string();
+        conn.raw()
+            .execute(
+                "UPDATE schedules SET time_of_day=?1, cron=NULL, action=?2, approved_by=1, approved_at=1, approval_mac='a'",
+                rusqlite::params![time, action],
+            )
+            .unwrap();
+        conn.raw()
+            .execute("UPDATE deployment_gate SET mode='maintenance'", [])
+            .unwrap();
+        assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+        conn.raw()
+            .execute("UPDATE deployment_gate SET mode='open'", [])
+            .unwrap();
+        assert_eq!(run_due_schedules(ctx).unwrap(), 0, "{action}");
+        let (entries, jobs): (i64, i64) = conn
+            .raw()
+            .query_row(
+                "SELECT (SELECT count(*) FROM schedule_runs), (SELECT count(*) FROM jobs)",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!((entries, jobs), (0, 0), "{action}");
+    }
+}
+#[test]
+fn a_late_slot_behind_a_closed_gate_still_runs_within_its_window_once_it_reopens() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    conn.raw()
+        .execute("UPDATE deployment_gate SET mode='maintenance'", [])
+        .unwrap();
+    assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+    conn.raw()
+        .execute("UPDATE deployment_gate SET mode='open'", [])
+        .unwrap();
+    // The seeded slot was 30 minutes ago: checking still catches it up.
+    assert_eq!(run_due_schedules(ctx).unwrap(), 1);
+}
+#[test]
+fn a_slot_outside_the_window_is_noted_once_as_missed_without_a_job() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    let time = (DateTime::<Utc>::from_timestamp_micros(NOW)
+        .unwrap()
+        .with_timezone(&Local)
+        - Duration::hours(7))
+    .format("%H:%M")
+    .to_string();
+    conn.raw()
+        .execute("UPDATE schedules SET time_of_day=?1, cron=NULL", [time])
+        .unwrap();
+    for _ in 0..3 {
+        assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+    }
+    let rows: Vec<(String, String, String, String, Option<i64>)> = conn
+        .raw()
+        .prepare("SELECT kind, trigger, result, slot, job_id FROM schedule_runs")
+        .unwrap()
+        .query_map([], |row| {
+            Ok((
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+            ))
+        })
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert_eq!(rows.len(), 1, "{rows:?}");
+    assert_eq!(rows[0].0, "missed");
+    assert_eq!(rows[0].1, "scheduled");
+    assert_eq!(
+        rows[0].2,
+        "Missed: not started within 360 minutes of its slot"
+    );
+    assert_eq!(rows[0].4, None);
+    let (jobs, last_run, last_slot): (i64, Option<String>, Option<String>) = conn
+        .raw()
+        .query_row(
+            "SELECT (SELECT count(*) FROM jobs), last_run_at, last_slot_at FROM schedules",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!((jobs, last_run), (0, None));
+    assert_eq!(last_slot.as_deref(), Some(rows[0].3.as_str()));
+    // Even if the entry has been pruned, the slot is not noted again.
+    conn.raw().execute("DELETE FROM schedule_runs", []).unwrap();
+    assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+    let again: i64 = conn
+        .raw()
+        .query_row("SELECT count(*) FROM schedule_runs", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(again, 0);
 }
 #[test]
 fn runs_rotate_across_present_mp4_files_and_respect_root_state_and_busy_files() {
@@ -183,4 +402,92 @@ fn runs_rotate_across_present_mp4_files_and_respect_root_state_and_busy_files() 
     assert_eq!(conn.raw().query_row("SELECT media_file_id FROM job_items WHERE job_id=(SELECT last_job_id FROM schedules WHERE id=1)",[],|row|row.get::<_,i64>(0)).unwrap(),2);
     conn.raw().execute_batch("INSERT INTO jobs(id,action,status) VALUES(100,'fix','queued'); INSERT INTO job_items(job_id,media_file_id,action,position,status) VALUES(100,2,'fix',1,'queued');").unwrap();
     assert_eq!(run_schedule(ctx, 1).unwrap(), "No matching files");
+}
+fn scan_schedule(conn: &Conn, root: Option<i64>) -> i64 {
+    let time: String = conn
+        .raw()
+        .query_row("SELECT time_of_day FROM schedules WHERE id=1", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    conn.raw()
+        .execute("UPDATE schedules SET enabled=0 WHERE id=1", [])
+        .unwrap();
+    conn.raw().execute("INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,enabled,armed_at) VALUES(10,'scan','scan',?1,127,?2,1,'2000-01-01')",rusqlite::params![root,time]).unwrap();
+    10
+}
+fn queued_scans(conn: &Conn) -> Vec<(i64, String)> {
+    conn.raw()
+        .prepare("SELECT root_id, trigger FROM scan_runs WHERE status='queued' ORDER BY root_id")
+        .unwrap()
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect()
+}
+#[test]
+fn a_scan_schedule_queues_one_scan_of_its_library() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    let id = scan_schedule(&conn, Some(2));
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    assert_eq!(run_schedule(ctx, id).unwrap(), "Queued 1 scan");
+    assert_eq!(queued_scans(&conn), vec![(2, "manual".to_owned())]);
+    let (job, result): (Option<i64>, String) = conn
+        .raw()
+        .query_row(
+            "SELECT last_job_id, last_result FROM schedules WHERE id=?1",
+            [id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!((job, result.as_str()), (None, "Queued 1 scan"));
+    assert_eq!(
+        conn.raw()
+            .query_row("SELECT count(*) FROM jobs", [], |row| row.get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+}
+#[test]
+fn a_scan_schedule_without_a_library_scans_every_library() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    let id = scan_schedule(&conn, None);
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    assert_eq!(run_schedule(ctx, id).unwrap(), "Queued 2 scans");
+    assert_eq!(queued_scans(&conn).len(), 2);
+    // A second run while the scans still wait shares them.
+    run_schedule(ctx, id).unwrap();
+    assert_eq!(queued_scans(&conn).len(), 2);
+}
+#[test]
+fn a_due_scan_schedule_queues_its_scan_once_and_the_closed_gate_blocks_it() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db);
+    scan_schedule(&conn, Some(1));
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    conn.raw()
+        .execute("UPDATE deployment_gate SET mode='maintenance'", [])
+        .unwrap();
+    assert_eq!(run_due_schedules(ctx).unwrap(), 0);
+    assert!(queued_scans(&conn).is_empty());
+    conn.raw()
+        .execute("UPDATE deployment_gate SET mode='open'", [])
+        .unwrap();
+    assert_eq!(run_due_schedules(ctx).unwrap(), 1);
+    assert_eq!(queued_scans(&conn), vec![(1, "manual".to_owned())]);
+    assert_eq!(run_due_schedules(ctx).unwrap(), 0);
 }

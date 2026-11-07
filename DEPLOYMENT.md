@@ -148,6 +148,13 @@ Dienste und Imports vorher stoppen, Gate geschlossen halten. Ein Binary-Rollback
 nicht zurück. Eine Datenbank-Rücksicherung nur offline nach Prüfung der Schema-Kompatibilität
 vornehmen; SQLite-WAL/SHM-Dateien dürfen nicht zu einer anderen Sicherung gehören.
 
+**Zeitpläne und Rückfall:** Das Schema ist seit dem Release mit den Zeitplänen (Schema-Version 1 auf 6,
+Migrationen 0002 bis 0006) **nicht abwärtskompatibel**. Eine ältere Binary verweigert die Datenbank,
+weil deren `user_version` neuer ist als sie kennt; die Altspalten `days_mask` und `time_of_day` ändern
+daran nichts, und 0003 baut `schedules` mit einer erweiterten CHECK-Bedingung neu auf. Ein Rückfall
+auf eine Binary vor diesem Release verlangt deshalb die Wiederherstellung der Datenbank-Sicherung vor
+dem Release (siehe Glossar „Rückfall“); Daten seit dem Releasefenster gehen dabei verloren.
+
 ```bash
 CARGO_TARGET_DIR=/private/tmp/atvprep-target ./rust/check.sh
 ```

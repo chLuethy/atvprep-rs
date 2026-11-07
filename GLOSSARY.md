@@ -64,6 +64,17 @@ _Avoid_: Undo
 **Abnahme**:
 Die ausdrückliche Betreiberentscheidung, dass ein Release nach dem Releasefenster in Ordnung ist. Erst danach wird das Gate geöffnet.
 
+**Zeitplan**:
+Eine wiederkehrende Regel, die zu festen Zeitpunkten (Cron-Ausdruck, Serverzeit) eine Aktion auslöst: Prüfen, Reparieren, Konvertieren oder Scannen. Die Aktion eines Zeitplans ändert sich nach dem Anlegen nicht mehr. Ein Zeitplan, der Dateien ändert (Reparieren, Konvertieren), startet pausiert, braucht ein `max_files` und wird bewusst angeschaltet; das Anschalten erzeugt die Signatur des Betreibers (HMAC, gebunden an Zeitplan-ID, Aktion, Bibliothek, Filter, `max_files` und die Einstellung `delete_original`). Jede Änderung dieser Parameter oder ein Pausieren entzieht die Freigabe; erneutes Anschalten signiert neu. Ein Auftrag aus einem Zeitplan darf Dateien nur mit gültiger, zu den aktuellen Parametern passender Signatur ändern, sonst wird er abgelehnt (siehe ADR 0006). Verpasste Läufe von Reparieren und Konvertieren werden nie nachgeholt. Für Prüfen und Scannen gilt: Nur der jüngste verpasste Slot wird nachgeholt, und nur innerhalb eines Fensters von 6 Stunden. Ein Slot vor dem Einschalten oder Ändern des Zeitplans läuft nie. Ein Slot, den der Manager nicht innerhalb des Fensters sah (2 Minuten bei Reparieren und Konvertieren, 6 Stunden bei Prüfen und Scannen), wird genau einmal als „Verpasst“ (Slot, Grund) im Verlauf vermerkt, ohne Job; die Oberfläche rät, den Zeitplan anzupassen oder den Manager-Betrieb zu prüfen. Slots vor dem Einschalten, bei Pause oder geschlossenem Gate werden nicht vermerkt. Grenzen, die der Server beim Anlegen und Ändern prüft: Reparieren und Konvertieren laufen höchstens alle 15 Minuten (kleinster Abstand zweier Slots, auch bei Listen wie `0,10 * * * *`); Prüfen und Scannen haben keinen Mindestabstand. `max_files` ist je Aktion begrenzt (Prüfen 500, Reparieren 12, Konvertieren 6; Scannen hat keines). Ein bestehender Zeitplan über einer Grenze wird beim nächsten Speichern abgelehnt; ein eingeschalteter wird beim Auslösen pausiert und im Verlauf vermerkt (siehe ADR 0006).
+_Avoid_: Schedule, Cronjob, Prepare (die Aktion heißt Reparieren oder Konvertieren)
+
+**Lauf**:
+Ein einzelnes Auslösen eines Zeitplans, entweder zum geplanten Zeitpunkt (Slot) oder von Hand („Run now"). Erzeugt je nach Aktion einen Job oder einen Scan und wird mit Ergebnis im Verlauf des Zeitplans festgehalten.
+_Avoid_: Ausführung, Run (nur in der Oberfläche)
+
+**Slot**:
+Der geplante Zeitpunkt eines Laufs, wie ihn der Cron-Ausdruck des Zeitplans ergibt.
+
 ## Arbeit und Status
 
 **Job-Status**:

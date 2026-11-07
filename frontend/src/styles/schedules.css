@@ -14,6 +14,10 @@
 .sched-target, .sched-when .muted, .sched-last .muted { font-size: var(--text-sm); }
 .sched-actions { display: flex; gap: 2px; }
 .sched-row .confirm, .sched-row > .notice { margin: 8px 0 0 40px; }
+.sched-history-toggle { margin: 4px 0 0 40px; padding: 2px 0; background: none; border: 0; color: var(--muted); font-size: var(--text-sm); cursor: pointer; }
+.sched-history-toggle[aria-expanded="true"] { color: inherit; }
+.sched-history { margin: 4px 0 0 40px; font-size: var(--text-sm); }
+.sched-history li { display: flex; flex-wrap: wrap; gap: 2px 14px; padding: 2px 0; }
 .sched-editor { margin: 0 0 14px; }
 .sched-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px 16px; margin-bottom: 8px; }
 .sched-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -28,5 +32,15 @@
 @media (max-width: 880px) {
   .sched-line { grid-template-columns: 24px minmax(0, 1fr); }
   .sched-when, .sched-last, .sched-actions { grid-column: 2; }
-  .sched-row .confirm, .sched-row > .notice { margin-left: 0; }
+  .sched-row .confirm, .sched-row > .notice, .sched-history-toggle, .sched-history { margin-left: 0; }
 }
+.cron-result { display: flex; flex-direction: column; gap: 4px; min-height: 1.5em; }
+.cron-description { margin: 0; font-weight: 600; }
+.cron-runs { display: flex; flex-wrap: wrap; gap: 4px 16px; font-variant-numeric: tabular-nums; font-size: var(--text-sm); }
+.cron-guide { display: flex; flex-direction: column; gap: 6px; max-width: 70ch; }
+.cron-guide p { margin: 0; }
+.cron-examples { display: flex; flex-direction: column; gap: 6px; }
+.cron-examples li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cron-examples .filter-chip { cursor: pointer; }
+.sched-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 0 0 10px; }
+.sched-sort { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-sm); }

@@ -94,6 +94,76 @@ fn all_categories_obey_retention_grace_and_keep_the_latest_inspection() {
         None
     );
 }
+#[test]
+fn maintenance_keeps_the_last_ten_runs_per_schedule() {
+    let db = Db::memory().unwrap();
+    let mut conn = db.conn().unwrap();
+    schema::migrate(&mut conn).unwrap();
+    conn.raw().execute_batch("INSERT INTO schedules(id,name,action,days_mask,time_of_day) VALUES(1,'a','scan',127,'03:00'),(2,'b','scan',127,'03:00');").unwrap();
+    for id in 1..=12 {
+        conn.raw().execute("INSERT INTO schedule_runs(schedule_id,started_at,trigger,result) VALUES(1,'2023-01-01','manual',?1)", [format!("run {id}")]).unwrap();
+    }
+    conn.raw().execute("INSERT INTO schedule_runs(schedule_id,started_at,trigger,result) VALUES(2,'2023-01-01','manual','only')", []).unwrap();
+    let clock = FixedClock(NOW);
+    let service = WorkerService::new(
+        Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        },
+        &conn,
+    );
+    let result = service
+        .tick("maintenance", WorkerLimits::default())
+        .unwrap();
+    assert!(result.other_records_pruned >= 2);
+    let kept: Vec<String> = conn
+        .raw()
+        .prepare("SELECT result FROM schedule_runs WHERE schedule_id=1 ORDER BY id")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert_eq!(kept.len(), 10);
+    assert_eq!(kept[0], "run 3");
+    assert_eq!(count(&conn, "schedule_runs"), 11);
+}
+#[test]
+fn the_eleventh_run_drops_only_the_oldest_and_ten_runs_lose_nothing() {
+    let db = Db::memory().unwrap();
+    let mut conn = db.conn().unwrap();
+    schema::migrate(&mut conn).unwrap();
+    conn.raw().execute_batch("INSERT INTO schedules(id,name,action,days_mask,time_of_day) VALUES(1,'a','scan',127,'03:00'),(2,'b','scan',127,'03:00');").unwrap();
+    for (schedule, runs) in [(1, 11), (2, 10)] {
+        for id in 1..=runs {
+            conn.raw().execute("INSERT INTO schedule_runs(schedule_id,started_at,trigger,result) VALUES(?1,'2023-01-01','manual',?2)", rusqlite::params![schedule, format!("run {id}")]).unwrap();
+        }
+    }
+    let clock = FixedClock(NOW);
+    let service = WorkerService::new(
+        Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        },
+        &conn,
+    );
+    service
+        .tick("maintenance", WorkerLimits::default())
+        .unwrap();
+    let results = |schedule: i64| -> Vec<String> {
+        conn.raw()
+            .prepare("SELECT result FROM schedule_runs WHERE schedule_id=?1 ORDER BY id")
+            .unwrap()
+            .query_map([schedule], |r| r.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect()
+    };
+    let eleven = results(1);
+    assert_eq!((eleven.len(), eleven[0].as_str()), (10, "run 2"));
+    assert_eq!(eleven[9], "run 11");
+    assert_eq!(results(2).len(), 10);
+}
 struct Expiring(Arc<AtomicBool>);
 impl Clock for Expiring {
     fn now_micros(&self) -> i64 {

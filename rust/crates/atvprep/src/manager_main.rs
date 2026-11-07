@@ -157,7 +157,8 @@ fn verify_database(path: &Path) -> Result<(), &'static str> {
             Err("existing database is not an empty Rust database")
         };
     }
-    if version != schema::VERSION {
+    // An older version is upgraded by `migrate` after this check.
+    if !(1..=schema::VERSION).contains(&version) {
         return Err("unsupported database schema");
     }
     let mut stmt=conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").map_err(|_|"cannot inspect database")?;
@@ -166,7 +167,11 @@ fn verify_database(path: &Path) -> Result<(), &'static str> {
         .map_err(|_| "cannot inspect database")?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_| "cannot inspect database")?;
-    if tables.iter().map(String::as_str).eq(schema::TABLES) {
+    if tables
+        .iter()
+        .map(String::as_str)
+        .eq(schema::tables_at(version))
+    {
         Ok(())
     } else {
         Err("existing database is not a Rust manager database")
