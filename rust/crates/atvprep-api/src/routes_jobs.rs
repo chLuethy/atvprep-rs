@@ -29,6 +29,9 @@ pub struct CreateJob {
     manual_approval: bool,
     #[serde(default)]
     confirm_delete_original: bool,
+    /// Explicit release for files that need a re-encode; valid for this job only (ADR 0007).
+    #[serde(default)]
+    confirm_reencode: bool,
 }
 
 /// Queue inspection or verification through the authenticated mutation pipeline.
@@ -56,9 +59,11 @@ pub async fn create(
         let ids=input.media_ids.iter().map(|value|opaque.decode(value,"m").ok().filter(|id|*id>0).ok_or(MutationError::InvalidInput("media_ids must contain opaque identifiers"))).collect::<Result<Vec<_>,_>>()?;
         if prepares && input.confirm_delete_original {return Err(MutationError::InvalidInput("deleting an original is not available"));}
         if prepares && !input.manual_approval {return Err(MutationError::InvalidInput("an explicit approval is required to change files"));}
-        for id in &ids {let media=Media(ctx).get(*id).map_err(|_|MutationError::Database)?.ok_or(MutationError::NotFound)?;if prepares && media.discovery_state!="present" {return Err(MutationError::InvalidInput("only files that are present can be prepared"));}}
+        let mut needs_reencode=false;
+        for id in &ids {let media=Media(ctx).get(*id).map_err(|_|MutationError::Database)?.ok_or(MutationError::NotFound)?;if prepares && media.discovery_state!="present" {return Err(MutationError::InvalidInput("only files that are present can be prepared"));}needs_reencode|=media.needs_reencode;}
+        if prepares && needs_reencode && !input.confirm_reencode {return Err(MutationError::InvalidInput("files that need a re-encode require an explicit confirmation"));}
         let mut new=NewJob::new(if prepares {"fix"}else{&input.action},&ids);new.trigger="manual";
-        new.settings_snapshot=if prepares {let approver=approver(ctx,state,&session_token)?;json!({"pipeline":"prepare","policy":"copy-only-v1","delete_original":false,"delete_original_confirmed":false,"manual_approval":true,"approved_by":approver,"approved_at":ctx.clock.now_micros()/1_000_000})}else{json!({"manual_approval":input.manual_approval})};
+        new.settings_snapshot=if prepares {let approver=approver(ctx,state,&session_token)?;json!({"pipeline":"prepare","policy":"copy-only-v1","delete_original":false,"delete_original_confirmed":false,"manual_approval":true,"reencode_confirmed":input.confirm_reencode,"approved_by":approver,"approved_at":ctx.clock.now_micros()/1_000_000})}else{json!({"manual_approval":input.manual_approval})};
         let job=Jobs(ctx).create(&new).map_err(|error|match error{atvprep_manager::Error::Invalid(message)=>MutationError::Validation(message),_=>MutationError::Database})?;
         if prepares {sign_job(ctx,state,job.id)?;}
         Ok((201,json!({"data":{"id":opaque.encode("j",job.id),"action":if prepares {"prepare"}else{&job.action},"status":job.status}})))
