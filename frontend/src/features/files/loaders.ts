@@ -183,6 +183,8 @@ export type Summary = {
   convert: number;
   /** Files whose video has to be re-encoded. */
   reencode: number;
+  /** Files with a subtitle file that can still be embedded. */
+  embed: number;
   /** Other containers whose converted MP4 is kept next to them. */
   converted: number;
   jobsActive: boolean;
@@ -194,9 +196,9 @@ export async function loadSummary(api: Api): Promise<Summary | null> {
   try {
     const response = await api.request("/dashboard");
     if (!response.ok) return null;
-    const body = (await response.json()) as { data?: { files?: Record<string, number>; missing?: number; convert?: number; reencode?: number; converted?: number; jobs?: Record<string, number> } };
+    const body = (await response.json()) as { data?: { files?: Record<string, number>; missing?: number; convert?: number; reencode?: number; embed?: number; converted?: number; jobs?: Record<string, number> } };
     const jobs = body.data?.jobs ?? {};
-    return { counts: body.data?.files ?? null, missing: body.data?.missing ?? 0, convert: body.data?.convert ?? 0, reencode: body.data?.reencode ?? 0, converted: body.data?.converted ?? 0, jobsActive: (jobs.queued ?? 0) + (jobs.running ?? 0) > 0, jobs: { running: jobs.running ?? 0, queued: jobs.queued ?? 0 } };
+    return { counts: body.data?.files ?? null, missing: body.data?.missing ?? 0, convert: body.data?.convert ?? 0, reencode: body.data?.reencode ?? 0, embed: body.data?.embed ?? 0, converted: body.data?.converted ?? 0, jobsActive: (jobs.queued ?? 0) + (jobs.running ?? 0) > 0, jobs: { running: jobs.running ?? 0, queued: jobs.queued ?? 0 } };
   } catch {
     return null;
   }

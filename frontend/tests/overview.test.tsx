@@ -25,6 +25,15 @@ describe("OverviewPage: library health", () => {
     expect(within(health).getByRole("link", { name: "2 Not verified" })).toHaveAttribute("href", "/files?status=unknown");
   });
 
+  it("counts files with an open embed apart from the ready ones and links to them", async () => {
+    const view = render(() => <OverviewPage api={api(base({ "/dashboard": summary({ clean: 10, embed_open: 3, warning: 1 }) })) as never} />);
+
+    const health = await view.findByRole("region", { name: "Library health" });
+    expect(within(health).getByRole("img")).toHaveAccessibleName("14 files: 10 ready, 3 embed open, 1 warning");
+    expect(within(health).getByRole("link", { name: "3 Embed open" })).toHaveAttribute("href", "/files?status=embed");
+    expect(within(health).queryByText(/ready for Apple TV/)).not.toBeInTheDocument();
+  });
+
   it("says so when the library is empty", async () => {
     const view = render(() => <OverviewPage api={api(base({ "/dashboard": summary({}) })) as never} />);
 

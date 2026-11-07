@@ -132,11 +132,22 @@ describe("LibraryPage: filtering and paging", () => {
     const view = renderLibrary(api);
 
     expect(await view.findByRole("checkbox", { name: "Blocker 1" })).toBeChecked();
-    for (const name of [/^Ready/, /^Warning/, /^Not verified/, /^Inspection failed/, /^Missing/, /^To convert/, /^Needs re-encode/, /^Converted/]) {
+    for (const name of [/^Ready/, /^Warning/, /^Not verified/, /^Inspection failed/, /^Missing/, /^To convert/, /^Needs re-encode/, /^Embed open/, /^Converted/]) {
       expect(view.getByRole("checkbox", { name })).toBeChecked();
     }
     expect(view.queryByRole("button", { name: "Show all files" })).not.toBeInTheDocument();
     expect(calls(api).find((call) => call.path.startsWith("/files?"))?.path).not.toContain("hide=");
+  });
+
+  it("counts the files with an open embed on their own filter entry", async () => {
+    const { api } = makeApi();
+    (api.request as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
+      if (path === "/dashboard") return json({ files: { clean: 1, embed_open: 2 }, embed: 3, scans: {}, jobs: {} });
+      if (path.startsWith("/files?")) return json(ROWS, 200, { next_cursor: null });
+      return json([]);
+    });
+    const view = renderLibrary(api);
+    expect(await view.findByRole("checkbox", { name: "Embed open 3" })).toBeChecked();
   });
 
   it("hides the files of a state when its box is unticked, and shows them again when it is ticked", async () => {

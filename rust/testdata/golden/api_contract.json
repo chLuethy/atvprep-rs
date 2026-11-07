@@ -973,6 +973,7 @@
                   "convert": 0,
                   "converted": 0,
                   "delete_original": false,
+                  "embed": 0,
                   "files": {
                     "clean": 1
                   },

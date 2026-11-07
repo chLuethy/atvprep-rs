@@ -51,6 +51,18 @@ describe("verdictOf for blockers", () => {
   });
 });
 
+describe("verdictOf for files with an open embed", () => {
+  it("does not call a clean file ready while a subtitle file can still be embedded", () => {
+    expect(verdictOf({ compliance_state: "clean", discovery_state: "present", pending_sidecars: 1 })).toMatchObject({ kind: "warn", label: "Embed open" });
+    expect(verdictOf({ compliance_state: "clean", discovery_state: "present", pending_sidecars: 0 })).toMatchObject({ kind: "ok", label: "Ready" });
+  });
+
+  it("leaves every other verdict as it is", () => {
+    expect(verdictOf({ compliance_state: "warning", pending_sidecars: 1 })).toMatchObject({ label: "Warning" });
+    expect(verdictOf({ compliance_state: "clean", discovery_state: "missing", pending_sidecars: 1 })).toMatchObject({ label: "Missing" });
+  });
+});
+
 describe("verdictOf for files that left the disk", () => {
   it("reports a missing file as missing whatever its last compliance state was", () => {
     expect(verdictOf({ compliance_state: "clean", discovery_state: "missing" })).toMatchObject({ kind: "bad", label: "Missing" });

@@ -49,6 +49,7 @@ describe("browse helpers", () => {
     expect(worstIn({ warning: 3, unknown: 2 })).toMatchObject({ kind: "warn", count: 3 });
     expect(worstIn({ warning: 3, blocker: 1, probe_failed: 1 })).toMatchObject({ kind: "bad", count: 2, label: "blockers" });
     expect(describeCounts({ blocker: 1, warning: 2, clean: 30, unknown: 3 })).toBe("1 blocker, 2 warnings, 3 not verified, 30 ready");
+    expect(describeCounts({ clean: 4, embed_open: 2 })).toBe("2 embed open, 4 ready");
     expect(describeCounts({})).toBe("empty");
   });
 
@@ -56,6 +57,7 @@ describe("browse helpers", () => {
     expect(allReady({ clean: 5 })).toBe(true);
     expect(allReady({ clean: 5, unknown: 1 })).toBe(false);
     expect(allReady({ clean: 5, missing: 1 })).toBe(false);
+    expect(allReady({ clean: 5, embed_open: 1 })).toBe(false);
     expect(allReady({})).toBe(false);
   });
 });
