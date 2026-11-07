@@ -200,6 +200,7 @@ mod tests {
             compliance_state: None,
             max_files: 25,
             delete_original: false,
+            allow_reencode: false,
         };
         let sql = |statement: &str| conn.raw().execute(statement, []).unwrap();
         let sign = || {
@@ -254,6 +255,11 @@ mod tests {
         );
         assert!(!allowed(&verifier), "delete_original is signed");
         sql("DELETE FROM runtime_settings WHERE key='delete_original'");
+        assert!(allowed(&verifier));
+
+        sql("UPDATE schedules SET allow_reencode=1 WHERE id=1");
+        assert!(!allowed(&verifier), "re-encode permission changed");
+        sql("UPDATE schedules SET allow_reencode=0 WHERE id=1");
         assert!(allowed(&verifier));
 
         sql("UPDATE schedules SET enabled=0 WHERE id=1");

@@ -218,6 +218,16 @@ describe("SchedulesPage", () => {
     await waitFor(() => expect(patches).toEqual([{ enabled: true, confirm_changes_files: true }]));
   });
 
+  it("names in the confirmation whether re-encoding is allowed", async () => {
+    for (const [allow, text] of [[false, "Re-encoding is not allowed"], [true, "Re-encoding is allowed"]] as const) {
+      const state = makeApi([schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, compliance_state: null, max_files: 10, allow_reencode: allow })]);
+      const view = render(() => <SchedulesPage api={state.api} />);
+      await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Weekly fix" }));
+      expect(await view.findByRole("region", { name: "Turn on Weekly fix" })).toHaveTextContent(text);
+      view.unmount();
+    }
+  });
+
   it("tells the current match count, capped by the run size, and that originals are deleted", async () => {
     const state = makeApi(
       [schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, compliance_state: null, max_files: 10, matching: 4 })],
@@ -290,7 +300,7 @@ describe("SchedulesPage", () => {
 
     await waitFor(() => expect(body).toEqual({
       name: "Nightly fix", action: "fix", root_id: null, compliance_state: null,
-      days: [0, 1, 2, 3, 4], time: "03:00", max_files: 7,
+      days: [0, 1, 2, 3, 4], time: "03:00", max_files: 7, allow_reencode: false,
     }));
     expect(await view.findByRole("status")).toHaveTextContent("Schedule saved. It is paused until you turn it on.");
   });
@@ -616,6 +626,29 @@ describe("duplicating a schedule", () => {
     await fireEvent.click(within(editor).getByRole("button", { name: "Save schedule" }));
     await waitFor(() => expect(body).toMatchObject({ action: "fix", compliance_state: "warning", max_files: 9 }));
     expect(await view.findByRole("status")).toHaveTextContent("Schedule saved. It is paused until you turn it on.");
+  });
+
+  it("offers the re-encode permission only for fix and convert, off by default, and sends it", async () => {
+    const bodies: Array<Record<string, unknown>> = [];
+    const state = makeApi([schedule({ action: "fix", compliance_state: "warning", max_files: 9, allow_reencode: false })], { "POST /schedules": (init) => { bodies.push(JSON.parse(String(init?.body))); return json(schedule({ id: "sc_2", action: "fix", enabled: false }), 201); } });
+    const { editor } = await open(state);
+
+    const box = within(editor).getByRole("checkbox", { name: "Re-encode allowed" });
+    expect(box).not.toBeChecked();
+    await fireEvent.click(within(within(editor).getByRole("group", { name: "Action" })).getByRole("button", { name: "Verify" }));
+    expect(within(editor).queryByRole("checkbox", { name: "Re-encode allowed" })).toBeNull();
+    await fireEvent.click(within(within(editor).getByRole("group", { name: "Action" })).getByRole("button", { name: "Fix" }));
+
+    await fireEvent.click(within(editor).getByRole("checkbox", { name: "Re-encode allowed" }));
+    await fireEvent.click(within(editor).getByRole("button", { name: "Save schedule" }));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toMatchObject({ action: "fix", allow_reencode: true });
+  });
+
+  it("copies the re-encode permission of the schedule it is copied from", async () => {
+    const state = makeApi([schedule({ action: "convert", compliance_state: null, max_files: 3, allow_reencode: true })]);
+    const { editor } = await open(state);
+    expect(within(editor).getByRole("checkbox", { name: "Re-encode allowed" })).toBeChecked();
   });
 
   it("copies a scan schedule without files per run", async () => {
