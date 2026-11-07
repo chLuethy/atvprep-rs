@@ -590,7 +590,7 @@ fn run_change_schedule(
                              AND lower(m.suffix) NOT IN ('.mp4','.m4v','.mov'))
            AND (lower(m.suffix) NOT IN ('.mp4','.m4v','.mov')
                 OR m.compliance_state IN ('warning','blocker') OR m.desired_action='fix')
-           AND (?3 OR m.compliance_reasons NOT LIKE '%] video-reencode:%')
+           AND (?3 OR m.needs_reencode=0)
          ORDER BY m.id LIMIT ?4",
         ItemStatus::terminal_sql_list()
     ))?;
