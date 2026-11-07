@@ -97,8 +97,12 @@ export const deSchedules: Record<string, string | readonly [string, string]> = {
   "Confirm turn on": "Einschalten bestätigen",
   "Originals are deleted.": "Originale werden gelöscht.",
   "Originals are kept.": "Originale bleiben erhalten.",
+  "Re-encode allowed": "Re-Encode erlaubt",
+  "Without this, the schedule skips files that need a re-encode. Changing it ends your approval.": "Ohne diese Freigabe überspringt der Zeitplan Dateien, die neu kodiert werden müssen. Eine Änderung beendet deine Freigabe.",
+  "Re-encoding is allowed.": "Neu kodieren ist erlaubt.",
+  "Re-encoding is not allowed: files that need a re-encode are skipped.": "Neu kodieren ist nicht erlaubt: Dateien, die neu kodiert werden müssen, werden übersprungen.",
   "Unable to check whether originals are deleted.": "Ob Originale gelöscht werden, lässt sich gerade nicht prüfen.",
-  "Your approval applies to these settings only. It ends when you change the library, the filter or the files per run, or when you pause the schedule.": "Deine Freigabe gilt nur für diese Einstellungen. Sie endet, wenn du Mediathek, Filter oder Dateien pro Lauf änderst oder den Zeitplan pausierst.",
+  "Your approval applies to these settings only. It ends when you change the library, the filter, the files per run or the re-encode permission, or when you pause the schedule.": "Deine Freigabe gilt nur für diese Einstellungen. Sie endet, wenn du Mediathek, Filter, Dateien pro Lauf oder die Re-Encode-Freigabe änderst oder den Zeitplan pausierst.",
   "Turn on “{name}”? From then on it changes files in your library by itself, up to {count} per run, until you pause it.": "„{name}“ einschalten? Ab dann ändert er Dateien in deiner Mediathek selbstständig, bis zu {count} pro Lauf, bis du ihn pausierst.",
   "Not approved to change files. Turn the schedule on again.": "Nicht zum Ändern von Dateien freigegeben. Den Zeitplan erneut einschalten.",
 };

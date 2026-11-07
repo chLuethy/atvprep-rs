@@ -504,6 +504,7 @@ pub struct ScheduleApproval {
     pub root_id: Option<i64>,
     pub compliance_state: Option<String>,
     pub max_files: i64,
+    pub allow_reencode: bool,
     pub enabled: bool,
     pub approved_by: Option<i64>,
     pub approved_at: Option<i64>,
@@ -518,7 +519,7 @@ impl ScheduleApproval {
     /// SQLite rejects the read.
     pub fn load(conn: &rusqlite::Connection, id: i64) -> Result<Option<Self>> {
         Ok(rusqlite::OptionalExtension::optional(conn.query_row(
-            "SELECT id, action, root_id, compliance_state, max_files, enabled, approved_by, approved_at, approval_mac
+            "SELECT id, action, root_id, compliance_state, max_files, enabled, approved_by, approved_at, approval_mac, allow_reencode
              FROM schedules WHERE id=?1",
             [id],
             |row| {
@@ -532,6 +533,7 @@ impl ScheduleApproval {
                     approved_by: row.get(6)?,
                     approved_at: row.get(7)?,
                     approval_mac: row.get(8)?,
+                    allow_reencode: row.get(9)?,
                 })
             },
         ))?)
@@ -547,6 +549,7 @@ impl ScheduleApproval {
             compliance_state: self.compliance_state.as_deref(),
             max_files: self.max_files,
             delete_original,
+            allow_reencode: self.allow_reencode,
         }
     }
 }
@@ -601,7 +604,7 @@ fn run_change_schedule(
             rusqlite::params![
                 row.root_id,
                 row.compliance_state,
-                delete_original,
+                row.allow_reencode,
                 row.max_files,
                 embed_open
             ],

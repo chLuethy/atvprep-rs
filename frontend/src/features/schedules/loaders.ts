@@ -35,6 +35,8 @@ export type Schedule = {
   time: string;
   /** Null for a scan: it has no file limit. */
   max_files: number | null;
+  /** Fix and convert only: may the schedule take files that need a re-encode? Part of what the person signs when turning it on. */
+  allow_reencode?: boolean | null;
   enabled: boolean;
   /** How many files it would pick right now. */
   matching: number | null;
@@ -90,6 +92,8 @@ export type ScheduleInput = {
   /** A cron expression (the Cron mode); null means the days and time above (the Simple mode). */
   cron: string | null;
   maxFiles: number;
+  /** Fix and convert only. */
+  allowReencode: boolean;
 };
 
 export type SaveResult = { ok: true; schedule: Schedule } | { ok: false; session: boolean; detail?: string };
@@ -126,6 +130,7 @@ export async function createSchedule(api: Api, input: ScheduleInput, key: string
     ...(input.action === "scan" ? {} : { compliance_state: input.complianceState }),
     ...timing(input),
     ...(input.action === "scan" ? {} : { max_files: input.maxFiles }),
+    ...(changesFiles(input.action) ? { allow_reencode: input.allowReencode } : {}),
   });
   return result.ok && result.schedule ? { ok: true, schedule: result.schedule } : result.ok ? { ok: false, session: false } : result;
 }
@@ -136,6 +141,7 @@ export async function updateSchedule(api: Api, id: string, input: ScheduleInput,
     name: input.name,
     root_id: input.rootId, clear_root: input.rootId === null,
     ...(scan ? {} : { compliance_state: input.complianceState, clear_compliance_state: input.complianceState === null, max_files: input.maxFiles }),
+    ...(changesFiles(input.action) ? { allow_reencode: input.allowReencode } : {}),
     ...timing(input),
   });
 }
