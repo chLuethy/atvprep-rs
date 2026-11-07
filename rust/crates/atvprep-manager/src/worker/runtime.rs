@@ -94,6 +94,7 @@ pub fn start(db: &Db, clock: &Arc<dyn Clock>, config: &RuntimeConfig) -> Result<
         let thread = thread::Builder::new()
             .name(format!("atvprep-worker-{role}"))
             .spawn(move || {
+                let mut swept = false;
                 while !stop.load(Ordering::Acquire) {
                     let result = (|| {
                         let conn = db.conn()?;
@@ -107,6 +108,10 @@ pub fn start(db: &Db, clock: &Arc<dyn Clock>, config: &RuntimeConfig) -> Result<
                             _ => {
                                 WorkerService::new(ctx, &conn)
                                     .tick(&config.owner, config.maintenance)?;
+                                // Once per start, after recovery; retried while the gate is shut.
+                                if !swept {
+                                    swept = super::orphans::sweep(ctx)?.ran;
+                                }
                                 Ok(())
                             }
                         }
