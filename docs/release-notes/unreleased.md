@@ -13,6 +13,12 @@ Hinweise für den Betreiber zum nächsten Release.
 - Nach dem Update jeden dieser Zeitpläne prüfen und bewusst wieder anschalten; erst dann signiert er neu und läuft wieder.
 - Prüfen- und Scan-Zeitpläne sind nicht betroffen.
 
+## Re-Encode läuft jetzt wirklich
+
+- Bisher startete der Manager jeden Auftrag im Kopiermodus; ein bestätigter Re-Encode oder ein signiertes „Re-Encode erlaubt“ führte nie zu einem Neu-Kodieren. Jetzt kodiert ein Item neu, dessen Freigabe das einschließt (Policy `copy-only-v2`, Feld `reencode` je Item, ADR 0007).
+- Ein Re-Encode ersetzt die Datei und läuft nur, wenn die Einstellung `delete_original` an ist. Ohne sie bleibt die Datei unverändert und der Auftrag meldet „Re-Encode nötig, nicht ausgeführt“.
+- Ein Re-Encode darf bis zu 4 Stunden dauern. Aufträge, die vor dem Update eingereiht wurden (`copy-only-v1`), werden abgewiesen und müssen neu eingereiht werden.
+
 ## Neue Datenbankmigrationen
 
 - 0007: Kennzeichen „Re-Encode nötig“ je Datei, aus den bisherigen Prüfergebnissen abgeleitet.
