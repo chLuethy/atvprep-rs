@@ -306,6 +306,9 @@ export const JobDetail: Component<{
                               </span>
                             </Show>
                           </div>
+                          <Show when={item().error_code === "reencode_not_run"}>
+                            <p class="notice warn" role="status" aria-label={t("Re-encode not run")}>{t("Re-encode needed, not run: the file stays as it was. A re-encode replaces the original and only runs while the setting “delete_original” is on.")}</p>
+                          </Show>
                           <ItemLog api={props.api} itemId={item().id} />
                         </li>
                       );

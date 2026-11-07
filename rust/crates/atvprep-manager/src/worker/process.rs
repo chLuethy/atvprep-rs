@@ -110,6 +110,41 @@ pub fn run_observed(
     )
 }
 
+/// How an authorized item may run, as decided by its approval (ADR 0007).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PrepareMode {
+    /// The item may be re-encoded. Everything else only copies streams (`--copy-only`).
+    pub reencode: bool,
+    /// The signed `delete_original` setting. A re-encode replaces the file only with it.
+    pub delete_original: bool,
+}
+
+/// The argument vector of `atvprep prepare` for one pinned leaf.
+fn prepare_arguments(leaf: &str, identity: (i128, i128, i128), mode: PrepareMode) -> Vec<String> {
+    let (device, inode, ctime) = identity;
+    let mut arguments = vec!["prepare".to_owned(), "--yes".to_owned()];
+    if !mode.reencode {
+        arguments.push("--copy-only".to_owned());
+    } else if mode.delete_original {
+        arguments.push("--delete-original".to_owned());
+    }
+    arguments.extend([
+        "--manager-parent-fd".to_owned(),
+        "0".to_owned(),
+        "--manager-leaf".to_owned(),
+        leaf.to_owned(),
+        "--manager-device".to_owned(),
+        device.to_string(),
+        "--manager-inode".to_owned(),
+        inode.to_string(),
+        "--manager-ctime-ns".to_owned(),
+        ctime.to_string(),
+        "--".to_owned(),
+        leaf.to_owned(),
+    ]);
+    arguments
+}
+
 /// Execute Prepare using a pinned directory mapped to the child's descriptor zero.
 ///
 /// # Errors
@@ -117,6 +152,7 @@ pub fn run_observed(
 pub fn run_pinned_prepare(
     executable: &Path,
     target: &atvprep_core::fd_fix_contract::FdFixTarget,
+    mode: PrepareMode,
     environment: &BTreeMap<String, String>,
     timeout: Duration,
     grace: Duration,
@@ -125,6 +161,7 @@ pub fn run_pinned_prepare(
     run_pinned_prepare_observed(
         executable,
         target,
+        mode,
         environment,
         timeout,
         grace,
@@ -137,9 +174,11 @@ pub fn run_pinned_prepare(
 ///
 /// # Errors
 /// Rejects unsafe input identities, process failures and observer failures.
+#[allow(clippy::too_many_arguments)] // The approved mode joins the explicit process policy at the spawn boundary.
 pub fn run_pinned_prepare_observed(
     executable: &Path,
     target: &atvprep_core::fd_fix_contract::FdFixTarget,
+    mode: PrepareMode,
     environment: &BTreeMap<String, String>,
     timeout: Duration,
     grace: Duration,
@@ -156,24 +195,7 @@ pub fn run_pinned_prepare_observed(
         rustix::fs::Mode::empty(),
     )
     .map_err(|_| Error::Invalid("cannot hand off media directory".to_owned()))?;
-    let (device, inode, ctime) = target.identity();
-    let arguments = vec![
-        "prepare".to_owned(),
-        "--yes".to_owned(),
-        "--copy-only".to_owned(),
-        "--manager-parent-fd".to_owned(),
-        "0".to_owned(),
-        "--manager-leaf".to_owned(),
-        target.leaf_name().to_owned(),
-        "--manager-device".to_owned(),
-        device.to_string(),
-        "--manager-inode".to_owned(),
-        inode.to_string(),
-        "--manager-ctime-ns".to_owned(),
-        ctime.to_string(),
-        "--".to_owned(),
-        target.leaf_name().to_owned(),
-    ];
+    let arguments = prepare_arguments(target.leaf_name(), target.identity(), mode);
     run_with_stdin(
         executable,
         &arguments,
@@ -372,6 +394,57 @@ pub fn run_pinned_verify(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_a_re_encode_item_runs_without_the_copy_only_flag() {
+        let copy = prepare_arguments("a.mp4", (1, 2, 3), PrepareMode::default());
+        assert!(copy.contains(&"--copy-only".to_owned()));
+        assert!(!copy.contains(&"--delete-original".to_owned()));
+
+        // Even a signed delete_original does nothing for an item that is not to be re-encoded.
+        let kept = prepare_arguments(
+            "a.mp4",
+            (1, 2, 3),
+            PrepareMode {
+                reencode: false,
+                delete_original: true,
+            },
+        );
+        assert!(kept.contains(&"--copy-only".to_owned()));
+        assert!(!kept.contains(&"--delete-original".to_owned()));
+
+        let without_delete = prepare_arguments(
+            "a.mp4",
+            (1, 2, 3),
+            PrepareMode {
+                reencode: true,
+                delete_original: false,
+            },
+        );
+        assert!(!without_delete.contains(&"--copy-only".to_owned()));
+        assert!(!without_delete.contains(&"--delete-original".to_owned()));
+
+        let replacing = prepare_arguments(
+            "a.mp4",
+            (1, 2, 3),
+            PrepareMode {
+                reencode: true,
+                delete_original: true,
+            },
+        );
+        assert!(!replacing.contains(&"--copy-only".to_owned()));
+        assert!(replacing.contains(&"--delete-original".to_owned()));
+        // The leaf and the pinned identity always travel the same way.
+        for arguments in [&copy, &without_delete, &replacing] {
+            assert_eq!(arguments[0], "prepare");
+            assert_eq!(arguments.last().unwrap(), "a.mp4");
+            assert!(
+                arguments
+                    .windows(2)
+                    .any(|w| w[0] == "--manager-inode" && w[1] == "2")
+            );
+        }
+    }
 
     fn tool(name: &str, arguments: &[&str]) -> (std::path::PathBuf, Vec<String>) {
         let executable = Path::new("/bin").join(name).canonicalize().unwrap();

@@ -15,5 +15,7 @@ export const deActivity: Record<string, string | readonly [string, string]> = {
   "{done} of {total} succeeded": "{done} von {total} erfolgreich",
   "{count} failed": "{count} fehlgeschlagen",
   "{count} cancelled": "{count} abgebrochen",
+  "Re-encode not run": "Re-Encode nicht ausgeführt",
+  "Re-encode needed, not run: the file stays as it was. A re-encode replaces the original and only runs while the setting “delete_original” is on.": "Re-Encode nötig, nicht ausgeführt: Die Datei bleibt, wie sie war. Ein Re-Encode ersetzt das Original und läuft nur, solange die Einstellung „delete_original“ an ist.",
   "Deletion of the original was confirmed for this job.": "Für diesen Auftrag wurde das Löschen des Originals bestätigt.",
 };

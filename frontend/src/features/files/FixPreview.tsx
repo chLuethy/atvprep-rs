@@ -112,7 +112,7 @@ export const FixPreview: Component<{
       <Show when={failure() === "queue"}><p class="notice bad" role="alert">{t("Unable to queue the prepare job. Try again.")}</p></Show>
       <Show when={failure() === "session"}><p class="notice bad" role="alert">{t(SESSION_EXPIRED)}</p></Show>
       <Show when={reencodeCount() > 0}>
-        <p class="notice warn" role="alert">{tn("{reencode} of {count} file needs a re-encode. That takes longer and changes the file more deeply. Choose whether to re-encode it in this job.", "{reencode} of {count} files need a re-encode. That takes longer and changes the files more deeply. Choose whether to re-encode them in this job.", count(), { reencode: reencodeCount() })}</p>
+        <p class="notice warn" role="alert">{tn("{reencode} of {count} file needs a re-encode. That takes longer and replaces the original. It only runs while the setting “delete_original” is on; otherwise the file stays as it is. Choose whether to re-encode it in this job.", "{reencode} of {count} files need a re-encode. That takes longer and replaces the originals. It only runs while the setting “delete_original” is on; otherwise the files stay as they are. Choose whether to re-encode them in this job.", count(), { reencode: reencodeCount() })}</p>
       </Show>
       <div class="insp-actions">
         <Show

@@ -60,10 +60,13 @@ pub async fn create(
         if prepares && input.confirm_delete_original {return Err(MutationError::InvalidInput("deleting an original is not available"));}
         if prepares && !input.manual_approval {return Err(MutationError::InvalidInput("an explicit approval is required to change files"));}
         let mut needs_reencode=false;
-        for id in &ids {let media=Media(ctx).get(*id).map_err(|_|MutationError::Database)?.ok_or(MutationError::NotFound)?;if prepares && media.discovery_state!="present" {return Err(MutationError::InvalidInput("only files that are present can be prepared"));}needs_reencode|=media.needs_reencode;}
+        let mut reencode_media=std::collections::BTreeSet::new();
+        for id in &ids {let media=Media(ctx).get(*id).map_err(|_|MutationError::Database)?.ok_or(MutationError::NotFound)?;if prepares && media.discovery_state!="present" {return Err(MutationError::InvalidInput("only files that are present can be prepared"));}needs_reencode|=media.needs_reencode;if media.needs_reencode && input.confirm_reencode {reencode_media.insert(*id);}}
         if prepares && needs_reencode && !input.confirm_reencode {return Err(MutationError::InvalidInput("files that need a re-encode require an explicit confirmation"));}
         let mut new=NewJob::new(if prepares {"fix"}else{&input.action},&ids);new.trigger="manual";
-        new.settings_snapshot=if prepares {let approver=approver(ctx,state,&session_token)?;json!({"pipeline":"prepare","policy":"copy-only-v1","delete_original":false,"delete_original_confirmed":false,"manual_approval":true,"reencode_confirmed":input.confirm_reencode,"approved_by":approver,"approved_at":ctx.clock.now_micros()/1_000_000})}else{json!({"manual_approval":input.manual_approval})};
+        new.reencode_media=reencode_media;
+        let delete_original=atvprep_manager::schedules::delete_original_setting(ctx.conn).map_err(|_|MutationError::Database)?;
+        new.settings_snapshot=if prepares {let approver=approver(ctx,state,&session_token)?;json!({"pipeline":"prepare","policy":atvprep_manager::approval::PREPARE_POLICY,"delete_original":delete_original,"delete_original_confirmed":false,"manual_approval":true,"reencode_confirmed":input.confirm_reencode,"approved_by":approver,"approved_at":ctx.clock.now_micros()/1_000_000})}else{json!({"manual_approval":input.manual_approval})};
         let job=Jobs(ctx).create(&new).map_err(|error|match error{atvprep_manager::Error::Invalid(message)=>MutationError::Validation(message),_=>MutationError::Database})?;
         if prepares {sign_job(ctx,state,job.id)?;}
         Ok((201,json!({"data":{"id":opaque.encode("j",job.id),"action":if prepares {"prepare"}else{&job.action},"status":job.status}})))
@@ -114,7 +117,9 @@ fn sign_job(ctx: Ctx<'_>, state: &AppState, job: i64) -> Result<(), MutationErro
                 job_id: job,
                 media_id: item.media_file_id,
                 action: &item.action,
-                identity: &identity
+                identity: &identity,
+                reencode: snapshot["reencode"] == json!(true),
+                delete_original: snapshot["delete_original"] == json!(true),
             },
             person,
             time

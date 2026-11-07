@@ -11,8 +11,9 @@ export type PrepareConfirm = {
 };
 
 /**
- * What the confirmation for one file says. Prepare never deletes an original. A file that has to be
- * re-encoded says so and needs its own explicit confirmation.
+ * What the confirmation for one file says. A file that has to be re-encoded says so, says that the
+ * re-encode replaces the original and only runs while `delete_original` is on, and needs its own
+ * explicit confirmation.
  * `tracks` are only read for another container, whose re-encode is predicted from its codecs.
  */
 export function prepareConfirm(file: { suffix: string; needs_reencode?: boolean | undefined }, tracks: ReadonlyArray<Track>): PrepareConfirm {
@@ -20,7 +21,7 @@ export function prepareConfirm(file: { suffix: string; needs_reencode?: boolean 
   const reencode = file.needs_reencode === true || (!mp4 && convertPlan(tracks).videoEncode);
   if (reencode) {
     return {
-      lines: [t("The video has to be re-encoded. That takes longer and changes the file more deeply, so it needs your explicit confirmation.")],
+      lines: [t("The video has to be re-encoded. That takes longer and replaces the original, so it needs your explicit confirmation. It only runs while the setting “delete_original” is on; otherwise the file stays as it is and the job reports that a re-encode is needed.")],
       reencode: true,
     };
   }

@@ -218,30 +218,38 @@ describe("SchedulesPage", () => {
     await waitFor(() => expect(patches).toEqual([{ enabled: true, confirm_changes_files: true }]));
   });
 
-  it("names in the confirmation whether re-encoding is allowed", async () => {
-    for (const [allow, text] of [[false, "Re-encoding is not allowed"], [true, "Re-encoding is allowed"]] as const) {
-      const state = makeApi([schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, compliance_state: null, max_files: 10, allow_reencode: allow })]);
+  it("names in the confirmation what re-encoding does, truthfully for each setting of delete_original", async () => {
+    const cases = [
+      { allow: false, deleteOriginal: false, text: "Re-encoding is not allowed", not: "replace the original" },
+      { allow: false, deleteOriginal: true, text: "Originals are kept", not: "replace the original" },
+      { allow: true, deleteOriginal: true, text: "files that need it are re-encoded and replace the original", not: "stay unchanged" },
+      { allow: true, deleteOriginal: false, text: "“delete_original” is off: files that need it stay unchanged and the run reports a re-encode as needed", not: "replace the original" },
+    ] as const;
+    for (const { allow, deleteOriginal, text, not } of cases) {
+      const state = makeApi([schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, compliance_state: null, max_files: 10, allow_reencode: allow })], {}, { deleteOriginal });
       const view = render(() => <SchedulesPage api={state.api} />);
       await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Weekly fix" }));
-      expect(await view.findByRole("region", { name: "Turn on Weekly fix" })).toHaveTextContent(text);
+      const question = await view.findByRole("region", { name: "Turn on Weekly fix" });
+      expect(question).toHaveTextContent(text);
+      expect(question).not.toHaveTextContent(not);
       view.unmount();
     }
   });
 
-  it("tells the current match count, capped by the run size, and that originals are deleted", async () => {
+  it("tells the current match count, capped by the run size, and that a re-encode replaces the original", async () => {
     const state = makeApi(
-      [schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, compliance_state: null, max_files: 10, matching: 4 })],
+      [schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, compliance_state: null, max_files: 10, matching: 4, allow_reencode: true })],
       {}, { deleteOriginal: true },
     );
     const view = render(() => <SchedulesPage api={state.api} />);
     await view.findByText("Weekly fix");
-    state.set([schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, compliance_state: null, max_files: 10, matching: 37 })]);
+    state.set([schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, compliance_state: null, max_files: 10, matching: 37, allow_reencode: true })]);
 
     await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Weekly fix" }));
     const question = await view.findByRole("region", { name: "Turn on Weekly fix" });
 
     expect(question).toHaveTextContent("10 files match now");
-    expect(question).toHaveTextContent("Originals are deleted");
+    expect(question).toHaveTextContent("replace the original");
     expect(question).toHaveTextContent("approval applies to these settings only");
   });
 

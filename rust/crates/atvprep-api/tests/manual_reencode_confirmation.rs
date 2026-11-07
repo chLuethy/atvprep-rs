@@ -137,6 +137,106 @@ async fn a_confirmed_job_runs_and_records_the_confirmation() {
     assert_eq!(snapshot["reencode_confirmed"], true);
 }
 
+/// The re-encode decision recorded on each item, by media id, with its signature checked.
+fn item_decisions(h: &Harness) -> Vec<(i64, bool, bool)> {
+    use atvprep_manager::{
+        approval::{ApprovalItem, ApprovalVerifier, prepare_policy_block},
+        jobs::Jobs,
+        snapshots::InputSnapshots,
+    };
+    let conn = h.state.db.conn().unwrap();
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: h.state.clock.as_ref(),
+    };
+    let verifier = ApprovalVerifier::new(h.state.approval_secret.as_bytes()).unwrap();
+    let job: i64 = h.sql("SELECT id FROM jobs");
+    Jobs(ctx)
+        .items(job)
+        .unwrap()
+        .iter()
+        .map(|item| {
+            let recorded = InputSnapshots(ctx).get_for_item(item.id).unwrap().unwrap();
+            let identity = [
+                recorded["file_device"].clone(),
+                recorded["file_inode"].clone(),
+                recorded["file_ctime_ns"].clone(),
+                recorded["sidecar_fingerprint"].clone(),
+            ];
+            let reencode = item.settings_snapshot["reencode"] == json!(true);
+            let delete_original = item.settings_snapshot["delete_original"] == json!(true);
+            assert_eq!(prepare_policy_block(&item.settings_snapshot), None);
+            let signed = |reencode, delete_original| {
+                verifier.check(
+                    &item.settings_snapshot,
+                    &ApprovalItem {
+                        job_id: job,
+                        media_id: item.media_file_id,
+                        action: &item.action,
+                        identity: &identity,
+                        reencode,
+                        delete_original,
+                    },
+                    ctx.clock.now_micros() / 1_000_000,
+                )
+            };
+            assert_eq!(signed(reencode, delete_original), None);
+            assert!(
+                signed(!reencode, delete_original).is_some(),
+                "the decision is part of the signature"
+            );
+            assert!(signed(reencode, !delete_original).is_some());
+            (item.media_file_id, reencode, delete_original)
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn a_confirmed_job_marks_only_the_files_that_need_a_re_encode() {
+    let h = Harness::new();
+    let (status, body) = h
+        .create_job(json!({"action":"prepare","media_ids":[Harness::id(1),Harness::id(2)],"manual_approval":true,"confirm_reencode":true}))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let snapshot: Value =
+        serde_json::from_str(&h.sql::<String>("SELECT settings_snapshot_json FROM jobs")).unwrap();
+    assert_eq!(snapshot["policy"], "copy-only-v2");
+    assert_eq!(
+        item_decisions(&h),
+        [(1, false, false), (2, true, false)],
+        "file 2 needs it, file 1 does not and is only repaired"
+    );
+}
+
+#[tokio::test]
+async fn an_unconfirmed_job_never_marks_a_file_for_re_encode() {
+    let h = Harness::new();
+    let (status, body) = h
+        .create_job(json!({"action":"prepare","media_ids":[Harness::id(1)],"manual_approval":true}))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    assert_eq!(item_decisions(&h), [(1, false, false)]);
+}
+
+#[tokio::test]
+async fn the_delete_original_setting_is_recorded_and_signed_with_the_job() {
+    let h = Harness::new();
+    {
+        let conn = h.state.db.conn().unwrap();
+        conn.raw()
+            .execute(
+                "INSERT INTO runtime_settings(key,value_json,value_type,revision) VALUES('delete_original','true','bool',1)",
+                [],
+            )
+            .unwrap();
+    }
+    let (status, body) = h
+        .create_job(json!({"action":"prepare","media_ids":[Harness::id(2)],"manual_approval":true,"confirm_reencode":true}))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    assert_eq!(item_decisions(&h), [(2, true, true)]);
+}
+
 #[tokio::test]
 async fn files_without_reencode_need_no_confirmation() {
     let h = Harness::new();
