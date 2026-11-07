@@ -156,7 +156,7 @@ export async function loadSidecars(api: Api, mediaId: string): Promise<SidecarSt
   return loadSidecarsPage(api, mediaId);
 }
 
-export type FilesQuery = { q: string; complianceState: string; /** Comma separated states whose files are left out. */ hide?: string; cursor: string | null; sort?: { key: string; dir: 1 | -1 } | null };
+export type FilesQuery = { q: string; complianceState: string; /** Comma separated states whose files are left out. */ hide?: string; /** Comma separated properties a file must all have. */ has?: string; cursor: string | null; sort?: { key: string; dir: 1 | -1 } | null };
 export type FilePage = { items: FileRow[]; nextCursor: string | null; error: boolean; session: boolean };
 
 export async function loadFiles(api: Api, query: FilesQuery): Promise<FilePage> {
@@ -164,6 +164,7 @@ export async function loadFiles(api: Api, query: FilesQuery): Promise<FilePage> 
   if (query.q) params.set("q", query.q);
   if (query.complianceState) params.set("compliance_state", query.complianceState);
   if (query.hide) params.set("hide", query.hide);
+  if (query.has) params.set("has", query.has);
   if (query.cursor) params.set("cursor", query.cursor);
   if (query.sort) {
     params.set("sort", query.sort.key);
@@ -201,6 +202,26 @@ export async function loadSummary(api: Api): Promise<Summary | null> {
     const body = (await response.json()) as { data?: { files?: Record<string, number>; missing?: number; convert?: number; reencode?: number; embed?: number; converted?: number; jobs?: Record<string, number> } };
     const jobs = body.data?.jobs ?? {};
     return { counts: body.data?.files ?? null, missing: body.data?.missing ?? 0, convert: body.data?.convert ?? 0, reencode: body.data?.reencode ?? 0, embed: body.data?.embed ?? 0, converted: body.data?.converted ?? 0, jobsActive: (jobs.queued ?? 0) + (jobs.running ?? 0) > 0, jobs: { running: jobs.running ?? 0, queued: jobs.queued ?? 0 } };
+  } catch {
+    return null;
+  }
+}
+
+/** How many files each property shows with the current selection, keyed by property token. */
+export type TraitCounts = Record<string, number>;
+
+/** What each property box would show if it were ticked as well, for the current status and property selection. */
+export async function loadTraitCounts(api: Api, where: { state?: string; hide?: string; has?: string }): Promise<TraitCounts | null> {
+  const params = new URLSearchParams();
+  if (where.state) params.set("compliance_state", where.state);
+  if (where.hide) params.set("hide", where.hide);
+  if (where.has) params.set("has", where.has);
+  try {
+    const response = await api.request(`/files/counts${params.size > 0 ? `?${params}` : ""}`);
+    if (!response.ok) return null;
+    const data = ((await response.json()) as { data?: unknown }).data;
+    if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+    return Object.fromEntries(Object.entries(data).filter((entry): entry is [string, number] => typeof entry[1] === "number"));
   } catch {
     return null;
   }

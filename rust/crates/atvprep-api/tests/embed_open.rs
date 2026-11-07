@@ -71,7 +71,8 @@ fn api() -> Api {
              INSERT INTO inspections(media_file_id,source_fingerprint,input_fingerprint,tool_name,tool_version,result) VALUES
                (2,'s','f2','ffprobe','1','{\"streams\":[]}'),
                (3,'s','f3','ffprobe','1','{\"streams\":[]}'),
-               (4,'s','f4','ffprobe','1','{\"streams\":[{\"codec_type\":\"subtitle\",\"codec_name\":\"mov_text\",\"tags\":{\"language\":\"deu\"}}]}');",
+               (4,'s','f4','ffprobe','1','{\"streams\":[{\"codec_type\":\"subtitle\",\"codec_name\":\"mov_text\",\"tags\":{\"language\":\"deu\"}}]}');
+             UPDATE media_files SET needs_reencode=1 WHERE id IN (3,4);",
         )
         .unwrap();
     let state = AppState::new(
@@ -126,9 +127,80 @@ async fn the_ready_filter_leaves_out_open_embeds_and_a_filter_finds_them() {
         api.names("compliance_state=embed").await,
         ["open.mp4", "warn.mp4"]
     );
-    // "Bereit" abwählen blendet nur die wirklich bereiten aus, "Einbetten offen" abwählen nur die offenen.
+    // "Bereit" abwählen blendet nur die wirklich bereiten aus.
     assert_eq!(api.names("hide=clean").await, ["open.mp4", "warn.mp4"]);
-    assert_eq!(api.names("hide=embed").await, ["done.mp4", "ready.mp4"]);
+}
+
+impl Api {
+    async fn status(&self, path: &str) -> u16 {
+        self.app
+            .clone()
+            .oneshot(
+                Request::get(path)
+                    .header("origin", "http://testserver")
+                    .header("cookie", format!("__Host-atvprep_session={}", self.session))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+            .status()
+            .as_u16()
+    }
+}
+
+#[tokio::test]
+async fn properties_show_only_files_that_have_all_of_them() {
+    let api = api();
+    // Keine Auswahl: nichts wird gefiltert.
+    assert_eq!(
+        api.names("has=").await,
+        ["done.mp4", "open.mp4", "ready.mp4", "warn.mp4"]
+    );
+    // Eine Eigenschaft zeigt nur Dateien mit ihr.
+    assert_eq!(api.names("has=embed").await, ["open.mp4", "warn.mp4"]);
+    assert_eq!(api.names("has=reencode").await, ["done.mp4", "warn.mp4"]);
+    // Zwei Eigenschaften zeigen die Schnittmenge (UND).
+    assert_eq!(api.names("has=embed,reencode").await, ["warn.mp4"]);
+    // Kombination mit Status-Ausblenden.
+    assert_eq!(api.names("has=embed&hide=warning").await, ["open.mp4"]);
+    assert_eq!(
+        api.names("has=embed,reencode&hide=warning").await,
+        Vec::<String>::new()
+    );
+}
+
+#[tokio::test]
+async fn hide_takes_states_only_and_has_takes_properties_only() {
+    let api = api();
+    assert_eq!(api.status("/api/v1/files?hide=embed").await, 422);
+    assert_eq!(api.status("/api/v1/files?hide=reencode").await, 422);
+    assert_eq!(api.status("/api/v1/files?has=clean").await, 422);
+    assert_eq!(api.status("/api/v1/files?has=nonsense").await, 422);
+    assert_eq!(api.status("/api/v1/browse?hide=embed").await, 422);
+    assert_eq!(api.status("/api/v1/browse?has=clean").await, 422);
+    assert_eq!(api.status("/api/v1/browse?has=embed").await, 200);
+}
+
+#[tokio::test]
+async fn property_counts_follow_the_current_selection() {
+    let api = api();
+    let counts = |body: Value| {
+        let data = &body["data"];
+        ["convert", "reencode", "embed", "converted"].map(|key| data[key].as_u64().unwrap())
+    };
+    // Ohne Auswahl: jede Eigenschaft für sich.
+    assert_eq!(counts(api.get("/api/v1/files/counts").await), [0, 2, 2, 0]);
+    // Mit "Einbetten offen" gewählt bleibt je Eigenschaft die Schnittmenge.
+    assert_eq!(
+        counts(api.get("/api/v1/files/counts?has=embed").await),
+        [0, 1, 2, 0]
+    );
+    // Status-Ausblenden wirkt mit.
+    assert_eq!(
+        counts(api.get("/api/v1/files/counts?hide=warning").await),
+        [0, 1, 1, 0]
+    );
 }
 
 #[tokio::test]
@@ -170,6 +242,6 @@ async fn a_file_reports_its_open_embed_in_the_detail() {
 async fn a_repair_schedule_counts_clean_files_with_an_open_embed() {
     let api = api();
     let body = api.get("/api/v1/schedules").await;
-    // warn.mp4 (Warnung) und open.mp4 (sauber, Einbetten offen), nicht ready.mp4 und done.mp4.
-    assert_eq!(body["data"][0]["matching"], 2);
+    // open.mp4 (sauber, Einbetten offen); warn.mp4 braucht ein Neu-Kodieren und zählt nicht, ebenso wenig ready.mp4 und done.mp4.
+    assert_eq!(body["data"][0]["matching"], 1);
 }

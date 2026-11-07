@@ -116,6 +116,7 @@ pub fn router(state: AppState) -> Router {
             axum::routing::post(schedule_routes::run),
         )
         .route("/api/v1/job-items/{item_id}/log", get(read_jobs::item_log))
+        .route("/api/v1/files/counts", get(read_files::trait_counts))
         .route("/api/v1/files/{media_id}/jobs", get(read_jobs::file_jobs))
         .route("/api/v1/files", get(read_files::list))
         .route(
