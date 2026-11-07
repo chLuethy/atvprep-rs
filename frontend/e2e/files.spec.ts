@@ -47,4 +47,22 @@ test.describe("library journey", () => {
     await preview.getByRole("button", { name: "Cancel" }).click();
     await expect(page.getByRole("region", { name: "Prepare preview" })).toHaveCount(0);
   });
+
+  test("flags a file whose preparation was interrupted and prepares it again only by hand", async ({ page }) => {
+    await openAndUnlock(page, "/files");
+
+    const row = page.getByRole("link", { name: "Interrupted Movie" }).locator("xpath=ancestor::tr");
+    await expect(row).toContainText("Last preparation interrupted");
+    await expect(page.getByRole("link", { name: "Failed Movie" }).locator("xpath=ancestor::tr")).not.toContainText("Last preparation interrupted");
+
+    await page.getByRole("link", { name: "Interrupted Movie" }).click();
+    await expect(page.getByRole("heading", { name: "Interrupted Movie" })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "Last preparation interrupted" })).toBeVisible();
+
+    // Nothing is queued on its own; the button opens the normal preview with its confirmation.
+    await page.getByRole("button", { name: "Prepare again" }).click();
+    const preview = page.getByRole("region", { name: "Prepare preview" });
+    await expect(preview).toContainText("Nothing is written until you confirm.");
+    await preview.getByRole("button", { name: "Cancel" }).click();
+  });
 });

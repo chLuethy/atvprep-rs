@@ -26,6 +26,8 @@ export type FileRow = {
   needs_reencode?: boolean;
   /** Another container whose converted MP4 is already kept next to it; there is nothing left to prepare. */
   converted_kept?: boolean;
+  /** The newest preparation of this file was interrupted and nothing ran or was inspected since. */
+  last_interrupted?: boolean;
   /** The same files by name, language (three letter code) and kind (normal, forced, sdh). */
   embed_sidecars?: Array<{ name: string; language: string; kind: string }>;
 };
