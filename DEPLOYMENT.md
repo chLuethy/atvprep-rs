@@ -96,6 +96,12 @@ atvprep deploy servarr --application sonarr --manifest release.json --signature 
 
 Bestehende Installationen bleiben während der Erprobung erhalten. Bei einem separaten Rust-Container kann alternativ der mitgelieferte Hook `/usr/local/bin/atvprep-hook` mit einem Image-Update gewechselt werden. Ein Hook-Aufruf ohne Medienargumente endet erwartungsgemäß mit Exitcode 2; `--version` liefert die Release-Version.
 
+### Servarr-Images (`docker/`)
+
+`docker/Dockerfile` baut aus einem Rezept das Image für Sonarr, Radarr und Whisparr v3: ein eigenes FFmpeg mit `libx265`, `libdav1d`, `libopus`, `libvorbis` und `libchromaprint` (Muxer `chromaprint`), Bento4 (`mp4info`, `mp4dump`), `mediainfo` und `mkvtoolnix`. Das Rezept fügt weder Python noch uv hinzu (die Whisparr-Basis bringt ein eigenes `python3` mit); die atvprep-Binary gehört nicht ins Image, sondern kommt wie oben per `deploy servarr` ins `/config`-Volume. FFmpeg und Bento4 werden aus dem Quellcode gegen gepinnte SHA-256-Werte gebaut. Chromaprint braucht `chromaprint-dev` im Builder und `chromaprint-libs` (zieht `fftw-double-libs` nach) im Zielimage.
+
+`docker/bases.env` pinnt je Anwendung Basis-Image (Tag **und** Digest) und deren Alpine-Version; der Builder nutzt dieselbe Alpine-Version wie die Basis. `docker/build-smoke.sh [PLATTFORM]` baut alle drei Images und prüft Chromaprint (Fingerprint eines Testtons), `libx265`, Bento4, mediainfo, mkvmerge und dass uv fehlt. Ein Basis-Update ist eine bewusste Änderung der Datei, gefolgt von Neubau und Smoke-Test. Whisparr migriert beim ersten Start auf einer neueren Version unter Umständen seine Datenbank: vorher dessen `/config` sichern.
+
 ## Backup und Releasefenster
 
 Vor Ausführung sämtliche API-/Worker-Dienste und Servarr-Imports anhalten. Das lokale CLI muss

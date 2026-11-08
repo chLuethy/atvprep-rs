@@ -38,6 +38,10 @@ _Avoid_: Worker (gibt es in Rust nicht als eigenen Dienst)
 **Hook**:
 Die Binary `atvprep-hook`, die Sonarr oder Radarr beim Import als Custom Script aufrufen. Sie liegt am stabilen Pfad `/config/atvprep-hook` im jeweiligen Container.
 
+**Servarr-Image**:
+Das Container-Image aus `docker/Dockerfile` für Sonarr, Radarr oder Whisparr v3: gepinnte Basis plus FFmpeg, Bento4, mediainfo und mkvtoolnix, aber ohne atvprep. Der Hook liegt nicht im Image, sondern im `/config`-Volume.
+_Avoid_: Overlay-Image, Hook-Image
+
 **Altsystem**:
 Die Python-Implementierung samt Datenbank, Diensten und Runtime-Roots. Bleibt bis zu einer eigenen Löschentscheidung erhalten, ist aber nach dem Cutover gestoppt.
 
