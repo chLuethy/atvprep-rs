@@ -47,7 +47,8 @@
               "kind": "video",
               "last_seen_at": "<ts>",
               "mtime_ns": 4,
-              "needs_reencode": false,
+              "encode_need": "unknown",
+              "planned_change": "unknown",
               "pending_sidecars": 0,
               "root_id": "<r:1>",
               "size": 123,
@@ -159,7 +160,8 @@
                 "kind": "video",
                 "last_seen_at": "<ts>",
                 "mtime_ns": 4,
-                "needs_reencode": false,
+                "encode_need": "unknown",
+                "planned_change": "unknown",
                 "pending_sidecars": 0,
                 "root_id": "<r:1>",
                 "size": 123,
@@ -422,7 +424,8 @@
             "last_seen_at": "<ts>",
             "last_success_at": null,
             "mtime_ns": 4,
-            "needs_reencode": false,
+            "encode_need": "unknown",
+            "planned_change": "unknown",
             "pending_sidecars": 0,
             "root_id": "<r:1>",
             "sidecar_count": 1,
@@ -974,7 +977,8 @@
               "queued": 1
             },
             "missing": 0,
-            "reencode": 0,
+            "encode_audio": 0,
+            "encode_video": 0,
             "scans": {
               "succeeded": 1
             }

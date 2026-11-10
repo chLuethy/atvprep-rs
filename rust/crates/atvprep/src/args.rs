@@ -228,6 +228,10 @@ fn verify() -> Command {
             None,
             "Emit a machine-readable JSON report on stdout",
         ))
+        .arg(flag("prefer-hevc10", None, HEVC10))
+        .arg(crf())
+        .arg(flag("keep-av1", None, "Copy AV1 instead of transcoding"))
+        .arg(flag("fix-dts", None, DTS))
         .arg(
             Arg::new("fail-on")
                 .long("fail-on")

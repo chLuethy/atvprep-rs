@@ -580,7 +580,7 @@ fn run_change_schedule(
     }
     let delete_original = delete_original_setting(ctx.conn)?;
     let mut statement = ctx.conn.prepare(&format!(
-        "SELECT m.id, m.needs_reencode FROM media_files m
+        "SELECT m.id, m.encode_need='video' FROM media_files m
          WHERE m.discovery_state='present'
            AND (?1 IS NULL OR m.root_id=?1)
            AND (?2 IS NULL OR m.compliance_state=?2)

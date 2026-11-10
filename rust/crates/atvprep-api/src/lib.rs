@@ -480,7 +480,7 @@ mod tests {
         (3,1,'other.mkv','video','.mkv',1,1,'c','present','unknown','idle','none','[]',NULL),
         (4,1,'gone.mkv','video','.mkv',1,1,'d','missing','unknown','idle','none','[]',NULL),
         (5,1,'dismissed.mkv','video','.mkv',1,1,'e','missing','unknown','idle','none','[]','2026-01-01');
-        UPDATE media_files SET needs_reencode=1 WHERE id=1;
+        UPDATE media_files SET encode_need='video' WHERE id=1;
         INSERT INTO jobs(action,status) VALUES('verify','queued'); INSERT INTO scan_runs(root_id,generation,status) VALUES(1,1,'succeeded');
         INSERT INTO runtime_settings(key,value_json,value_type,revision) VALUES('delete_original','true','bool',1);").unwrap();
         let token = routes_auth::service(&state, &conn)
@@ -504,7 +504,8 @@ mod tests {
         assert_eq!(body["data"]["missing"], 1);
         assert_eq!(body["data"]["convert"], 1);
         assert_eq!(body["data"]["converted"], 1);
-        assert_eq!(body["data"]["reencode"], 1);
+        assert_eq!(body["data"]["encode_video"], 1);
+        assert_eq!(body["data"]["encode_audio"], 0);
         assert_eq!(body["data"]["files"]["unknown"], 2);
         assert_eq!(body["data"]["delete_original"], true);
         assert_eq!(body["data"]["jobs"]["queued"], 1);

@@ -92,7 +92,7 @@ fn an_approved_fix_schedule_queues_a_job_bound_to_its_parameters() {
 /// Mark file 3 (the mkv) as needing a re-encode; files 1 and 2 stay as they are.
 fn mark_mkv_needing_reencode(conn: &Conn) {
     conn.raw()
-        .execute("UPDATE media_files SET needs_reencode=1 WHERE id=3", [])
+        .execute("UPDATE media_files SET encode_need='video' WHERE id=3", [])
         .unwrap();
 }
 

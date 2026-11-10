@@ -12,15 +12,16 @@ use crate::{
     snapshots::{InputSnapshot, InputSnapshots},
     state_machine::{ItemStatus, JobStateMachine, JobStatus},
 };
-use atvprep_core::encode::EncodeAllowance;
+use atvprep_core::encode::{EncodeAllowance, EncodeNeed};
 use std::{
     collections::BTreeMap,
     path::PathBuf,
     time::{Duration, Instant},
 };
 
-/// How long an item with video in its Kodierfreigabe can run. Encoding a film takes hours; the
-/// lease keeps being renewed meanwhile. Every other item keeps the configured, shorter limit.
+/// How long an item that may encode video and needs it (or does not know yet) can run. Encoding a
+/// film takes hours; the lease keeps being renewed meanwhile. Every other item keeps the configured,
+/// shorter limit.
 pub const REENCODE_TIMEOUT: Duration = Duration::from_hours(4);
 
 /// The code of a successful item whose file needs more than its Kodierfreigabe (ADR 0008).
@@ -47,10 +48,15 @@ fn encode_refusal(process: &ProcessResult) -> Option<String> {
         })
 }
 
-/// The time limit of one changing item: longer only with video in its Kodierfreigabe.
+/// The time limit of one changing item: longer only for „Audio und Video“ with a video or unknown
+/// Kodierbedarf (`need` is the stored one, `None` is „unbekannt“).
 #[must_use]
-pub fn prepare_timeout(configured: Duration, mode: PrepareMode) -> Duration {
-    if mode.encode == EncodeAllowance::All {
+pub fn prepare_timeout(
+    configured: Duration,
+    mode: PrepareMode,
+    need: Option<EncodeNeed>,
+) -> Duration {
+    if mode.encode == EncodeAllowance::All && matches!(need, None | Some(EncodeNeed::Video)) {
         configured.max(REENCODE_TIMEOUT)
     } else {
         configured
@@ -283,12 +289,15 @@ pub fn execute_claimed(
         let mut output =
             super::execution_output::ClaimedOutput::new(ctx, owner, fence, item_id, item.job_id);
         let process = if changing {
+            let need = crate::media::Media(ctx)
+                .get(item.media_file_id)?
+                .and_then(|media| media.encode_need);
             run_pinned_prepare_observed(
                 &config.executable,
                 &target,
                 mode,
                 &config.environment,
-                prepare_timeout(config.timeout, mode),
+                prepare_timeout(config.timeout, mode, need),
                 config.grace,
                 &mut cancelled,
                 |chunk| output.feed(chunk, false),
@@ -517,7 +526,7 @@ fn complete_prepare(
     if changed {
         crate::media::Media(write).upsert(media.root_id, relative, &observed.meta, None)?;
         tx.execute(
-            "UPDATE media_files SET compliance_state='unknown',compliance_reasons=?1,needs_reencode=0 WHERE id=?2",
+            "UPDATE media_files SET compliance_state='unknown',compliance_reasons=?1,encode_need='unknown',planned_change='unknown' WHERE id=?2",
             rusqlite::params![
                 "[\"Changed by Prepare; verification is required.\"]",
                 media.id

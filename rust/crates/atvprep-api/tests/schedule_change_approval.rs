@@ -354,9 +354,9 @@ async fn matching_counts_re_encode_files_only_with_the_permission() {
         .unwrap()
         .raw()
         .execute_batch(
-            "INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action,needs_reencode)
-             VALUES(3,1,'a.mkv','video','.mkv',1,1,'a','present','warning','idle','none',1),
-                   (4,1,'b.mkv','video','.mkv',1,1,'b','present','warning','idle','none',0);
+            "INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action,encode_need)
+             VALUES(3,1,'a.mkv','video','.mkv',1,1,'a','present','warning','idle','none','video'),
+                   (4,1,'b.mkv','video','.mkv',1,1,'b','present','warning','idle','none','unknown');
              INSERT OR REPLACE INTO runtime_settings(key,value_json,value_type,revision) VALUES('delete_original','true','bool',1);",
         )
         .unwrap();

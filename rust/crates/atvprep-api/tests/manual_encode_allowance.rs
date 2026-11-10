@@ -29,9 +29,9 @@ impl Harness {
         conn.raw()
             .execute_batch(
                 "INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/library');
-            INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action,needs_reencode) VALUES
-            (1,1,'plain.mp4','video','.mp4',1,1,'a','present','warning','idle','fix',0),
-            (2,1,'old.mp4','video','.mp4',1,1,'b','present','warning','idle','fix',1);",
+            INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action,encode_need) VALUES
+            (1,1,'plain.mp4','video','.mp4',1,1,'a','present','warning','idle','fix','unknown'),
+            (2,1,'old.mp4','video','.mp4',1,1,'b','present','warning','idle','fix','video');",
             )
             .unwrap();
         let state = AppState::new(

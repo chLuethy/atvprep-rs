@@ -329,9 +329,14 @@
             "title": "Missing",
             "type": "integer"
           },
-          "reencode": {
+          "encode_audio": {
             "default": 0,
-            "title": "Reencode",
+            "title": "Encode Audio",
+            "type": "integer"
+          },
+          "encode_video": {
+            "default": 0,
+            "title": "Encode Video",
             "type": "integer"
           },
           "scans": {
@@ -981,10 +986,17 @@
             "title": "Mtime Ns",
             "type": "integer"
           },
-          "needs_reencode": {
-            "default": false,
-            "title": "Needs Reencode",
-            "type": "boolean"
+          "encode_need": {
+            "default": "unknown",
+            "enum": ["none", "audio", "video", "unknown"],
+            "title": "Encode Need",
+            "type": "string"
+          },
+          "planned_change": {
+            "default": "unknown",
+            "enum": ["none", "patch", "remux", "audio", "reencode", "unknown"],
+            "title": "Planned Change",
+            "type": "string"
           },
           "pending_sidecars": {
             "default": 0,
@@ -1108,10 +1120,17 @@
             "title": "Mtime Ns",
             "type": "integer"
           },
-          "needs_reencode": {
-            "default": false,
-            "title": "Needs Reencode",
-            "type": "boolean"
+          "encode_need": {
+            "default": "unknown",
+            "enum": ["none", "audio", "video", "unknown"],
+            "title": "Encode Need",
+            "type": "string"
+          },
+          "planned_change": {
+            "default": "unknown",
+            "enum": ["none", "patch", "remux", "audio", "reencode", "unknown"],
+            "title": "Planned Change",
+            "type": "string"
           },
           "pending_sidecars": {
             "default": 0,

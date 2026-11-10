@@ -1,5 +1,6 @@
 //! Kodierfreigabe and Kodierbedarf: how far a run may encode, and how far a plan would (ADR 0008).
 
+use crate::escalation::Level;
 use crate::models::{AudioAction, Plan, VideoAction};
 
 /// The Kodierfreigabe: the upper limit of what one run may encode.
@@ -63,6 +64,17 @@ impl EncodeNeed {
         }
     }
 
+    /// The need stored under `text`; `None` for „unbekannt“.
+    #[must_use]
+    pub fn parse(text: &str) -> Option<Self> {
+        match text {
+            "none" => Some(Self::None),
+            "audio" => Some(Self::Audio),
+            "video" => Some(Self::Video),
+            _ => None,
+        }
+    }
+
     /// What the planner is about to do: a video transcode is Video, a downmix or an audio
     /// transcode is Audio, anything else only copies.
     #[must_use]
@@ -92,6 +104,61 @@ impl EncodeNeed {
     }
 }
 
+/// The spelling of a stored need; `None` is „unbekannt“.
+#[must_use]
+pub const fn need_name(need: Option<EncodeNeed>) -> &'static str {
+    match need {
+        Some(need) => need.as_str(),
+        None => UNKNOWN,
+    }
+}
+
+/// „unbekannt“, for a stored need and a stored change alike.
+pub const UNKNOWN: &str = "unknown";
+
+/// The Änderungsart: how Prepare would change this file, as the operator sees it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChangeKind {
+    None,
+    Patch,
+    Remux,
+    /// A new audio track or an audio transcode; the video stays a copy.
+    Audio,
+    Reencode,
+}
+
+impl ChangeKind {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Patch => "patch",
+            Self::Remux => "remux",
+            Self::Audio => "audio",
+            Self::Reencode => "reencode",
+        }
+    }
+
+    /// The change of a run at `level` whose plan needs `need`; encoding outranks the route.
+    #[must_use]
+    pub const fn of(level: Level, need: EncodeNeed) -> Self {
+        match (need, level) {
+            (EncodeNeed::Video, _) => Self::Reencode,
+            (EncodeNeed::Audio, _) => Self::Audio,
+            (EncodeNeed::None, Level::None) => Self::None,
+            (EncodeNeed::None, Level::InPlace) => Self::Patch,
+            (EncodeNeed::None, Level::Rebuild | Level::Reencode) => Self::Remux,
+        }
+    }
+}
+
+/// What `prepare` would do to one file, as the planner sees it right now.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlannedChange {
+    pub need: EncodeNeed,
+    pub change: ChangeKind,
+}
+
 /// „Kodierung nicht freigegeben“: the plan needs more than the run was allowed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EncodeRefusal {
@@ -116,6 +183,34 @@ mod tests {
                 .map(|need| allowance.permits(need));
             assert_eq!(got, want, "{allowance:?}");
         }
+    }
+
+    #[test]
+    fn encoding_outranks_the_route_and_a_copy_keeps_it() {
+        let table = [
+            (Level::None, EncodeNeed::None, "none"),
+            (Level::InPlace, EncodeNeed::None, "patch"),
+            (Level::Rebuild, EncodeNeed::None, "remux"),
+            (Level::Rebuild, EncodeNeed::Audio, "audio"),
+            (Level::Reencode, EncodeNeed::Video, "reencode"),
+            (Level::Rebuild, EncodeNeed::Video, "reencode"),
+        ];
+        for (level, need, want) in table {
+            assert_eq!(
+                ChangeKind::of(level, need).as_str(),
+                want,
+                "{level:?} {need:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_stored_need_round_trips_and_anything_else_is_unknown() {
+        for need in [EncodeNeed::None, EncodeNeed::Audio, EncodeNeed::Video] {
+            assert_eq!(EncodeNeed::parse(need_name(Some(need))), Some(need));
+        }
+        assert_eq!(need_name(None), "unknown");
+        assert_eq!(EncodeNeed::parse("unknown"), None);
     }
 
     #[test]

@@ -280,6 +280,40 @@ fn delete_original_removes_another_container_after_a_verified_copy() {
     assert_eq!(names_in(dir.path()), ["file.mp4"]);
 }
 
+fn verify_report(flags: &[&str], file: &Path) -> serde_json::Value {
+    let (out, err) = (SharedBuffer::default(), SharedBuffer::default());
+    let io = Io {
+        stdin: Box::new(Cursor::new(Vec::new())),
+        stdout: Box::new(out.clone()),
+        stderr: Box::new(err.clone()),
+        stdout_is_terminal: false,
+        stdin_is_terminal: false,
+    };
+    let mut args: Vec<OsString> = vec!["verify".into(), "--json".into()];
+    args.extend(flags.iter().map(OsString::from));
+    args.push(file.into());
+    run(&args, &Environment::from_process(), io);
+    let document: serde_json::Value = serde_json::from_str(&out.contents()).unwrap();
+    document["reports"][0].clone()
+}
+
+#[test]
+fn the_verify_report_carries_the_need_of_the_planner() {
+    let (_audio_dir, audio) = needs_audio();
+    let report = verify_report(&[], &audio);
+    assert_eq!(report["encode_need"], "audio");
+    assert_eq!(report["planned_change"], "audio");
+    let (_video_dir, video) = needs_video();
+    assert_eq!(verify_report(&[], &video)["encode_need"], "video");
+}
+
+#[test]
+fn verify_takes_the_flags_of_the_target_profile() {
+    let (_dir, video) = needs_video();
+    let flags = ["--crf", "22", "--keep-av1", "--fix-dts", "--prefer-hevc10"];
+    assert_eq!(verify_report(&flags, &video)["encode_need"], "video");
+}
+
 #[test]
 fn delete_original_never_removes_an_mp4() {
     let (dir, file) = needs_video();

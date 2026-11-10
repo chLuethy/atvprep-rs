@@ -5,7 +5,7 @@ use crate::{Error, Result};
 
 /// Migration stages in order; stage `n` takes a database from version `n - 1` to `n`.
 /// To extend: add `000N_name.sql`, append it here and raise [`VERSION`].
-const STAGES: [&str; 9] = [
+const STAGES: [&str; 10] = [
     include_str!("migrations/0001_base.sql"),
     include_str!("migrations/0002_cron.sql"),
     include_str!("migrations/0003_scan_action.sql"),
@@ -15,10 +15,11 @@ const STAGES: [&str; 9] = [
     include_str!("migrations/0007_needs_reencode.sql"),
     include_str!("migrations/0008_scan_orphans.sql"),
     include_str!("migrations/0009_schedule_allow_reencode.sql"),
+    include_str!("migrations/0010_encode_need.sql"),
 ];
 
 /// The version this build creates and understands.
-pub const VERSION: i64 = 9;
+pub const VERSION: i64 = 10;
 
 /// Every table of the current schema.
 pub const TABLES: [&str; 23] = [
@@ -483,16 +484,16 @@ mod tests {
         insert(4, "clean", "[]", "present");
         migrate(&mut conn).unwrap();
         assert_eq!(version(&conn).unwrap(), VERSION);
-        let flags: Vec<i64> = conn
+        let needs: Vec<String> = conn
             .raw()
-            .prepare("SELECT needs_reencode FROM media_files ORDER BY id")
+            .prepare("SELECT encode_need FROM media_files ORDER BY id")
             .unwrap()
             .query_map([], |r| r.get(0))
             .unwrap()
             .collect::<std::result::Result<_, _>>()
             .unwrap();
-        assert_eq!(flags, vec![1, 1, 0, 0]);
-        // A row written after the migration defaults to "no re-encode needed".
+        assert_eq!(needs, ["video", "video", "unknown", "unknown"]);
+        // A row written after the migration is unknown until it has been checked.
         exec(
             &conn,
             "INSERT INTO media_files(id, root_id, relative_path, kind, suffix, size, mtime_ns, fingerprint,
@@ -500,18 +501,58 @@ mod tests {
              VALUES (9, 1, 'new.mp4', 'video', '.mp4', 1, 1, 'f', 'present', 'unknown', 'idle', 'none')",
         )
         .unwrap();
-        let fresh: i64 = conn
+        let fresh: String = conn
             .raw()
-            .query_row(
-                "SELECT needs_reencode FROM media_files WHERE id=9",
-                [],
-                |r| r.get(0),
-            )
+            .query_row("SELECT encode_need FROM media_files WHERE id=9", [], |r| {
+                r.get(0)
+            })
             .unwrap();
-        assert_eq!(fresh, 0);
+        assert_eq!(fresh, "unknown");
         assert!(
-            exec(&conn, "UPDATE media_files SET needs_reencode=2 WHERE id=9").is_err(),
-            "only 0 or 1"
+            exec(
+                &conn,
+                "UPDATE media_files SET encode_need='maybe' WHERE id=9"
+            )
+            .is_err(),
+            "only the known needs"
+        );
+        assert!(
+            exec(&conn, "UPDATE media_files SET needs_reencode=1 WHERE id=9").is_err(),
+            "the old flag is gone"
+        );
+    }
+
+    #[test]
+    fn a_version_9_database_keeps_what_was_marked_and_makes_the_rest_unknown() {
+        let (_db, mut conn) = database_at(9);
+        exec(
+            &conn,
+            "INSERT INTO library_roots(name, canonical_path) VALUES ('r', '/r')",
+        )
+        .unwrap();
+        exec(
+            &conn,
+            "INSERT INTO media_files(id, root_id, relative_path, kind, suffix, size, mtime_ns, fingerprint,
+               discovery_state, compliance_state, workflow_state, desired_action, needs_reencode)
+             VALUES (1, 1, 'a.mp4', 'video', '.mp4', 1, 1, 'f', 'present', 'warning', 'idle', 'none', 1),
+                    (2, 1, 'b.mp4', 'video', '.mp4', 1, 1, 'f', 'present', 'clean', 'idle', 'none', 0)",
+        )
+        .unwrap();
+        migrate(&mut conn).unwrap();
+        let rows: Vec<(String, String)> = conn
+            .raw()
+            .prepare("SELECT encode_need, planned_change FROM media_files ORDER BY id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            rows,
+            [
+                ("video".to_owned(), "reencode".to_owned()),
+                ("unknown".to_owned(), "unknown".to_owned())
+            ]
         );
     }
 

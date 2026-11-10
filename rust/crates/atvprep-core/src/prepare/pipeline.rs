@@ -17,7 +17,7 @@ use super::paths::{output_path, temp_name};
 use super::{ErrorKind, Failed, Outcome, PrepareOptions, PrepareResult, settle_report};
 use crate::compliance::Audit;
 use crate::copy_policy::{check_copy_only, check_video_copied};
-use crate::encode::{EncodeAllowance, EncodeNeed, EncodeRefusal};
+use crate::encode::{ChangeKind, EncodeAllowance, EncodeNeed, EncodeRefusal, PlannedChange};
 use crate::escalation::{AssessOptions, Assessment, Level, assess};
 use crate::fd_fix_contract::{FdFixTarget, UnsafeFixTarget};
 use crate::ffprobe::ProbeError;
@@ -784,6 +784,31 @@ fn run_to_output(
     ))
 }
 
+/// What the route of a Prepare run would need and change for `source`, without writing anything.
+fn planned(ctx: &mut RunContext, run: &mut Run, target: &FdFixTarget) -> Step<PlannedChange> {
+    let (source, options) = (run.source, run.options);
+    let sibling_leaf = format!("{}.mp4", stem_of(source));
+    let subject = if !is_mp4_like(source) && has_sibling(target, &sibling_leaf)? {
+        // As in `route`: the MP4 next to the source is what Prepare works on.
+        leaf_in(source, target, &sibling_leaf)?
+    } else {
+        source.to_path_buf()
+    };
+    run.subject.clone_from(&subject);
+    let analysis = analyse(ctx, run, &subject)?;
+    let need = match analysis.assessment.level {
+        Level::None | Level::InPlace => EncodeNeed::None,
+        Level::Rebuild | Level::Reencode => {
+            let tmp = temp_path(source, target)?;
+            EncodeNeed::of_plan(&plan_for(ctx, options, source, &tmp, &analysis)?)
+        }
+    };
+    Ok(PlannedChange {
+        need,
+        change: ChangeKind::of(analysis.assessment.level, need),
+    })
+}
+
 /// A caller target without a real root must pin the directory `source` lives in.
 fn check_source_in_target(source: &Path, target: &FdFixTarget) -> Step<()> {
     if target.root().is_some() || source == target.path() {
@@ -852,6 +877,27 @@ fn route(
     }
     let analysis = analyse(ctx, run, source)?;
     run_new_sibling(ctx, run, target, &analysis, &sibling_leaf)
+}
+
+/// The Kodierbedarf and the Änderungsart of `source` under `options`: the analysis and planner of
+/// [`prepare_file`], taking the same route, but read-only. `None` when the planner cannot say.
+#[must_use]
+pub fn planned_change(
+    ctx: &mut RunContext,
+    source: &Path,
+    options: &PrepareOptions,
+    target: &FdFixTarget,
+) -> Option<PlannedChange> {
+    let mut run = Run {
+        source,
+        options,
+        level: Level::None,
+        reasons: Vec::new(),
+        subject: source.to_path_buf(),
+        temps: Vec::new(),
+        quarantine: false,
+    };
+    planned(ctx, &mut run, target).ok()
 }
 
 /// Bring `source` to the Apple TV target, going no further than its escalation level requires.

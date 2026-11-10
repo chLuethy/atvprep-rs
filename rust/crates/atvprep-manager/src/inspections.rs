@@ -1,10 +1,11 @@
 //! Stored tool results and the compliance projection they feed.
 
+use atvprep_core::encode::UNKNOWN;
 use rusqlite::{OptionalExtension, named_params};
 use serde_json::Value;
 
 use crate::Result;
-use crate::evaluate::evaluate_inspection;
+use crate::evaluate::{Evaluation, NeedUpdate, evaluate_inspection};
 use crate::models::Inspection;
 use crate::repo::Ctx;
 use crate::scans::{CLAIMED_SCAN_AUTHORITY, Scans};
@@ -39,52 +40,82 @@ impl Inspections<'_> {
     /// inspection can only say "unknown". So an ffprobe inspection must not replace a verify
     /// verdict for the same bytes: the verdict comes from the newest verify report whose
     /// fingerprint still matches the file, and only without one does the inspection decide.
+    ///
+    /// Verify cannot judge another container: its report only feeds the Kodierbedarf there, and the
+    /// state keeps coming from the media analysis. The need never comes from an ffprobe inspection.
     fn project(&self, inspection: &Inspection) -> Result<()> {
-        let media: Option<String> = self
+        let media: Option<(String, String)> = self
             .0
             .conn
             .query_row(
-                "SELECT fingerprint FROM media_files WHERE id = ?1",
+                "SELECT fingerprint, suffix FROM media_files WHERE id = ?1",
                 [inspection.media_file_id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?;
+        let Some((media_fingerprint, suffix)) = media else {
+            return Ok(());
+        };
+        let newest =
+            |tool: &str| self.newest_for(inspection.media_file_id, tool, &media_fingerprint);
+        let evaluate = |source: &Inspection| -> Evaluation {
+            evaluate_inspection(
+                &source.tool_name,
+                &source.result,
+                &source.input_fingerprint,
+                &media_fingerprint,
+            )
+        };
+        let verified = if inspection.tool_name == "verify" {
+            Some(inspection.clone())
+        } else {
+            newest("verify")?
+        };
+        let mp4 = crate::media_sql::is_mp4_like(&suffix);
+        let verdict = if mp4 {
+            Some(evaluate(verified.as_ref().unwrap_or(inspection)))
+        } else if inspection.tool_name == "verify" {
+            newest("ffprobe")?.as_ref().map(evaluate)
+        } else {
+            Some(evaluate(inspection))
+        };
+        if let Some(verdict) = verdict {
+            self.0.conn.execute(
+                "UPDATE media_files SET compliance_state=?2, compliance_reasons=?3 WHERE id=?1",
+                rusqlite::params![
+                    inspection.media_file_id,
+                    verdict.state,
+                    serde_json::to_string(&verdict.reasons).unwrap_or_else(|_| "[]".to_owned()),
+                ],
+            )?;
+        }
+        let need = evaluate(verified.as_ref().unwrap_or(inspection)).need;
+        let (need, change) = match need {
+            NeedUpdate::Keep => return Ok(()),
+            NeedUpdate::Unknown => (UNKNOWN, UNKNOWN),
+            NeedUpdate::Set { need, change } => (need, change),
+        };
+        self.0.conn.execute(
+            "UPDATE media_files SET encode_need=?2, planned_change=?3 WHERE id=?1",
+            rusqlite::params![inspection.media_file_id, need, change],
+        )?;
+        Ok(())
+    }
+
+    /// The newest inspection by `tool` of exactly these bytes.
+    fn newest_for(&self, media: i64, tool: &str, fingerprint: &str) -> Result<Option<Inspection>> {
+        let id: Option<i64> = self
+            .0
+            .conn
+            .query_row(
+                "SELECT id FROM inspections
+                 WHERE media_file_id=?1 AND tool_name=?2 AND input_fingerprint=?3
+                 ORDER BY created_at DESC, id DESC LIMIT 1",
+                rusqlite::params![media, tool, fingerprint],
                 |r| r.get(0),
             )
             .optional()?;
-        let Some(media_fingerprint) = media else {
-            return Ok(());
-        };
-        let mut source = inspection.clone();
-        if inspection.tool_name != "verify" {
-            let verified: Option<i64> = self
-                .0
-                .conn
-                .query_row(
-                    "SELECT id FROM inspections
-                     WHERE media_file_id=?1 AND tool_name='verify' AND input_fingerprint=?2
-                     ORDER BY created_at DESC, id DESC LIMIT 1",
-                    rusqlite::params![inspection.media_file_id, media_fingerprint],
-                    |r| r.get(0),
-                )
-                .optional()?;
-            if let Some(found) = verified.map(|id| self.get(id)).transpose()?.flatten() {
-                source = found;
-            }
-        }
-        let evaluation = evaluate_inspection(
-            &source.tool_name,
-            &source.result,
-            &source.input_fingerprint,
-            &media_fingerprint,
-        );
-        self.0.conn.execute(
-            "UPDATE media_files SET compliance_state=?2, compliance_reasons=?3, needs_reencode=?4 WHERE id=?1",
-            rusqlite::params![
-                inspection.media_file_id,
-                evaluation.state,
-                serde_json::to_string(&evaluation.reasons).unwrap_or_else(|_| "[]".to_owned()),
-                evaluation.needs_reencode,
-            ],
-        )?;
-        Ok(())
+        Ok(id.map(|id| self.get(id)).transpose()?.flatten())
     }
 
     /// Record an inspection and update the media file's compliance projection. With a `scan_id`
@@ -210,7 +241,7 @@ impl Inspections<'_> {
                 self.project(&inspection)?;
             } else {
                 self.0.conn.execute(
-                    "UPDATE media_files SET compliance_state='unknown', compliance_reasons=?2, needs_reencode=0 WHERE id=?1",
+                    "UPDATE media_files SET compliance_state='unknown', compliance_reasons=?2, encode_need='unknown', planned_change='unknown' WHERE id=?1",
                     rusqlite::params![
                         id,
                         serde_json::json!(["No inspection is available for this media file."])

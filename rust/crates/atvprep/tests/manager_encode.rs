@@ -10,6 +10,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use atvprep_core::encode::EncodeAllowance::{self, All, Audio, Copy};
+use atvprep_core::encode::EncodeNeed;
 use atvprep_manager::{
     Error,
     approval::{ApprovalItem, ApprovalVerifier, PREPARE_POLICY},
@@ -73,6 +74,29 @@ fn high10(path: &Path) {
 /// Only needs its moov moved: no encoding at all.
 fn only_remux(path: &Path) {
     std::fs::copy(testdata("moovlast.mp4"), path).unwrap();
+}
+
+fn clean(path: &Path) {
+    std::fs::copy(testdata("clean.mp4"), path).unwrap();
+}
+
+fn mkv_movie(path: &Path) {
+    std::fs::copy(testdata("movie.mkv"), path).unwrap();
+}
+
+/// H.264 and FLAC in a Matroska file: the audio has to be transcoded, the video is copied.
+fn flac_mkv(path: &Path) {
+    let status = Command::new("ffmpeg")
+        .args(["-y", "-hide_banner", "-loglevel", "error"])
+        .args(["-f", "lavfi", "-i", "testsrc2=s=160x90:r=24:d=0.5"])
+        .args(["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"])
+        .args([
+            "-t", "0.5", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "flac",
+        ])
+        .arg(path)
+        .status()
+        .expect("ffmpeg must be on PATH to generate test media");
+    assert!(status.success(), "ffmpeg could not generate the FLAC file");
 }
 
 type MakeFile = fn(&Path);
@@ -211,12 +235,30 @@ impl World {
         names
     }
 
+    /// Run „Prüfen“ on the first file with the real CLI and return what was stored about it.
+    fn verified(&self) -> (Option<EncodeNeed>, String) {
+        let clock = SystemClock;
+        let ctx = self.ctx(&clock);
+        let media = self.media[0].1;
+        let ids = [media];
+        let job = Jobs(ctx).create(&NewJob::new("verify", &ids)).unwrap();
+        let (item, result) = self.run_item_of(job.id);
+        result.unwrap();
+        assert_eq!(self.ended(item).status, ItemStatus::Succeeded);
+        let row = Media(ctx).get(media).unwrap().unwrap();
+        (row.encode_need, row.planned_change)
+    }
+
     /// Claim the next queued item and run it to its end.
     fn run_next(&self) -> (i64, Result<(), Error>) {
+        self.run_item_of(self.job)
+    }
+
+    fn run_item_of(&self, job: i64) -> (i64, Result<(), Error>) {
         let clock = SystemClock;
         let ctx = self.ctx(&clock);
         let item = Jobs(ctx)
-            .claim_media_item(self.job, "worker", self.fence, 600, 1)
+            .claim_media_item(job, "worker", self.fence, 600, 1)
             .unwrap()
             .expect("an item is queued");
         let result = execute_claimed(ctx, item.id, "worker", self.fence, &self.config).map(|_| ());
@@ -276,6 +318,114 @@ fn assert_refused(make: MakeFile, allowance: EncodeAllowance, need: &str) {
 fn assert_ran(ended: &Ended) {
     assert_eq!(ended.status, ItemStatus::Succeeded, "{:?}", ended.detail);
     assert_eq!(ended.code, None, "{:?}", ended.detail);
+}
+
+/// The stored need and change, and that the run behaves exactly as they say: the lowest allowance
+/// that covers the need runs, the one below it leaves the file alone.
+fn assert_need_matches_the_run(
+    name: &str,
+    make: MakeFile,
+    need: EncodeNeed,
+    change: &str,
+    below: Option<EncodeAllowance>,
+) {
+    let world_at = |allowance| world(&[(name, make, allowance)], false);
+    let required = need.required();
+    let running = world_at(required);
+    assert_eq!(
+        running.verified(),
+        (Some(need), change.to_owned()),
+        "{name}"
+    );
+    let (item, result) = running.run_next();
+    result.unwrap();
+    assert_ran(&running.ended(item));
+    if let Some(below) = below {
+        let refused = world_at(below);
+        assert_eq!(
+            refused.verified(),
+            (Some(need), change.to_owned()),
+            "{name}"
+        );
+        let (item, result) = refused.run_next();
+        result.unwrap();
+        assert_eq!(
+            refused.ended(item).code.as_deref(),
+            Some(ENCODE_NOT_ALLOWED),
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn a_missing_stereo_track_is_stored_as_audio_and_runs_as_audio() {
+    assert_need_matches_the_run(
+        "file.mp4",
+        surround_only,
+        EncodeNeed::Audio,
+        "audio",
+        Some(Copy),
+    );
+}
+
+#[test]
+fn a_video_transcode_is_stored_as_video_and_runs_as_video() {
+    assert_need_matches_the_run(
+        "file.mp4",
+        high10,
+        EncodeNeed::Video,
+        "reencode",
+        Some(Audio),
+    );
+}
+
+#[test]
+fn a_remux_is_stored_as_no_need_and_runs_under_copy() {
+    assert_need_matches_the_run("file.mp4", only_remux, EncodeNeed::None, "remux", None);
+}
+
+#[test]
+fn an_audio_transcode_is_stored_as_audio_and_runs_as_audio() {
+    assert_need_matches_the_run("file.mkv", flac_mkv, EncodeNeed::Audio, "audio", Some(Copy));
+}
+
+#[test]
+fn a_check_of_another_container_only_feeds_the_need_and_not_its_state() {
+    let world = world(&[("file.mkv", flac_mkv, Copy)], false);
+    world.verified();
+    let clock = SystemClock;
+    let row = Media(world.ctx(&clock))
+        .get(world.media[0].1)
+        .unwrap()
+        .unwrap();
+    assert_eq!(row.compliance_state, "unknown");
+    assert!(
+        row.compliance_reasons
+            .iter()
+            .all(|r| !r.contains("rule crashed"))
+    );
+}
+
+#[test]
+fn a_clean_file_is_stored_with_no_need_and_no_change() {
+    let world = world(&[("file.mp4", clean, Copy)], false);
+    assert_eq!(
+        world.verified(),
+        (Some(EncodeNeed::None), "none".to_owned())
+    );
+}
+
+#[test]
+fn another_container_is_stored_as_the_planner_sees_it_and_runs_at_that_level() {
+    let world = world(&[("file.mkv", mkv_movie, Copy)], false);
+    let (need, change) = world.verified();
+    let need = need.expect("the planner reads the container too");
+    assert_ne!(change, "unknown");
+    assert_eq!(need, EncodeNeed::None, "this fixture only copies");
+    let (item, result) = world.run_next();
+    result.unwrap();
+    assert_ran(&world.ended(item));
+    assert_eq!(world.ended(item).code, None);
 }
 
 #[test]
@@ -401,22 +551,32 @@ fn a_job_queued_under_an_older_policy_is_refused_for_good_and_says_to_queue_it_a
 }
 
 #[test]
-fn only_an_item_with_video_in_its_allowance_gets_the_four_hour_limit() {
+fn only_all_with_a_video_or_unknown_need_gets_the_four_hour_limit() {
     let configured = Duration::from_secs(600);
-    let limit = |encode, delete_original, configured| {
+    let limit = |encode, need, configured| {
         prepare_timeout(
             configured,
             PrepareMode {
                 encode,
-                delete_original,
+                delete_original: false,
             },
+            need,
         )
     };
     assert_eq!(REENCODE_TIMEOUT, Duration::from_hours(4));
-    assert_eq!(limit(Copy, false, configured), configured);
-    assert_eq!(limit(Audio, true, configured), configured);
-    assert_eq!(limit(All, false, configured), REENCODE_TIMEOUT);
+    for need in [None, Some(EncodeNeed::Audio), Some(EncodeNeed::Video)] {
+        assert_eq!(limit(Copy, need, configured), configured);
+        assert_eq!(limit(Audio, need, configured), configured);
+    }
+    // „Audio und Video“ on a file that only needs audio stays at the shorter limit.
+    assert_eq!(limit(All, Some(EncodeNeed::None), configured), configured);
+    assert_eq!(limit(All, Some(EncodeNeed::Audio), configured), configured);
+    assert_eq!(
+        limit(All, Some(EncodeNeed::Video), configured),
+        REENCODE_TIMEOUT
+    );
+    assert_eq!(limit(All, None, configured), REENCODE_TIMEOUT);
     // A longer configured limit is never shortened.
     let long = Duration::from_hours(6);
-    assert_eq!(limit(All, true, long), long);
+    assert_eq!(limit(All, Some(EncodeNeed::Video), long), long);
 }
