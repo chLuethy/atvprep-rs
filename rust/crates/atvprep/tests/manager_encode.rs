@@ -4,6 +4,7 @@
 //! over short, generated files. A missing tool fails these tests; nothing is skipped.
 
 use std::collections::BTreeMap;
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
@@ -48,6 +49,14 @@ fn search_path() -> String {
     std::env::var("PATH").expect("PATH is set")
 }
 
+/// The absolute path of `tool` on this `PATH`.
+fn on_path(tool: &str) -> PathBuf {
+    std::env::split_paths(&search_path())
+        .map(|dir| dir.join(tool))
+        .find(|candidate| candidate.is_file())
+        .unwrap_or_else(|| panic!("{tool} must be on PATH"))
+}
+
 #[test]
 #[should_panic(expected = "ffmpeg must be on PATH")]
 fn a_missing_tool_fails_the_harness_loudly() {
@@ -73,6 +82,11 @@ fn high10(path: &Path) {
 /// Only needs its moov moved: no encoding at all.
 fn only_remux(path: &Path) {
     std::fs::copy(testdata("moovlast.mp4"), path).unwrap();
+}
+
+/// Another container whose streams can all be copied.
+fn copyable_mkv(path: &Path) {
+    std::fs::copy(testdata("movie.mkv"), path).unwrap();
 }
 
 type MakeFile = fn(&Path);
@@ -398,6 +412,129 @@ fn a_job_queued_under_an_older_policy_is_refused_for_good_and_says_to_queue_it_a
     let detail = ended.detail.unwrap();
     assert!(detail.contains("Queue"), "{detail}");
     assert_eq!(std::fs::read(world.path("file.mp4")).unwrap(), before);
+}
+
+/// The item ran, the new MP4 is there and the old container is not.
+fn assert_container_replaced(world: &World, ended: &Ended) {
+    assert_ran(ended);
+    assert_eq!(world.names(), ["file.mp4"]);
+    assert_eq!(codecs(&world.path("file.mp4"), "v"), ["h264"]);
+}
+
+#[test]
+fn delete_original_removes_a_remuxed_container_at_every_allowance() {
+    for allowance in [Copy, Audio, All] {
+        let world = world(&[("file.mkv", copyable_mkv, allowance)], true);
+        let (item, result) = world.run_next();
+        result.unwrap();
+        assert_container_replaced(&world, &world.ended(item));
+    }
+}
+
+#[test]
+fn a_removed_container_leaves_the_library_without_counting_as_missing() {
+    let world = world(&[("file.mkv", copyable_mkv, Copy)], true);
+    let (item, result) = world.run_next();
+    result.unwrap();
+    assert_container_replaced(&world, &world.ended(item));
+    let clock = SystemClock;
+    let ctx = world.ctx(&clock);
+    let media = Media(ctx).get(world.media[0].1).unwrap().unwrap();
+    assert_eq!(media.discovery_state, "missing");
+    assert!(
+        media.dismissed_at.is_some(),
+        "not offered as a missing file"
+    );
+    let pending: i64 = ctx
+        .conn
+        .query_row(
+            "SELECT count(*) FROM scan_runs WHERE status='queued'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(pending, 1, "the new MP4 is picked up by a scan");
+}
+
+#[test]
+fn without_delete_original_the_container_stays_next_to_the_new_mp4() {
+    let world = world(&[("file.mkv", copyable_mkv, Copy)], false);
+    let before = std::fs::read(world.path("file.mkv")).unwrap();
+    let (item, result) = world.run_next();
+    result.unwrap();
+    assert_ran(&world.ended(item));
+    assert_eq!(world.names(), ["file.mkv", "file.mp4"]);
+    assert_eq!(std::fs::read(world.path("file.mkv")).unwrap(), before);
+}
+
+#[test]
+fn a_new_mp4_that_fails_verification_keeps_the_container() {
+    let mut world = world(&[("file.mkv", copyable_mkv, Copy)], true);
+    // Real ffmpeg does the work, then the output is swapped for one the check rejects.
+    let tools = tempfile::tempdir().unwrap();
+    let stand_in = tools.path().join("ffmpeg");
+    std::fs::write(
+        &stand_in,
+        format!(
+            "#!/bin/sh\nfor last; do :; done\n{ffmpeg} \"$@\" || exit $?\ncase \"$last\" in -|/dev/null) ;; *) cp {bad} \"$last\" ;; esac\n",
+            ffmpeg = on_path("ffmpeg").display(),
+            bad = testdata("high10.mp4").display(),
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&stand_in, std::fs::Permissions::from_mode(0o755)).unwrap();
+    world.config.environment.insert(
+        "PATH".to_owned(),
+        format!("{}:{}", tools.path().display(), search_path()),
+    );
+    let before = std::fs::read(world.path("file.mkv")).unwrap();
+    let (item, result) = world.run_next();
+    result.unwrap();
+    let ended = world.ended(item);
+    assert_eq!(ended.status, ItemStatus::Failed, "{:?}", ended.detail);
+    assert_eq!(ended.code.as_deref(), Some("verification_failed"));
+    assert_eq!(world.names(), ["file.mkv"]);
+    assert_eq!(std::fs::read(world.path("file.mkv")).unwrap(), before);
+}
+
+#[test]
+fn a_container_with_its_converted_mp4_already_next_to_it_is_not_removed() {
+    let world = world(&[("file.mkv", copyable_mkv, Copy)], true);
+    only_remux(&world.path("file.mp4"));
+    let before = std::fs::read(world.path("file.mkv")).unwrap();
+    let (item, result) = world.run_next();
+    result.unwrap();
+    assert_ran(&world.ended(item));
+    assert_eq!(world.names(), ["file.mkv", "file.mp4"]);
+    assert_eq!(std::fs::read(world.path("file.mkv")).unwrap(), before);
+}
+
+#[test]
+fn preparing_a_converted_mp4_leaves_its_kept_container_alone() {
+    let world = world(&[("file.mp4", only_remux, Copy)], true);
+    copyable_mkv(&world.path("file.mkv"));
+    let before = std::fs::read(world.path("file.mkv")).unwrap();
+    let (item, result) = world.run_next();
+    result.unwrap();
+    assert_ran(&world.ended(item));
+    assert_eq!(world.names(), ["file.mkv", "file.mp4"]);
+    assert_eq!(std::fs::read(world.path("file.mkv")).unwrap(), before);
+}
+
+#[test]
+fn a_changed_delete_original_breaks_the_signature_and_nothing_runs() {
+    let world = world(&[("file.mkv", copyable_mkv, Copy)], false);
+    world
+        .conn
+        .raw()
+        .execute(
+            "UPDATE job_items SET settings_snapshot_json=json_set(settings_snapshot_json,'$.delete_original',json('true'))",
+            [],
+        )
+        .unwrap();
+    let (_, result) = world.run_next();
+    assert!(result.is_err());
+    assert_eq!(world.names(), ["file.mkv"]);
 }
 
 #[test]
