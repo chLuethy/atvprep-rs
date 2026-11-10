@@ -65,6 +65,10 @@
 .insp-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 4px; }
 .confirm { margin: 10px 0 0; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); }
 .confirm p { margin: 0 0 4px; }
+.encode-choice { margin: 12px 0 0; padding: 0; border: 0; }
+.encode-choice legend { padding: 0; font-weight: 600; }
+.encode-level, .encode-confirm { display: flex; align-items: flex-start; gap: 8px; margin-top: 6px; }
+.encode-level input, .encode-confirm input { margin-top: 3px; flex: none; }
 .confirm .chips { margin: 6px 0 8px; }
 .pick { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; min-height: 28px; cursor: pointer; }
 .facts { display: flex; gap: 6px 22px; flex-wrap: wrap; margin: 14px 0 0; }

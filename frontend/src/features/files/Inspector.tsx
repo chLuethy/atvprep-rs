@@ -17,6 +17,7 @@ import {
 } from "./model";
 import { convertPlan, isMp4Like } from "./convertPlan";
 import { prepareConfirm, preparable } from "./preparePlan";
+import { createEncodeChoice, EncodeChoice } from "./EncodeChoice";
 import { LIMIT_OPTIONS_MBPS, readWaveLimit, waveVerdict, writeWaveLimit } from "./playback";
 import { Sidecars } from "./Sidecars";
 
@@ -197,13 +198,15 @@ export const Inspector: Component<{
   };
   const plan = () => convertPlan(summary()?.tracks ?? []);
   const confirm = (f: FileDetail) => prepareConfirm(f, summary()?.tracks ?? []);
-  const submitConvert = async (confirmReencode = false) => {
-    if (convertBusy()) return;
+  const encode = createEncodeChoice();
+  const submitConvert = async () => {
+    if (convertBusy() || !encode.ready()) return;
     setConvertBusy(true);
     setConvertError(null);
     // The id the server put in the file it sent, as Verify does: the one in the address may be URL-encoded.
     const id = file()?.id ?? rawId(props.fileId);
-    const result = await queueJob(props.api, "prepare", [id], confirmReencode ? `${convertKey}-reencode` : convertKey, { confirmReencode });
+    const level = encode.level();
+    const result = await queueJob(props.api, "prepare", [id], `${convertKey}-${level}`, { encode: level, confirmVideoEncode: level === "all" });
     setConvertBusy(false);
     if (!result.ok) {
       setConvertError(result.session ? t(SESSION_EXPIRED) : result.detail ? t("Unable to queue the preparation. The server said: {detail}.", { detail: result.detail }) : t("Unable to queue the preparation. Try again."));
@@ -279,14 +282,10 @@ export const Inspector: Component<{
               <ul class="plain">
                 <For each={plan().lines}>{(line) => <li>{line}</li>}</For>
               </ul>
+              <EncodeChoice choice={encode} />
               <Show when={convertError()}><p class="notice bad" role="alert">{convertError()}</p></Show>
               <div class="insp-actions">
-                <Show
-                  when={confirm(f()).reencode}
-                  fallback={<Button variant="primary" disabled={convertBusy()} onClick={() => void submitConvert()}>{t("Confirm prepare")}</Button>}
-                >
-                  <Button variant="primary" disabled={convertBusy()} onClick={() => void submitConvert(true)}>{t("Confirm with re-encode")}</Button>
-                </Show>
+                <Button variant="primary" disabled={convertBusy() || !encode.ready()} onClick={() => void submitConvert()}>{t("Confirm prepare")}</Button>
                 <Button variant="quiet" onClick={() => setConverting(false)}>{t("Cancel")}</Button>
               </div>
             </div>

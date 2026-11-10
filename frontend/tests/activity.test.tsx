@@ -314,20 +314,20 @@ describe("JobDetail: what happened", () => {
     expect(why).toHaveTextContent("the file changed while it was being rewritten");
   });
 
-  it("says on the item that a needed re-encode was not run, although the job succeeded", async () => {
-    const skipped = item({ error_code: "reencode_not_run", error_detail: "Re-encode needed, not run: the file stays as it was." });
-    const view = render(() => <JobDetail api={detailApi({}, [skipped])} jobId="j_1" />);
+  it("says on the item that encoding was not allowed, as a hint and not as a failure", async () => {
+    const refused = item({ error_code: "encode_not_allowed", error_detail: "Encoding not allowed (need=video allowance=audio): the file stays as it was." });
+    const view = render(() => <JobDetail api={detailApi({}, [refused])} jobId="j_1" />);
 
-    const note = await view.findByRole("status", { name: "Re-encode not run" });
-    expect(note).toHaveTextContent("Re-encode needed, not run");
+    const note = await view.findByRole("status", { name: "Encoding not allowed" });
+    expect(note).toHaveTextContent("Encoding not allowed");
     expect(note).toHaveTextContent("the file stays as it was");
-    expect(note).toHaveTextContent("only runs while the setting “delete_original” is on");
+    expect(view.queryByRole("region", { name: "Why it failed" })).not.toBeInTheDocument();
   });
 
-  it("shows no re-encode note on an item that ran normally", async () => {
+  it("shows no encoding note on an item that ran normally", async () => {
     const view = render(() => <JobDetail api={detailApi()} jobId="j_1" />);
     await view.findByRole("heading", { name: "Heat" });
-    expect(view.queryByRole("status", { name: "Re-encode not run" })).not.toBeInTheDocument();
+    expect(view.queryByRole("status", { name: "Encoding not allowed" })).not.toBeInTheDocument();
   });
 
   it("does not show a failure section for a job that did not fail", async () => {

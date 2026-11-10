@@ -10,7 +10,7 @@ const row = (over: Partial<FileRow> = {}): FileRow => ({
 });
 
 const queued: string[] = [];
-const show = (file: FileRow) => render(() => <FixPreview files={[file]} skipped={0} onQueue={async (reencode) => { queued.push(reencode); return { ok: true }; }} onClose={() => {}} />);
+const show = (file: FileRow) => render(() => <FixPreview files={[file]} skipped={0} onQueue={async (encode) => { queued.push(encode); return { ok: true }; }} onClose={() => {}} />);
 
 describe("FixPreview: subtitles to embed", () => {
   it("names each subtitle that will be merged, with its language and kind", () => {
@@ -56,21 +56,56 @@ describe("FixPreview: subtitles to embed", () => {
   });
 });
 
-describe("FixPreview: re-encode", () => {
-  it("names how many files need a re-encode and offers both ways", async () => {
+describe("FixPreview: the encoding allowance", () => {
+  const warning = () => show(row({ compliance_state: "warning", compliance_reasons: ["[warning] apple-tags: 4 tracks lack an elng tag"] }));
+
+  it("offers the three levels with Encode audio preselected and queues it without a further step", async () => {
     queued.length = 0;
+    const view = warning();
+
+    expect(view.getByRole("radio", { name: /^Copy only/ })).not.toBeChecked();
+    expect(view.getByRole("radio", { name: /^Encode audio\b(?! and)/ })).toBeChecked();
+    expect(view.getByRole("radio", { name: /^Encode audio and video/ })).not.toBeChecked();
+    await fireEvent.click(view.getByRole("button", { name: "Prepare 1 file" }));
+    expect(queued).toEqual(["audio"]);
+  });
+
+  it("queues Copy only when that is chosen", async () => {
+    queued.length = 0;
+    const view = warning();
+    await fireEvent.click(view.getByRole("radio", { name: /^Copy only/ }));
+    await fireEvent.click(view.getByRole("button", { name: "Prepare 1 file" }));
+    expect(queued).toEqual(["copy"]);
+  });
+
+  it("holds Encode audio and video back until it is confirmed", async () => {
+    queued.length = 0;
+    const view = warning();
+    expect(view.queryByRole("checkbox", { name: /re-encoded/ })).not.toBeInTheDocument();
+
+    await fireEvent.click(view.getByRole("radio", { name: /^Encode audio and video/ }));
+    expect(view.getByRole("button", { name: "Prepare 1 file" })).toBeDisabled();
+
+    await fireEvent.click(view.getByRole("checkbox", { name: /re-encoded/ }));
+    await fireEvent.click(view.getByRole("button", { name: "Prepare 1 file" }));
+    expect(queued).toEqual(["all"]);
+  });
+
+  it("drops the confirmation when another level is chosen in between", async () => {
+    const view = warning();
+    await fireEvent.click(view.getByRole("radio", { name: /^Encode audio and video/ }));
+    await fireEvent.click(view.getByRole("checkbox", { name: /re-encoded/ }));
+    await fireEvent.click(view.getByRole("radio", { name: /^Copy only/ }));
+    await fireEvent.click(view.getByRole("radio", { name: /^Encode audio and video/ }));
+    expect(view.getByRole("button", { name: "Prepare 1 file" })).toBeDisabled();
+  });
+
+  it("names the files that need a re-encode until the video level is chosen", async () => {
     const view = show(row({ needs_reencode: true, compliance_state: "warning" }));
 
     expect(view.getByText(/1 of 1 file needs a re-encode/)).toBeInTheDocument();
-    expect(view.queryByRole("button", { name: "Prepare 1 file" })).not.toBeInTheDocument();
-    await fireEvent.click(view.getByRole("button", { name: "With re-encode (1)" }));
-    expect(queued).toEqual(["with"]);
-  });
-
-  it("offers a plain prepare when no file needs a re-encode", () => {
-    const view = show(row({ compliance_state: "warning", compliance_reasons: ["[warning] apple-tags: 4 tracks lack an elng tag"] }));
-
-    expect(view.getByRole("button", { name: "Prepare 1 file" })).toBeInTheDocument();
     expect(view.queryByRole("button", { name: /re-encode/i })).not.toBeInTheDocument();
+    await fireEvent.click(view.getByRole("radio", { name: /^Encode audio and video/ }));
+    expect(view.queryByText(/1 of 1 file needs a re-encode/)).not.toBeInTheDocument();
   });
 });

@@ -6,14 +6,12 @@ import { isFixable, type Track } from "./model";
 export type PrepareConfirm = {
   /** What Prepare is about to do to this file, in the words the confirmation shows. */
   lines: string[];
-  /** The video has to be re-encoded: that needs its own explicit confirmation (ADR 0007). */
+  /** The video has to be re-encoded, which only the level „Encode audio and video“ allows (ADR 0008). */
   reencode: boolean;
 };
 
 /**
- * What the confirmation for one file says. A file that has to be re-encoded says so, says that the
- * re-encode replaces the original and only runs while `delete_original` is on, and needs its own
- * explicit confirmation.
+ * What the confirmation for one file says. A file that has to be re-encoded says which level that takes.
  * `tracks` are only read for another container, whose re-encode is predicted from its codecs.
  */
 export function prepareConfirm(file: { suffix: string; needs_reencode?: boolean | undefined }, tracks: ReadonlyArray<Track>): PrepareConfirm {
@@ -21,7 +19,7 @@ export function prepareConfirm(file: { suffix: string; needs_reencode?: boolean 
   const reencode = file.needs_reencode === true || (!mp4 && convertPlan(tracks).videoEncode);
   if (reencode) {
     return {
-      lines: [t("The video has to be re-encoded. That takes longer and replaces the original, so it needs your explicit confirmation. It only runs while the setting “delete_original” is on; otherwise the file stays as it is and the job reports that a re-encode is needed.")],
+      lines: [t("The video has to be re-encoded. That only runs with “Encode audio and video”; otherwise the file stays as it is and the job says so.")],
       reencode: true,
     };
   }
@@ -35,7 +33,7 @@ export function prepareConfirm(file: { suffix: string; needs_reencode?: boolean 
  * Whether queueing Prepare for this file can change anything. Another container is always worth
  * preparing unless its converted MP4 is already kept next to it; an MP4 needs a violation Prepare
  * resolves or a subtitle file to merge. A video that needs a re-encode is offered too: the preview
- * asks for the explicit confirmation.
+ * sets the allowance.
  */
 export function preparable(file: {
   discovery_state: string;

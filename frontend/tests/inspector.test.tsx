@@ -483,7 +483,7 @@ describe("Inspector: converting a file that is not an MP4", () => {
     expect(within(confirm).queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("asks for an explicit confirmation of the re-encode before it queues such a file", async () => {
+  it("offers the allowance, audio preselected, and confirms the video level before it queues", async () => {
     const posted: unknown[] = [];
     const api = forMkv("vp9", 1080, "dts", { "/jobs": () => response({ id: "j_9" }, 201) });
     const original = api.request;
@@ -496,11 +496,29 @@ describe("Inspector: converting a file that is not an MP4", () => {
     await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
     const confirm = await view.findByRole("region", { name: "Prepare" });
     await waitFor(() => expect(within(confirm).getByRole("alert")).toHaveTextContent(/has to be re-encoded/));
-    expect(within(confirm).queryByRole("button", { name: "Confirm prepare" })).not.toBeInTheDocument();
+    expect(within(confirm).getByRole("radio", { name: /^Encode audio\b(?! and)/ })).toBeChecked();
     expect(posted).toEqual([]);
 
-    await fireEvent.click(within(confirm).getByRole("button", { name: "Confirm with re-encode" }));
-    await waitFor(() => expect(posted).toEqual([{ action: "prepare", media_ids: ["m_f1"], manual_approval: true, confirm_reencode: true }]));
+    await fireEvent.click(within(confirm).getByRole("radio", { name: /^Encode audio and video/ }));
+    expect(within(confirm).getByRole("button", { name: "Confirm prepare" })).toBeDisabled();
+    await fireEvent.click(within(confirm).getByRole("checkbox", { name: /re-encoded/ }));
+    await fireEvent.click(within(confirm).getByRole("button", { name: "Confirm prepare" }));
+    await waitFor(() => expect(posted).toEqual([{ action: "prepare", media_ids: ["m_f1"], manual_approval: true, encode: "all", confirm_video_encode: true }]));
+  });
+
+  it("queues with the preselected Encode audio without a further step", async () => {
+    const posted: unknown[] = [];
+    const api = forMkv("h264", 1080, "eac3", { "/jobs": () => response({ id: "j_9" }, 201) });
+    const original = api.request;
+    api.request = vi.fn(async (path: string, init?: RequestInit) => {
+      if (path === "/jobs") posted.push(JSON.parse(String(init?.body)));
+      return original(path, init);
+    });
+    const view = render(() => <Inspector api={api} fileId="m_f1" />);
+
+    await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
+    await fireEvent.click(within(await view.findByRole("region", { name: "Prepare" })).getByRole("button", { name: "Confirm prepare" }));
+    await waitFor(() => expect(posted).toEqual([{ action: "prepare", media_ids: ["m_f1"], manual_approval: true, encode: "audio" }]));
   });
 
   it("keeps Verify and Fix for MP4 files and never offers Convert there", async () => {
@@ -552,7 +570,7 @@ describe("Inspector: the id sent with a conversion", () => {
     await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
     await fireEvent.click(await view.findByRole("button", { name: "Confirm prepare" }));
 
-    await waitFor(() => expect(body).toEqual({ action: "prepare", media_ids: ["m_RAW=="], manual_approval: true }));
+    await waitFor(() => expect(body).toEqual({ action: "prepare", media_ids: ["m_RAW=="], manual_approval: true, encode: "audio" }));
   });
 });
 

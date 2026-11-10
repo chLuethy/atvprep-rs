@@ -38,10 +38,16 @@ export const dePreview: Record<string, string | readonly [string, string]> = {
   "Load more sidecars": "Weitere Begleitdateien laden",
   "Unable to queue the prepare job. Try again.": "Der Überarbeitungs-Auftrag konnte nicht eingereiht werden. Versuche es erneut.",
   "Prepare {count} file": ["{count} Datei überarbeiten", "{count} Dateien überarbeiten"],
-  "{reencode} of {count} file needs a re-encode. That takes longer and replaces the original. It only runs while the setting “delete_original” is on; otherwise the file stays as it is. Choose whether to re-encode it in this job.": [
-    "{reencode} von {count} Datei muss neu kodiert werden. Das dauert länger und ersetzt das Original. Es läuft nur, solange die Einstellung „delete_original“ an ist; sonst bleibt die Datei unverändert. Entscheide, ob sie in diesem Auftrag neu kodiert wird.",
-    "{reencode} von {count} Dateien müssen neu kodiert werden. Das dauert länger und ersetzt die Originale. Es läuft nur, solange die Einstellung „delete_original“ an ist; sonst bleiben die Dateien unverändert. Entscheide, ob sie in diesem Auftrag neu kodiert werden.",
+  "{reencode} of {count} file needs a re-encode. It only runs with “Encode audio and video”; otherwise the file stays as it is.": [
+    "{reencode} von {count} Datei muss neu kodiert werden. Das läuft nur mit „Audio und Video kodieren“; sonst bleibt die Datei unverändert.",
+    "{reencode} von {count} Dateien müssen neu kodiert werden. Das läuft nur mit „Audio und Video kodieren“; sonst bleiben die Dateien unverändert.",
   ],
-  "With re-encode ({count})": "Mit Re-Encode ({count})",
-  "Without re-encode": "Ohne Re-Encode",
+  "Encoding allowance": "Kodierfreigabe",
+  "Copy only": "Nur kopieren",
+  "Streams are only copied. A file that needs encoding stays unchanged.": "Spuren werden nur kopiert. Eine Datei, die kodiert werden müsste, bleibt unverändert.",
+  "Encode audio": "Audio kodieren",
+  "Audio may be encoded, the video is copied. A file that needs a re-encode stays unchanged.": "Audio darf kodiert werden, das Video wird kopiert. Eine Datei, die einen Re-Encode bräuchte, bleibt unverändert.",
+  "Encode audio and video": "Audio und Video kodieren",
+  "The video may be re-encoded too. That can take hours and cannot be undone on an MP4.": "Auch das Video darf neu kodiert werden. Das kann Stunden dauern und ist auf einer MP4 nicht rückgängig zu machen.",
+  "Yes, the video of these files may be re-encoded.": "Ja, das Video dieser Dateien darf neu kodiert werden.",
 };

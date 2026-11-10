@@ -49,8 +49,7 @@ export const deInspector: Record<string, string | [string, string]> = {
   "Unable to queue the preparation. Try again.": "Die Überarbeitung konnte nicht eingereiht werden. Versuche es erneut.",
   "Preparation queued. The new MP4 appears in the library after the next scan.": "Überarbeitung eingereiht. Die neue MP4 erscheint nach dem nächsten Scan in der Bibliothek.",
   "A preparation for this file is already in progress.": "Für diese Datei läuft bereits eine Überarbeitung.",
-  "The video has to be re-encoded. That takes longer and replaces the original, so it needs your explicit confirmation. It only runs while the setting “delete_original” is on; otherwise the file stays as it is and the job reports that a re-encode is needed.": "Das Video muss neu kodiert werden. Das dauert länger und ersetzt das Original, deshalb brauchst du dafür eine ausdrückliche Bestätigung. Es läuft nur, solange die Einstellung „delete_original“ an ist; sonst bleibt die Datei unverändert und der Auftrag meldet, dass ein Re-Encode nötig ist.",
-  "Confirm with re-encode": "Mit Re-Encode bestätigen",
+  "The video has to be re-encoded. That only runs with “Encode audio and video”; otherwise the file stays as it is and the job says so.": "Das Video muss neu kodiert werden. Das läuft nur mit „Audio und Video kodieren“; sonst bleibt die Datei unverändert und der Auftrag meldet das.",
   "Prepare rewrites this MP4 in place where needed. Files already at the target are left alone.": "Beim Überarbeiten wird diese MP4 bei Bedarf an Ort und Stelle neu geschrieben. Dateien, die schon dem Ziel entsprechen, bleiben unverändert.",
   "Prepare writes an MP4 next to this {suffix} file. The original is kept.": "Beim Überarbeiten wird neben dieser {suffix}-Datei eine MP4 geschrieben. Das Original bleibt erhalten.",
 };

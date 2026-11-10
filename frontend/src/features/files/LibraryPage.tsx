@@ -8,7 +8,8 @@ import { additive, copyText, selectionMenu } from "./selection";
 import { loadBelow } from "./browse";
 import { hasSet, hiddenSet, knownState, normalizeHas, normalizeHidden, setGroupHidden, STATE_FILTERS, TRAIT_FILTERS, toggleHas, toggleHidden, type FilterEntry } from "./filters";
 import { FileTable, type Sort, type SortKey } from "./FileTable";
-import { FixPreview, type ReencodeChoice } from "./FixPreview";
+import { FixPreview } from "./FixPreview";
+import type { EncodeLevel } from "./EncodeChoice";
 import { preparable } from "./preparePlan";
 import { isMp4Like } from "./convertPlan";
 import { Inspector } from "./Inspector";
@@ -139,7 +140,6 @@ export const LibraryPage: Component<{
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
   let searchInput: HTMLInputElement | undefined;
   let previewKey: { signature: string; key: string } | undefined;
-  let previewKeyConfirmed: { signature: string; key: string } | undefined;
   let verifyKey: { signature: string; key: string } | undefined;
   onCleanup(() => clearTimeout(searchTimer));
 
@@ -363,11 +363,11 @@ export const LibraryPage: Component<{
     const wanted = new Set(ids);
     return visibleRows().filter((row) => wanted.has(row.id));
   };
-  const keyFor = (slot: "preview" | "verify", signature: string, confirmed = false) => {
-    const current = slot === "preview" ? (confirmed ? previewKeyConfirmed : previewKey) : verifyKey;
+  const keyFor = (slot: "preview" | "verify", signature: string) => {
+    const current = slot === "preview" ? previewKey : verifyKey;
     if (current?.signature === signature) return current.key;
     const fresh = { signature, key: crypto.randomUUID() };
-    if (slot === "verify") verifyKey = fresh; else if (confirmed) previewKeyConfirmed = fresh; else previewKey = fresh;
+    if (slot === "verify") verifyKey = fresh; else previewKey = fresh;
     return fresh.key;
   };
 
@@ -379,15 +379,13 @@ export const LibraryPage: Component<{
     setPreviewRows(selection);
   };
   const previewFiles = () => previewRows() ?? [];
-  const queuePrepare = async (choice: ReencodeChoice): Promise<JobResult> => {
-    const confirmReencode = choice === "with";
-    // Without the confirmation the files that need a re-encode stay out of the job.
-    const rowsToQueue = preparableRows(previewFiles()).filter((row) => confirmReencode || !row.needs_reencode);
+  const queuePrepare = async (encode: EncodeLevel): Promise<JobResult> => {
+    const rowsToQueue = preparableRows(previewFiles());
     const queued = new Set<string>();
     let failure: JobResult | null = null;
     const ids = rowsToQueue.map((row) => row.id);
     if (ids.length > 0) {
-      const result = await queueJob(props.api, "prepare", ids, keyFor("preview", ids.join(","), confirmReencode), { confirmReencode });
+      const result = await queueJob(props.api, "prepare", ids, keyFor("preview", `${encode}:${ids.join(",")}`), { encode, confirmVideoEncode: encode === "all" });
       if (result.ok) ids.forEach((id) => queued.add(id));
       else failure = result;
     }
