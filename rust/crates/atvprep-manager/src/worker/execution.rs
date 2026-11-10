@@ -12,34 +12,45 @@ use crate::{
     snapshots::{InputSnapshot, InputSnapshots},
     state_machine::{ItemStatus, JobStateMachine, JobStatus},
 };
+use atvprep_core::encode::EncodeAllowance;
 use std::{
     collections::BTreeMap,
     path::PathBuf,
     time::{Duration, Instant},
 };
 
-/// How long an item that may be re-encoded can run. Encoding a film takes hours; the lease keeps
-/// being renewed meanwhile. Every other item keeps the configured, shorter limit.
+/// How long an item with video in its Kodierfreigabe can run. Encoding a film takes hours; the
+/// lease keeps being renewed meanwhile. Every other item keeps the configured, shorter limit.
 pub const REENCODE_TIMEOUT: Duration = Duration::from_hours(4);
 
-/// The error code of an item that needed a re-encode which was not run (ADR 0007).
-pub const REENCODE_NOT_RUN: &str = "reencode_not_run";
+/// The code of a successful item whose file needs more than its Kodierfreigabe (ADR 0008).
+pub const ENCODE_NOT_ALLOWED: &str = "encode_not_allowed";
 
 /// The machine line the media CLI prints when a file needs more than its Kodierfreigabe allows.
 const ENCODE_NOT_ALLOWED_LINE: &str = "ATVPREP-OUTCOME encode_not_allowed";
 
-fn encode_was_refused(process: &ProcessResult) -> bool {
-    process.reason == StopReason::Exited
-        && process.exit_code == Some(0)
-        && String::from_utf8_lossy(&process.output)
-            .lines()
-            .any(|line| line.trim() == ENCODE_NOT_ALLOWED_LINE)
+/// The need and allowance of a refusal, from the CLI's `ATVPREP-ENCODE` line.
+fn encode_refusal(process: &ProcessResult) -> Option<String> {
+    if process.reason != StopReason::Exited || process.exit_code != Some(0) {
+        return None;
+    }
+    let output = String::from_utf8_lossy(&process.output);
+    output
+        .lines()
+        .any(|line| line.trim() == ENCODE_NOT_ALLOWED_LINE)
+        .then(|| {
+            let detail = output
+                .lines()
+                .find_map(|line| line.trim().strip_prefix("ATVPREP-ENCODE "))
+                .unwrap_or("need=unknown allowance=unknown");
+            format!("Encoding not allowed ({detail}): the file stays as it was.")
+        })
 }
 
-/// The time limit of one changing item: longer only for an item approved to re-encode.
+/// The time limit of one changing item: longer only with video in its Kodierfreigabe.
 #[must_use]
 pub fn prepare_timeout(configured: Duration, mode: PrepareMode) -> Duration {
-    if mode.reencode {
+    if mode.encode == EncodeAllowance::All {
         configured.max(REENCODE_TIMEOUT)
     } else {
         configured
@@ -125,8 +136,15 @@ pub fn execute_claimed(
             return Err(Error::Invalid("verification input changed".to_owned()));
         }
         let changing = matches!(item.action.as_str(), "fix" | "convert");
-        let mut mode = PrepareMode::default();
+        let mut mode = PrepareMode {
+            encode: EncodeAllowance::Copy,
+            delete_original: false,
+        };
         if changing {
+            // A job from an older policy can never become valid: refused for good, "queue it again".
+            if let Some(reason) = crate::approval::prepare_policy_block(&item.settings_snapshot) {
+                return Err(Error::Invalid(reason.to_owned()));
+            }
             let verifier = config
                 .approvals
                 .as_ref()
@@ -198,6 +216,10 @@ pub fn execute_claimed(
                     )
                     .is_ok()
             {
+                let _ = ctx.conn.execute(
+                    "UPDATE job_items SET error_detail=?1 WHERE id=?2",
+                    rusqlite::params![error.to_string(), item_id],
+                );
                 let _ = super::recovery::Recovery(ctx).reconcile_idle_jobs();
             }
             return Err(error);
@@ -260,7 +282,7 @@ pub fn execute_claimed(
         };
         let mut output =
             super::execution_output::ClaimedOutput::new(ctx, owner, fence, item_id, item.job_id);
-        let mut process = if changing {
+        let process = if changing {
             run_pinned_prepare_observed(
                 &config.executable,
                 &target,
@@ -292,11 +314,6 @@ pub fn execute_claimed(
         }?;
         if changing {
             output.feed(&[], true)?;
-        }
-        // An item that may only copy failed in 0.5.7 when its file needed an encode. The CLI now
-        // treats that as a result, not an error; the manager follows once #51 gives it the hint.
-        if changing && !mode.reencode && encode_was_refused(&process) {
-            process.exit_code = Some(1);
         }
         if lost || !authority(ctx, item_id, owner, fence)? {
             return Err(Error::Conflict(
@@ -393,11 +410,10 @@ pub fn execute_claimed(
             fresh.status_version
         };
         JobStateMachine(ctx).transition_item(item_id, terminal, version, Some(fence), None)?;
-        // A file that needs a re-encode but was not told to (no `delete_original`) ends as a
-        // success with a visible result, not as a silent one.
-        let reencode_not_run = changing && mode.reencode && encode_was_refused(&process);
+        // A file above its Kodierfreigabe stays unchanged: a success with a hint, not a failure.
+        let refusal = changing.then(|| encode_refusal(&process)).flatten();
         let code = match process.reason {
-            StopReason::Exited if reencode_not_run => Some(REENCODE_NOT_RUN),
+            StopReason::Exited if refusal.is_some() => Some(ENCODE_NOT_ALLOWED),
             StopReason::TimedOut => Some("timeout"),
             StopReason::Cancelled => Some("cancelled"),
             StopReason::Exited if process.exit_code != Some(0) && !verified_with_findings => {
@@ -411,13 +427,10 @@ pub fn execute_claimed(
                 "worker lost its completion authority".to_owned(),
             ));
         }
-        if reencode_not_run {
+        if let Some(refusal) = refusal {
             ctx.conn.execute(
                 "UPDATE job_items SET error_detail=?1 WHERE id=?2",
-                rusqlite::params![
-                    "Re-encode needed, not run: the file stays as it was. A re-encode replaces the original and only runs with delete_original turned on.",
-                    item_id
-                ],
+                rusqlite::params![refusal, item_id],
             )?;
         }
         super::recovery::Recovery(ctx).reconcile_idle_jobs()?;

@@ -83,7 +83,7 @@ fn an_approved_fix_schedule_queues_a_job_bound_to_its_parameters() {
     let snapshot: serde_json::Value = serde_json::from_str(&queued[0].1).unwrap();
     assert_eq!(snapshot["schedule_id"], 1);
     assert_eq!(snapshot["pipeline"], "prepare");
-    assert_eq!(snapshot["policy"], "copy-only-v2");
+    assert_eq!(snapshot["policy"], "encode-v3");
     assert_eq!(snapshot["schedule_params"]["max_files"], 5);
     assert_eq!(snapshot["schedule_params"]["delete_original"], false);
     assert_eq!(snapshot["schedule_params"]["action"], "fix");
@@ -147,7 +147,10 @@ fn a_schedule_with_the_re_encode_permission_takes_those_files_too() {
     // Only the file that needs it is queued to re-encode; the other one is merely repaired.
     assert_eq!(
         item_decisions(&conn),
-        [(2, serde_json::json!(false)), (3, serde_json::json!(true))]
+        [
+            (2, serde_json::json!("copy")),
+            (3, serde_json::json!("all"))
+        ]
     );
 }
 
@@ -166,11 +169,14 @@ fn a_schedule_with_the_permission_does_not_re_encode_a_file_that_does_not_need_i
     assert_eq!(run_schedule(ctx, 1).unwrap(), "Queued 2 files");
     assert_eq!(
         item_decisions(&conn),
-        [(2, serde_json::json!(false)), (3, serde_json::json!(false))]
+        [
+            (2, serde_json::json!("copy")),
+            (3, serde_json::json!("copy"))
+        ]
     );
 }
 
-/// The re-encode decision recorded on each queued item, by media id.
+/// The Kodierfreigabe recorded on each queued item, by media id.
 fn item_decisions(conn: &Conn) -> Vec<(i64, serde_json::Value)> {
     let mut statement = conn
         .raw()
@@ -182,7 +188,7 @@ fn item_decisions(conn: &Conn) -> Vec<(i64, serde_json::Value)> {
         .query_map([], |row| {
             let snapshot: serde_json::Value =
                 serde_json::from_str(&row.get::<_, String>(1)?).unwrap();
-            Ok((row.get(0)?, snapshot["reencode"].clone()))
+            Ok((row.get(0)?, snapshot["encode"].clone()))
         })
         .unwrap()
         .collect::<Result<_, _>>()

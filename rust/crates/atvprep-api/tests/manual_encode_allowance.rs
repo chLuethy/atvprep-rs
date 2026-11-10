@@ -1,8 +1,9 @@
-//! A manual job with re-encode files needs an explicit confirmation (ADR 0007).
-//! The server rejects it without `confirm_reencode`; the UI alone is not enough.
+//! A manual job carries a Kodierfreigabe; the video level needs an explicit confirmation (ADR 0008).
+//! The server rejects it without `confirm_video_encode`; the UI alone is not enough.
 use atvprep_api::{
     auth::AuthService, config::ManagerConfig, opaque::Opaque, router, state::AppState,
 };
+use atvprep_core::encode::EncodeAllowance::{self, All, Audio, Copy};
 use atvprep_manager::{db::Db, repo::Ctx, schema};
 use axum::{
     body::{Body, to_bytes},
@@ -108,16 +109,18 @@ impl Harness {
 }
 
 #[tokio::test]
-async fn a_job_with_a_reencode_file_is_refused_without_confirmation() {
+async fn audio_and_video_is_refused_without_the_confirmation() {
     let h = Harness::new();
     let ids = [Harness::id(1), Harness::id(2)];
     for action in ["prepare", "fix", "convert"] {
         let (status, body) = h
-            .create_job(json!({"action":action,"media_ids":ids,"manual_approval":true}))
+            .create_job(
+                json!({"action":action,"media_ids":ids,"manual_approval":true,"encode":"all"}),
+            )
             .await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{action}: {body}");
         let (status, _) = h
-            .create_job(json!({"action":action,"media_ids":ids,"manual_approval":true,"confirm_reencode":false}))
+            .create_job(json!({"action":action,"media_ids":ids,"manual_approval":true,"encode":"all","confirm_video_encode":false}))
             .await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{action}");
     }
@@ -125,22 +128,76 @@ async fn a_job_with_a_reencode_file_is_refused_without_confirmation() {
 }
 
 #[tokio::test]
-async fn a_confirmed_job_runs_and_records_the_confirmation() {
+async fn audio_and_video_with_the_confirmation_is_recorded_on_every_item() {
     let h = Harness::new();
     let (status, body) = h
-        .create_job(json!({"action":"prepare","media_ids":[Harness::id(1),Harness::id(2)],"manual_approval":true,"confirm_reencode":true}))
+        .create_job(json!({"action":"prepare","media_ids":[Harness::id(1),Harness::id(2)],"manual_approval":true,"encode":"all","confirm_video_encode":true}))
         .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
-    assert_eq!(h.sql::<i64>("SELECT count(*) FROM job_items"), 2);
     let snapshot: Value =
         serde_json::from_str(&h.sql::<String>("SELECT settings_snapshot_json FROM jobs")).unwrap();
-    assert_eq!(snapshot["reencode_confirmed"], true);
+    assert_eq!(snapshot["policy"], "encode-v3");
+    assert_eq!(snapshot["video_encode_confirmed"], true);
+    assert_eq!(
+        item_decisions(&h),
+        [(1, All, false), (2, All, false)],
+        "the level is the operator's, whatever the files need"
+    );
 }
 
-/// The re-encode decision recorded on each item, by media id, with its signature checked.
-fn item_decisions(h: &Harness) -> Vec<(i64, bool, bool)> {
+#[tokio::test]
+async fn audio_is_the_default_and_needs_no_confirmation_even_for_a_file_that_needs_video() {
+    let h = Harness::new();
+    let (status, body) = h
+        .create_job(json!({"action":"prepare","media_ids":[Harness::id(2)],"manual_approval":true}))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    assert_eq!(item_decisions(&h), [(2, Audio, false)]);
+}
+
+#[tokio::test]
+async fn copy_is_recorded_as_chosen() {
+    let h = Harness::new();
+    let (status, body) = h
+        .create_job(json!({"action":"prepare","media_ids":[Harness::id(1)],"manual_approval":true,"encode":"copy"}))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    assert_eq!(item_decisions(&h), [(1, Copy, false)]);
+}
+
+#[tokio::test]
+async fn an_unknown_level_is_refused() {
+    let h = Harness::new();
+    let (status, body) = h
+        .create_job(json!({"action":"prepare","media_ids":[Harness::id(1)],"manual_approval":true,"encode":"video","confirm_video_encode":true}))
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert_eq!(h.sql::<i64>("SELECT count(*) FROM jobs"), 0);
+}
+
+#[tokio::test]
+async fn the_delete_original_setting_is_recorded_and_signed_with_the_job() {
+    let h = Harness::new();
+    {
+        let conn = h.state.db.conn().unwrap();
+        conn.raw()
+            .execute(
+                "INSERT INTO runtime_settings(key,value_json,value_type,revision) VALUES('delete_original','true','bool',1)",
+                [],
+            )
+            .unwrap();
+    }
+    let (status, body) = h
+        .create_job(json!({"action":"prepare","media_ids":[Harness::id(2)],"manual_approval":true,"encode":"all","confirm_video_encode":true}))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    assert_eq!(item_decisions(&h), [(2, All, true)]);
+}
+
+/// The Kodierfreigabe recorded on each item, by media id, with its signature checked.
+fn item_decisions(h: &Harness) -> Vec<(i64, EncodeAllowance, bool)> {
     use atvprep_manager::{
-        approval::{ApprovalItem, ApprovalVerifier, prepare_policy_block},
+        approval::{ApprovalItem, ApprovalVerifier, item_encode, prepare_policy_block},
         jobs::Jobs,
         snapshots::InputSnapshots,
     };
@@ -163,10 +220,10 @@ fn item_decisions(h: &Harness) -> Vec<(i64, bool, bool)> {
                 recorded["file_ctime_ns"].clone(),
                 recorded["sidecar_fingerprint"].clone(),
             ];
-            let reencode = item.settings_snapshot["reencode"] == json!(true);
+            let encode = item_encode(&item.settings_snapshot).expect("every item has a level");
             let delete_original = item.settings_snapshot["delete_original"] == json!(true);
             assert_eq!(prepare_policy_block(&item.settings_snapshot), None);
-            let signed = |reencode, delete_original| {
+            let signed = |encode, delete_original| {
                 verifier.check(
                     &item.settings_snapshot,
                     &ApprovalItem {
@@ -174,77 +231,21 @@ fn item_decisions(h: &Harness) -> Vec<(i64, bool, bool)> {
                         media_id: item.media_file_id,
                         action: &item.action,
                         identity: &identity,
-                        reencode,
+                        encode,
                         delete_original,
                     },
                     ctx.clock.now_micros() / 1_000_000,
                 )
             };
-            assert_eq!(signed(reencode, delete_original), None);
-            assert!(
-                signed(!reencode, delete_original).is_some(),
-                "the decision is part of the signature"
-            );
-            assert!(signed(reencode, !delete_original).is_some());
-            (item.media_file_id, reencode, delete_original)
+            assert_eq!(signed(encode, delete_original), None);
+            for other in [Copy, Audio, All].into_iter().filter(|e| *e != encode) {
+                assert!(
+                    signed(other, delete_original).is_some(),
+                    "the level is part of the signature"
+                );
+            }
+            assert!(signed(encode, !delete_original).is_some());
+            (item.media_file_id, encode, delete_original)
         })
         .collect()
-}
-
-#[tokio::test]
-async fn a_confirmed_job_marks_only_the_files_that_need_a_re_encode() {
-    let h = Harness::new();
-    let (status, body) = h
-        .create_job(json!({"action":"prepare","media_ids":[Harness::id(1),Harness::id(2)],"manual_approval":true,"confirm_reencode":true}))
-        .await;
-    assert_eq!(status, StatusCode::CREATED, "{body}");
-    let snapshot: Value =
-        serde_json::from_str(&h.sql::<String>("SELECT settings_snapshot_json FROM jobs")).unwrap();
-    assert_eq!(snapshot["policy"], "copy-only-v2");
-    assert_eq!(
-        item_decisions(&h),
-        [(1, false, false), (2, true, false)],
-        "file 2 needs it, file 1 does not and is only repaired"
-    );
-}
-
-#[tokio::test]
-async fn an_unconfirmed_job_never_marks_a_file_for_re_encode() {
-    let h = Harness::new();
-    let (status, body) = h
-        .create_job(json!({"action":"prepare","media_ids":[Harness::id(1)],"manual_approval":true}))
-        .await;
-    assert_eq!(status, StatusCode::CREATED, "{body}");
-    assert_eq!(item_decisions(&h), [(1, false, false)]);
-}
-
-#[tokio::test]
-async fn the_delete_original_setting_is_recorded_and_signed_with_the_job() {
-    let h = Harness::new();
-    {
-        let conn = h.state.db.conn().unwrap();
-        conn.raw()
-            .execute(
-                "INSERT INTO runtime_settings(key,value_json,value_type,revision) VALUES('delete_original','true','bool',1)",
-                [],
-            )
-            .unwrap();
-    }
-    let (status, body) = h
-        .create_job(json!({"action":"prepare","media_ids":[Harness::id(2)],"manual_approval":true,"confirm_reencode":true}))
-        .await;
-    assert_eq!(status, StatusCode::CREATED, "{body}");
-    assert_eq!(item_decisions(&h), [(2, true, true)]);
-}
-
-#[tokio::test]
-async fn files_without_reencode_need_no_confirmation() {
-    let h = Harness::new();
-    let (status, body) = h
-        .create_job(json!({"action":"prepare","media_ids":[Harness::id(1)],"manual_approval":true}))
-        .await;
-    assert_eq!(status, StatusCode::CREATED, "{body}");
-    let snapshot: Value =
-        serde_json::from_str(&h.sql::<String>("SELECT settings_snapshot_json FROM jobs")).unwrap();
-    assert_eq!(snapshot["reencode_confirmed"], false);
 }

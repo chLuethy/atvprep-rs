@@ -1,4 +1,5 @@
-//! Cryptographic binding for explicit, copy-only manual approvals.
+//! Cryptographic binding for explicit manual approvals and their Kodierfreigabe.
+use atvprep_core::encode::EncodeAllowance;
 use hmac::{Hmac, Mac};
 use serde_json::{Value, json};
 use sha2::Sha256;
@@ -7,9 +8,18 @@ use std::fmt::Write;
 type HmacSha256 = Hmac<Sha256>;
 const MAX_AGE: i64 = 24 * 3600;
 
-/// The policy name of every job that may change files. Version 2 carries a per-item `reencode`
-/// decision (ADR 0007); jobs queued under `copy-only-v1` are refused.
-pub const PREPARE_POLICY: &str = "copy-only-v2";
+/// The policy name of every job that may change files. Version 3 carries a per-item Kodierfreigabe
+/// (`encode`, ADR 0008); jobs queued under an older version are refused.
+pub const PREPARE_POLICY: &str = "encode-v3";
+
+/// The Kodierfreigabe recorded on an item, if it is one the policy knows.
+#[must_use]
+pub fn item_encode(snapshot: &Value) -> Option<EncodeAllowance> {
+    snapshot
+        .get("encode")
+        .and_then(Value::as_str)
+        .and_then(EncodeAllowance::parse)
+}
 
 /// Explain why a snapshot cannot authorize a media-changing job.
 #[must_use]
@@ -17,10 +27,10 @@ pub fn prepare_policy_block(snapshot: &Value) -> Option<&'static str> {
     if snapshot.get("pipeline").and_then(Value::as_str) != Some("prepare")
         || snapshot.get("policy").and_then(Value::as_str) != Some(PREPARE_POLICY)
     {
-        return Some("This job predates the copy-only policy. Queue the fix again.");
+        return Some("This job predates the current policy. Queue the fix again.");
     }
-    if !snapshot.get("reencode").is_some_and(Value::is_boolean) {
-        return Some("This job carries no re-encode decision. Queue the fix again.");
+    if item_encode(snapshot).is_none() {
+        return Some("This job carries no encoding allowance. Queue the fix again.");
     }
     if let Some(schedule) = snapshot.get("schedule_id").filter(|v| !v.is_null()) {
         // A job from a schedule carries no session approval; the schedule's own signature,
@@ -114,8 +124,8 @@ pub struct ApprovalItem<'a> {
     pub media_id: i64,
     pub action: &'a str,
     pub identity: &'a [Value],
-    /// Whether this item may be re-encoded (ADR 0007). Signed, so it cannot be added later.
-    pub reencode: bool,
+    /// How far this item may encode (ADR 0008). Signed, so it cannot be raised later.
+    pub encode: EncodeAllowance,
     /// The `delete_original` setting recorded when the job was queued. Signed as well.
     pub delete_original: bool,
 }
@@ -151,8 +161,10 @@ impl ApprovalVerifier {
         ];
         // The decisions are appended only when one is set, so an item that copies and keeps its
         // original signs exactly as before; setting either later changes the array and the MAC.
-        if item.reencode || item.delete_original {
-            parts.push(json!({"reencode": item.reencode, "delete_original": item.delete_original}));
+        if item.encode != EncodeAllowance::Copy || item.delete_original {
+            parts.push(
+                json!({"encode": item.encode.as_str(), "delete_original": item.delete_original}),
+            );
         }
         self.mac_over(&Value::Array(parts))
     }
@@ -285,7 +297,9 @@ impl ApprovalVerifier {
 
 #[cfg(test)]
 mod tests {
-    use super::{ApprovalItem, ApprovalVerifier, ScheduleParams, prepare_policy_block};
+    use super::{
+        ApprovalItem, ApprovalVerifier, EncodeAllowance, ScheduleParams, prepare_policy_block,
+    };
     use serde_json::{Value, json};
 
     const PARAMS: ScheduleParams<'static> = ScheduleParams {
@@ -376,7 +390,7 @@ mod tests {
             media_id: 1,
             action: "fix",
             identity: &[],
-            reencode: false,
+            encode: EncodeAllowance::Copy,
             delete_original: false,
         };
         assert_ne!(verifier.sign(&item, 5, 1000), mac);
@@ -390,7 +404,7 @@ mod tests {
 
     #[test]
     fn a_schedule_snapshot_passes_the_policy_only_with_its_parameters() {
-        let snapshot = json!({"pipeline":"prepare","policy":"copy-only-v2","reencode":false,"manual_approval":false,
+        let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","encode":"copy","manual_approval":false,
             "schedule_id":3,"schedule_params":{"action":"fix"}});
         assert_eq!(prepare_policy_block(&snapshot), None);
         let mut bare = snapshot.clone();
@@ -414,7 +428,7 @@ mod tests {
                 media_id: 9,
                 action: case["input"]["action"].as_str().unwrap(),
                 identity,
-                reencode: false,
+                encode: EncodeAllowance::Copy,
                 delete_original: false,
             };
             let signature = verifier.sign(&item, 5, 1000);
@@ -441,7 +455,7 @@ mod tests {
 
     #[test]
     fn policy_requires_an_explicit_bound_manual_approval() {
-        let mut snapshot = json!({"pipeline":"prepare","policy":"copy-only-v2","reencode":false,"manual_approval":true,"approved_by":5});
+        let mut snapshot = json!({"pipeline":"prepare","policy":"encode-v3","encode":"copy","manual_approval":true,"approved_by":5});
         assert_eq!(prepare_policy_block(&snapshot), None);
         snapshot["schedule_id"] = Value::Null;
         snapshot["approved_by"] = json!(true);
@@ -449,63 +463,78 @@ mod tests {
     }
 
     #[test]
-    fn a_job_signature_binds_the_re_encode_decision_and_delete_original() {
+    fn a_job_signature_binds_the_allowance_and_delete_original() {
         let verifier = ApprovalVerifier::new(b"secret").unwrap();
         let base = ApprovalItem {
             job_id: 7,
             media_id: 9,
             action: "fix",
             identity: &[],
-            reencode: false,
+            encode: EncodeAllowance::Copy,
             delete_original: false,
         };
-        let signature = verifier.sign(&base, 5, 1000);
-        let snapshot = json!({"approved_by":5,"approved_at":1000,"approval_mac":signature});
-        assert_eq!(verifier.check(&snapshot, &base, 1000), None);
-        for tampered in [
-            ApprovalItem {
-                reencode: true,
-                ..base
-            },
-            ApprovalItem {
-                delete_original: true,
-                ..base
-            },
+        for signed in [
+            EncodeAllowance::Copy,
+            EncodeAllowance::Audio,
+            EncodeAllowance::All,
         ] {
-            assert!(
-                verifier.check(&snapshot, &tampered, 1000).is_some(),
-                "a decision added after signing must not verify"
-            );
+            let item = ApprovalItem {
+                encode: signed,
+                ..base
+            };
+            let snapshot = json!({"approved_by":5,"approved_at":1000,"approval_mac":verifier.sign(&item,5,1000)});
+            assert_eq!(verifier.check(&snapshot, &item, 1000), None);
+            for other in [
+                EncodeAllowance::Copy,
+                EncodeAllowance::Audio,
+                EncodeAllowance::All,
+            ] {
+                if other != signed {
+                    assert!(
+                        verifier
+                            .check(
+                                &snapshot,
+                                &ApprovalItem {
+                                    encode: other,
+                                    ..item
+                                },
+                                1000
+                            )
+                            .is_some(),
+                        "{signed:?} signed, {other:?} claimed"
+                    );
+                }
+            }
         }
-        let signed_yes = ApprovalItem {
-            reencode: true,
-            delete_original: true,
-            ..base
-        };
-        let yes = json!({"approved_by":5,"approved_at":1000,"approval_mac":verifier.sign(&signed_yes,5,1000)});
-        assert_eq!(verifier.check(&yes, &signed_yes, 1000), None);
+        let snapshot =
+            json!({"approved_by":5,"approved_at":1000,"approval_mac":verifier.sign(&base,5,1000)});
         assert!(
-            verifier.check(&yes, &base, 1000).is_some(),
-            "a decision removed after signing must not verify"
+            verifier
+                .check(
+                    &snapshot,
+                    &ApprovalItem {
+                        delete_original: true,
+                        ..base
+                    },
+                    1000
+                )
+                .is_some(),
+            "a decision added after signing must not verify"
         );
     }
 
     #[test]
-    fn only_policy_v2_with_a_re_encode_decision_passes() {
-        let v2 = json!({"pipeline":"prepare","policy":"copy-only-v2","reencode":false,"manual_approval":true,"approved_by":5});
-        assert_eq!(prepare_policy_block(&v2), None);
-        let mut v1 = v2.clone();
-        v1["policy"] = json!("copy-only-v1");
-        assert!(
-            prepare_policy_block(&v1)
-                .unwrap()
-                .contains("Queue the fix again")
-        );
-        let mut missing = v2.clone();
-        missing.as_object_mut().unwrap().remove("reencode");
+    fn only_the_current_policy_with_a_known_allowance_passes() {
+        let current = json!({"pipeline":"prepare","policy":"encode-v3","encode":"audio","manual_approval":true,"approved_by":5});
+        assert_eq!(prepare_policy_block(&current), None);
+        let mut old = current.clone();
+        old["policy"] = json!("copy-only-v2");
+        assert!(prepare_policy_block(&old).unwrap().contains("Queue"));
+        let mut missing = current.clone();
+        missing.as_object_mut().unwrap().remove("encode");
         assert!(prepare_policy_block(&missing).is_some());
-        let mut text = v2;
-        text["reencode"] = json!("true");
-        assert!(prepare_policy_block(&text).is_some());
+        let mut unknown = current;
+        unknown["encode"] = json!("video");
+        assert!(prepare_policy_block(&unknown).is_some());
     }
 }

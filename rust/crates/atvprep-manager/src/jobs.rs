@@ -1,10 +1,12 @@
 //! Jobs and their items: queueing, claiming under the executor lease, heartbeats, retries.
 //! Status changes go through the state machine (`state_machine.rs`), not through this module.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use rusqlite::{OptionalExtension, named_params};
 use serde_json::{Value, json};
+
+use atvprep_core::encode::EncodeAllowance;
 
 use crate::clock::format_micros;
 use crate::events::Events;
@@ -26,9 +28,9 @@ pub struct NewJob<'a> {
     pub settings_snapshot: Value,
     /// Raw input overrides stored on the item, by media id.
     pub input_snapshots: BTreeMap<i64, Value>,
-    /// Media allowed to be re-encoded in this job (ADR 0007). Only read for the prepare policy:
-    /// every item then records `reencode` true or false.
-    pub reencode_media: BTreeSet<i64>,
+    /// The Kodierfreigabe of each medium (ADR 0008). Only read for the prepare policy: every item
+    /// then records `encode`, a medium that is not listed only copies.
+    pub encode_media: BTreeMap<i64, EncodeAllowance>,
 }
 
 impl<'a> NewJob<'a> {
@@ -41,7 +43,7 @@ impl<'a> NewJob<'a> {
             settings_revision: 0,
             settings_snapshot: json!({}),
             input_snapshots: BTreeMap::new(),
-            reencode_media: BTreeSet::new(),
+            encode_media: BTreeMap::new(),
         }
     }
 }
@@ -64,17 +66,17 @@ struct ItemSeed<'a> {
     origin_item_id: Option<i64>,
     input: &'a Value,
     settings: &'a Value,
-    /// The item's re-encode decision; recorded only for jobs under the prepare policy.
-    reencode: bool,
+    /// The item's Kodierfreigabe; recorded only for jobs under the prepare policy.
+    encode: EncodeAllowance,
 }
 
-/// The snapshot of one item: the job's, plus its own re-encode decision under the prepare policy.
-fn item_settings(job: &Value, reencode: bool) -> Value {
+/// The snapshot of one item: the job's, plus its own Kodierfreigabe under the prepare policy.
+fn item_settings(job: &Value, encode: EncodeAllowance) -> Value {
     let mut settings = job.clone();
     if job.get("policy").and_then(Value::as_str) == Some(crate::approval::PREPARE_POLICY)
         && let Some(object) = settings.as_object_mut()
     {
-        object.insert("reencode".to_owned(), json!(reencode));
+        object.insert("encode".to_owned(), json!(encode.as_str()));
     }
     settings
 }
@@ -165,7 +167,7 @@ impl Jobs<'_> {
                 seed.position,
                 seed.origin_item_id,
                 seed.input.to_string(),
-                item_settings(seed.settings, seed.reencode).to_string()
+                item_settings(seed.settings, seed.encode).to_string()
             ],
         )?;
         let id = self.0.conn.last_insert_rowid();
@@ -224,7 +226,11 @@ impl Jobs<'_> {
                 origin_item_id: None,
                 input: &input,
                 settings: &new.settings_snapshot,
-                reencode: new.reencode_media.contains(media_id),
+                encode: new
+                    .encode_media
+                    .get(media_id)
+                    .copied()
+                    .unwrap_or(EncodeAllowance::Copy),
             })?;
         }
         Events(self.0).append(
@@ -400,7 +406,8 @@ impl Jobs<'_> {
                 origin_item_id: Some(old.id),
                 input: &old.input_snapshot,
                 settings: &snapshot,
-                reencode: old.settings_snapshot.get("reencode") == Some(&Value::Bool(true)),
+                encode: crate::approval::item_encode(&old.settings_snapshot)
+                    .unwrap_or(EncodeAllowance::Copy),
             })?;
         }
         Events(self.0).append(

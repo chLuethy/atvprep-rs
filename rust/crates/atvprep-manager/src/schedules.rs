@@ -620,11 +620,12 @@ fn run_change_schedule(
         &media_ids,
     );
     job.trigger = "manual";
-    // Only a file that needs it, under a schedule the operator signed for it (ADR 0007).
-    job.reencode_media = selected
+    // Only a file that needs it, under a schedule the operator signed for it. Everything else
+    // only copies, until schedules sign a Kodierfreigabe of their own (#57).
+    job.encode_media = selected
         .iter()
         .filter(|(_, needs)| *needs && row.allow_reencode)
-        .map(|(id, _)| *id)
+        .map(|(id, _)| (*id, atvprep_core::encode::EncodeAllowance::All))
         .collect();
     job.settings_snapshot = serde_json::json!({
         "pipeline": "prepare",

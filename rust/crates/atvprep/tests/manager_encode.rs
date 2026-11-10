@@ -1,0 +1,422 @@
+//! The Kodierfreigabe of a manual job, from the signed item to the file on disk (ADR 0008).
+//!
+//! Items run through the manager's own execution with the real `atvprep` binary and real ffmpeg
+//! over short, generated files. A missing tool fails these tests; nothing is skipped.
+
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::sync::Arc;
+use std::time::Duration;
+
+use atvprep_core::encode::EncodeAllowance::{self, All, Audio, Copy};
+use atvprep_manager::{
+    Error,
+    approval::{ApprovalItem, ApprovalVerifier, PREPARE_POLICY},
+    clock::{Clock, SystemClock, format_micros},
+    db::{Conn, Db},
+    jobs::{Jobs, NewJob},
+    leases::MediaExecutorLease,
+    library::LibraryRoots,
+    media::Media,
+    repo::Ctx,
+    schema,
+    snapshots::InputSnapshots,
+    state_machine::ItemStatus,
+    worker::execution::{
+        ENCODE_NOT_ALLOWED, ExecutionConfig, REENCODE_TIMEOUT, execute_claimed, prepare_timeout,
+    },
+    worker::process::PrepareMode,
+};
+use atvprep_testkit::write_surround_only_mp4;
+use serde_json::json;
+
+const SECRET: &[u8] = b"approval-secret";
+
+/// Panics naming the first media tool that cannot be started with this `PATH`.
+fn require_media_tools(path: &str) {
+    for tool in ["ffmpeg", "ffprobe", "mp4info", "mp4dump"] {
+        Command::new(tool)
+            .env("PATH", path)
+            .arg("-version")
+            .output()
+            .unwrap_or_else(|error| panic!("{tool} must be on PATH: {error}"));
+    }
+}
+
+fn search_path() -> String {
+    std::env::var("PATH").expect("PATH is set")
+}
+
+#[test]
+#[should_panic(expected = "ffmpeg must be on PATH")]
+fn a_missing_tool_fails_the_harness_loudly() {
+    require_media_tools("/nonexistent");
+}
+
+fn testdata(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../testdata/prepare")
+        .join(name)
+}
+
+/// H.264 that can be copied, EAC3 5.1 and no stereo track: the Gringa case.
+fn surround_only(path: &Path) {
+    write_surround_only_mp4(path);
+}
+
+/// High 10 video, which has to be re-encoded.
+fn high10(path: &Path) {
+    std::fs::copy(testdata("high10.mp4"), path).unwrap();
+}
+
+/// Only needs its moov moved: no encoding at all.
+fn only_remux(path: &Path) {
+    std::fs::copy(testdata("moovlast.mp4"), path).unwrap();
+}
+
+type MakeFile = fn(&Path);
+
+struct World {
+    dir: tempfile::TempDir,
+    conn: Conn,
+    media: Vec<(String, i64)>,
+    job: i64,
+    fence: i64,
+    config: ExecutionConfig,
+}
+
+/// One signed manual job over `files`, each with its own Kodierfreigabe.
+fn world(files: &[(&str, MakeFile, EncodeAllowance)], delete_original: bool) -> World {
+    require_media_tools(&search_path());
+    let dir = tempfile::tempdir().unwrap();
+    let root_path = dir.path().canonicalize().unwrap();
+    for (name, make, _) in files {
+        make(&root_path.join(name));
+    }
+    let db = Db::memory().unwrap();
+    let mut conn = db.conn().unwrap();
+    schema::migrate(&mut conn).unwrap();
+    let clock = SystemClock;
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    let root = LibraryRoots(ctx)
+        .create("Movies", root_path.to_str().unwrap())
+        .unwrap();
+    let mut media = Vec::new();
+    for (name, _, _) in files {
+        let observed =
+            atvprep_manager::worker::scanner::observe(&root_path, name, 0, clock.now_micros())
+                .unwrap();
+        let id = Media(ctx).create(root.id, name, &observed.meta).unwrap().id;
+        media.push(((*name).to_owned(), id));
+    }
+    ctx.conn
+        .execute(
+            "INSERT INTO auth_sessions(id,session_token_hash,csrf_secret_hash,expires_at,last_seen_at) VALUES(1,'t','c',?1,?2)",
+            rusqlite::params![format_micros(clock.now_micros() + 600_000_000), clock.now()],
+        )
+        .unwrap();
+    let ids: Vec<i64> = media.iter().map(|(_, id)| *id).collect();
+    let mut new = NewJob::new("fix", &ids);
+    new.trigger = "manual";
+    new.settings_snapshot = json!({"pipeline":"prepare","policy":PREPARE_POLICY,
+        "delete_original":delete_original,"manual_approval":true,"approved_by":1,
+        "approved_at":clock.now_micros()/1_000_000});
+    for ((_, id), (_, _, allowance)) in media.iter().zip(files) {
+        new.encode_media.insert(*id, *allowance);
+    }
+    let job = Jobs(ctx).create(&new).unwrap();
+    let verifier = ApprovalVerifier::new(SECRET).unwrap();
+    for mut item in Jobs(ctx).items(job.id).unwrap() {
+        let recorded = InputSnapshots(ctx).get_for_item(item.id).unwrap().unwrap();
+        let identity = [
+            recorded["file_device"].clone(),
+            recorded["file_inode"].clone(),
+            recorded["file_ctime_ns"].clone(),
+            recorded["sidecar_fingerprint"].clone(),
+        ];
+        let encode = EncodeAllowance::parse(item.settings_snapshot["encode"].as_str().unwrap())
+            .expect("every item records its allowance");
+        let mac = verifier.sign(
+            &ApprovalItem {
+                job_id: job.id,
+                media_id: item.media_file_id,
+                action: "fix",
+                identity: &identity,
+                encode,
+                delete_original,
+            },
+            1,
+            clock.now_micros() / 1_000_000,
+        );
+        item.settings_snapshot["approval_mac"] = json!(mac);
+        ctx.conn
+            .execute(
+                "UPDATE job_items SET settings_snapshot_json=?1 WHERE id=?2",
+                rusqlite::params![item.settings_snapshot.to_string(), item.id],
+            )
+            .unwrap();
+    }
+    let mut lease = MediaExecutorLease::new(ctx);
+    assert!(lease.acquire("worker", 600).unwrap());
+    let fence = lease.fencing_token.unwrap();
+    let config = ExecutionConfig {
+        executable: PathBuf::from(env!("CARGO_BIN_EXE_atvprep")),
+        environment: BTreeMap::from([("PATH".to_owned(), search_path())]),
+        timeout: Duration::from_secs(120),
+        grace: Duration::from_secs(2),
+        lease_seconds: 600,
+        shutdown: None,
+        approvals: ApprovalVerifier::new(SECRET).map(Arc::new),
+        session_idle_seconds: 3600,
+    };
+    World {
+        dir,
+        conn,
+        media,
+        job: job.id,
+        fence,
+        config,
+    }
+}
+
+struct Ended {
+    status: ItemStatus,
+    code: Option<String>,
+    detail: Option<String>,
+}
+
+impl World {
+    fn ctx<'a>(&'a self, clock: &'a SystemClock) -> Ctx<'a> {
+        Ctx {
+            conn: self.conn.raw(),
+            clock,
+        }
+    }
+
+    fn path(&self, name: &str) -> PathBuf {
+        self.dir.path().join(name)
+    }
+
+    fn names(&self) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(self.dir.path())
+            .unwrap()
+            .flatten()
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+
+    /// Claim the next queued item and run it to its end.
+    fn run_next(&self) -> (i64, Result<(), Error>) {
+        let clock = SystemClock;
+        let ctx = self.ctx(&clock);
+        let item = Jobs(ctx)
+            .claim_media_item(self.job, "worker", self.fence, 600, 1)
+            .unwrap()
+            .expect("an item is queued");
+        let result = execute_claimed(ctx, item.id, "worker", self.fence, &self.config).map(|_| ());
+        (item.id, result)
+    }
+
+    fn ended(&self, item: i64) -> Ended {
+        let clock = SystemClock;
+        let item = Jobs(self.ctx(&clock)).get_item(item).unwrap().unwrap();
+        Ended {
+            status: item.status,
+            code: item.error_code,
+            detail: item.error_detail,
+        }
+    }
+}
+
+/// The codec names of the `kind` streams in `path`, in stream order.
+fn codecs(path: &Path, kind: &str) -> Vec<String> {
+    let output = Command::new("ffprobe")
+        .args(["-v", "error", "-select_streams", kind])
+        .args(["-show_entries", "stream=codec_name", "-of", "csv=p=0"])
+        .arg(path)
+        .output()
+        .expect("ffprobe must be on PATH");
+    String::from_utf8_lossy(&output.stdout)
+        .split_whitespace()
+        // ffprobe appends an empty csv column to a stream that has side data.
+        .map(|name| name.trim_end_matches(',').to_owned())
+        .collect()
+}
+
+fn run_single(make: MakeFile, allowance: EncodeAllowance) -> (World, Ended) {
+    let world = world(&[("file.mp4", make, allowance)], false);
+    let (item, result) = world.run_next();
+    result.unwrap();
+    let ended = world.ended(item);
+    (world, ended)
+}
+
+/// Refused as asked: a success with the hint, the need and allowance named, and the file untouched.
+fn assert_refused(make: MakeFile, allowance: EncodeAllowance, need: &str) {
+    let world = world(&[("file.mp4", make, allowance)], false);
+    let before = std::fs::read(world.path("file.mp4")).unwrap();
+    let (item, result) = world.run_next();
+    result.unwrap();
+    let ended = world.ended(item);
+    assert_eq!(ended.status, ItemStatus::Succeeded);
+    assert_eq!(ended.code.as_deref(), Some(ENCODE_NOT_ALLOWED));
+    let detail = ended.detail.unwrap();
+    assert!(detail.contains(need), "{detail}");
+    assert!(detail.contains(allowance.as_str()), "{detail}");
+    assert_eq!(std::fs::read(world.path("file.mp4")).unwrap(), before);
+    assert_eq!(world.names(), ["file.mp4"]);
+}
+
+fn assert_ran(ended: &Ended) {
+    assert_eq!(ended.status, ItemStatus::Succeeded, "{:?}", ended.detail);
+    assert_eq!(ended.code, None, "{:?}", ended.detail);
+}
+
+#[test]
+fn gringa_eac3_surround_without_stereo_gets_its_aac_track_with_audio() {
+    let (world, ended) = run_single(surround_only, Audio);
+    assert_ran(&ended);
+    let file = world.path("file.mp4");
+    assert!(codecs(&file, "a").contains(&"aac".to_owned()));
+    assert!(codecs(&file, "a").contains(&"eac3".to_owned()));
+    assert_eq!(codecs(&file, "v"), ["h264"]);
+}
+
+#[test]
+fn copy_leaves_a_file_that_needs_audio_unchanged() {
+    assert_refused(surround_only, Copy, "audio");
+}
+
+#[test]
+fn copy_leaves_a_file_that_needs_video_unchanged() {
+    assert_refused(high10, Copy, "video");
+}
+
+#[test]
+fn audio_leaves_a_file_that_needs_video_unchanged() {
+    assert_refused(high10, Audio, "video");
+}
+
+#[test]
+fn all_encodes_audio_when_that_is_all_the_file_needs() {
+    let (world, ended) = run_single(surround_only, All);
+    assert_ran(&ended);
+    let file = world.path("file.mp4");
+    assert!(codecs(&file, "a").contains(&"aac".to_owned()));
+    assert_eq!(codecs(&file, "v"), ["h264"]);
+}
+
+#[test]
+fn all_re_encodes_the_video_of_an_mp4() {
+    let (world, ended) = run_single(high10, All);
+    assert_ran(&ended);
+    assert_eq!(codecs(&world.path("file.mp4"), "v"), ["hevc"]);
+    assert_eq!(world.names(), ["file.mp4"]);
+}
+
+#[test]
+fn every_allowance_runs_a_file_that_needs_no_encoding() {
+    for allowance in [Copy, Audio, All] {
+        let (world, ended) = run_single(only_remux, allowance);
+        assert_ran(&ended);
+        assert_eq!(
+            codecs(&world.path("file.mp4"), "v"),
+            ["h264"],
+            "{allowance:?}"
+        );
+    }
+}
+
+#[test]
+fn each_item_of_a_mixed_job_runs_at_its_own_signed_allowance() {
+    let world = world(
+        &[
+            ("copy.mp4", high10, Copy),
+            ("audio.mp4", surround_only, Audio),
+            ("all.mp4", high10, All),
+        ],
+        false,
+    );
+    let copy_before = std::fs::read(world.path("copy.mp4")).unwrap();
+    let mut outcome = BTreeMap::new();
+    for (name, _) in &world.media {
+        let (item, result) = world.run_next();
+        result.unwrap();
+        outcome.insert(name.clone(), world.ended(item).code);
+    }
+    assert_eq!(
+        outcome["copy.mp4"].as_deref(),
+        Some(ENCODE_NOT_ALLOWED),
+        "the copy item stops at copy"
+    );
+    assert_eq!(std::fs::read(world.path("copy.mp4")).unwrap(), copy_before);
+    assert_eq!(outcome["audio.mp4"], None);
+    assert!(codecs(&world.path("audio.mp4"), "a").contains(&"aac".to_owned()));
+    assert_eq!(outcome["all.mp4"], None);
+    assert_eq!(codecs(&world.path("all.mp4"), "v"), ["hevc"]);
+}
+
+#[test]
+fn a_changed_allowance_breaks_the_signature_and_nothing_runs() {
+    let world = world(&[("file.mp4", high10, Copy)], false);
+    let before = std::fs::read(world.path("file.mp4")).unwrap();
+    world
+        .conn
+        .raw()
+        .execute(
+            "UPDATE job_items SET settings_snapshot_json=json_set(settings_snapshot_json,'$.encode','all')",
+            [],
+        )
+        .unwrap();
+    let (_, result) = world.run_next();
+    assert!(result.is_err());
+    assert_eq!(std::fs::read(world.path("file.mp4")).unwrap(), before);
+}
+
+#[test]
+fn a_job_queued_under_an_older_policy_is_refused_for_good_and_says_to_queue_it_again() {
+    let world = world(&[("file.mp4", high10, All)], false);
+    let before = std::fs::read(world.path("file.mp4")).unwrap();
+    world
+        .conn
+        .raw()
+        .execute(
+            "UPDATE job_items SET settings_snapshot_json=json_set(settings_snapshot_json,'$.policy','copy-only-v2')",
+            [],
+        )
+        .unwrap();
+    let (item, result) = world.run_next();
+    assert!(result.is_err());
+    let ended = world.ended(item);
+    assert_eq!(ended.status, ItemStatus::StaleInput);
+    let detail = ended.detail.unwrap();
+    assert!(detail.contains("Queue"), "{detail}");
+    assert_eq!(std::fs::read(world.path("file.mp4")).unwrap(), before);
+}
+
+#[test]
+fn only_an_item_with_video_in_its_allowance_gets_the_four_hour_limit() {
+    let configured = Duration::from_secs(600);
+    let limit = |encode, delete_original, configured| {
+        prepare_timeout(
+            configured,
+            PrepareMode {
+                encode,
+                delete_original,
+            },
+        )
+    };
+    assert_eq!(REENCODE_TIMEOUT, Duration::from_hours(4));
+    assert_eq!(limit(Copy, false, configured), configured);
+    assert_eq!(limit(Audio, true, configured), configured);
+    assert_eq!(limit(All, false, configured), REENCODE_TIMEOUT);
+    // A longer configured limit is never shortened.
+    let long = Duration::from_hours(6);
+    assert_eq!(limit(All, true, long), long);
+}

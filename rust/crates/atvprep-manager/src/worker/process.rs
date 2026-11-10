@@ -1,6 +1,7 @@
 //! Bounded subprocess execution with process-group cancellation.
 use super::executor::validate_executable;
 use crate::{Error, Result};
+use atvprep_core::encode::EncodeAllowance;
 use std::os::unix::process::CommandExt;
 use std::{
     collections::BTreeMap,
@@ -110,32 +111,26 @@ pub fn run_observed(
     )
 }
 
-/// How an authorized item may run, as decided by its approval (ADR 0007).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// How an authorized item may run, as decided by its approval (ADR 0008).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PrepareMode {
-    /// The item may be re-encoded. Everything else only copies streams (`--encode copy`).
-    pub reencode: bool,
-    /// The signed `delete_original` setting. A re-encode replaces the file only with it.
+    /// The item's signed Kodierfreigabe, passed to the CLI as `--encode`.
+    pub encode: EncodeAllowance,
+    /// The signed `delete_original` setting.
     pub delete_original: bool,
 }
 
 /// The argument vector of `atvprep prepare` for one pinned leaf.
 fn prepare_arguments(leaf: &str, identity: (i128, i128, i128), mode: PrepareMode) -> Vec<String> {
     let (device, inode, ctime) = identity;
-    // The CLI has the Kodierfreigabe already; these three levels keep the manager's 0.5.7 rules
-    // until the job and schedule tickets of #51 sign an allowance of their own.
-    let encode = match (mode.reencode, mode.delete_original) {
-        (false, _) => "copy",
-        (true, false) => "audio",
-        (true, true) => "all",
-    };
     let mut arguments = vec![
         "prepare".to_owned(),
         "--yes".to_owned(),
         "--encode".to_owned(),
-        encode.to_owned(),
+        mode.encode.as_str().to_owned(),
     ];
-    if mode.reencode && mode.delete_original {
+    // As before this ticket: only an item released for video may remove its original (#56).
+    if mode.encode == EncodeAllowance::All && mode.delete_original {
         arguments.push("--delete-original".to_owned());
     }
     arguments.extend([
@@ -406,59 +401,40 @@ mod tests {
     use super::*;
 
     #[test]
-    fn only_a_re_encode_item_runs_above_the_copy_level() {
+    fn the_cli_starts_with_the_items_own_level_and_only_all_may_delete() {
         fn level(arguments: &[String]) -> &str {
             let at = arguments.iter().position(|a| a == "--encode").unwrap();
             &arguments[at + 1]
         }
-
-        let copy = prepare_arguments("a.mp4", (1, 2, 3), PrepareMode::default());
-        assert_eq!(level(&copy), "copy");
-        assert!(!copy.contains(&"--delete-original".to_owned()));
-
-        // Even a signed delete_original does nothing for an item that is not to be re-encoded.
-        let kept = prepare_arguments(
-            "a.mp4",
-            (1, 2, 3),
-            PrepareMode {
-                reencode: false,
-                delete_original: true,
-            },
-        );
-        assert_eq!(level(&kept), "copy");
-        assert!(!kept.contains(&"--delete-original".to_owned()));
-
-        let without_delete = prepare_arguments(
-            "a.mp4",
-            (1, 2, 3),
-            PrepareMode {
-                reencode: true,
-                delete_original: false,
-            },
-        );
-        assert_eq!(level(&without_delete), "audio");
-        assert!(!without_delete.contains(&"--delete-original".to_owned()));
-
-        let replacing = prepare_arguments(
-            "a.mp4",
-            (1, 2, 3),
-            PrepareMode {
-                reencode: true,
-                delete_original: true,
-            },
-        );
-        assert_eq!(level(&replacing), "all");
-        assert!(replacing.contains(&"--delete-original".to_owned()));
-        // The leaf and the pinned identity always travel the same way.
-        for arguments in [&copy, &without_delete, &replacing] {
-            assert_eq!(arguments[0], "prepare");
-            assert_eq!(arguments.last().unwrap(), "a.mp4");
-            assert!(
-                arguments
-                    .windows(2)
-                    .any(|w| w[0] == "--manager-inode" && w[1] == "2")
-            );
+        let args = |encode, delete_original| {
+            prepare_arguments(
+                "a.mp4",
+                (1, 2, 3),
+                PrepareMode {
+                    encode,
+                    delete_original,
+                },
+            )
+        };
+        for (encode, name) in [
+            (EncodeAllowance::Copy, "copy"),
+            (EncodeAllowance::Audio, "audio"),
+            (EncodeAllowance::All, "all"),
+        ] {
+            assert_eq!(level(&args(encode, false)), name);
+            assert!(!args(encode, false).contains(&"--delete-original".to_owned()));
         }
+        assert!(!args(EncodeAllowance::Audio, true).contains(&"--delete-original".to_owned()));
+        assert!(args(EncodeAllowance::All, true).contains(&"--delete-original".to_owned()));
+        // The leaf and the pinned identity always travel the same way.
+        let arguments = args(EncodeAllowance::All, true);
+        assert_eq!(arguments[0], "prepare");
+        assert_eq!(arguments.last().unwrap(), "a.mp4");
+        assert!(
+            arguments
+                .windows(2)
+                .any(|w| w[0] == "--manager-inode" && w[1] == "2")
+        );
     }
 
     fn tool(name: &str, arguments: &[&str]) -> (std::path::PathBuf, Vec<String>) {

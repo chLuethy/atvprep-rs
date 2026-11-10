@@ -2,13 +2,14 @@
 use super::process::PrepareMode;
 use crate::{
     Error, Result,
-    approval::{ApprovalItem, ApprovalVerifier, prepare_policy_block},
+    approval::{ApprovalItem, ApprovalVerifier, item_encode, prepare_policy_block},
     clock::format_micros,
     jobs::Jobs,
     repo::Ctx,
     schedules::{ScheduleApproval, delete_original_setting},
     snapshots::InputSnapshots,
 };
+use atvprep_core::encode::EncodeAllowance;
 use serde_json::Value;
 
 /// Check a changing item's approval against the identity of its opened input and report how
@@ -58,8 +59,10 @@ pub fn authorize_prepare(
         // schedule, valid for the schedule as it is right now, is its approval.
         return authorize_schedule_job(ctx, snapshot, verifier);
     }
+    let encode = item_encode(snapshot)
+        .ok_or_else(|| Error::Invalid("The job carries no encoding allowance.".to_owned()))?;
     let mode = PrepareMode {
-        reencode: snapshot["reencode"] == Value::Bool(true),
+        encode,
         delete_original: snapshot["delete_original"] == Value::Bool(true),
     };
     if let Some(reason) = verifier.check(
@@ -69,7 +72,7 @@ pub fn authorize_prepare(
             media_id: item.media_file_id,
             action: &item.action,
             identity: &identity,
-            reencode: mode.reencode,
+            encode: mode.encode,
             delete_original: mode.delete_original,
         },
         ctx.clock.now_micros() / 1_000_000,
@@ -119,14 +122,16 @@ fn authorize_schedule_job(
     if snapshot.get("schedule_params") != Some(&params.to_json()) {
         return refuse("The schedule changed after this job was queued.");
     }
-    // The item's own decision is not signed; the schedule's permission is. An item may re-encode
+    // The item's own decision is not signed; the schedule's permission is. An item may encode
     // only while the signed schedule allows it.
-    let reencode = snapshot["reencode"] == Value::Bool(true);
-    if reencode && !params.allow_reencode {
+    let Some(encode) = item_encode(snapshot) else {
+        return refuse("The job carries no encoding allowance.");
+    };
+    if encode != EncodeAllowance::Copy && !params.allow_reencode {
         return refuse("The schedule does not allow a re-encode.");
     }
     Ok(PrepareMode {
-        reencode,
+        encode,
         delete_original: params.delete_original,
     })
 }
@@ -165,13 +170,13 @@ mod tests {
                 media_id: 1,
                 action: "fix",
                 identity: &identity,
-                reencode: false,
+                encode: EncodeAllowance::Copy,
                 delete_original: false,
             },
             1,
             clock.now_micros() / 1_000_000,
         );
-        let snapshot = json!({"pipeline":"prepare","policy":"copy-only-v2","reencode":false,"manual_approval":true,"approved_by":1,"approved_at":clock.now_micros()/1_000_000,"approval_mac":signature});
+        let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","encode":"copy","manual_approval":true,"approved_by":1,"approved_at":clock.now_micros()/1_000_000,"approval_mac":signature});
         conn.raw()
             .execute(
                 "UPDATE job_items SET settings_snapshot_json=?1 WHERE id=1",
@@ -230,7 +235,7 @@ mod tests {
                 .unwrap();
         };
         let queue = |params: &ScheduleParams<'_>| {
-            let snapshot = json!({"pipeline":"prepare","policy":"copy-only-v2","reencode":false,"manual_approval":false,
+            let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","encode":"copy","manual_approval":false,
                 "schedule_id":1,"schedule_params":params.to_json()});
             conn.raw()
                 .execute(
@@ -296,8 +301,11 @@ mod tests {
         assert!(!allowed(&verifier), "schedule deleted");
     }
 
-    /// A signed manual item with one file whose approval carries `reencode` and `delete_original`.
-    fn manual_item(reencode: bool, delete_original: bool) -> (crate::db::Conn, [Value; 4], i64) {
+    /// A signed manual item with one file whose approval carries `encode` and `delete_original`.
+    fn manual_item(
+        encode: EncodeAllowance,
+        delete_original: bool,
+    ) -> (crate::db::Conn, [Value; 4], i64) {
         let db = Db::memory().unwrap();
         let mut conn = db.conn().unwrap();
         schema::migrate(&mut conn).unwrap();
@@ -319,13 +327,13 @@ mod tests {
                 media_id: 1,
                 action: "fix",
                 identity: &identity,
-                reencode,
+                encode,
                 delete_original,
             },
             1,
             clock.now_micros() / 1_000_000,
         );
-        let snapshot = json!({"pipeline":"prepare","policy":"copy-only-v2","reencode":reencode,"delete_original":delete_original,"manual_approval":true,"approved_by":1,"approved_at":clock.now_micros()/1_000_000,"approval_mac":signature});
+        let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","encode":encode.as_str(),"delete_original":delete_original,"manual_approval":true,"approved_by":1,"approved_at":clock.now_micros()/1_000_000,"approval_mac":signature});
         conn.raw()
             .execute(
                 "UPDATE job_items SET settings_snapshot_json=?1 WHERE id=1",
@@ -338,8 +346,12 @@ mod tests {
     #[test]
     fn a_manual_approval_reports_the_signed_mode() {
         let verifier = ApprovalVerifier::new(b"secret").unwrap();
-        for (reencode, delete_original) in [(false, false), (true, false), (true, true)] {
-            let (conn, identity, now) = manual_item(reencode, delete_original);
+        for (encode, delete_original) in [
+            (EncodeAllowance::Copy, false),
+            (EncodeAllowance::Audio, false),
+            (EncodeAllowance::All, true),
+        ] {
+            let (conn, identity, now) = manual_item(encode, delete_original);
             let clock = FixedClock(now);
             let ctx = Ctx {
                 conn: conn.raw(),
@@ -348,7 +360,7 @@ mod tests {
             assert_eq!(
                 authorize_prepare(ctx, 1, &verifier, &identity, 3600).unwrap(),
                 PrepareMode {
-                    reencode,
+                    encode,
                     delete_original
                 }
             );
@@ -356,21 +368,22 @@ mod tests {
     }
 
     #[test]
-    fn a_re_encode_added_to_a_manual_item_after_signing_is_refused() {
+    fn an_allowance_raised_on_a_manual_item_after_signing_is_refused() {
         let verifier = ApprovalVerifier::new(b"secret").unwrap();
-        let (conn, identity, now) = manual_item(false, false);
+        let (conn, identity, now) = manual_item(EncodeAllowance::Copy, false);
         let clock = FixedClock(now);
         let ctx = Ctx {
             conn: conn.raw(),
             clock: &clock,
         };
         for edit in [
-            "json_set(settings_snapshot_json,'$.reencode',json('true'))",
+            "json_set(settings_snapshot_json,'$.encode','audio')",
+            "json_set(settings_snapshot_json,'$.encode','all')",
             "json_set(settings_snapshot_json,'$.delete_original',json('true'))",
-            "json_set(settings_snapshot_json,'$.policy','copy-only-v1')",
-            "json_remove(settings_snapshot_json,'$.reencode')",
+            "json_set(settings_snapshot_json,'$.policy','copy-only-v2')",
+            "json_remove(settings_snapshot_json,'$.encode')",
         ] {
-            let (conn, _, _) = manual_item(false, false);
+            let (conn, _, _) = manual_item(EncodeAllowance::Copy, false);
             conn.raw()
                 .execute(
                     &format!("UPDATE job_items SET settings_snapshot_json={edit}"),
@@ -417,8 +430,8 @@ mod tests {
             delete_original: false,
             allow_reencode,
         };
-        let queue = |allow_reencode: bool, item_reencode: bool| {
-            let snapshot = json!({"pipeline":"prepare","policy":"copy-only-v2","reencode":item_reencode,"manual_approval":false,
+        let queue = |allow_reencode: bool, item_encode: EncodeAllowance| {
+            let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","encode":item_encode.as_str(),"manual_approval":false,
                 "schedule_id":1,"schedule_params":params(allow_reencode).to_json()});
             conn.raw()
                 .execute(
@@ -439,29 +452,33 @@ mod tests {
                 .unwrap();
         };
         let run = || authorize_prepare(ctx, 1, &verifier, &identity, 3600);
+        let copying = PrepareMode {
+            encode: EncodeAllowance::Copy,
+            delete_original: false,
+        };
 
         sign(false);
-        queue(false, false);
-        assert_eq!(run().unwrap(), PrepareMode::default());
+        queue(false, EncodeAllowance::Copy);
+        assert_eq!(run().unwrap(), copying);
         // The item claims a re-encode that the signature never covered.
-        queue(false, true);
+        queue(false, EncodeAllowance::All);
         assert!(run().is_err(), "no signed permission");
 
         sign(true);
-        queue(true, true);
+        queue(true, EncodeAllowance::All);
         assert_eq!(
             run().unwrap(),
             PrepareMode {
-                reencode: true,
+                encode: EncodeAllowance::All,
                 delete_original: false
             }
         );
-        queue(true, false);
-        assert_eq!(run().unwrap(), PrepareMode::default());
+        queue(true, EncodeAllowance::Copy);
+        assert_eq!(run().unwrap(), copying);
 
         // Withdrawing the permission after queueing refuses the item, as for every parameter.
         sign(false);
-        queue(true, true);
+        queue(true, EncodeAllowance::All);
         assert!(run().is_err(), "permission withdrawn after queueing");
     }
 }

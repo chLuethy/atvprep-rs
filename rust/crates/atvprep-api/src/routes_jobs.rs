@@ -6,6 +6,7 @@ use crate::{
     schedule_routes::mutate,
     state::AppState,
 };
+use atvprep_core::encode::EncodeAllowance;
 use atvprep_manager::{
     jobs::{Jobs, NewJob},
     media::Media,
@@ -29,9 +30,12 @@ pub struct CreateJob {
     manual_approval: bool,
     #[serde(default)]
     confirm_delete_original: bool,
-    /// Explicit release for files that need a re-encode; valid for this job only (ADR 0007).
+    /// The Kodierfreigabe of this job (ADR 0008): `copy`, `audio` or `all`. Without one, Audio applies.
     #[serde(default)]
-    confirm_reencode: bool,
+    encode: Option<String>,
+    /// The explicit release of the level `all`; valid for this job only.
+    #[serde(default)]
+    confirm_video_encode: bool,
 }
 
 /// Queue inspection or verification through the authenticated mutation pipeline.
@@ -59,14 +63,14 @@ pub async fn create(
         let ids=input.media_ids.iter().map(|value|opaque.decode(value,"m").ok().filter(|id|*id>0).ok_or(MutationError::InvalidInput("media_ids must contain opaque identifiers"))).collect::<Result<Vec<_>,_>>()?;
         if prepares && input.confirm_delete_original {return Err(MutationError::InvalidInput("deleting an original is not available"));}
         if prepares && !input.manual_approval {return Err(MutationError::InvalidInput("an explicit approval is required to change files"));}
-        let mut needs_reencode=false;
-        let mut reencode_media=std::collections::BTreeSet::new();
-        for id in &ids {let media=Media(ctx).get(*id).map_err(|_|MutationError::Database)?.ok_or(MutationError::NotFound)?;if prepares && media.discovery_state!="present" {return Err(MutationError::InvalidInput("only files that are present can be prepared"));}needs_reencode|=media.needs_reencode;if media.needs_reencode && input.confirm_reencode {reencode_media.insert(*id);}}
-        if prepares && needs_reencode && !input.confirm_reencode {return Err(MutationError::InvalidInput("files that need a re-encode require an explicit confirmation"));}
+        let encode=match input.encode.as_deref() {None=>EncodeAllowance::default(),Some(level)=>EncodeAllowance::parse(level).ok_or(MutationError::InvalidInput("encode must be copy, audio or all"))?};
+        if prepares && encode==EncodeAllowance::All && !input.confirm_video_encode {return Err(MutationError::InvalidInput("encoding audio and video requires an explicit confirmation"));}
+        let mut encode_media=std::collections::BTreeMap::new();
+        for id in &ids {let media=Media(ctx).get(*id).map_err(|_|MutationError::Database)?.ok_or(MutationError::NotFound)?;if prepares && media.discovery_state!="present" {return Err(MutationError::InvalidInput("only files that are present can be prepared"));}encode_media.insert(*id,encode);}
         let mut new=NewJob::new(if prepares {"fix"}else{&input.action},&ids);new.trigger="manual";
-        new.reencode_media=reencode_media;
+        new.encode_media=encode_media;
         let delete_original=atvprep_manager::schedules::delete_original_setting(ctx.conn).map_err(|_|MutationError::Database)?;
-        new.settings_snapshot=if prepares {let approver=approver(ctx,state,&session_token)?;json!({"pipeline":"prepare","policy":atvprep_manager::approval::PREPARE_POLICY,"delete_original":delete_original,"delete_original_confirmed":false,"manual_approval":true,"reencode_confirmed":input.confirm_reencode,"approved_by":approver,"approved_at":ctx.clock.now_micros()/1_000_000})}else{json!({"manual_approval":input.manual_approval})};
+        new.settings_snapshot=if prepares {let approver=approver(ctx,state,&session_token)?;json!({"pipeline":"prepare","policy":atvprep_manager::approval::PREPARE_POLICY,"delete_original":delete_original,"delete_original_confirmed":false,"manual_approval":true,"encode":encode.as_str(),"video_encode_confirmed":input.confirm_video_encode,"approved_by":approver,"approved_at":ctx.clock.now_micros()/1_000_000})}else{json!({"manual_approval":input.manual_approval})};
         let job=Jobs(ctx).create(&new).map_err(|error|match error{atvprep_manager::Error::Invalid(message)=>MutationError::Validation(message),_=>MutationError::Database})?;
         if prepares {sign_job(ctx,state,job.id)?;}
         Ok((201,json!({"data":{"id":opaque.encode("j",job.id),"action":if prepares {"prepare"}else{&job.action},"status":job.status}})))
@@ -112,18 +116,21 @@ fn sign_job(ctx: Ctx<'_>, state: &AppState, job: i64) -> Result<(), MutationErro
         let time = snapshot["approved_at"]
             .as_i64()
             .ok_or(MutationError::Database)?;
-        snapshot["approval_mac"] = json!(verifier.sign(
-            &ApprovalItem {
-                job_id: job,
-                media_id: item.media_file_id,
-                action: &item.action,
-                identity: &identity,
-                reencode: snapshot["reencode"] == json!(true),
-                delete_original: snapshot["delete_original"] == json!(true),
-            },
-            person,
-            time
-        ));
+        snapshot["approval_mac"] = json!(
+            verifier.sign(
+                &ApprovalItem {
+                    job_id: job,
+                    media_id: item.media_file_id,
+                    action: &item.action,
+                    identity: &identity,
+                    encode: atvprep_manager::approval::item_encode(&snapshot)
+                        .ok_or(MutationError::Database)?,
+                    delete_original: snapshot["delete_original"] == json!(true),
+                },
+                person,
+                time
+            )
+        );
         ctx.conn
             .execute(
                 "UPDATE job_items SET settings_snapshot_json=?1 WHERE id=?2",
