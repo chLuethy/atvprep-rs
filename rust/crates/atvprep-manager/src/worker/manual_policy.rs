@@ -2,7 +2,7 @@
 use super::process::PrepareMode;
 use crate::{
     Error, Result,
-    approval::{ApprovalItem, ApprovalVerifier, item_encode, prepare_policy_block},
+    approval::{ApprovalItem, ApprovalVerifier, item_encode, item_force, prepare_policy_block},
     clock::format_micros,
     jobs::Jobs,
     repo::Ctx,
@@ -64,6 +64,7 @@ pub fn authorize_prepare(
     let mode = PrepareMode {
         encode,
         delete_original: snapshot["delete_original"] == Value::Bool(true),
+        force: item_force(snapshot),
     };
     if let Some(reason) = verifier.check(
         snapshot,
@@ -74,6 +75,7 @@ pub fn authorize_prepare(
             identity: &identity,
             encode: mode.encode,
             delete_original: mode.delete_original,
+            force: mode.force,
         },
         ctx.clock.now_micros() / 1_000_000,
     ) {
@@ -127,12 +129,17 @@ fn authorize_schedule_job(
     let Some(encode) = item_encode(snapshot) else {
         return refuse("The job carries no encoding allowance.");
     };
+    // A forced rebuild is a manual decision only; a schedule's signature never covers one.
+    if item_force(snapshot) {
+        return refuse("A schedule cannot force a rebuild.");
+    }
     if encode != EncodeAllowance::Copy && !params.allow_reencode {
         return refuse("The schedule does not allow a re-encode.");
     }
     Ok(PrepareMode {
         encode,
         delete_original: params.delete_original,
+        force: false,
     })
 }
 
@@ -172,6 +179,7 @@ mod tests {
                 identity: &identity,
                 encode: EncodeAllowance::Copy,
                 delete_original: false,
+                force: false,
             },
             1,
             clock.now_micros() / 1_000_000,
@@ -329,6 +337,7 @@ mod tests {
                 identity: &identity,
                 encode,
                 delete_original,
+                force: false,
             },
             1,
             clock.now_micros() / 1_000_000,
@@ -361,7 +370,8 @@ mod tests {
                 authorize_prepare(ctx, 1, &verifier, &identity, 3600).unwrap(),
                 PrepareMode {
                     encode,
-                    delete_original
+                    delete_original,
+                    force: false
                 }
             );
         }
@@ -455,6 +465,7 @@ mod tests {
         let copying = PrepareMode {
             encode: EncodeAllowance::Copy,
             delete_original: false,
+            force: false,
         };
 
         sign(false);
@@ -470,11 +481,23 @@ mod tests {
             run().unwrap(),
             PrepareMode {
                 encode: EncodeAllowance::All,
-                delete_original: false
+                delete_original: false,
+                force: false
             }
         );
         queue(true, EncodeAllowance::Copy);
         assert_eq!(run().unwrap(), copying);
+
+        // A rebuild is a manual decision: a schedule item that claims one is refused.
+        sign(false);
+        conn.raw()
+            .execute(
+                "UPDATE job_items SET settings_snapshot_json=json_set(?1,'$.force',json('true')) WHERE id=1",
+                [json!({"pipeline":"prepare","policy":"encode-v3","encode":"copy","manual_approval":false,
+                    "schedule_id":1,"schedule_params":params(false).to_json()}).to_string()],
+            )
+            .unwrap();
+        assert!(run().is_err(), "a schedule never forces a rebuild");
 
         // Withdrawing the permission after queueing refuses the item, as for every parameter.
         sign(false);

@@ -139,6 +139,7 @@ pub fn execute_claimed(
         let mut mode = PrepareMode {
             encode: EncodeAllowance::Copy,
             delete_original: false,
+            force: false,
         };
         if changing {
             // A job from an older policy can never become valid: refused for good, "queue it again".

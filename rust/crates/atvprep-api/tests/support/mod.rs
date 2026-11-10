@@ -159,6 +159,7 @@ impl Contract {
                     encode: atvprep_manager::approval::item_encode(&item.settings_snapshot)
                         .unwrap(),
                     delete_original: item.settings_snapshot["delete_original"] == json!(true),
+                    force: atvprep_manager::approval::item_force(&item.settings_snapshot),
                 };
                 assert_eq!(prepare_policy_block(&item.settings_snapshot), None);
                 assert_eq!(item.settings_snapshot["approved_by"], person);

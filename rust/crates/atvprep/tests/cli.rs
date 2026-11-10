@@ -247,6 +247,7 @@ fn worker_hands_a_pinned_directory_to_the_real_cli() {
         PrepareMode {
             encode: atvprep_core::encode::EncodeAllowance::Copy,
             delete_original: false,
+            force: false,
         },
         &environment,
         Duration::from_secs(30),
@@ -305,6 +306,7 @@ fn the_worker_re_encodes_for_real_only_with_the_approved_mode() {
     let (output, code, path, _dir) = run_high10(PrepareMode {
         encode: atvprep_core::encode::EncodeAllowance::Copy,
         delete_original: false,
+        force: false,
     });
     assert_eq!(code, Some(0), "{output}");
     assert!(
@@ -321,6 +323,7 @@ fn the_worker_re_encodes_for_real_only_with_the_approved_mode() {
     let (output, code, path, _dir) = run_high10(PrepareMode {
         encode: atvprep_core::encode::EncodeAllowance::Audio,
         delete_original: false,
+        force: false,
     });
     assert_eq!(code, Some(0), "{output}");
     assert!(
@@ -333,6 +336,7 @@ fn the_worker_re_encodes_for_real_only_with_the_approved_mode() {
     let (output, code, path, _dir) = run_high10(PrepareMode {
         encode: atvprep_core::encode::EncodeAllowance::All,
         delete_original: true,
+        force: false,
     });
     assert_eq!(code, Some(0), "{output}");
     assert!(output.contains("ATVPREP-OUTCOME reencoded"), "{output}");
@@ -571,7 +575,8 @@ fn worker_executes_a_claimed_verification_and_releases_its_permit() {
             action: "fix",
             identity: &identity,
             encode: atvprep_core::encode::EncodeAllowance::Copy,
-            delete_original: false
+            delete_original: false,
+            force: false,
         },
         session.id,
         signed["approved_at"].as_i64().unwrap()
@@ -787,6 +792,7 @@ fn cancelling_a_re_encode_removes_the_partial_file() {
         PrepareMode {
             encode: atvprep_core::encode::EncodeAllowance::All,
             delete_original: true,
+            force: false,
         },
         &environment,
         Duration::from_secs(60),

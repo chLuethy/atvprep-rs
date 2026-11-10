@@ -70,6 +70,11 @@ fn high10(path: &Path) {
     std::fs::copy(testdata("high10.mp4"), path).unwrap();
 }
 
+/// Already at the target: left alone unless a rebuild is forced.
+fn at_target(path: &Path) {
+    std::fs::copy(testdata("clean.mp4"), path).unwrap();
+}
+
 /// Only needs its moov moved: no encoding at all.
 fn only_remux(path: &Path) {
     std::fs::copy(testdata("moovlast.mp4"), path).unwrap();
@@ -88,6 +93,15 @@ struct World {
 
 /// One signed manual job over `files`, each with its own Kodierfreigabe.
 fn world(files: &[(&str, MakeFile, EncodeAllowance)], delete_original: bool) -> World {
+    world_with(files, delete_original, false)
+}
+
+/// Like [`world`], every item also carrying the signed decision to rebuild (`force`).
+fn world_with(
+    files: &[(&str, MakeFile, EncodeAllowance)],
+    delete_original: bool,
+    force: bool,
+) -> World {
     require_media_tools(&search_path());
     let dir = tempfile::tempdir().unwrap();
     let root_path = dir.path().canonicalize().unwrap();
@@ -123,7 +137,7 @@ fn world(files: &[(&str, MakeFile, EncodeAllowance)], delete_original: bool) -> 
     let mut new = NewJob::new("fix", &ids);
     new.trigger = "manual";
     new.settings_snapshot = json!({"pipeline":"prepare","policy":PREPARE_POLICY,
-        "delete_original":delete_original,"manual_approval":true,"approved_by":1,
+        "delete_original":delete_original,"force":force,"manual_approval":true,"approved_by":1,
         "approved_at":clock.now_micros()/1_000_000});
     for ((_, id), (_, _, allowance)) in media.iter().zip(files) {
         new.encode_media.insert(*id, *allowance);
@@ -148,6 +162,7 @@ fn world(files: &[(&str, MakeFile, EncodeAllowance)], delete_original: bool) -> 
                 identity: &identity,
                 encode,
                 delete_original,
+                force,
             },
             1,
             clock.now_micros() / 1_000_000,
@@ -334,6 +349,55 @@ fn every_allowance_runs_a_file_that_needs_no_encoding() {
 }
 
 #[test]
+fn a_file_at_the_target_is_left_alone_without_force() {
+    let world = world(&[("file.mp4", at_target, Audio)], false);
+    let before = std::fs::read(world.path("file.mp4")).unwrap();
+    let (item, result) = world.run_next();
+    result.unwrap();
+    assert_ran(&world.ended(item));
+    assert_eq!(std::fs::read(world.path("file.mp4")).unwrap(), before);
+}
+
+#[test]
+fn force_rebuilds_a_file_at_the_target_and_only_copies_under_copy() {
+    let world = world_with(&[("file.mp4", at_target, Copy)], false, true);
+    let before = std::fs::read(world.path("file.mp4")).unwrap();
+    let streams = codecs(&world.path("file.mp4"), "v");
+    let (item, result) = world.run_next();
+    result.unwrap();
+    assert_ran(&world.ended(item));
+    assert!(
+        std::fs::read(world.path("file.mp4")).unwrap() != before,
+        "the file was rebuilt"
+    );
+    assert_eq!(codecs(&world.path("file.mp4"), "v"), streams);
+    assert_eq!(world.names(), ["file.mp4"]);
+}
+
+#[test]
+fn force_stays_bound_to_the_allowance_and_a_file_needing_more_stays_unchanged() {
+    for (make, allowance) in [
+        (high10 as MakeFile, Audio),
+        (high10 as MakeFile, Copy),
+        (surround_only as MakeFile, Copy),
+    ] {
+        let world = world_with(&[("file.mp4", make, allowance)], false, true);
+        let before = std::fs::read(world.path("file.mp4")).unwrap();
+        let (item, result) = world.run_next();
+        result.unwrap();
+        let ended = world.ended(item);
+        assert_eq!(ended.status, ItemStatus::Succeeded, "{allowance:?}");
+        assert_eq!(
+            ended.code.as_deref(),
+            Some(ENCODE_NOT_ALLOWED),
+            "{allowance:?}"
+        );
+        assert_eq!(std::fs::read(world.path("file.mp4")).unwrap(), before);
+        assert_eq!(world.names(), ["file.mp4"]);
+    }
+}
+
+#[test]
 fn each_item_of_a_mixed_job_runs_at_its_own_signed_allowance() {
     let world = world(
         &[
@@ -409,6 +473,7 @@ fn only_an_item_with_video_in_its_allowance_gets_the_four_hour_limit() {
             PrepareMode {
                 encode,
                 delete_original,
+                force: false,
             },
         )
     };

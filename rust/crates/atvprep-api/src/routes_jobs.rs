@@ -36,6 +36,10 @@ pub struct CreateJob {
     /// The explicit release of the level `all`; valid for this job only.
     #[serde(default)]
     confirm_video_encode: bool,
+    /// Rebuild each file even when it is at the target ("Neu erstellen erzwingen"). Signed, manual
+    /// jobs only, and still bound to the chosen Kodierfreigabe.
+    #[serde(default)]
+    force: bool,
 }
 
 /// Queue inspection or verification through the authenticated mutation pipeline.
@@ -61,20 +65,68 @@ pub async fn create(
         let prepares=matches!(input.action.as_str(),"prepare"|"fix"|"convert");
         let opaque=Opaque::new(state.api_secret.as_bytes());
         let ids=input.media_ids.iter().map(|value|opaque.decode(value,"m").ok().filter(|id|*id>0).ok_or(MutationError::InvalidInput("media_ids must contain opaque identifiers"))).collect::<Result<Vec<_>,_>>()?;
+        if input.force && !prepares {return Err(MutationError::InvalidInput("force is only available when preparing"));}
         if prepares && input.confirm_delete_original {return Err(MutationError::InvalidInput("deleting an original is not available"));}
         if prepares && !input.manual_approval {return Err(MutationError::InvalidInput("an explicit approval is required to change files"));}
         let encode=match input.encode.as_deref() {None=>EncodeAllowance::default(),Some(level)=>EncodeAllowance::parse(level).ok_or(MutationError::InvalidInput("encode must be copy, audio or all"))?};
         if prepares && encode==EncodeAllowance::All && !input.confirm_video_encode {return Err(MutationError::InvalidInput("encoding audio and video requires an explicit confirmation"));}
-        let mut encode_media=std::collections::BTreeMap::new();
-        for id in &ids {let media=Media(ctx).get(*id).map_err(|_|MutationError::Database)?.ok_or(MutationError::NotFound)?;if prepares && media.discovery_state!="present" {return Err(MutationError::InvalidInput("only files that are present can be prepared"));}encode_media.insert(*id,encode);}
-        let mut new=NewJob::new(if prepares {"fix"}else{&input.action},&ids);new.trigger="manual";
-        new.encode_media=encode_media;
-        let delete_original=atvprep_manager::schedules::delete_original_setting(ctx.conn).map_err(|_|MutationError::Database)?;
-        new.settings_snapshot=if prepares {let approver=approver(ctx,state,&session_token)?;json!({"pipeline":"prepare","policy":atvprep_manager::approval::PREPARE_POLICY,"delete_original":delete_original,"delete_original_confirmed":false,"manual_approval":true,"encode":encode.as_str(),"video_encode_confirmed":input.confirm_video_encode,"approved_by":approver,"approved_at":ctx.clock.now_micros()/1_000_000})}else{json!({"manual_approval":input.manual_approval})};
-        let job=Jobs(ctx).create(&new).map_err(|error|match error{atvprep_manager::Error::Invalid(message)=>MutationError::Validation(message),_=>MutationError::Database})?;
-        if prepares {sign_job(ctx,state,job.id)?;}
+        for id in &ids {let media=Media(ctx).get(*id).map_err(|_|MutationError::Database)?.ok_or(MutationError::NotFound)?;if prepares && media.discovery_state!="present" {return Err(MutationError::InvalidInput("only files that are present can be prepared"));}}
+        let job=if prepares {queue_prepare(ctx,state,&PrepareDecision{media_ids:&ids,encode,video_confirmed:input.confirm_video_encode,force:input.force,session_token:&session_token})?}else{
+            let mut new=NewJob::new(&input.action,&ids);new.trigger="manual";
+            new.settings_snapshot=json!({"manual_approval":input.manual_approval});
+            Jobs(ctx).create(&new).map_err(creation_error)?
+        };
         Ok((201,json!({"data":{"id":opaque.encode("j",job.id),"action":if prepares {"prepare"}else{&job.action},"status":job.status}})))
     }).await
+}
+
+fn creation_error(error: atvprep_manager::Error) -> MutationError {
+    match error {
+        atvprep_manager::Error::Invalid(message) => MutationError::Validation(message),
+        _ => MutationError::Database,
+    }
+}
+
+/// What the operator confirmed for one manual prepare.
+struct PrepareDecision<'a> {
+    media_ids: &'a [i64],
+    encode: EncodeAllowance,
+    video_confirmed: bool,
+    force: bool,
+    session_token: &'a str,
+}
+
+/// Queue a signed manual prepare job. Every item carries the same Kodierfreigabe and rebuild decision.
+fn queue_prepare(
+    ctx: Ctx<'_>,
+    state: &AppState,
+    decision: &PrepareDecision<'_>,
+) -> Result<atvprep_manager::models::Job, MutationError> {
+    let mut new = NewJob::new("fix", decision.media_ids);
+    new.trigger = "manual";
+    new.encode_media = decision
+        .media_ids
+        .iter()
+        .map(|id| (*id, decision.encode))
+        .collect();
+    let delete_original = atvprep_manager::schedules::delete_original_setting(ctx.conn)
+        .map_err(|_| MutationError::Database)?;
+    let approved_by = approver(ctx, state, decision.session_token)?;
+    new.settings_snapshot = json!({
+        "pipeline": "prepare",
+        "policy": atvprep_manager::approval::PREPARE_POLICY,
+        "delete_original": delete_original,
+        "delete_original_confirmed": false,
+        "manual_approval": true,
+        "encode": decision.encode.as_str(),
+        "video_encode_confirmed": decision.video_confirmed,
+        "force": decision.force,
+        "approved_by": approved_by,
+        "approved_at": ctx.clock.now_micros() / 1_000_000,
+    });
+    let job = Jobs(ctx).create(&new).map_err(creation_error)?;
+    sign_job(ctx, state, job.id)?;
+    Ok(job)
 }
 
 pub(crate) fn approver(ctx: Ctx<'_>, state: &AppState, token: &str) -> Result<i64, MutationError> {
@@ -126,6 +178,7 @@ fn sign_job(ctx: Ctx<'_>, state: &AppState, job: i64) -> Result<(), MutationErro
                     encode: atvprep_manager::approval::item_encode(&snapshot)
                         .ok_or(MutationError::Database)?,
                     delete_original: snapshot["delete_original"] == json!(true),
+                    force: atvprep_manager::approval::item_force(&snapshot),
                 },
                 person,
                 time
@@ -195,6 +248,96 @@ pub async fn retry(
             }
             Ok((
                 200,
+                json!({"data":{"id":opaque.encode("j",job.id),"status":job.status}}),
+            ))
+        },
+    )
+    .await
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct RaiseEncode {
+    encode: String,
+    #[serde(default)]
+    confirm_video_encode: bool,
+}
+
+/// Queue a new job for one item that ended with "Kodierung nicht freigegeben", at a higher
+/// Kodierfreigabe the operator confirms now. A retry, by contrast, never changes the allowance.
+pub async fn raise_encode(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(token): Path<String>,
+    Json(input): Json<RaiseEncode>,
+) -> Response {
+    let path = format!("/api/v1/job-items/{token}/raise-encode");
+    let body = json!({"item_id":token,"encode":input.encode,"confirm_video_encode":input.confirm_video_encode});
+    let session =
+        routes_auth::cookie(&headers, state.config.session_cookie_secure).unwrap_or_default();
+    mutate(
+        state,
+        headers,
+        "POST",
+        path,
+        "raise-encode",
+        body,
+        move |ctx, state| {
+            use atvprep_manager::{
+                approval::item_encode, state_machine::ItemStatus,
+                worker::execution::ENCODE_NOT_ALLOWED,
+            };
+            let opaque = Opaque::new(state.api_secret.as_bytes());
+            let id = opaque
+                .decode(&token, "i")
+                .ok()
+                .filter(|id| *id > 0)
+                .ok_or(MutationError::NotFound)?;
+            let item = Jobs(ctx)
+                .get_item(id)
+                .map_err(|_| MutationError::Database)?
+                .ok_or(MutationError::NotFound)?;
+            let refused = item.status == ItemStatus::Succeeded
+                && item.error_code.as_deref() == Some(ENCODE_NOT_ALLOWED);
+            let Some(current) = item_encode(&item.settings_snapshot).filter(|_| refused) else {
+                return Err(MutationError::Rejected(
+                    "only an item whose encoding was not allowed can be raised",
+                ));
+            };
+            let encode = EncodeAllowance::parse(&input.encode).ok_or(
+                MutationError::InvalidInput("encode must be copy, audio or all"),
+            )?;
+            if encode <= current {
+                return Err(MutationError::Rejected(
+                    "the new allowance must be higher than the item had",
+                ));
+            }
+            if encode == EncodeAllowance::All && !input.confirm_video_encode {
+                return Err(MutationError::InvalidInput(
+                    "encoding audio and video requires an explicit confirmation",
+                ));
+            }
+            let media = Media(ctx)
+                .get(item.media_file_id)
+                .map_err(|_| MutationError::Database)?
+                .ok_or(MutationError::NotFound)?;
+            if media.discovery_state != "present" {
+                return Err(MutationError::InvalidInput(
+                    "only files that are present can be prepared",
+                ));
+            }
+            let job = queue_prepare(
+                ctx,
+                state,
+                &PrepareDecision {
+                    media_ids: &[item.media_file_id],
+                    encode,
+                    video_confirmed: input.confirm_video_encode,
+                    force: false,
+                    session_token: &session,
+                },
+            )?;
+            Ok((
+                201,
                 json!({"data":{"id":opaque.encode("j",job.id),"status":job.status}}),
             ))
         },

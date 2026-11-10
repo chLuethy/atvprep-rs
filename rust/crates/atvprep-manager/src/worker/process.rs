@@ -118,6 +118,8 @@ pub struct PrepareMode {
     pub encode: EncodeAllowance,
     /// The signed `delete_original` setting.
     pub delete_original: bool,
+    /// The signed decision to rebuild the file even when it is at the target.
+    pub force: bool,
 }
 
 /// The argument vector of `atvprep prepare` for one pinned leaf.
@@ -132,6 +134,9 @@ fn prepare_arguments(leaf: &str, identity: (i128, i128, i128), mode: PrepareMode
     // As before this ticket: only an item released for video may remove its original (#56).
     if mode.encode == EncodeAllowance::All && mode.delete_original {
         arguments.push("--delete-original".to_owned());
+    }
+    if mode.force {
+        arguments.push("--force".to_owned());
     }
     arguments.extend([
         "--manager-parent-fd".to_owned(),
@@ -413,6 +418,7 @@ mod tests {
                 PrepareMode {
                     encode,
                     delete_original,
+                    force: false,
                 },
             )
         };

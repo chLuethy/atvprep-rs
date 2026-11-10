@@ -72,7 +72,42 @@ impl Harness {
     }
 
     async fn create_job(&self, body: Value) -> (StatusCode, Value) {
-        let path = "/api/v1/jobs";
+        self.post("/api/v1/jobs", "create-job", body).await
+    }
+
+    /// A failed run of the newest job's only item, so it can be retried.
+    fn fail_the_item(&self) {
+        let conn = self.state.db.conn().unwrap();
+        conn.raw()
+            .execute(
+                "UPDATE job_items SET status='failed' WHERE job_id=(SELECT max(id) FROM jobs)",
+                [],
+            )
+            .unwrap();
+    }
+
+    /// Mark the newest job's only item as refused and return its opaque id.
+    fn refuse_the_item(&self) -> String {
+        let conn = self.state.db.conn().unwrap();
+        conn.raw()
+            .execute(
+                "UPDATE job_items SET status='succeeded',error_code='encode_not_allowed',error_detail='Encoding not allowed (need=video allowance=audio): the file stays as it was.' WHERE job_id=(SELECT max(id) FROM jobs)",
+                [],
+            )
+            .unwrap();
+        Opaque::new(SECRET.as_bytes()).encode("i", self.sql::<i64>("SELECT max(id) FROM job_items"))
+    }
+
+    async fn raise(&self, item: &str, body: Value) -> (StatusCode, Value) {
+        self.post(
+            &format!("/api/v1/job-items/{item}/raise-encode"),
+            "raise-encode",
+            body,
+        )
+        .await
+    }
+
+    async fn post(&self, path: &str, action: &str, body: Value) -> (StatusCode, Value) {
         let csrf = {
             let conn = self.state.db.conn().unwrap();
             AuthService::new(
@@ -84,7 +119,7 @@ impl Harness {
                 3600,
             )
             .unwrap()
-            .issue_csrf(&self.token, "POST", path, "create-job")
+            .issue_csrf(&self.token, "POST", path, action)
             .unwrap()
         };
         self.keys.set(self.keys.get() + 1);
@@ -194,6 +229,156 @@ async fn the_delete_original_setting_is_recorded_and_signed_with_the_job() {
     assert_eq!(item_decisions(&h), [(2, All, true)]);
 }
 
+fn newest_force(h: &Harness) -> bool {
+    h.sql::<String>("SELECT settings_snapshot_json FROM job_items ORDER BY id DESC LIMIT 1")
+        .contains("\"force\":true")
+}
+
+#[tokio::test]
+async fn force_is_recorded_and_signed_on_a_manual_prepare() {
+    let h = Harness::new();
+    let (status, body) = h
+        .create_job(json!({"action":"prepare","media_ids":[Harness::id(1)],"manual_approval":true,"encode":"copy","force":true}))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    assert_eq!(item_decisions(&h), [(1, Copy, false)]);
+    assert!(newest_force(&h));
+}
+
+#[tokio::test]
+async fn force_is_off_unless_asked_for() {
+    let h = Harness::new();
+    let (status, body) = h
+        .create_job(json!({"action":"prepare","media_ids":[Harness::id(1)],"manual_approval":true}))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    assert_eq!(item_decisions(&h), [(1, Audio, false)]);
+    assert!(!newest_force(&h));
+}
+
+#[tokio::test]
+async fn force_is_refused_for_an_action_that_changes_nothing() {
+    let h = Harness::new();
+    for action in ["inspect", "verify"] {
+        let (status, body) = h
+            .create_job(json!({"action":action,"media_ids":[Harness::id(1)],"force":true}))
+            .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{action}: {body}");
+    }
+    assert_eq!(h.sql::<i64>("SELECT count(*) FROM jobs"), 0);
+}
+
+#[tokio::test]
+async fn a_retry_takes_the_stored_allowance_and_force_unchanged() {
+    let h = Harness::new();
+    let (status, body) = h
+        .create_job(json!({"action":"prepare","media_ids":[Harness::id(2)],"manual_approval":true,"encode":"audio","force":true}))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    h.fail_the_item();
+    let job = body["data"]["id"].as_str().unwrap();
+    let (status, body) = h
+        .post(
+            &format!("/api/v1/jobs/{job}/retry"),
+            "retry-job",
+            json!({"job_id":job,"operation":"retry"}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(item_decisions(&h), [(2, Audio, false)]);
+    assert!(newest_force(&h));
+}
+
+#[tokio::test]
+async fn a_refused_item_is_raised_as_a_new_signed_job_with_its_own_confirmation() {
+    let h = Harness::new();
+    let (status, body) = h
+        .create_job(json!({"action":"prepare","media_ids":[Harness::id(2)],"manual_approval":true,"force":true}))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let original: i64 = h.sql("SELECT max(id) FROM jobs");
+    let item = h.refuse_the_item();
+
+    let (status, body) = h.raise(&item, json!({"encode":"all"})).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert_eq!(h.sql::<i64>("SELECT count(*) FROM jobs"), 1);
+
+    let (status, body) = h
+        .raise(&item, json!({"encode":"all","confirm_video_encode":true}))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    assert!(body["data"]["id"].is_string());
+    assert!(h.sql::<i64>("SELECT max(id) FROM jobs") > original);
+    assert_eq!(
+        h.sql::<String>("SELECT trigger FROM jobs ORDER BY id DESC LIMIT 1"),
+        "manual"
+    );
+    assert_eq!(item_decisions(&h), [(2, All, false)]);
+    assert!(
+        !newest_force(&h),
+        "the higher release decides only the level"
+    );
+}
+
+#[tokio::test]
+async fn a_refused_copy_item_can_be_raised_to_audio_without_a_confirmation() {
+    let h = Harness::new();
+    let (_, body) = h
+        .create_job(json!({"action":"prepare","media_ids":[Harness::id(1)],"manual_approval":true,"encode":"copy"}))
+        .await;
+    assert!(body["data"]["id"].is_string());
+    let item = h.refuse_the_item();
+    let (status, body) = h.raise(&item, json!({"encode":"audio"})).await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    assert_eq!(item_decisions(&h), [(1, Audio, false)]);
+}
+
+#[tokio::test]
+async fn the_items_of_a_job_report_their_allowance() {
+    let h = Harness::new();
+    let (_, created) = h
+        .create_job(json!({"action":"prepare","media_ids":[Harness::id(1)],"manual_approval":true,"encode":"copy"}))
+        .await;
+    let job = created["data"]["id"].as_str().unwrap();
+    let request = Request::builder()
+        .uri(format!("/api/v1/jobs/{job}/items"))
+        .header("origin", "http://testserver")
+        .header("cookie", format!("__Host-atvprep_session={}", h.token))
+        .body(Body::empty())
+        .unwrap();
+    let response = h.app.clone().oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = to_bytes(response.into_body(), 1 << 20).await.unwrap();
+    let body: Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(body["data"][0]["encode"], "copy", "{body}");
+}
+
+#[tokio::test]
+async fn raising_needs_a_higher_level_than_the_item_had() {
+    let h = Harness::new();
+    h.create_job(json!({"action":"prepare","media_ids":[Harness::id(2)],"manual_approval":true,"encode":"audio"}))
+        .await;
+    let item = h.refuse_the_item();
+    for level in ["copy", "audio"] {
+        let (status, body) = h.raise(&item, json!({"encode":level})).await;
+        assert_eq!(status, StatusCode::CONFLICT, "{level}: {body}");
+    }
+    assert_eq!(h.sql::<i64>("SELECT count(*) FROM jobs"), 1);
+}
+
+#[tokio::test]
+async fn only_an_item_with_encoding_not_allowed_can_be_raised() {
+    let h = Harness::new();
+    h.create_job(json!({"action":"prepare","media_ids":[Harness::id(1)],"manual_approval":true,"encode":"copy"}))
+        .await;
+    h.fail_the_item();
+    let item =
+        Opaque::new(SECRET.as_bytes()).encode("i", h.sql::<i64>("SELECT max(id) FROM job_items"));
+    let (status, body) = h.raise(&item, json!({"encode":"audio"})).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(h.sql::<i64>("SELECT count(*) FROM jobs"), 1);
+}
+
 /// The Kodierfreigabe recorded on each item, by media id, with its signature checked.
 fn item_decisions(h: &Harness) -> Vec<(i64, EncodeAllowance, bool)> {
     use atvprep_manager::{
@@ -207,7 +392,7 @@ fn item_decisions(h: &Harness) -> Vec<(i64, EncodeAllowance, bool)> {
         clock: h.state.clock.as_ref(),
     };
     let verifier = ApprovalVerifier::new(h.state.approval_secret.as_bytes()).unwrap();
-    let job: i64 = h.sql("SELECT id FROM jobs");
+    let job: i64 = h.sql("SELECT max(id) FROM jobs");
     Jobs(ctx)
         .items(job)
         .unwrap()
@@ -233,6 +418,7 @@ fn item_decisions(h: &Harness) -> Vec<(i64, EncodeAllowance, bool)> {
                         identity: &identity,
                         encode,
                         delete_original,
+                        force: atvprep_manager::approval::item_force(&item.settings_snapshot),
                     },
                     ctx.clock.now_micros() / 1_000_000,
                 )
@@ -245,6 +431,25 @@ fn item_decisions(h: &Harness) -> Vec<(i64, EncodeAllowance, bool)> {
                 );
             }
             assert!(signed(encode, !delete_original).is_some());
+            let force = atvprep_manager::approval::item_force(&item.settings_snapshot);
+            assert!(
+                verifier
+                    .check(
+                        &item.settings_snapshot,
+                        &ApprovalItem {
+                            job_id: job,
+                            media_id: item.media_file_id,
+                            action: &item.action,
+                            identity: &identity,
+                            encode,
+                            delete_original,
+                            force: !force,
+                        },
+                        ctx.clock.now_micros() / 1_000_000,
+                    )
+                    .is_some(),
+                "the decision to rebuild is part of the signature"
+            );
             (item.media_file_id, encode, delete_original)
         })
         .collect()

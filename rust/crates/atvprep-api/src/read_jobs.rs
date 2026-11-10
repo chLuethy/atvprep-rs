@@ -221,15 +221,17 @@ fn item_view(row: &rusqlite::Row<'_>, opaque: &Opaque) -> rusqlite::Result<((i64
     let output: Option<i64> = row.get(8)?;
     let detail: Option<String> = row.get(10)?;
     let detail = detail.map(|value| safe_diagnostic(&value, 1024));
-    Ok((
-        (position, id),
-        json!({"id":opaque.encode("i",id),"job_id":opaque.encode("j",job_id),"media_id":opaque.encode("m",media_id),
+    let mut row_json = json!({"id":opaque.encode("i",id),"job_id":opaque.encode("j",job_id),"media_id":opaque.encode("m",media_id),
         "action":action,"position":position,"status":row.get::<_,ItemStatus>(5)?,"attempt":row.get::<_,i64>(6)?,
         "delete_confirmed":snapshot.get("delete_original_confirmed").and_then(Value::as_bool).unwrap_or(false),
         "output_media_id":output.map(|id|opaque.encode("m",id)),"error_code":row.get::<_,Option<String>>(9)?.map(|v| safe_head(&v,128)),
         "error_detail":detail,"progress":row.get::<_,Option<i64>>(11)?,"started_at":row.get::<_,Option<String>>(12)?.map(|v|timestamp(&v)),
-        "finished_at":row.get::<_,Option<String>>(13)?.map(|v|timestamp(&v)),"display_path":row.get::<_,Option<String>>(14)?.map(|v|subject(&v))}),
-    ))
+        "finished_at":row.get::<_,Option<String>>(13)?.map(|v|timestamp(&v)),"display_path":row.get::<_,Option<String>>(14)?.map(|v|subject(&v))});
+    // Only an item under the prepare policy has a Kodierfreigabe; every other item keeps its shape.
+    if let Some(level) = atvprep_manager::approval::item_encode(&snapshot) {
+        row_json["encode"] = json!(level.as_str());
+    }
+    Ok(((position, id), row_json))
 }
 
 /// List a job's items in position order with an authenticated composite cursor.
