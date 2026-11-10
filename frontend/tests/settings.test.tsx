@@ -186,6 +186,59 @@ describe("audited runtime settings UI", () => {
     expect(other).toHaveTextContent("Removes the old non-MP4 container once its new MP4 passes verification. It does not decide whether a file may be encoded.");
   });
 
+  describe("target profile", () => {
+    const targetProfile: Setting[] = [
+      { key: "target_crf", value: 18, revision: 7, default_value: 18 } as Setting,
+      { key: "target_prefer_hevc10", value: false, revision: 7, default_value: false } as Setting,
+      { key: "target_keep_av1", value: false, revision: 7, default_value: false } as Setting,
+      { key: "target_fix_dts", value: false, revision: 7, default_value: false } as Setting,
+    ];
+
+    it("shows the four values together and says what a change does", async () => {
+      const api = apiFor((path) => path === "/settings" ? settingsResponse(7, targetProfile) : response([]));
+      const view = render(() => <SettingsPage api={api} />);
+      const group = await view.findByRole("region", { name: "Target profile" });
+
+      expect(within(group).getByLabelText("CRF")).toHaveValue(18);
+      expect(within(group).getByLabelText("Prefer HEVC 10-bit")).not.toBeChecked();
+      expect(within(group).getByLabelText("Keep AV1")).not.toBeChecked();
+      expect(within(group).getByLabelText("Fix negative start times (DTS)")).not.toBeChecked();
+      expect(group).toHaveTextContent("Changing a value sets the encoding need of every file to unknown and checks the files again.");
+      expect(group).toHaveTextContent("The command line and the import hook do not read it.");
+    });
+
+    it("saves changed values as settings of the profile", async () => {
+      const bodies: unknown[] = [];
+      const api = apiFor((path, init) => {
+        if (path === "/settings" && init?.method === "PATCH") {
+          bodies.push(JSON.parse(String(init.body)));
+          return response({ revision: 8, settings: [{ key: "target_crf", value: 22, revision: 8 }, { key: "target_keep_av1", value: true, revision: 8 }] });
+        }
+        return path === "/settings" ? settingsResponse(7, targetProfile) : response([]);
+      });
+      const view = render(() => <SettingsPage api={api} />);
+      await view.findByLabelText("CRF");
+
+      fireEvent.input(view.getByLabelText("CRF"), { target: { value: "22" } });
+      fireEvent.click(view.getByLabelText("Keep AV1"));
+      fireEvent.click(view.getByRole("button", { name: "Save settings" }));
+
+      await waitFor(() => expect(bodies).toEqual([{ settings: { target_crf: 22, target_keep_av1: true }, expected_revision: 7 }]));
+      expect(await view.findByText("Settings saved.")).toBeInTheDocument();
+    });
+
+    it("never sends a CRF outside its range", async () => {
+      const api = apiFor((path) => path === "/settings" ? settingsResponse(7, targetProfile) : response([]));
+      const view = render(() => <SettingsPage api={api} />);
+      await view.findByLabelText("CRF");
+
+      fireEvent.input(view.getByLabelText("CRF"), { target: { value: "52" } });
+
+      expect(view.getAllByText(/between 0 and 51/i).length).toBeGreaterThan(0);
+      expect(view.getByRole("button", { name: "Save settings" })).toBeDisabled();
+    });
+  });
+
   it("keeps the audit one short button away, named for the setting", async () => {
     const api = apiFor((path) => path === "/settings" ? settingsResponse() : response(audit));
     const view = render(() => <SettingsPage api={api} />);

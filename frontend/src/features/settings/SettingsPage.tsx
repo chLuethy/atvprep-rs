@@ -31,11 +31,16 @@ const DEFINITIONS: Record<string, Definition> = {
   event_retention_days: { label: N("Keep events for (days)"), hint: N("How long events in the activity feed are kept."), kind: "number", min: 1, max: 365 },
   log_retention_days: { label: N("Keep logs for (days)"), hint: N("How long job logs are kept."), kind: "number", min: 1, max: 365 },
   job_retention_days: { label: N("Keep jobs for (days)"), hint: N("How long finished jobs are kept."), kind: "number", min: 1, max: 365 },
+  target_crf: { label: N("CRF"), hint: N("Quality of a re-encode. Lower values keep more detail and need more space."), kind: "number", min: 0, max: 51 },
+  target_prefer_hevc10: { label: N("Prefer HEVC 10-bit"), hint: N("Re-encodes H.264 to HEVC 10-bit even for SDR and 1080p video."), kind: "boolean" },
+  target_keep_av1: { label: N("Keep AV1"), hint: N("Copies AV1 video instead of re-encoding it. Needs an Apple TV 4K of the 3rd generation."), kind: "boolean" },
+  target_fix_dts: { label: N("Fix negative start times (DTS)"), hint: N("Corrects a negative first video timestamp, for files whose playback stumbles on it."), kind: "boolean" },
 };
 
 /** How settings are grouped on the page; anything not listed lands in "Other", read-only. */
 const GROUPS: ReadonlyArray<{ id: string; title: string; keys: readonly string[] }> = [
   { id: "scanning", title: N("Library scan"), keys: ["scan_interval_seconds", "settle_seconds", "max_probe_workers", "scan_exclude_dirs"] },
+  { id: "target", title: N("Target profile"), keys: ["target_crf", "target_prefer_hevc10", "target_keep_av1", "target_fix_dts"] },
   { id: "automation", title: N("Automation"), keys: ["max_ffmpeg_workers"] },
   { id: "retention", title: N("Retention"), keys: ["event_retention_days", "log_retention_days", "job_retention_days"] },
 ];
@@ -274,6 +279,9 @@ export const SettingsPage: Component<{ api: SettingsApi }> = (props) => {
             <h3>{t(group.title)}</h3>
             <Show when={group.id === "other"}>
               <p class="muted">{t("Read-only. These come from the configuration file; change them there and restart the manager.")}</p>
+            </Show>
+            <Show when={group.id === "target"}>
+              <p class="muted">{t("Verify and Prepare in the manager calculate against these values. Changing a value sets the encoding need of every file to unknown and checks the files again. Jobs already queued have to be queued again. The command line and the import hook do not read it.")}</p>
             </Show>
             <For each={group.items}>{renderSetting}</For>
           </section>
