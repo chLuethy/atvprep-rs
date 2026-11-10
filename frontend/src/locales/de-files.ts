@@ -66,10 +66,6 @@ export const deFixPlan: Record<string, string | readonly [string, string]> = {
 };
 
 export const deLibraryModels: Record<string, string | readonly [string, string]> = {
-  "Video {codec} is re-encoded to HEVC": "Video {codec} wird zu HEVC neu kodiert",
-  "Video {codec} is copied into the MP4": "Video {codec} wird in die MP4 kopiert",
-  "Audio that Apple TV cannot play is re-encoded to E-AC-3": "Audio, das der Apple TV nicht abspielen kann, wird zu E-AC-3 neu kodiert",
-  "Audio is copied into the MP4": "Audio wird in die MP4 kopiert",
   "blocker": ["Blocker", "Blocker"],
   "warning": ["Warnung", "Warnungen"],
   "missing": "fehlt",
@@ -86,6 +82,7 @@ export const deLibraryModels: Record<string, string | readonly [string, string]>
   "Add an AAC stereo track for the surround-only language": "Eine AAC-Stereospur für die Sprache ergänzen, die nur in Surround vorliegt",
   "Drop the duplicate audio track": "Die doppelte Audiospur entfernen",
   "Re-encode the video to HEVC (lossy, needs confirmation)": "Das Video nach HEVC neu kodieren (verlustbehaftet, braucht eine Bestätigung)",
-  "Needs re-encode": "Neu kodieren nötig",
+  "Needs audio encoding": "Kodierbedarf Audio",
+  "Needs video encoding": "Kodierbedarf Video",
   "Converted, original kept": "Konvertiert, Original behalten",
 };

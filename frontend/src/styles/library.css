@@ -113,7 +113,7 @@ details summary { cursor: pointer; color: var(--muted); }
 .change .kind { }
 .change.patch .kind { color: var(--ok); }
 .change.remux .kind { color: var(--warn); }
-.change.reencode .kind { color: var(--bad); }
+.change.encode .kind { color: var(--bad); }
 .change.none { color: var(--muted); }
 
 /* activity */

@@ -13,7 +13,8 @@ type Overview = {
   orphans: OrphanHit[];
   files: Record<string, number>;
   jobs: Record<string, number>;
-  reencode: number;
+  encodeAudio: number;
+  encodeVideo: number;
   activity: Array<{ id: string; topic: string }>;
   queue: { total: number; jobs: JobRow[] };
 };
@@ -25,7 +26,8 @@ async function load(api: OverviewApi): Promise<Overview> {
   return {
     files: summary.data?.files ?? {},
     jobs: summary.data?.jobs ?? {},
-    reencode: summary.data?.reencode ?? 0,
+    encodeAudio: summary.data?.encode_audio ?? 0,
+    encodeVideo: summary.data?.encode_video ?? 0,
     orphans: summary.data?.orphans ?? [],
     activity: activity.data ?? [],
     queue: { total: queue.data?.total ?? 0, jobs: queue.data?.jobs ?? [] },
@@ -139,8 +141,11 @@ export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: str
                       <For each={STATES.filter((entry) => (data().files[entry.state] ?? 0) > 0)}>{(entry) => (
                         <li>{link(`/files?status=${entry.filter ?? entry.state}`, <><span class="count">{data().files[entry.state]}</span> {t(entry.label)}</>)}</li>
                       )}</For>
-                      <Show when={data().reencode > 0}>
-                        <li>{link("/files?status=reencode", <><span class="count">{data().reencode}</span> {t("Need a video re-encode")}</>)}</li>
+                      <Show when={data().encodeVideo > 0}>
+                        <li>{link("/files?status=encode_video", <><span class="count">{data().encodeVideo}</span> {t("Need video encoding")}</>)}</li>
+                      </Show>
+                      <Show when={data().encodeAudio > 0}>
+                        <li>{link("/files?status=encode_audio", <><span class="count">{data().encodeAudio}</span> {t("Need audio encoding")}</>)}</li>
                       </Show>
                     </ul>
                   </Show>

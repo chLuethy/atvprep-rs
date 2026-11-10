@@ -4,10 +4,11 @@ import { parseReason, type ParsedReason } from "./reasons";
 /**
  * What `atvprep prepare` will do about each verify reason. Derived from the rules, not simulated:
  * the size-neutral postfix steps and the Apple tag patch change the file without re-encoding
- * ("patch"), layout problems need a remux, and a video that has to be re-encoded is the slow, lossy "reencode" that
- * needs a confirmation, and level or sample-rate problems nothing here can predict ("none").
+ * ("patch"), layout problems need a remux, findings that need encoding are "encode" (whether that means
+ * audio or video is the server's Kodierbedarf, not a guess from here), and level or sample-rate problems
+ * nothing here can predict ("none").
  */
-export type ChangeKind = "patch" | "remux" | "reencode" | "none";
+export type ChangeKind = "patch" | "remux" | "encode" | "none";
 export type Change = { kind: ChangeKind; rule: string | null; text: string };
 
 const TAG_FINDINGS: ReadonlyArray<[RegExp, (n: number) => string]> = [
@@ -49,9 +50,9 @@ function changeFor(reason: ParsedReason): Change | null {
     case "default-track-selection": return { kind: "patch", rule, text: t("Enable the tracks Apple enables: stereo audio and its forced subtitle") };
     case "subtitle-handler-type": return { kind: "patch", rule, text: t("Mark subtitle tracks as subtitles (sbtl)") };
     case "apple-tags": return tagChange(reason.message);
-    case "stereo-twin": return { kind: "remux", rule, text: t("Add an AAC stereo track for the surround-only language") };
+    case "stereo-twin": return { kind: "encode", rule, text: t("Add an AAC stereo track for the surround-only language") };
     case "duplicate-audio": return { kind: "remux", rule, text: t("Drop the duplicate audio track") };
-    case "video-reencode": return { kind: "reencode", rule, text: t("Re-encode the video to HEVC (lossy, needs confirmation)") };
+    case "video-reencode": return { kind: "encode", rule, text: t("Re-encode the video to HEVC (lossy, needs confirmation)") };
     case "fast-start": return { kind: "remux", rule, text: t("Rewrite the file with the index at the front (faststart)") };
     case "no-fragments": return { kind: "remux", rule, text: t("Rewrite the fragmented file as a regular MP4") };
     case "avc-level-atv-limit":
@@ -78,12 +79,11 @@ export function blockerVerdict(reasons: ParsedReason[]): "fixable" | "manual" | 
   return fixable ? "fixable" : "manual";
 }
 
-export function summarizeChanges(changes: Change[]): { resolved: number; remaining: number; remux: boolean; reencode: boolean } {
+export function summarizeChanges(changes: Change[]): { resolved: number; remaining: number; remux: boolean } {
   return {
     resolved: changes.filter((change) => change.kind !== "none").length,
     remaining: changes.filter((change) => change.kind === "none").length,
     remux: changes.some((change) => change.kind === "remux"),
-    reencode: changes.some((change) => change.kind === "reencode"),
   };
 }
 

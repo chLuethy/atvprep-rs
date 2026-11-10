@@ -1,4 +1,5 @@
 import type { EncodeLevel } from "./EncodeChoice";
+import type { EncodeNeed, PlannedChange } from "./preparePlan";
 import { SessionError } from "../../lib/api";
 
 /** Data loading for the library and the inspector. UI-free; every loader normalises SessionError. */
@@ -23,8 +24,10 @@ export type FileRow = {
   fix_status?: string | null;
   /** External .srt files a fix would still merge into the file. */
   pending_sidecars?: number;
-  /** The verify report says the video has to be re-encoded, which Prepare only does after a confirmation. */
-  needs_reencode?: boolean;
+  /** The Kodierbedarf the server stored from the last check; nothing is predicted here. */
+  encode_need?: EncodeNeed;
+  /** The Änderungsart of that same check. */
+  planned_change?: PlannedChange;
   /** Another container whose converted MP4 is already kept next to it; there is nothing left to prepare. */
   converted_kept?: boolean;
   /** The newest preparation of this file was interrupted and nothing ran or was inspected since. */
@@ -185,8 +188,10 @@ export type Summary = {
   counts: Record<string, number> | null;
   missing: number;
   convert: number;
-  /** Files whose video has to be re-encoded. */
-  reencode: number;
+  /** Files with a Kodierbedarf of audio. */
+  encodeAudio: number;
+  /** Files with a Kodierbedarf of video. */
+  encodeVideo: number;
   /** Files with a subtitle file that can still be embedded. */
   embed: number;
   /** Other containers whose converted MP4 is kept next to them. */
@@ -200,9 +205,9 @@ export async function loadSummary(api: Api): Promise<Summary | null> {
   try {
     const response = await api.request("/dashboard");
     if (!response.ok) return null;
-    const body = (await response.json()) as { data?: { files?: Record<string, number>; missing?: number; convert?: number; reencode?: number; embed?: number; converted?: number; jobs?: Record<string, number> } };
+    const body = (await response.json()) as { data?: { files?: Record<string, number>; missing?: number; convert?: number; encode_audio?: number; encode_video?: number; embed?: number; converted?: number; jobs?: Record<string, number> } };
     const jobs = body.data?.jobs ?? {};
-    return { counts: body.data?.files ?? null, missing: body.data?.missing ?? 0, convert: body.data?.convert ?? 0, reencode: body.data?.reencode ?? 0, embed: body.data?.embed ?? 0, converted: body.data?.converted ?? 0, jobsActive: (jobs.queued ?? 0) + (jobs.running ?? 0) > 0, jobs: { running: jobs.running ?? 0, queued: jobs.queued ?? 0 } };
+    return { counts: body.data?.files ?? null, missing: body.data?.missing ?? 0, convert: body.data?.convert ?? 0, encodeAudio: body.data?.encode_audio ?? 0, encodeVideo: body.data?.encode_video ?? 0, embed: body.data?.embed ?? 0, converted: body.data?.converted ?? 0, jobsActive: (jobs.queued ?? 0) + (jobs.running ?? 0) > 0, jobs: { running: jobs.running ?? 0, queued: jobs.queued ?? 0 } };
   } catch {
     return null;
   }

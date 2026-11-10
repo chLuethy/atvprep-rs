@@ -10,7 +10,7 @@ const row = (over: Partial<FileRow> = {}): FileRow => ({
 });
 
 const queued: string[] = [];
-const show = (file: FileRow) => render(() => <FixPreview files={[file]} skipped={0} onQueue={async (encode) => { queued.push(encode); return { ok: true }; }} onClose={() => {}} />);
+const show = (...files: FileRow[]) => render(() => <FixPreview files={files} skipped={0} onQueue={async (encode) => { queued.push(encode); return { ok: true }; }} onClose={() => {}} />);
 
 describe("FixPreview: subtitles to embed", () => {
   it("names each subtitle that will be merged, with its language and kind", () => {
@@ -100,8 +100,31 @@ describe("FixPreview: the encoding allowance", () => {
     expect(view.getByRole("button", { name: "Prepare 1 file" })).toBeDisabled();
   });
 
+  it("shows the need and the change of each file from the server, and an AAC track is no remux", () => {
+    const view = show(row({ encode_need: "audio", planned_change: "audio", compliance_state: "warning", compliance_reasons: ["[warning] stereo-twin: 1 language has surround only"] }));
+
+    expect(view.getByText("Audio encoding")).toBeInTheDocument();
+    expect(view.getByText(/Add an AAC stereo track/).previousElementSibling).toHaveTextContent("Encoding");
+    expect(view.queryByText("Remux")).not.toBeInTheDocument();
+  });
+
+  it("counts a mixed selection per need", () => {
+    const view = show(row({ id: "a", encode_need: "video" }), row({ id: "b", encode_need: "audio" }), row({ id: "c", encode_need: "audio" }), row({ id: "d" }));
+
+    expect(view.getByLabelText("Encoding need of the selection")).toHaveTextContent("1 Video · 2 Audio · 1 Unknown");
+  });
+
+  it("warns about audio only under copy, and says when the need is not known", async () => {
+    const view = show(row({ encode_need: "audio", compliance_state: "warning" }), row({ id: "u", encode_need: "unknown" }));
+
+    expect(view.getByText(/1 of 2 files have no known encoding need/)).toBeInTheDocument();
+    expect(view.queryByText(/needs? audio encoding/)).not.toBeInTheDocument();
+    await fireEvent.click(view.getByRole("radio", { name: /^Copy only/ }));
+    expect(view.getByText(/1 of 2 files need audio encoding/)).toBeInTheDocument();
+  });
+
   it("names the files that need a re-encode until the video level is chosen", async () => {
-    const view = show(row({ needs_reencode: true, compliance_state: "warning" }));
+    const view = show(row({ encode_need: "video", compliance_state: "warning" }));
 
     expect(view.getByText(/1 of 1 file needs a re-encode/)).toBeInTheDocument();
     expect(view.queryByRole("button", { name: /re-encode/i })).not.toBeInTheDocument();

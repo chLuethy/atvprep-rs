@@ -36,14 +36,14 @@ test.describe("library journey", () => {
     await openAndUnlock(page, "/files");
     await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
 
-    await page.getByRole("checkbox", { name: /^Needs re-encode/ }).check();
-    await expect(page).toHaveURL(/has=reencode/);
+    await page.getByRole("checkbox", { name: /^Needs video encoding/ }).check();
+    await expect(page).toHaveURL(/has=encode_video/);
     await expect(page.getByRole("link", { name: "Old Codec Movie" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Failed Movie" })).toHaveCount(0);
 
     // A second property narrows further: no file here has both.
     await page.getByRole("checkbox", { name: /^Embed open/ }).check();
-    await expect(page).toHaveURL(/has=reencode%2Cembed/);
+    await expect(page).toHaveURL(/has=encode_video%2Cembed/);
     await expect(page.getByRole("link", { name: "Old Codec Movie" })).toHaveCount(0);
 
     await page.getByRole("button", { name: "Show all files" }).click();

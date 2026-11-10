@@ -148,7 +148,7 @@ describe("LibraryPage: filtering and paging", () => {
     for (const name of [/^Ready/, /^Warning/, /^Not verified/, /^Inspection failed/, /^Missing/]) {
       expect(view.getByRole("checkbox", { name })).toBeChecked();
     }
-    for (const name of [/^To convert/, /^Needs re-encode/, /^Embed open/, /^Converted/]) {
+    for (const name of [/^To convert/, /^Needs video encoding/, /^Embed open/, /^Converted/]) {
       expect(view.getByRole("checkbox", { name })).not.toBeChecked();
     }
     expect(view.queryByRole("button", { name: "Show all files" })).not.toBeInTheDocument();
@@ -188,16 +188,16 @@ describe("LibraryPage: filtering and paging", () => {
   it("None hides every state at once, All shows them again, and the chosen properties stay as they were", async () => {
     const { api } = makeApi();
     const view = renderLibrary(api);
-    await fireEvent.click(await view.findByRole("checkbox", { name: /^Needs re-encode/ }));
+    await fireEvent.click(await view.findByRole("checkbox", { name: /^Needs video encoding/ }));
 
     const states = within(view.getByRole("group", { name: "Status" }));
     await fireEvent.click(states.getByRole("button", { name: "None" }));
     await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("hide=clean%2Cwarning%2Cblocker%2Cunknown%2Cprobe_failed%2Cmissing")));
-    expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=reencode"));
+    expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=encode_video"));
 
     await fireEvent.click(states.getByRole("button", { name: "All" }));
     await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.not.stringContaining("hide=")));
-    expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=reencode"));
+    expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=encode_video"));
   });
 
   it("shows only files with all chosen properties: two ticked boxes go to the server as has, one list", async () => {
@@ -206,13 +206,13 @@ describe("LibraryPage: filtering and paging", () => {
 
     await fireEvent.click(await view.findByRole("checkbox", { name: /^Embed open/ }));
     await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=embed")));
-    await fireEvent.click(view.getByRole("checkbox", { name: /^Needs re-encode/ }));
-    await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=reencode%2Cembed")));
+    await fireEvent.click(view.getByRole("checkbox", { name: /^Needs video encoding/ }));
+    await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=encode_video%2Cembed")));
     expect(api.request).toHaveBeenLastCalledWith(expect.not.stringContaining("hide="));
 
     await fireEvent.click(view.getByRole("checkbox", { name: /^Embed open/ }));
-    await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=reencode")));
-    await fireEvent.click(view.getByRole("checkbox", { name: /^Needs re-encode/ }));
+    await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=encode_video")));
+    await fireEvent.click(view.getByRole("checkbox", { name: /^Needs video encoding/ }));
     await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.not.stringContaining("has=")));
   });
 
@@ -230,19 +230,19 @@ describe("LibraryPage: filtering and paging", () => {
   it("shows next to each property how many files are left with the current selection", async () => {
     const { api } = makeApi();
     (api.request as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
-      if (path === "/dashboard") return json({ files: { clean: 1 }, reencode: 9, embed: 9, scans: {}, jobs: {} });
+      if (path === "/dashboard") return json({ files: { clean: 1 }, encode_video: 9, embed: 9, scans: {}, jobs: {} });
       if (path.startsWith("/files/counts")) {
         const has = new URL(path, "http://x").searchParams.get("has");
-        return json(has === "embed" ? { convert: 0, reencode: 2, embed: 4, converted: 0 } : { convert: 1, reencode: 5, embed: 6, converted: 0 });
+        return json(has === "embed" ? { convert: 0, encode_video: 2, embed: 4, converted: 0 } : { convert: 1, encode_video: 5, embed: 6, converted: 0 });
       }
       if (path.startsWith("/files?")) return json(ROWS, 200, { next_cursor: null });
       return json([]);
     });
     const view = renderLibrary(api);
-    expect(await view.findByRole("checkbox", { name: "Needs re-encode 5" })).toBeInTheDocument();
+    expect(await view.findByRole("checkbox", { name: "Needs video encoding 5" })).toBeInTheDocument();
 
     await fireEvent.click(view.getByRole("checkbox", { name: /^Embed open/ }));
-    expect(await view.findByRole("checkbox", { name: "Needs re-encode 2" })).toBeInTheDocument();
+    expect(await view.findByRole("checkbox", { name: "Needs video encoding 2" })).toBeInTheDocument();
     expect(view.getByRole("checkbox", { name: "Embed open 4" })).toBeChecked();
   });
 
@@ -314,7 +314,7 @@ describe("LibraryPage: the status filter lives in the address", () => {
 
     await view.findByRole("link", { name: "Heat" });
     expect(view.getByRole("checkbox", { name: /^Embed open/ })).toBeChecked();
-    expect(view.getByRole("checkbox", { name: /^Needs re-encode/ })).not.toBeChecked();
+    expect(view.getByRole("checkbox", { name: /^Needs video encoding/ })).not.toBeChecked();
     expect(view.getByRole("checkbox", { name: /^Ready/ })).not.toBeChecked();
     const path = calls(api).find((call) => call.path.startsWith("/files?"))?.path ?? "";
     expect(path).toContain("has=embed");
@@ -388,15 +388,15 @@ describe("LibraryPage: the re-encode state", () => {
     const view = renderLibrary(api);
     await view.findByRole("link", { name: "Heat" });
 
-    await fireEvent.click(view.getByRole("checkbox", { name: /Needs re-encode/ }));
+    await fireEvent.click(view.getByRole("checkbox", { name: /Needs video encoding/ }));
 
-    await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=reencode")));
-    expect(view.getByRole("checkbox", { name: /Needs re-encode/ })).toBeChecked();
+    await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=encode_video")));
+    expect(view.getByRole("checkbox", { name: /Needs video encoding/ })).toBeChecked();
     expect(view.getByRole("checkbox", { name: /Converted, original kept/ })).not.toBeChecked();
   });
 
   it("previews a video that needs a re-encode and releases it only with the confirmed video level", async () => {
-    const reencode = file({ id: "m_r1", display_path: "Film/Big (2020)/Big (2020).mp4", size: GB, compliance_state: "blocker", desired_action: "fix", needs_reencode: true,
+    const reencode = file({ id: "m_r1", display_path: "Film/Big (2020)/Big (2020).mp4", size: GB, compliance_state: "blocker", desired_action: "fix", encode_need: "video",
       compliance_reasons: ["[blocker] video-reencode: the video needs a re-encode"] });
     const { api, posts } = makeApi({ rows: [reencode] });
     const view = renderLibrary(api);
@@ -415,7 +415,7 @@ describe("LibraryPage: the re-encode state", () => {
 });
 
 describe("LibraryPage: a mixed selection with a re-encode", () => {
-  const reencode = file({ id: "m_r1", display_path: "Film/Big (2020)/Big (2020).mp4", size: GB, compliance_state: "blocker", desired_action: "fix", needs_reencode: true,
+  const reencode = file({ id: "m_r1", display_path: "Film/Big (2020)/Big (2020).mp4", size: GB, compliance_state: "blocker", desired_action: "fix", encode_need: "video",
     compliance_reasons: ["[blocker] video-reencode: the video needs a re-encode"] });
   const mkv = file({ id: "m_k1", display_path: "Film/Lynley (2001)/Lynley (2001).mkv", suffix: ".mkv", size: GB, compliance_state: "unknown", desired_action: "convert" });
 

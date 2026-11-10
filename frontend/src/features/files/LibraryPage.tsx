@@ -11,7 +11,7 @@ import { FileTable, type Sort, type SortKey } from "./FileTable";
 import { FixPreview } from "./FixPreview";
 import type { EncodeLevel } from "./EncodeChoice";
 import { preparable } from "./preparePlan";
-import { isMp4Like } from "./convertPlan";
+import { isMp4Like } from "./container";
 import { Inspector } from "./Inspector";
 import { ScanControl } from "../scan/ScanControl";
 import { dismissMissing, loadFiles, rawId, loadSummary, loadTraitCounts, queueJob, type Api, type FileRow, type JobResult } from "./loaders";
@@ -124,7 +124,8 @@ export const LibraryPage: Component<{
   };
   const [missing, setMissing] = createSignal(0);
   const [convertible, setConvertible] = createSignal(0);
-  const [reencodeCount, setReencodeCount] = createSignal(0);
+  const [encodeAudioCount, setEncodeAudioCount] = createSignal(0);
+  const [encodeVideoCount, setEncodeVideoCount] = createSignal(0);
   const [embedCount, setEmbedCount] = createSignal(0);
   const [convertedCount, setConvertedCount] = createSignal(0);
   const [removeOpen, setRemoveOpen] = createSignal(false);
@@ -210,7 +211,8 @@ export const LibraryPage: Component<{
     void refreshTraitCounts();
     setMissing(summary.missing);
     setConvertible(summary.convert);
-    setReencodeCount(summary.reencode);
+    setEncodeAudioCount(summary.encodeAudio);
+    setEncodeVideoCount(summary.encodeVideo);
     setEmbedCount(summary.embed);
     setConvertedCount(summary.converted);
   };
@@ -281,7 +283,7 @@ export const LibraryPage: Component<{
   };
   const entryLabel = (token: string) => t([...STATE_FILTERS, ...TRAIT_FILTERS].find((entry) => entry.token === token)?.label ?? token);
   // The unfiltered total of each trait; the faceted count (traitCounts) wins when the server sent one.
-  const traitTotal: Record<string, () => number> = { convert: convertible, reencode: reencodeCount, embed: embedCount, converted: convertedCount };
+  const traitTotal: Record<string, () => number> = { convert: convertible, encode_audio: encodeAudioCount, encode_video: encodeVideoCount, embed: embedCount, converted: convertedCount };
   const chipCount = (filterState: string) => {
     if (filterState === "") return total();
     if (filterState === "missing") return missing();

@@ -469,8 +469,8 @@ describe("Inspector: converting a file that is not an MP4", () => {
       { index: 1, codec_type: "audio", codec_name: audio, channels: 6 },
     ] },
   });
-  const forMkv = (video: string, height?: number, audio?: string, extra: Record<string, () => Response | Promise<Response>> = {}) =>
-    standard({ "/files/m_f1": () => response(mkvDetail), "/files/m_f1/inspections": () => response([mkvInspection(video, height, audio)]), ...extra });
+  const forMkv = (video: string, height?: number, audio?: string, extra: Record<string, () => Response | Promise<Response>> = {}, need: Record<string, unknown> = { encode_need: "none", planned_change: "remux" }) =>
+    standard({ "/files/m_f1": () => response({ ...mkvDetail, ...need }), "/files/m_f1/inspections": () => response([mkvInspection(video, height, audio)]), ...extra });
 
   it("offers Convert instead of Verify and Fix, and a remux needs no long-running warning", async () => {
     const view = render(() => <Inspector api={forMkv("h264")} fileId="m_f1" onVerify={() => {}} onFix={() => {}} />);
@@ -479,13 +479,32 @@ describe("Inspector: converting a file that is not an MP4", () => {
 
     expect(view.queryByRole("button", { name: "Verify" })).not.toBeInTheDocument();
     const confirm = await view.findByRole("region", { name: "Prepare" });
-    await waitFor(() => expect(confirm).toHaveTextContent("Video H264 is copied into the MP4"));
+    await waitFor(() => expect(confirm).toHaveTextContent("Prepare writes an MP4 next to this .mkv file"));
     expect(within(confirm).queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows need and change from the server and predicts nothing from the codecs", async () => {
+    // vp9 used to read as a predicted re-encode; the server says otherwise here.
+    const view = render(() => <Inspector api={forMkv("vp9")} fileId="m_f1" />);
+
+    expect(await view.findByText("No encoding")).toBeInTheDocument();
+    expect(view.getByText("Remux")).toBeInTheDocument();
+    await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
+    const confirm = await view.findByRole("region", { name: "Prepare" });
+    expect(within(confirm).queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("offers a file with an unknown need and says the run keeps to the level", async () => {
+    const view = render(() => <Inspector api={forMkv("h264", 1080, "eac3", {}, { encode_need: "unknown", planned_change: "unknown" })} fileId="m_f1" />);
+
+    await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
+    const confirm = await view.findByRole("region", { name: "Prepare" });
+    await waitFor(() => expect(confirm).toHaveTextContent(/not known yet/));
   });
 
   it("offers the allowance, audio preselected, and confirms the video level before it queues", async () => {
     const posted: unknown[] = [];
-    const api = forMkv("vp9", 1080, "dts", { "/jobs": () => response({ id: "j_9" }, 201) });
+    const api = forMkv("vp9", 1080, "dts", { "/jobs": () => response({ id: "j_9" }, 201) }, { encode_need: "video", planned_change: "reencode" });
     const original = api.request;
     api.request = vi.fn(async (path: string, init?: RequestInit) => {
       if (path === "/jobs") posted.push(JSON.parse(String(init?.body)));

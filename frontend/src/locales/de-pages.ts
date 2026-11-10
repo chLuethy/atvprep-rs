@@ -190,5 +190,6 @@ export const deShell: Record<string, string> = {
   "Press {help} for the keyboard shortcuts, {palette} for commands.": "Mit {help} siehst du die Tastenkürzel, mit {palette} die Befehle.",
   "Got it": "Verstanden",
   "Close shortcuts": "Tastenkürzel schliessen",
-  "Need a video re-encode": "Video muss neu kodiert werden",
+  "Need video encoding": "Video muss neu kodiert werden",
+  "Need audio encoding": "Audio muss kodiert werden",
 };

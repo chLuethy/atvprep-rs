@@ -22,7 +22,8 @@ export const STATE_FILTERS: ReadonlyArray<FilterEntry> = [
 /** Things that are true of a file whatever its verdict is, so a file can have several of them. */
 export const TRAIT_FILTERS: ReadonlyArray<FilterEntry> = [
   { token: "convert", label: N("To convert") },
-  { token: "reencode", label: N("Needs re-encode") },
+  { token: "encode_audio", label: N("Needs audio encoding") },
+  { token: "encode_video", label: N("Needs video encoding") },
   { token: "embed", label: N("Embed open") },
   { token: "converted", label: N("Converted, original kept") },
 ];
@@ -40,7 +41,7 @@ const canonical = (order: string[], value: Iterable<string> | string | undefined
 
 /**
  * The unticked states as the canonical list: known states only, no repeats, always in the same order.
- * Properties in an old address (`hide=reencode`) are dropped: hiding a property is not a thing any more,
+ * Properties in an old address (`hide=encode_video`) are dropped: hiding a property is not a thing any more,
  * and turning it into "only these" would mean the opposite.
  */
 export const normalizeHidden = (value: Iterable<string> | string | undefined): string => canonical(STATE_ORDER, value);

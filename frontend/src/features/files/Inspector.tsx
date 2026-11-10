@@ -15,8 +15,8 @@ import {
   wasJustFixed,
   type ParsedReason,
 } from "./model";
-import { convertPlan, isMp4Like } from "./convertPlan";
-import { prepareConfirm, preparable } from "./preparePlan";
+import { isMp4Like } from "./container";
+import { changeLabel, needLabel, prepareConfirm, preparable } from "./preparePlan";
 import { createEncodeChoice, EncodeChoice } from "./EncodeChoice";
 import { LIMIT_OPTIONS_MBPS, readWaveLimit, waveVerdict, writeWaveLimit } from "./playback";
 import { Sidecars } from "./Sidecars";
@@ -196,8 +196,7 @@ export const Inspector: Component<{
     const inspection = latest();
     return inspection ? summarizeInspection(inspection.result) : undefined;
   };
-  const plan = () => convertPlan(summary()?.tracks ?? []);
-  const confirm = (f: FileDetail) => prepareConfirm(f, summary()?.tracks ?? []);
+  const confirm = (f: FileDetail) => prepareConfirm(f);
   const encode = createEncodeChoice();
   const submitConvert = async () => {
     if (convertBusy() || !encode.ready()) return;
@@ -245,6 +244,7 @@ export const Inspector: Component<{
           <div class="insp-verdict">
             <StatusChip kind={verdict().kind} icon={verdict().icon}>{verdict().label}</StatusChip>
           </div>
+          <p class="muted insp-need">{t("Encoding need")}: <b>{needLabel(f().encode_need)}</b> · {t("Change")}: <b>{changeLabel(f().planned_change)}</b></p>
           <div class="insp-actions">
             <Show when={f().fix_status}>
               {(status) => <Button variant="primary" disabled title={t("A preparation for this file is already in progress.")}>{(() => { const label = `Prepare ${status()}`; return BUSY[label] ? t(BUSY[label]) : label; })()}</Button>}
@@ -279,9 +279,6 @@ export const Inspector: Component<{
           <Show when={converting()}>
             <div class="confirm" role="region" aria-label={t("Prepare")} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); setConverting(false); } }}>
               <For each={confirm(f()).lines}>{(line) => (confirm(f()).reencode ? <p class="notice warn" role="alert">{line}</p> : <p>{line}</p>)}</For>
-              <ul class="plain">
-                <For each={plan().lines}>{(line) => <li>{line}</li>}</For>
-              </ul>
               <EncodeChoice choice={encode} />
               <Show when={convertError()}><p class="notice bad" role="alert">{convertError()}</p></Show>
               <div class="insp-actions">
