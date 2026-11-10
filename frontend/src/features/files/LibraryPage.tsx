@@ -379,13 +379,13 @@ export const LibraryPage: Component<{
     setPreviewRows(selection);
   };
   const previewFiles = () => previewRows() ?? [];
-  const queuePrepare = async (encode: EncodeLevel): Promise<JobResult> => {
+  const queuePrepare = async (encode: EncodeLevel, force: boolean): Promise<JobResult> => {
     const rowsToQueue = preparableRows(previewFiles());
     const queued = new Set<string>();
     let failure: JobResult | null = null;
     const ids = rowsToQueue.map((row) => row.id);
     if (ids.length > 0) {
-      const result = await queueJob(props.api, "prepare", ids, keyFor("preview", `${encode}:${ids.join(",")}`), { encode, confirmVideoEncode: encode === "all" });
+      const result = await queueJob(props.api, "prepare", ids, keyFor("preview", `${encode}:${force}:${ids.join(",")}`), { encode, confirmVideoEncode: encode === "all", force });
       if (result.ok) ids.forEach((id) => queued.add(id));
       else failure = result;
     }

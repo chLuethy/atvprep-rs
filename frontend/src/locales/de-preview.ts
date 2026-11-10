@@ -50,4 +50,6 @@ export const dePreview: Record<string, string | readonly [string, string]> = {
   "Encode audio and video": "Audio und Video kodieren",
   "The video may be re-encoded too. That can take hours and cannot be undone on an MP4.": "Auch das Video darf neu kodiert werden. Das kann Stunden dauern und ist auf einer MP4 nicht rückgängig zu machen.",
   "Yes, the video of these files may be re-encoded.": "Ja, das Video dieser Dateien darf neu kodiert werden.",
+  "Force rebuild": "Neu erstellen erzwingen",
+  "Builds the file anew even if it is already at the target. It stays bound to the chosen allowance.": "Baut die Datei auch dann neu, wenn sie das Ziel schon erfüllt. Bleibt an die gewählte Kodierfreigabe gebunden.",
 };

@@ -18,7 +18,7 @@ const KIND_LABEL: Record<ChangeKind, string> = { patch: N("Patch"), remux: N("Re
 export const FixPreview: Component<{
   files: FileRow[];
   skipped: number;
-  onQueue: (encode: EncodeLevel) => Promise<JobResult>;
+  onQueue: (encode: EncodeLevel, force: boolean) => Promise<JobResult>;
   onClose: () => void;
 }> = (props) => {
   const [busy, setBusy] = createSignal(false);
@@ -39,7 +39,7 @@ export const FixPreview: Component<{
     setBusy(true);
     setFailure(null);
     try {
-      const result = await props.onQueue(encode.level());
+      const result = await props.onQueue(encode.level(), encode.force());
       if (!result.ok) setFailure(result.session ? "session" : "queue");
     } finally {
       setBusy(false);
@@ -110,7 +110,7 @@ export const FixPreview: Component<{
       <p class="muted">{t("Derived from the verify report. The fix itself decides the final result.")}</p>
       <Show when={failure() === "queue"}><p class="notice bad" role="alert">{t("Unable to queue the prepare job. Try again.")}</p></Show>
       <Show when={failure() === "session"}><p class="notice bad" role="alert">{t(SESSION_EXPIRED)}</p></Show>
-      <EncodeChoice choice={encode} />
+      <EncodeChoice choice={encode} offerForce />
       <Show when={reencodeCount() > 0 && encode.level() !== "all"}>
         <p class="notice warn" role="alert">{tn("{reencode} of {count} file needs a re-encode. It only runs with “Encode audio and video”; otherwise the file stays as it is.", "{reencode} of {count} files need a re-encode. It only runs with “Encode audio and video”; otherwise the files stay as they are.", count(), { reencode: reencodeCount() })}</p>
       </Show>

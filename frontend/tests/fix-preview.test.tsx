@@ -10,7 +10,8 @@ const row = (over: Partial<FileRow> = {}): FileRow => ({
 });
 
 const queued: string[] = [];
-const show = (file: FileRow) => render(() => <FixPreview files={[file]} skipped={0} onQueue={async (encode) => { queued.push(encode); return { ok: true }; }} onClose={() => {}} />);
+const forced: Array<boolean | undefined> = [];
+const show = (file: FileRow) => render(() => <FixPreview files={[file]} skipped={0} onQueue={async (encode, force) => { queued.push(encode); forced.push(force); return { ok: true }; }} onClose={() => {}} />);
 
 describe("FixPreview: subtitles to embed", () => {
   it("names each subtitle that will be merged, with its language and kind", () => {
@@ -68,6 +69,19 @@ describe("FixPreview: the encoding allowance", () => {
     expect(view.getByRole("radio", { name: /^Encode audio and video/ })).not.toBeChecked();
     await fireEvent.click(view.getByRole("button", { name: "Prepare 1 file" }));
     expect(queued).toEqual(["audio"]);
+  });
+
+  it("leaves Force rebuild off unless it is chosen, and passes it with the level", async () => {
+    queued.length = 0;
+    forced.length = 0;
+    const view = warning();
+    const force = view.getByRole("checkbox", { name: /^Force rebuild/ });
+    expect(force).not.toBeChecked();
+    await fireEvent.click(force);
+    await fireEvent.click(view.getByRole("radio", { name: /^Copy only/ }));
+    await fireEvent.click(view.getByRole("button", { name: "Prepare 1 file" }));
+    expect(queued).toEqual(["copy"]);
+    expect(forced).toEqual([true]);
   });
 
   it("queues Copy only when that is chosen", async () => {

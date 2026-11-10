@@ -7,6 +7,7 @@ import { N, t } from "../../lib/i18n";
 import { baseName } from "../files/model";
 import { loadItems, loadJob, mutateJob, type Api, type ItemRow, type JobRow, type OneJob } from "./loaders";
 import { LogViewer } from "./LogViewer";
+import { RaiseEncode } from "./RaiseEncode";
 import { actionLabel, canCancel, canRetry, formatElapsed, isActive, itemTone, jobPercent, jobProgress, jobTitle, jobTone, runningFor } from "./model";
 
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
@@ -44,6 +45,7 @@ export const JobDetail: Component<{
   jobId: string;
   onChanged?: () => void;
   onRetried?: (newJobId: string) => void;
+  onRaised?: (newJobId: string) => void;
 }> = (props) => {
   const keepJob = sameRead();
   const keepItems = sameRead();
@@ -308,6 +310,7 @@ export const JobDetail: Component<{
                           </div>
                           <Show when={item().error_code === "encode_not_allowed"}>
                             <p class="notice warn" role="status" aria-label={t("Encoding not allowed")}>{t("Encoding not allowed: the file stays as it was. Prepare it again with a higher encoding allowance.")}</p>
+                            <RaiseEncode api={props.api} item={item()} onRaised={(id) => { props.onChanged?.(); if (id) props.onRaised?.(id); }} />
                           </Show>
                           <ItemLog api={props.api} itemId={item().id} />
                         </li>

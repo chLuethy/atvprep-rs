@@ -206,7 +206,8 @@ export const Inspector: Component<{
     // The id the server put in the file it sent, as Verify does: the one in the address may be URL-encoded.
     const id = file()?.id ?? rawId(props.fileId);
     const level = encode.level();
-    const result = await queueJob(props.api, "prepare", [id], `${convertKey}-${level}`, { encode: level, confirmVideoEncode: level === "all" });
+    const force = encode.force();
+    const result = await queueJob(props.api, "prepare", [id], `${convertKey}-${level}-${force}`, { encode: level, confirmVideoEncode: level === "all", force });
     setConvertBusy(false);
     if (!result.ok) {
       setConvertError(result.session ? t(SESSION_EXPIRED) : result.detail ? t("Unable to queue the preparation. The server said: {detail}.", { detail: result.detail }) : t("Unable to queue the preparation. Try again."));
@@ -282,7 +283,7 @@ export const Inspector: Component<{
               <ul class="plain">
                 <For each={plan().lines}>{(line) => <li>{line}</li>}</For>
               </ul>
-              <EncodeChoice choice={encode} />
+              <EncodeChoice choice={encode} offerForce />
               <Show when={convertError()}><p class="notice bad" role="alert">{convertError()}</p></Show>
               <div class="insp-actions">
                 <Button variant="primary" disabled={convertBusy() || !encode.ready()} onClick={() => void submitConvert()}>{t("Confirm prepare")}</Button>

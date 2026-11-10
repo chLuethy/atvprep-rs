@@ -96,6 +96,17 @@ describe("SchedulesPage", () => {
     expect(within(editor).queryByRole("note")).toBeNull();
   });
 
+  it("does not offer a forced rebuild for any action", async () => {
+    const { api } = makeApi([]);
+    const view = render(() => <SchedulesPage api={api} />);
+    await fireEvent.click(await view.findByRole("button", { name: /New schedule/ }));
+    const editor = await view.findByRole("region", { name: "New schedule" });
+    for (const button of within(within(editor).getByRole("group", { name: "Action" })).getAllByRole("button")) {
+      await fireEvent.click(button);
+      expect(within(editor).queryByRole("checkbox", { name: /^Force rebuild/ })).toBeNull();
+    }
+  });
+
   it("unfolds the history of a schedule with its results and job links", async () => {
     const runs: Schedule["runs"] = [
       { started_at: "2026-10-23T01:00:00+00:00", trigger: "scheduled", result: "Queued 12 files", job_id: "j_9", scan_id: null },

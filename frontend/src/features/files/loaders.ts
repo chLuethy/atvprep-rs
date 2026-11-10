@@ -260,7 +260,8 @@ export type JobResult = { ok: true } | { ok: false; session: boolean; detail?: s
  * container an MP4 that Apple TV plays. The server takes at most 100 files per job.
  * Starting a prepare is the explicit approval (`manual_approval`), bound to the session by the server.
  * It never asks to delete an original itself. A prepare carries its Kodierfreigabe; the level `all` also
- * needs `confirmVideoEncode` (the server refuses it otherwise). The caller owns the idempotency key so a
+ * needs `confirmVideoEncode` (the server refuses it otherwise). `force` rebuilds even a file at the target,
+ * within that same level. The caller owns the idempotency key so a
  * retried attempt reuses it.
  */
 export async function queueJob(
@@ -268,11 +269,11 @@ export async function queueJob(
   action: "prepare" | "verify" | "inspect",
   mediaIds: string[],
   idempotencyKey: string,
-  options: { encode?: EncodeLevel; confirmVideoEncode?: boolean } = {},
+  options: { encode?: EncodeLevel; confirmVideoEncode?: boolean; force?: boolean } = {},
 ): Promise<JobResult> {
   const encode = options.encode ?? "audio";
   const body = action === "prepare"
-    ? { action, media_ids: mediaIds, manual_approval: true, encode, ...(encode === "all" && options.confirmVideoEncode ? { confirm_video_encode: true } : {}) }
+    ? { action, media_ids: mediaIds, manual_approval: true, encode, ...(encode === "all" && options.confirmVideoEncode ? { confirm_video_encode: true } : {}), ...(options.force ? { force: true } : {}) }
     : { action, media_ids: mediaIds, manual_approval: false };
   try {
     const response = await api.request("/jobs", {
