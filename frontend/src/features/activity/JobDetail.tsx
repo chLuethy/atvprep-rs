@@ -226,7 +226,7 @@ export const JobDetail: Component<{
             <Show when={formatElapsed(d().started_at, d().finished_at)}><div><dt>{t("Took")}</dt><dd>{formatElapsed(d().started_at, d().finished_at)}</dd></div></Show>
             <Show when={since()}><div><dt>{t("Running for")}</dt><dd class="num">{since()}</dd></div></Show>
           </dl>
-          <Show when={d().delete_confirmed}><p class="muted">{t("Deletion of the original was confirmed for this job.")}</p></Show>
+          <Show when={d().delete_original}><p class="muted">{t("The original of another container is removed once its new MP4 passes verification.")}</p></Show>
           <div class="insp-actions">
             <Show when={canCancel(d())}>
               <Button ref={(element) => { triggers.cancel = element; }} aria-expanded={pending() === "cancel"} onClick={(event) => open("cancel", event.currentTarget)}>{t("Cancel job")}</Button>

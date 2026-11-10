@@ -17,5 +17,5 @@ export const deActivity: Record<string, string | readonly [string, string]> = {
   "{count} cancelled": "{count} abgebrochen",
   "Encoding not allowed": "Kodierung nicht freigegeben",
   "Encoding not allowed: the file stays as it was. Prepare it again with a higher encoding allowance.": "Kodierung nicht freigegeben: Die Datei bleibt unverändert. Bereite sie mit einer höheren Kodierfreigabe erneut vor.",
-  "Deletion of the original was confirmed for this job.": "Für diesen Auftrag wurde das Löschen des Originals bestätigt.",
+  "The original of another container is removed once its new MP4 passes verification.": "Bei anderen Containern wird das Original entfernt, sobald die neue MP4 die Prüfung bestanden hat.",
 };

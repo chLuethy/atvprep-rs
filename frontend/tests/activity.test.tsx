@@ -324,6 +324,18 @@ describe("JobDetail: what happened", () => {
     expect(view.queryByRole("region", { name: "Why it failed" })).not.toBeInTheDocument();
   });
 
+  it("says that originals of other containers go, for a job with the setting on", async () => {
+    const view = render(() => <JobDetail api={detailApi({ delete_original: true })} jobId="j_1" />);
+    await view.findByRole("heading", { name: "Heat" });
+    expect(view.getByText("The original of another container is removed once its new MP4 passes verification.")).toBeInTheDocument();
+  });
+
+  it("says nothing about originals for a job with the setting off", async () => {
+    const view = render(() => <JobDetail api={detailApi({ delete_original: false })} jobId="j_1" />);
+    await view.findByRole("heading", { name: "Heat" });
+    expect(view.queryByText(/original/i)).toBeNull();
+  });
+
   it("shows no encoding note on an item that ran normally", async () => {
     const view = render(() => <JobDetail api={detailApi()} jobId="j_1" />);
     await view.findByRole("heading", { name: "Heat" });

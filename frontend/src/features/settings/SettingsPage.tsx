@@ -41,7 +41,12 @@ const GROUPS: ReadonlyArray<{ id: string; title: string; keys: readonly string[]
 ];
 
 const labelOf = (definition: Definition | undefined) => (definition ? t(definition.label) : undefined);
-const labelFor = (key: string) => labelOf(DEFINITIONS[key]) ?? key.replaceAll("_", " ").replace(/^\w/, (character) => character.toUpperCase());
+/** Settings shown without a control, with the sentence that says what they do. */
+const SHOWN_ONLY: Record<string, { label: string; hint: string }> = {
+  delete_original: { label: N("Delete original"), hint: N("Removes the old non-MP4 container once its new MP4 passes verification. It does not decide whether a file may be encoded.") },
+};
+
+const labelFor = (key: string) => labelOf(DEFINITIONS[key]) ?? (SHOWN_ONLY[key] ? t(SHOWN_ONLY[key].label) : undefined) ?? key.replaceAll("_", " ").replace(/^\w/, (character) => character.toUpperCase());
 const safeValue = (value: unknown) => typeof value === "string" ? value : JSON.stringify(value);
 const linesOf = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : []);
 /** What is worth knowing about a value besides what it does: its limits, its default and whether it was changed. */
@@ -202,6 +207,7 @@ export const SettingsPage: Component<{ api: SettingsApi }> = (props) => {
             <div>
               <label for={inputId}>{labelFor(setting.key)}</label>
               <input id={inputId} class="input" aria-label={labelFor(setting.key)} value={safeValue(setting.value)} disabled />
+              <Show when={SHOWN_ONLY[setting.key]}>{(shown) => <small class="help">{t(shown().hint)}</small>}</Show>
               <small class="help">{setting.guidance ?? t("Set in the configuration file. Change it there and restart the manager.")}</small>
             </div>
           }

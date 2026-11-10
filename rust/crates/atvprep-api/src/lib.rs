@@ -1629,7 +1629,7 @@ mod tests {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw().execute_batch("INSERT INTO jobs(id,action,status,settings_snapshot_json) VALUES(1,'fix','queued','{\"pipeline\":\"prepare\",\"delete_original_confirmed\":true}'),(2,'verify','succeeded','{}'),(3,'convert','queued','{}'); UPDATE jobs SET cleared_at='2026-01-01' WHERE id=3;").unwrap();
+        conn.raw().execute_batch("INSERT INTO jobs(id,action,status,settings_snapshot_json) VALUES(1,'fix','queued','{\"pipeline\":\"prepare\",\"delete_original_confirmed\":true,\"delete_original\":true}'),(2,'verify','succeeded','{}'),(3,'convert','queued','{}'); UPDATE jobs SET cleared_at='2026-01-01' WHERE id=3;").unwrap();
         let token = routes_auth::service(&state, &conn)
             .unwrap()
             .create()
@@ -1653,6 +1653,7 @@ mod tests {
             serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
         assert_eq!(body["data"][0]["action"], "prepare");
         assert_eq!(body["data"][0]["delete_confirmed"], true);
+        assert_eq!(body["data"][0]["delete_original"], true);
         let id = body["data"][0]["id"].as_str().unwrap();
         let detail = app
             .clone()

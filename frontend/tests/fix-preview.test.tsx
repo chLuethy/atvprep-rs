@@ -12,6 +12,19 @@ const row = (over: Partial<FileRow> = {}): FileRow => ({
 const queued: string[] = [];
 const show = (file: FileRow) => render(() => <FixPreview files={[file]} skipped={0} onQueue={async (encode) => { queued.push(encode); return { ok: true }; }} onClose={() => {}} />);
 
+describe("FixPreview: what happens to the original", () => {
+  const mkv = (): FileRow => ({ ...row(), display_path: "Film/Heat.mkv", suffix: ".mkv", compliance_state: "unknown", desired_action: "convert" });
+  const preview = (deleteOriginal: boolean) => render(() => <FixPreview files={[mkv()]} skipped={0} deleteOriginal={deleteOriginal} onQueue={async () => ({ ok: true })} onClose={() => {}} />);
+
+  it("says another container's original goes only after verification while the setting is on", () => {
+    expect(preview(true).getByRole("region", { name: "Prepare preview" })).toHaveTextContent("The original is removed once the new MP4 passes verification.");
+  });
+
+  it("says the original is kept while the setting is off", () => {
+    expect(preview(false).getByRole("region", { name: "Prepare preview" })).toHaveTextContent("The original is kept.");
+  });
+});
+
 describe("FixPreview: subtitles to embed", () => {
   it("names each subtitle that will be merged, with its language and kind", () => {
     const view = show(row({

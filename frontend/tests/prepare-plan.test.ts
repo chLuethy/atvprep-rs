@@ -13,11 +13,37 @@ describe("prepareConfirm", () => {
     expect(plan.lines).toEqual(["Prepare rewrites this MP4 in place where needed. Files already at the target are left alone."]);
   });
 
-  it("another container gets an MP4 next to it and keeps its original", () => {
-    const plan = prepareConfirm({ suffix: ".mkv" }, []);
+  it("another container keeps its original while the setting is off", () => {
+    const plan = prepareConfirm({ suffix: ".mkv" }, [], false);
 
     expect(plan.reencode).toBe(false);
     expect(plan.lines).toEqual(["Prepare writes an MP4 next to this .mkv file. The original is kept."]);
+  });
+
+  it("another container loses its original only after verification while the setting is on", () => {
+    const plan = prepareConfirm({ suffix: ".mkv" }, [], true);
+
+    expect(plan.lines).toEqual(["Prepare writes an MP4 next to this .mkv file. The original is removed once the new MP4 passes verification."]);
+  });
+
+  it("claims nothing about the original when the setting cannot be read", () => {
+    const plan = prepareConfirm({ suffix: ".mkv" }, [], null);
+
+    expect(plan.lines.join(" ")).toMatch(/cannot be read/);
+    expect(plan.lines.join(" ")).not.toMatch(/is kept/);
+  });
+
+  it("a re-encode of another container also says what happens to the original", () => {
+    const plan = prepareConfirm({ suffix: ".mkv", needs_reencode: true }, [], true);
+
+    expect(plan.reencode).toBe(true);
+    expect(plan.lines.join(" ")).toMatch(/Encode audio and video/);
+    expect(plan.lines.join(" ")).toMatch(/original is removed once the new MP4 passes verification/);
+  });
+
+  it("an MP4 says nothing about removing an original, whatever the setting", () => {
+    expect(prepareConfirm({ suffix: ".mp4" }, [], true).lines.join(" ")).not.toMatch(/removed/);
+    expect(prepareConfirm({ suffix: ".mp4", needs_reencode: true }, [], true).lines.join(" ")).not.toMatch(/removed/);
   });
 
   it("a re-encode says which level it needs and that the file otherwise stays as it is", () => {

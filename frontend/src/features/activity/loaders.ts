@@ -21,8 +21,8 @@ export type JobRow = {
   subject?: string | null;
   /** Whole percent across the job's items, as far as the server can tell. */
   progress?: number | null;
-  /** The job carries a one-off confirmation that originals may be deleted. */
-  delete_confirmed?: boolean;
+  /** The setting „Delete original“ was on when the job was queued. */
+  delete_original?: boolean;
 };
 
 export type ItemRow = {
