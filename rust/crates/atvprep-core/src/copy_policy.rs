@@ -235,6 +235,52 @@ pub fn check_copy_only(cmd: &[String]) -> Check {
     Ok(())
 }
 
+/// Refuse unless `cmd` copies the video and does not filter it. Audio may be anything here.
+///
+/// The Kodierfreigabe „Audio kodieren“ is enforced on the plan first; this reads the finished argv
+/// as a second, independent look, so an unknown way of asking for video work counts as a violation.
+///
+/// # Errors
+///
+/// Returns a [`CopyOnlyViolation`] naming the kind of violation.
+pub fn check_video_copied(cmd: &[String]) -> Check {
+    let Some((_output, arguments)) = cmd.split_last() else {
+        return fail("not a complete ffmpeg command");
+    };
+    let mut copied = false;
+    let mut tokens = arguments.iter().skip(1).map(String::as_str);
+    while let Some(token) = tokens.next() {
+        match token {
+            "-i" => {
+                tokens.next();
+            }
+            "-c:v" | "-c:v:0" => {
+                if tokens.next() != Some("copy") {
+                    return fail("a video or audio stream would be encoded");
+                }
+                copied = true;
+            }
+            _ if token.starts_with("-c:v")
+                || token.starts_with("-codec:v")
+                || token.starts_with("-vcodec")
+                || token.starts_with("-vf")
+                || token.starts_with("-filter:v")
+                || token.starts_with("-filter_complex")
+                || token.starts_with("-lavfi")
+                || matches!(token, "-c" | "-codec") =>
+            {
+                return fail("a video stream would be encoded or filtered");
+            }
+            _ => {}
+        }
+    }
+    if copied {
+        Ok(())
+    } else {
+        fail("the plan does not copy the video stream")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use atvprep_testkit::load_golden;
@@ -243,6 +289,33 @@ mod tests {
 
     fn cmd(parts: &[&str]) -> Vec<String> {
         parts.iter().map(|p| (*p).to_owned()).collect()
+    }
+
+    fn argv(line: &str) -> Vec<String> {
+        line.split_whitespace().map(str::to_owned).collect()
+    }
+
+    #[test]
+    fn video_check_accepts_a_copied_video_with_encoded_audio() {
+        let plan = argv("ffmpeg -i in.mkv -map 0:v:0 -c:v copy -map 0:a:0 -c:a:0 aac out.mp4");
+        assert_eq!(check_video_copied(&plan), Ok(()));
+    }
+
+    #[test]
+    fn video_check_refuses_every_way_of_touching_the_video() {
+        for line in [
+            "ffmpeg -i in.mkv -map 0:v:0 -c:v libx265 out.mp4",
+            "ffmpeg -i in.mkv -map 0:v:0 -c:v:0 libx265 out.mp4",
+            "ffmpeg -i in.mkv -map 0:v:0 -c:v copy -vf scale=1:1 out.mp4",
+            "ffmpeg -i in.mkv -map 0:v:0 -c:v copy -filter:v:0 scale=1:1 out.mp4",
+            "ffmpeg -i in.mkv -map 0:v:0 -vcodec libx265 -c:v copy out.mp4",
+            "ffmpeg -i in.mkv -map 0:v:0 -c copy out.mp4",
+            "ffmpeg -i in.mkv -map 0:v:0 -c:a:0 aac out.mp4",
+            "ffmpeg -filter_complex x -i in.mkv -c:v copy out.mp4",
+        ] {
+            assert!(check_video_copied(&argv(line)).is_err(), "{line}");
+        }
+        assert!(check_video_copied(&[]).is_err());
     }
 
     #[test]

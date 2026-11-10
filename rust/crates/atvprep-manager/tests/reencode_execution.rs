@@ -1,5 +1,5 @@
 //! ADR 0007: an approved item re-encodes, every other item only copies. The worker starts the media
-//! CLI with a fake executable that records its arguments, so the call without `--copy-only` is
+//! CLI with a fake executable that records its arguments, so the `--encode` level is
 //! observed without needing ffmpeg here (the real run is covered in `atvprep/tests/cli.rs`).
 use atvprep_manager::{
     approval::{ApprovalItem, ApprovalVerifier},
@@ -182,33 +182,44 @@ fn has(arguments: &[String], flag: &str) -> bool {
     arguments.iter().any(|a| a == flag)
 }
 
+fn encode_level(arguments: &[String]) -> &str {
+    let at = arguments
+        .iter()
+        .position(|a| a == "--encode")
+        .unwrap_or_else(|| panic!("no --encode in {arguments:?}"));
+    &arguments[at + 1]
+}
+
+/// What the real CLI prints for a file it refuses (see `atvprep/tests/encode_allowance.rs`).
+const REFUSED: &str = "ATVPREP-OUTCOME encode_not_allowed";
+
 #[test]
-fn an_approved_re_encode_with_delete_original_runs_without_copy_only() {
+fn an_approved_re_encode_with_delete_original_may_encode_everything() {
     let world = world(true, true);
     let config = fake_cli(world.dir.path(), "ATVPREP-OUTCOME reencoded");
     let (arguments, status, code) = run(&world, world.media[1], &config);
-    assert!(!has(&arguments, "--copy-only"), "{arguments:?}");
+    assert_eq!(encode_level(&arguments), "all", "{arguments:?}");
     assert!(has(&arguments, "--delete-original"), "{arguments:?}");
     assert_eq!(status, ItemStatus::Succeeded);
     assert_eq!(code, None);
 }
 
 #[test]
-fn an_item_not_approved_to_re_encode_keeps_copy_only_in_a_mixed_job() {
+fn an_item_not_approved_to_re_encode_only_copies_in_a_mixed_job() {
     let world = world(true, true);
     let config = fake_cli(world.dir.path(), "ATVPREP-OUTCOME patched");
     // The first item in the job is the copy-only file; it must not inherit the other's mode.
     let (arguments, _, _) = run(&world, world.media[0], &config);
-    assert!(has(&arguments, "--copy-only"), "{arguments:?}");
+    assert_eq!(encode_level(&arguments), "copy", "{arguments:?}");
     assert!(!has(&arguments, "--delete-original"), "{arguments:?}");
 }
 
 #[test]
 fn a_re_encode_without_delete_original_ends_as_needed_but_not_run() {
     let world = world(true, false);
-    let config = fake_cli(world.dir.path(), "ATVPREP-OUTCOME reencode_needed");
+    let config = fake_cli(world.dir.path(), REFUSED);
     let (arguments, status, code) = run(&world, world.media[1], &config);
-    assert!(!has(&arguments, "--copy-only"), "{arguments:?}");
+    assert_eq!(encode_level(&arguments), "audio", "{arguments:?}");
     assert!(!has(&arguments, "--delete-original"), "{arguments:?}");
     assert_eq!(status, ItemStatus::Succeeded);
     assert_eq!(code.as_deref(), Some(REENCODE_NOT_RUN));
@@ -229,13 +240,13 @@ fn a_re_encode_without_delete_original_ends_as_needed_but_not_run() {
 }
 
 #[test]
-fn a_file_that_was_not_approved_to_re_encode_never_reports_a_missing_re_encode() {
+fn a_file_that_was_not_approved_to_encode_fails_as_it_did_in_0_5_7() {
     let world = world(false, false);
-    let config = fake_cli(world.dir.path(), "ATVPREP-OUTCOME reencode_needed");
+    let config = fake_cli(world.dir.path(), REFUSED);
     let (arguments, status, code) = run(&world, world.media[1], &config);
-    assert!(has(&arguments, "--copy-only"), "{arguments:?}");
-    assert_eq!(status, ItemStatus::Succeeded);
-    assert_eq!(code, None, "the copy-only run refuses it on its own terms");
+    assert_eq!(encode_level(&arguments), "copy", "{arguments:?}");
+    assert_eq!(status, ItemStatus::Failed);
+    assert_eq!(code.as_deref(), Some("verification_failed"));
 }
 
 #[test]

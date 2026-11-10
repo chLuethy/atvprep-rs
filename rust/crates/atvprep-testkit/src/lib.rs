@@ -1,7 +1,8 @@
 //! Test support: loads the golden files the Python oracle writes.
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
@@ -57,6 +58,50 @@ pub fn fixture_path(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../testdata/mp4")
         .join(name)
+}
+
+/// Write a short MP4 whose video can be copied and whose only audio is EAC3 5.1, so preparing it
+/// needs a stereo downmix: an audio encode and nothing else.
+///
+/// # Panics
+///
+/// Panics when ffmpeg is missing or fails; a missing tool must fail the test, not skip it.
+pub fn write_surround_only_mp4(path: &Path) {
+    let status = Command::new("ffmpeg")
+        .args(["-y", "-hide_banner", "-loglevel", "error"])
+        .args(["-f", "lavfi", "-i", "testsrc2=s=160x90:r=24:d=0.5"])
+        .args(["-f", "lavfi", "-i", "anullsrc=r=48000:cl=5.1"])
+        .args(["-t", "0.5", "-c:v", "libx264", "-profile:v", "high"])
+        .args(["-pix_fmt", "yuv420p", "-c:a", "eac3", "-b:a", "192k"])
+        .args(["-metadata:s:a:0", "language=eng", "-movflags", "+faststart"])
+        .arg(path)
+        .status()
+        .expect("ffmpeg must be on PATH to generate test media");
+    assert!(
+        status.success(),
+        "ffmpeg could not generate {}",
+        path.display()
+    );
+}
+
+/// Remux `input` into `output` without encoding: the same streams in another container.
+///
+/// # Panics
+///
+/// Panics when ffmpeg is missing or fails.
+pub fn remux(input: &Path, output: &Path) {
+    let status = Command::new("ffmpeg")
+        .args(["-y", "-hide_banner", "-loglevel", "error", "-i"])
+        .arg(input)
+        .args(["-map", "0", "-c", "copy"])
+        .arg(output)
+        .status()
+        .expect("ffmpeg must be on PATH to generate test media");
+    assert!(
+        status.success(),
+        "ffmpeg could not remux {}",
+        input.display()
+    );
 }
 
 /// Bytes from a hex string.

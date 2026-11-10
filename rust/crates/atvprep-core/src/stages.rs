@@ -11,6 +11,7 @@
 //! ATVPREP-STAGE <name>
 //! ATVPREP-PROGRESS <percent>
 //! ATVPREP-OUTCOME <outcome>             (once per file, when it ends)
+//! ATVPREP-ENCODE need=<need> allowance=<allowance>   (after `encode_not_allowed`)
 //! ATVPREP-SOURCE removed | kept <why>   (when the original was meant to go)
 //! ```
 //!
@@ -18,6 +19,8 @@
 //! carriage-return line on the same sink (the CLI hands it stderr).
 
 use std::io::Write;
+
+use crate::encode::EncodeRefusal;
 
 /// Share of the whole run, as `(start, end)` percent. Without an encode the file is only patched.
 const WITH_ENCODE: [(Stage, u32, u32); 3] = [
@@ -65,7 +68,8 @@ pub enum Outcome {
     Patched,
     Rebuilt,
     Reencoded,
-    ReencodeNeeded,
+    /// „Kodierung nicht freigegeben“: the file was left as it was; not a failure.
+    EncodeNotAllowed,
     Planned,
     Failed,
 }
@@ -78,7 +82,7 @@ impl Outcome {
             Self::Patched => "patched",
             Self::Rebuilt => "rebuilt",
             Self::Reencoded => "reencoded",
-            Self::ReencodeNeeded => "reencode_needed",
+            Self::EncodeNotAllowed => "encode_not_allowed",
             Self::Planned => "planned",
             Self::Failed => "failed",
         }
@@ -171,6 +175,15 @@ impl StageReporter {
         self.line(&format!("ATVPREP-OUTCOME {}", outcome.as_str()));
     }
 
+    /// Say which need met which allowance, after a refused file's outcome line.
+    pub fn encode_refused(&mut self, refusal: EncodeRefusal) {
+        self.line(&format!(
+            "ATVPREP-ENCODE need={} allowance={}",
+            refusal.need.as_str(),
+            refusal.allowance.as_str()
+        ));
+    }
+
     /// Say whether the original was removed, or why it was kept.
     pub fn source(&mut self, removed: bool, reason: Option<&str>) {
         match (removed, reason) {
@@ -218,6 +231,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use super::*;
+    use crate::encode::{EncodeAllowance, EncodeNeed};
 
     #[derive(Clone, Default)]
     struct Capture(Arc<Mutex<Vec<u8>>>);
@@ -371,13 +385,18 @@ mod tests {
     #[test]
     fn outcome_and_source_lines_name_the_result() {
         let (mut reporter, out) = plain();
-        reporter.outcome(Outcome::ReencodeNeeded);
+        reporter.outcome(Outcome::EncodeNotAllowed);
+        reporter.encode_refused(EncodeRefusal {
+            need: EncodeNeed::Video,
+            allowance: EncodeAllowance::Audio,
+        });
         reporter.source(true, None);
         reporter.source(false, Some("verify failed"));
         assert_eq!(
             out.lines(),
             [
-                "ATVPREP-OUTCOME reencode_needed",
+                "ATVPREP-OUTCOME encode_not_allowed",
+                "ATVPREP-ENCODE need=video allowance=audio",
                 "ATVPREP-SOURCE removed",
                 "ATVPREP-SOURCE kept verify failed"
             ]

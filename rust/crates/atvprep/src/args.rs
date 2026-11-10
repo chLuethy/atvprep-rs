@@ -1,5 +1,7 @@
 //! The command line: the same commands, flags, defaults and abbreviations as the Python CLI.
 
+use atvprep_core::encode::EncodeAllowance;
+use clap::builder::PossibleValuesParser;
 use clap::{Arg, ArgAction, Command, value_parser};
 
 fn flag(name: &'static str, short: Option<char>, help: &'static str) -> Arg {
@@ -30,6 +32,9 @@ fn crf() -> Arg {
         .help("CRF value for HEVC transcode (default: 18)")
 }
 
+const ENCODE: &str = "How far to encode: copy never encodes, audio allows a stereo downmix and an \
+audio transcode, all also allows a video re-encode. A file that needs more is left unchanged and \
+reported (default: audio)";
 const HEVC10: &str = "Force HEVC 10-bit transcode even for SDR/1080p content";
 const DTS: &str = "Normalize negative initial video DTS with -fflags +genpts / \
 -avoid_negative_ts make_zero. Off by default; opt in only for sources where AVPlayer stumbles on \
@@ -65,10 +70,14 @@ in place; other containers get a <stem>.mp4 next to them. 'fix' and 'convert' ar
         .arg(flag("dry-run", Some('n'), "Show what would change without writing anything"))
         .arg(flag("verbose", Some('v'), "Show ffmpeg command and post-processing steps"))
         .arg(flag("force", Some('f'), "Rebuild every file even if leaving it alone or patching it in place would do"))
-        .arg(flag("copy-only", None, "Refuse any run whose ffmpeg command would encode video or audio"))
+        .arg(
+            text("encode", "LEVEL", ENCODE)
+                .default_value("audio")
+                .value_parser(PossibleValuesParser::new(EncodeAllowance::NAMES)),
+        )
         .arg(flag("fix-dts", None, DTS))
         .arg(text("quarantine", "DIR", QUARANTINE))
-        .arg(flag("delete-original", None, "Replace an MP4 that needs a video re-encode, and delete another container's original once its new MP4 passed verification"))
+        .arg(flag("delete-original", None, "Delete another container's original once its new MP4 passed verification (an MP4 is never deleted)"))
         .arg(int128("manager-parent-fd"))
         .arg(Arg::new("manager-leaf").long("manager-leaf").hide(true))
         .arg(int128("manager-device"))

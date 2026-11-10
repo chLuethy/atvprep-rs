@@ -11,6 +11,7 @@ use std::sync::LazyLock;
 
 use atvprep_core::compliance::SystemTools;
 use atvprep_core::console::{Console, SharedBuffer};
+use atvprep_core::encode::EncodeAllowance;
 use atvprep_core::fd_fix_contract::FdFixTarget;
 use atvprep_core::ffprobe::Ffprobe;
 use atvprep_core::pipeline_postfix::RunContext;
@@ -76,11 +77,24 @@ fn options_for(variant: &str, base: &Path, source: &Path) -> PrepareOptions {
     match variant {
         "force" => o.force = true,
         "dry_run" => o.dry_run = true,
-        "delete_original" => o.delete_original = true,
-        "copy_only" => o.copy_only = true,
-        "output_file" => o.output = Some(out.join("result.mp4")),
-        "output_dir" => o.output = Some(out),
-        "output_new_dir" => o.output = Some(base.join("new").join("sub")),
+        // The oracle encoded the video on these routes; since ADR 0008 that takes an allowance.
+        "delete_original" => {
+            o.delete_original = true;
+            o.encode = EncodeAllowance::All;
+        }
+        "copy_only" => o.encode = EncodeAllowance::Copy,
+        "output_file" => {
+            o.output = Some(out.join("result.mp4"));
+            o.encode = EncodeAllowance::All;
+        }
+        "output_dir" => {
+            o.output = Some(out);
+            o.encode = EncodeAllowance::All;
+        }
+        "output_new_dir" => {
+            o.output = Some(base.join("new").join("sub"));
+            o.encode = EncodeAllowance::All;
+        }
         "output_self" => o.output = Some(source.to_path_buf()),
         "quarantine" | "quarantine_target" => o.quarantine_dir = Some(base.join("q")),
         "delete_with_output" => {
@@ -351,6 +365,19 @@ fn encode_sampling_does_not_hide_regressing_progress() {
     ]));
 }
 
+/// The two oracle results ADR 0008 changed on purpose: a video that may not be encoded was
+/// `reencode_needed`, or a `transcode` failure under `copy_only`; now both are one refusal.
+fn refused_since_adr_0008(mut result: Value) -> Value {
+    let refused = result["outcome"] == "reencode_needed"
+        || (result["outcome"] == "failed" && result["error_kind"] == "transcode");
+    if refused {
+        result["outcome"] = json!("encode_not_allowed");
+        result["error"] = Value::Null;
+        result["error_kind"] = Value::Null;
+    }
+    result
+}
+
 #[test]
 fn pipeline_matches_the_python_oracle() {
     let cases = load_golden::<Input, Value>("prepare_pipeline");
@@ -360,6 +387,9 @@ fn pipeline_matches_the_python_oracle() {
         let got = run_case(&case.input.source, &case.input.variant);
         for key in ["raised", "result", "listing", "files", "argv", "machine"] {
             let mut want = case.expected.get(key).cloned().unwrap_or(Value::Null);
+            if key == "result" {
+                want = refused_since_adr_0008(want);
+            }
             if key == "argv" {
                 // Python hands ffmpeg a private pipe as /dev/fd/N; the port reads `pipe:1`.
                 want = Value::String(
@@ -480,6 +510,36 @@ fn an_output_directory_that_cannot_be_created_fails_as_unsafe() {
 fn fragmented_ffmpeg() -> String {
     let fixture = atvprep_testkit::fixture_path("syn_fragmented.mp4");
     format!("for last; do :; done\ncp '{}' \"$last\"", fixture.display())
+}
+
+#[test]
+fn a_re_encoded_mp4_replaces_the_source_only_after_passing_verification() {
+    let script = fragmented_ffmpeg();
+    let mut f = fixture("high10.mp4", Some(&script));
+    let before = sha(&f.source);
+    let options = PrepareOptions {
+        encode: EncodeAllowance::All,
+        ..PrepareOptions::default()
+    };
+    let result = prepare_file(&mut f.ctx, &f.source, &options, None).unwrap();
+    assert_eq!(result.error_kind.map(ErrorKind::as_str), Some("blockers"));
+    assert_eq!(sha(&f.source), before);
+    assert_eq!(leftovers(&f.base), Vec::<String>::new());
+}
+
+#[test]
+fn an_original_is_deleted_only_after_its_mp4_passed_verification() {
+    let script = fragmented_ffmpeg();
+    let mut f = fixture("movie.mkv", Some(&script));
+    let before = sha(&f.source);
+    let options = PrepareOptions {
+        delete_original: true,
+        ..PrepareOptions::default()
+    };
+    let result = prepare_file(&mut f.ctx, &f.source, &options, None).unwrap();
+    assert_eq!(result.error_kind.map(ErrorKind::as_str), Some("blockers"));
+    assert!(!result.source_removed);
+    assert_eq!(sha(&f.source), before);
 }
 
 #[test]

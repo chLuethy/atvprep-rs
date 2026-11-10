@@ -113,7 +113,7 @@ pub fn run_observed(
 /// How an authorized item may run, as decided by its approval (ADR 0007).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PrepareMode {
-    /// The item may be re-encoded. Everything else only copies streams (`--copy-only`).
+    /// The item may be re-encoded. Everything else only copies streams (`--encode copy`).
     pub reencode: bool,
     /// The signed `delete_original` setting. A re-encode replaces the file only with it.
     pub delete_original: bool,
@@ -122,10 +122,20 @@ pub struct PrepareMode {
 /// The argument vector of `atvprep prepare` for one pinned leaf.
 fn prepare_arguments(leaf: &str, identity: (i128, i128, i128), mode: PrepareMode) -> Vec<String> {
     let (device, inode, ctime) = identity;
-    let mut arguments = vec!["prepare".to_owned(), "--yes".to_owned()];
-    if !mode.reencode {
-        arguments.push("--copy-only".to_owned());
-    } else if mode.delete_original {
+    // The CLI has the Kodierfreigabe already; these three levels keep the manager's 0.5.7 rules
+    // until the job and schedule tickets of #51 sign an allowance of their own.
+    let encode = match (mode.reencode, mode.delete_original) {
+        (false, _) => "copy",
+        (true, false) => "audio",
+        (true, true) => "all",
+    };
+    let mut arguments = vec![
+        "prepare".to_owned(),
+        "--yes".to_owned(),
+        "--encode".to_owned(),
+        encode.to_owned(),
+    ];
+    if mode.reencode && mode.delete_original {
         arguments.push("--delete-original".to_owned());
     }
     arguments.extend([
@@ -396,9 +406,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn only_a_re_encode_item_runs_without_the_copy_only_flag() {
+    fn only_a_re_encode_item_runs_above_the_copy_level() {
+        fn level(arguments: &[String]) -> &str {
+            let at = arguments.iter().position(|a| a == "--encode").unwrap();
+            &arguments[at + 1]
+        }
+
         let copy = prepare_arguments("a.mp4", (1, 2, 3), PrepareMode::default());
-        assert!(copy.contains(&"--copy-only".to_owned()));
+        assert_eq!(level(&copy), "copy");
         assert!(!copy.contains(&"--delete-original".to_owned()));
 
         // Even a signed delete_original does nothing for an item that is not to be re-encoded.
@@ -410,7 +425,7 @@ mod tests {
                 delete_original: true,
             },
         );
-        assert!(kept.contains(&"--copy-only".to_owned()));
+        assert_eq!(level(&kept), "copy");
         assert!(!kept.contains(&"--delete-original".to_owned()));
 
         let without_delete = prepare_arguments(
@@ -421,7 +436,7 @@ mod tests {
                 delete_original: false,
             },
         );
-        assert!(!without_delete.contains(&"--copy-only".to_owned()));
+        assert_eq!(level(&without_delete), "audio");
         assert!(!without_delete.contains(&"--delete-original".to_owned()));
 
         let replacing = prepare_arguments(
@@ -432,7 +447,7 @@ mod tests {
                 delete_original: true,
             },
         );
-        assert!(!replacing.contains(&"--copy-only".to_owned()));
+        assert_eq!(level(&replacing), "all");
         assert!(replacing.contains(&"--delete-original".to_owned()));
         // The leaf and the pinned identity always travel the same way.
         for arguments in [&copy, &without_delete, &replacing] {

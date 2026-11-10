@@ -207,7 +207,8 @@ fn contract(dir: &Path, leaf: &str) -> (std::fs::File, Vec<String>) {
         meta.ino().to_string(),
         "--manager-ctime-ns".to_owned(),
         (i128::from(meta.ctime()) * 1_000_000_000 + i128::from(meta.ctime_nsec())).to_string(),
-        "--copy-only".to_owned(),
+        "--encode".to_owned(),
+        "copy".to_owned(),
         dir.join(leaf).to_string_lossy().into_owned(),
     ];
     (parent, args)
@@ -297,19 +298,27 @@ fn the_worker_re_encodes_for_real_only_with_the_approved_mode() {
     use atvprep_manager::worker::process::PrepareMode;
     let original = std::fs::read(high10()).unwrap();
 
-    // Copy-only, as every item without a re-encode decision: refused, the file stays.
+    // Copy only, as every item without a re-encode decision: refused, the file stays.
     let (output, code, path, _dir) = run_high10(PrepareMode::default());
-    assert_ne!(code, Some(0), "{output}");
+    assert_eq!(code, Some(0), "{output}");
+    assert!(
+        output.contains("ATVPREP-OUTCOME encode_not_allowed"),
+        "{output}"
+    );
+    assert!(
+        output.contains("ATVPREP-ENCODE need=video allowance=copy"),
+        "{output}"
+    );
     assert_eq!(std::fs::read(&path).unwrap(), original, "{output}");
 
-    // Re-encode approved but the original may not be replaced: reported, untouched.
+    // Re-encode approved but delete_original is off: as in 0.5.7 it does not run, the file stays.
     let (output, code, path, _dir) = run_high10(PrepareMode {
         reencode: true,
         delete_original: false,
     });
     assert_eq!(code, Some(0), "{output}");
     assert!(
-        output.contains("ATVPREP-OUTCOME reencode_needed"),
+        output.contains("ATVPREP-ENCODE need=video allowance=audio"),
         "{output}"
     );
     assert_eq!(std::fs::read(&path).unwrap(), original, "{output}");

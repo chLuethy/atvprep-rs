@@ -8,6 +8,7 @@ pub mod pipeline;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+use crate::encode::{EncodeAllowance, EncodeRefusal};
 use crate::escalation::Level;
 use crate::pipeline_postfix::{RunContext, quarantine_output};
 pub use crate::stages::Outcome;
@@ -27,8 +28,8 @@ pub struct PrepareOptions {
     pub quarantine_dir: Option<PathBuf>,
     pub verbose: bool,
     pub extra_sidecars: Vec<PathBuf>,
-    /// Refuse any run whose ffmpeg command would encode video or audio.
-    pub copy_only: bool,
+    /// How far this run may encode.
+    pub encode: EncodeAllowance,
 }
 
 impl Default for PrepareOptions {
@@ -45,7 +46,7 @@ impl Default for PrepareOptions {
             quarantine_dir: None,
             verbose: false,
             extra_sidecars: Vec::new(),
-            copy_only: false,
+            encode: EncodeAllowance::default(),
         }
     }
 }
@@ -89,6 +90,8 @@ pub struct PrepareResult {
     pub source_kept: Option<String>,
     pub error: Option<String>,
     pub error_kind: Option<ErrorKind>,
+    /// Set when the plan needed more than the run was allowed; nothing was written then.
+    pub encode_refusal: Option<EncodeRefusal>,
 }
 
 impl PrepareResult {
@@ -155,7 +158,8 @@ mod tests {
     fn options_default_to_crf_18_and_nothing_else() {
         let o = PrepareOptions::default();
         assert_eq!(o.crf, 18);
-        assert!(!(o.force || o.dry_run || o.delete_original || o.copy_only || o.fix_dts));
+        assert!(!(o.force || o.dry_run || o.delete_original || o.fix_dts));
+        assert_eq!(o.encode, EncodeAllowance::Audio);
         assert!(o.output.is_none() && o.quarantine_dir.is_none() && o.extra_sidecars.is_empty());
     }
 

@@ -25,8 +25,16 @@ pub const REENCODE_TIMEOUT: Duration = Duration::from_hours(4);
 /// The error code of an item that needed a re-encode which was not run (ADR 0007).
 pub const REENCODE_NOT_RUN: &str = "reencode_not_run";
 
-/// The machine line the media CLI prints when a file needs a re-encode it was not told to do.
-const REENCODE_NEEDED_LINE: &str = "ATVPREP-OUTCOME reencode_needed";
+/// The machine line the media CLI prints when a file needs more than its Kodierfreigabe allows.
+const ENCODE_NOT_ALLOWED_LINE: &str = "ATVPREP-OUTCOME encode_not_allowed";
+
+fn encode_was_refused(process: &ProcessResult) -> bool {
+    process.reason == StopReason::Exited
+        && process.exit_code == Some(0)
+        && String::from_utf8_lossy(&process.output)
+            .lines()
+            .any(|line| line.trim() == ENCODE_NOT_ALLOWED_LINE)
+}
 
 /// The time limit of one changing item: longer only for an item approved to re-encode.
 #[must_use]
@@ -252,7 +260,7 @@ pub fn execute_claimed(
         };
         let mut output =
             super::execution_output::ClaimedOutput::new(ctx, owner, fence, item_id, item.job_id);
-        let process = if changing {
+        let mut process = if changing {
             run_pinned_prepare_observed(
                 &config.executable,
                 &target,
@@ -284,6 +292,11 @@ pub fn execute_claimed(
         }?;
         if changing {
             output.feed(&[], true)?;
+        }
+        // An item that may only copy failed in 0.5.7 when its file needed an encode. The CLI now
+        // treats that as a result, not an error; the manager follows once #51 gives it the hint.
+        if changing && !mode.reencode && encode_was_refused(&process) {
+            process.exit_code = Some(1);
         }
         if lost || !authority(ctx, item_id, owner, fence)? {
             return Err(Error::Conflict(
@@ -382,13 +395,7 @@ pub fn execute_claimed(
         JobStateMachine(ctx).transition_item(item_id, terminal, version, Some(fence), None)?;
         // A file that needs a re-encode but was not told to (no `delete_original`) ends as a
         // success with a visible result, not as a silent one.
-        let reencode_not_run = changing
-            && mode.reencode
-            && process.reason == StopReason::Exited
-            && process.exit_code == Some(0)
-            && String::from_utf8_lossy(&process.output)
-                .lines()
-                .any(|line| line.trim() == REENCODE_NEEDED_LINE);
+        let reencode_not_run = changing && mode.reencode && encode_was_refused(&process);
         let code = match process.reason {
             StopReason::Exited if reencode_not_run => Some(REENCODE_NOT_RUN),
             StopReason::TimedOut => Some("timeout"),

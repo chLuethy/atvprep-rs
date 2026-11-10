@@ -4,6 +4,7 @@ use std::io::BufRead;
 use std::path::{Path, PathBuf};
 
 use atvprep_core::constants::VIDEO_EXTS;
+use atvprep_core::encode::EncodeAllowance;
 use atvprep_core::fd_fix_contract::{FdFixTarget, UnsafeFixTarget};
 use atvprep_core::pipeline_postfix::RunContext;
 use atvprep_core::prepare::paths::resolve;
@@ -268,7 +269,10 @@ fn prepare_options(
         quarantine_dir,
         verbose: flag(matches, "verbose"),
         extra_sidecars: Vec::new(),
-        copy_only: flag(matches, "copy-only"),
+        encode: matches
+            .get_one::<String>("encode")
+            .and_then(|name| EncodeAllowance::parse(name))
+            .unwrap_or_default(),
     }
 }
 
@@ -402,9 +406,12 @@ fn bullets(ctx: &mut RunContext, reasons: &[String]) {
 pub(crate) fn report(ctx: &mut RunContext, result: &PrepareResult) {
     use atvprep_core::escalation::Level;
     let name = name_of(&result.source);
-    if result.outcome == Outcome::ReencodeNeeded {
+    if let Some(refusal) = result.encode_refusal {
         ctx.console.print(&format!(
-            "re-encode needed: {name} (left untouched; run with --delete-original to replace it)"
+            "encode not allowed: {name} (needs {need}, allowed {allowance}; left untouched; run with --encode {required} to go ahead)",
+            need = refusal.need.as_str(),
+            allowance = refusal.allowance.as_str(),
+            required = refusal.need.required().as_str(),
         ));
         bullets(ctx, &result.reasons);
     } else if result.level == Level::None {
@@ -442,6 +449,9 @@ pub(crate) fn report(ctx: &mut RunContext, result: &PrepareResult) {
         ctx.console.print(&format!("  ! {kept}"));
     }
     ctx.reporter.outcome(result.outcome);
+    if let Some(refusal) = result.encode_refusal {
+        ctx.reporter.encode_refused(refusal);
+    }
     if result.source_removed || result.source_kept.is_some() {
         ctx.reporter
             .source(result.source_removed, result.source_kept.as_deref());
