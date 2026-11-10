@@ -51,5 +51,7 @@ export const deInspector: Record<string, string | [string, string]> = {
   "A preparation for this file is already in progress.": "Für diese Datei läuft bereits eine Überarbeitung.",
   "The video has to be re-encoded. That only runs with “Encode audio and video”; otherwise the file stays as it is and the job says so.": "Das Video muss neu kodiert werden. Das läuft nur mit „Audio und Video kodieren“; sonst bleibt die Datei unverändert und der Auftrag meldet das.",
   "Prepare rewrites this MP4 in place where needed. Files already at the target are left alone.": "Beim Überarbeiten wird diese MP4 bei Bedarf an Ort und Stelle neu geschrieben. Dateien, die schon dem Ziel entsprechen, bleiben unverändert.",
-  "Prepare writes an MP4 next to this {suffix} file. The original is kept.": "Beim Überarbeiten wird neben dieser {suffix}-Datei eine MP4 geschrieben. Das Original bleibt erhalten.",
+  "Prepare writes an MP4 next to this {suffix} file. The original is kept.": "Beim Vorbereiten wird neben dieser {suffix}-Datei eine MP4 geschrieben. Das Original bleibt erhalten.",
+  "Prepare writes an MP4 next to this {suffix} file. The original is removed once the new MP4 passes verification.": "Beim Vorbereiten wird neben dieser {suffix}-Datei eine MP4 geschrieben. Das Original wird entfernt, sobald die neue MP4 die Prüfung bestanden hat.",
+  "Prepare writes an MP4 next to this {suffix} file. Whether the original is removed depends on the setting “Delete original”, which cannot be read right now.": "Beim Vorbereiten wird neben dieser {suffix}-Datei eine MP4 geschrieben. Ob das Original entfernt wird, hängt von der Einstellung „Original löschen“ ab, die sich gerade nicht lesen lässt.",
 };

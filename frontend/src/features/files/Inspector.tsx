@@ -65,8 +65,9 @@ export const Inspector: Component<{
   api: Api;
   fileId: string;
   onFix?: (file: FileDetail) => void;
-  /** The delete-original setting, which decides what the confirmation says about another container. */
   onVerify?: (id: string) => void;
+  /** The setting „Delete original“, which decides what the confirmation says about another container; null when unknown. */
+  deleteOriginal?: boolean | null;
   /** Bumped by the page after it queued something, so the file is read again right away. */
   version?: number;
   /** Told after this view queued a job itself (a re-inspection), so the page can follow the queue. */
@@ -197,7 +198,7 @@ export const Inspector: Component<{
     return inspection ? summarizeInspection(inspection.result) : undefined;
   };
   const plan = () => convertPlan(summary()?.tracks ?? []);
-  const confirm = (f: FileDetail) => prepareConfirm(f, summary()?.tracks ?? []);
+  const confirm = (f: FileDetail) => prepareConfirm(f, summary()?.tracks ?? [], props.deleteOriginal ?? null);
   const encode = createEncodeChoice();
   const submitConvert = async () => {
     if (convertBusy() || !encode.ready()) return;
@@ -279,7 +280,7 @@ export const Inspector: Component<{
           </Show>
           <Show when={converting()}>
             <div class="confirm" role="region" aria-label={t("Prepare")} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); setConverting(false); } }}>
-              <For each={confirm(f()).lines}>{(line) => (confirm(f()).reencode ? <p class="notice warn" role="alert">{line}</p> : <p>{line}</p>)}</For>
+              <For each={confirm(f()).lines}>{(line, index) => (confirm(f()).reencode && index() === 0 ? <p class="notice warn" role="alert">{line}</p> : <p>{line}</p>)}</For>
               <ul class="plain">
                 <For each={plan().lines}>{(line) => <li>{line}</li>}</For>
               </ul>

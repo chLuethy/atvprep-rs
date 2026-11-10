@@ -125,6 +125,7 @@ export const LibraryPage: Component<{
   const [missing, setMissing] = createSignal(0);
   const [convertible, setConvertible] = createSignal(0);
   const [reencodeCount, setReencodeCount] = createSignal(0);
+  const [deleteOriginal, setDeleteOriginal] = createSignal<boolean | null>(null);
   const [embedCount, setEmbedCount] = createSignal(0);
   const [convertedCount, setConvertedCount] = createSignal(0);
   const [removeOpen, setRemoveOpen] = createSignal(false);
@@ -211,6 +212,7 @@ export const LibraryPage: Component<{
     setMissing(summary.missing);
     setConvertible(summary.convert);
     setReencodeCount(summary.reencode);
+    setDeleteOriginal(summary.deleteOriginal);
     setEmbedCount(summary.embed);
     setConvertedCount(summary.converted);
   };
@@ -721,13 +723,14 @@ export const LibraryPage: Component<{
                 <div class="empty"><b>{tn("{count} item selected", "{count} items selected", colCount())}</b>{t("Use the bar below or right click for actions. V verifies, F previews the preparation.")}</div>
               </Show>
             }>
-              {(id) => <Inspector api={props.api} fileId={id()} version={inspectorVersion()} onQueued={follow} onFix={(file) => openPreview([file])} onVerify={(fileId) => void verify([fileId])} />}
+              {(id) => <Inspector api={props.api} fileId={id()} deleteOriginal={deleteOriginal()} version={inspectorVersion()} onQueued={follow} onFix={(file) => openPreview([file])} onVerify={(fileId) => void verify([fileId])} />}
             </Show>
           }
         >
           <FixPreview
             files={preparableRows(previewFiles())}
             skipped={previewFiles().length - preparableRows(previewFiles()).length}
+            deleteOriginal={deleteOriginal()}
             onQueue={queuePrepare}
             onClose={() => setPreviewRows(null)}
           />

@@ -18,6 +18,8 @@ const KIND_LABEL: Record<ChangeKind, string> = { patch: N("Patch"), remux: N("Re
 export const FixPreview: Component<{
   files: FileRow[];
   skipped: number;
+  /** The setting „Delete original“; null when it cannot be read. */
+  deleteOriginal?: boolean | null;
   onQueue: (encode: EncodeLevel, force: boolean) => Promise<JobResult>;
   onClose: () => void;
 }> = (props) => {
@@ -28,7 +30,7 @@ export const FixPreview: Component<{
   const totalBytes = () => props.files.reduce((sum, file) => sum + file.size, 0);
   const largest = () => props.files.reduce((max, file) => Math.max(max, file.size), 0);
   const count = () => props.files.length;
-  const confirms = (file: FileRow) => prepareConfirm(file, []);
+  const confirms = (file: FileRow) => prepareConfirm(file, [], props.deleteOriginal ?? null);
   /** An MP4 that is only rewritten in place: one sentence for all of them instead of one each. */
   const plain = (file: FileRow) => isMp4Like(file.suffix) && !confirms(file).reencode;
 
@@ -73,7 +75,7 @@ export const FixPreview: Component<{
             <li class="pv-file">
               <b>{name.title || file.kind}</b> <span class="muted">{verdict.label} · {formatSize(file.size)}</span>
               <Show when={!plain(file)}>
-                <For each={confirms(file).lines}>{(line) => <p class={confirms(file).reencode ? "notice warn" : "muted"} role={confirms(file).reencode ? "alert" : undefined}>{line}</p>}</For>
+                <For each={confirms(file).lines}>{(line, index) => <p class={confirms(file).reencode && index() === 0 ? "notice warn" : "muted"} role={confirms(file).reencode && index() === 0 ? "alert" : undefined}>{line}</p>}</For>
               </Show>
               <Show when={(file.pending_sidecars ?? 0) > 0}>
                 <ul class="plain changes" aria-label={t("Subtitles to embed")}>

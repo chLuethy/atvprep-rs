@@ -193,6 +193,8 @@ export type Summary = {
   converted: number;
   jobsActive: boolean;
   jobs: { running: number; queued: number };
+  /** The setting „Delete original“; null when the server does not say. */
+  deleteOriginal: boolean | null;
 };
 
 /** File counts per compliance state for the filter chips, and whether any job is still waiting or running. */
@@ -200,9 +202,9 @@ export async function loadSummary(api: Api): Promise<Summary | null> {
   try {
     const response = await api.request("/dashboard");
     if (!response.ok) return null;
-    const body = (await response.json()) as { data?: { files?: Record<string, number>; missing?: number; convert?: number; reencode?: number; embed?: number; converted?: number; jobs?: Record<string, number> } };
+    const body = (await response.json()) as { data?: { files?: Record<string, number>; missing?: number; convert?: number; reencode?: number; embed?: number; converted?: number; delete_original?: boolean; jobs?: Record<string, number> } };
     const jobs = body.data?.jobs ?? {};
-    return { counts: body.data?.files ?? null, missing: body.data?.missing ?? 0, convert: body.data?.convert ?? 0, reencode: body.data?.reencode ?? 0, embed: body.data?.embed ?? 0, converted: body.data?.converted ?? 0, jobsActive: (jobs.queued ?? 0) + (jobs.running ?? 0) > 0, jobs: { running: jobs.running ?? 0, queued: jobs.queued ?? 0 } };
+    return { counts: body.data?.files ?? null, missing: body.data?.missing ?? 0, convert: body.data?.convert ?? 0, reencode: body.data?.reencode ?? 0, embed: body.data?.embed ?? 0, converted: body.data?.converted ?? 0, jobsActive: (jobs.queued ?? 0) + (jobs.running ?? 0) > 0, jobs: { running: jobs.running ?? 0, queued: jobs.queued ?? 0 }, deleteOriginal: body.data?.delete_original ?? null };
   } catch {
     return null;
   }

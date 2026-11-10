@@ -175,6 +175,17 @@ describe("audited runtime settings UI", () => {
     expect(view.queryByText(/changes files without asking/i)).toBeNull();
   });
 
+  it("says what deleting the original means, and that it does not decide about encoding", async () => {
+    const api = apiFor((path) => path === "/settings" ? settingsResponse(7, [
+      { key: "delete_original", value: true, revision: 7, default_value: false } as Setting,
+    ]) : response([]));
+    const view = render(() => <SettingsPage api={api} />);
+    const other = await view.findByRole("region", { name: "Other" });
+
+    expect(within(other).getByLabelText("Delete original")).toBeDisabled();
+    expect(other).toHaveTextContent("Removes the old non-MP4 container once its new MP4 passes verification. It does not decide whether a file may be encoded.");
+  });
+
   it("keeps the audit one short button away, named for the setting", async () => {
     const api = apiFor((path) => path === "/settings" ? settingsResponse() : response(audit));
     const view = render(() => <SettingsPage api={api} />);

@@ -218,7 +218,7 @@ describe("SchedulesPage", () => {
     await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Weekly fix" }));
     const question = await view.findByRole("region", { name: "Turn on Weekly fix" });
     expect(question).toHaveTextContent("up to 10");
-    expect(question).toHaveTextContent("Originals are kept");
+    expect(question).toHaveTextContent("originals are kept");
     expect(patches).toEqual([]);
     await fireEvent.click(within(question).getByRole("button", { name: "Cancel" }));
     expect(patches).toEqual([]);
@@ -229,12 +229,12 @@ describe("SchedulesPage", () => {
     await waitFor(() => expect(patches).toEqual([{ enabled: true, confirm_changes_files: true }]));
   });
 
-  it("names in the confirmation what re-encoding does, truthfully for each setting of delete_original", async () => {
+  it("names re-encoding and the removal of originals separately in the confirmation", async () => {
     const cases = [
-      { allow: false, deleteOriginal: false, text: "Re-encoding is not allowed", not: "replace the original" },
-      { allow: false, deleteOriginal: true, text: "Originals are kept", not: "replace the original" },
-      { allow: true, deleteOriginal: true, text: "files that need it are re-encoded and replace the original", not: "stay unchanged" },
-      { allow: true, deleteOriginal: false, text: "“delete_original” is off: files that need it stay unchanged and the run reports a re-encode as needed", not: "replace the original" },
+      { allow: false, deleteOriginal: false, text: "Re-encoding is not allowed", not: "removed once" },
+      { allow: false, deleteOriginal: true, text: "another container's original is removed once its new MP4 passes verification", not: "Originals are kept" },
+      { allow: true, deleteOriginal: true, text: "files that need it are re-encoded", not: "only runs while" },
+      { allow: true, deleteOriginal: false, text: "“Delete original” is off: originals are kept", not: "stay unchanged" },
     ] as const;
     for (const { allow, deleteOriginal, text, not } of cases) {
       const state = makeApi([schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, compliance_state: null, max_files: 10, allow_reencode: allow })], {}, { deleteOriginal });
@@ -247,7 +247,7 @@ describe("SchedulesPage", () => {
     }
   });
 
-  it("tells the current match count, capped by the run size, and that a re-encode replaces the original", async () => {
+  it("tells the current match count, capped by the run size, and that originals of other containers go", async () => {
     const state = makeApi(
       [schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, compliance_state: null, max_files: 10, matching: 4, allow_reencode: true })],
       {}, { deleteOriginal: true },
@@ -260,7 +260,7 @@ describe("SchedulesPage", () => {
     const question = await view.findByRole("region", { name: "Turn on Weekly fix" });
 
     expect(question).toHaveTextContent("10 files match now");
-    expect(question).toHaveTextContent("replace the original");
+    expect(question).toHaveTextContent("another container's original is removed once its new MP4 passes verification");
     expect(question).toHaveTextContent("approval applies to these settings only");
   });
 

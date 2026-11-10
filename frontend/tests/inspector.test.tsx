@@ -451,12 +451,18 @@ describe("Inspector: re-inspect", () => {
 describe("Inspector: what the prepare confirmation says", () => {
   const mkv = { ...detail, display_path: "Serie/Lynley.mkv", suffix: ".mkv", compliance_state: "unknown", compliance_reasons: [] };
 
-  it("always keeps the original", async () => {
-    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response(mkv) })} fileId="m_f1" />);
+  it("keeps the original while the setting is off", async () => {
+    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response(mkv) })} fileId="m_f1" deleteOriginal={false} />);
     await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
     const region = await view.findByRole("region", { name: "Prepare" });
     expect(region).toHaveTextContent("The original is kept.");
     expect(region).not.toHaveTextContent(/delet/i);
+  });
+
+  it("says the original is removed after verification while the setting is on", async () => {
+    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response(mkv) })} fileId="m_f1" deleteOriginal />);
+    await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
+    expect(await view.findByRole("region", { name: "Prepare" })).toHaveTextContent("The original is removed once the new MP4 passes verification.");
   });
 });
 
@@ -532,7 +538,7 @@ describe("Inspector: converting a file that is not an MP4", () => {
 describe("Inspector: the convert confirmation", () => {
   it("says the original is kept after a conversion", async () => {
     const mkv = { ...detail, display_path: "Serie/Lynley.mkv", suffix: ".mkv", compliance_state: "unknown", compliance_reasons: [] };
-    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response(mkv) })} fileId="m_f1" />);
+    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response(mkv) })} fileId="m_f1" deleteOriginal={false} />);
 
     await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
 

@@ -47,7 +47,9 @@ pub fn parse_temp_name(name: &str) -> Option<u32> {
     pid.parse().ok()
 }
 
-fn is_mp4_like(path: &Path) -> bool {
+/// Whether `path` is an MP4-like container, which Prepare rewrites in place and never removes.
+#[must_use]
+pub fn is_mp4_like(path: &Path) -> bool {
     path.extension()
         .is_some_and(|e| MP4_LIKE.iter().any(|m| e.eq_ignore_ascii_case(m)))
 }
