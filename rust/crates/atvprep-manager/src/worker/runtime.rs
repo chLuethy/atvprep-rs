@@ -252,8 +252,9 @@ fn execute_pass(ctx: Ctx<'_>, config: &RuntimeConfig) -> Result<()> {
 /// How many background checks of an unknown Kodierbedarf may wait at a time.
 const NEED_CHECK_BATCH: i64 = 32;
 
-/// Queue „Prüfen“ for files whose Kodierbedarf is unknown. Each file and state of its bytes is tried
-/// once: a check that ends without a need is not repeated on its own, a changed file is checked anew.
+/// Queue „Prüfen“ for files whose Kodierbedarf is unknown. Each file, state of its bytes and
+/// revision of the Zielprofil is tried once: a check that ends without a need is not repeated on
+/// its own, a changed file or a changed profile is checked anew.
 fn queue_need_checks(ctx: Ctx<'_>, settle_seconds: i64) -> Result<()> {
     let tx =
         rusqlite::Transaction::new_unchecked(ctx.conn, rusqlite::TransactionBehavior::Immediate)?;
@@ -284,19 +285,23 @@ fn queue_need_checks(ctx: Ctx<'_>, settle_seconds: i64) -> Result<()> {
                               WHERE i.media_file_id=m.id AND i.action='verify'
                                 AND i.status NOT IN ('cancelled','stale_input')
                                 AND json_extract(i.settings_snapshot_json,'$.need_check')=1
+                                AND COALESCE(json_extract(i.settings_snapshot_json,'$.profile_revision'),0)=?3
                                 AND json_extract(s.snapshot_json,'$.file_fingerprint')=m.fingerprint)
              ORDER BY m.id LIMIT ?2",
             crate::state_machine::ItemStatus::terminal_sql_list()
         ))?;
+        let profile_revision = crate::settings::target_profile_revision(&tx)?;
         let ids = statement
-            .query_map(rusqlite::params![cutoff, available], |row| {
-                row.get::<_, i64>(0)
-            })?
+            .query_map(
+                rusqlite::params![cutoff, available, profile_revision],
+                |row| row.get::<_, i64>(0),
+            )?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         drop(statement);
         if !ids.is_empty() {
             let mut job = crate::jobs::NewJob::new("verify", &ids);
-            job.settings_snapshot = serde_json::json!({"need_check": true});
+            job.settings_snapshot =
+                serde_json::json!({"need_check": true, "profile_revision": profile_revision});
             Jobs(write).create(&job)?;
         }
     }
@@ -413,6 +418,54 @@ mod tests {
             .unwrap();
         queue_need_checks(ctx, 0).unwrap();
         assert_eq!(checked(&conn), [1, 4, 1]);
+    }
+
+    /// Change the Zielprofil through the settings and let the queued checks finish.
+    fn change_profile(conn: &crate::db::Conn, clock: FixedClock, keep_av1: bool) {
+        conn.raw()
+            .execute("UPDATE job_items SET status='succeeded'", [])
+            .unwrap();
+        crate::settings::Settings(Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        })
+        .set("target_keep_av1", &serde_json::json!(keep_av1), "o", None)
+        .unwrap();
+    }
+
+    #[test]
+    fn a_changed_target_profile_checks_every_file_again_with_the_same_bytes() {
+        let (conn, clock) = library();
+        let ctx = Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        };
+        queue_need_checks(ctx, 0).unwrap();
+        assert_eq!(checked(&conn), [1, 4]);
+
+        change_profile(&conn, clock, true);
+        queue_need_checks(ctx, 0).unwrap();
+        assert_eq!(
+            checked(&conn),
+            [1, 4, 1, 2, 4],
+            "every present file, the one with a known need as well"
+        );
+        queue_need_checks(ctx, 0).unwrap();
+        assert_eq!(checked(&conn), [1, 4, 1, 2, 4], "once per change");
+    }
+
+    #[test]
+    fn a_target_profile_changed_back_checks_again_as_well() {
+        let (conn, clock) = library();
+        let ctx = Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        };
+        change_profile(&conn, clock, true);
+        queue_need_checks(ctx, 0).unwrap();
+        change_profile(&conn, clock, false);
+        queue_need_checks(ctx, 0).unwrap();
+        assert_eq!(checked(&conn).len(), 6, "{:?}", checked(&conn));
     }
 
     #[test]

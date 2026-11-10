@@ -108,6 +108,16 @@ impl Harness {
     }
 
     async fn post(&self, path: &str, action: &str, body: Value) -> (StatusCode, Value) {
+        self.send("POST", path, action, body).await
+    }
+
+    async fn send(
+        &self,
+        method: &'static str,
+        path: &str,
+        action: &str,
+        body: Value,
+    ) -> (StatusCode, Value) {
         let csrf = {
             let conn = self.state.db.conn().unwrap();
             AuthService::new(
@@ -119,12 +129,12 @@ impl Harness {
                 3600,
             )
             .unwrap()
-            .issue_csrf(&self.token, "POST", path, action)
+            .issue_csrf(&self.token, method, path, action)
             .unwrap()
         };
         self.keys.set(self.keys.get() + 1);
         let request = Request::builder()
-            .method("POST")
+            .method(method)
             .uri(path)
             .header("origin", "http://testserver")
             .header("cookie", format!("__Host-atvprep_session={}", self.token))
@@ -268,6 +278,134 @@ async fn force_is_refused_for_an_action_that_changes_nothing() {
     assert_eq!(h.sql::<i64>("SELECT count(*) FROM jobs"), 0);
 }
 
+/// The Zielprofil recorded on the newest item.
+fn newest_profile(h: &Harness) -> Value {
+    let text: String = h.sql("SELECT settings_snapshot_json FROM job_items ORDER BY id DESC");
+    serde_json::from_str::<Value>(&text).unwrap()["profile"].clone()
+}
+
+async fn set_settings(h: &Harness, settings: Value) -> (StatusCode, Value) {
+    h.send(
+        "PATCH",
+        "/api/v1/settings",
+        "settings",
+        json!({"settings":settings}),
+    )
+    .await
+}
+
+#[tokio::test]
+async fn a_prepare_records_and_signs_the_current_target_profile() {
+    let h = Harness::new();
+    let (status, body) = set_settings(&h, json!({"target_crf":24,"target_keep_av1":true})).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (status, body) = h
+        .create_job(json!({"action":"prepare","media_ids":[Harness::id(2)],"manual_approval":true}))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    assert_eq!(
+        newest_profile(&h),
+        json!({"crf":24,"prefer_hevc10":false,"keep_av1":true,"fix_dts":false})
+    );
+    item_decisions(&h);
+}
+
+#[tokio::test]
+async fn the_settings_list_the_target_profile_at_its_defaults() {
+    let h = Harness::new();
+    let request = Request::builder()
+        .uri("/api/v1/settings")
+        .header("origin", "http://testserver")
+        .header("cookie", format!("__Host-atvprep_session={}", h.token))
+        .body(Body::empty())
+        .unwrap();
+    let response = h.app.clone().oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = to_bytes(response.into_body(), 1 << 20).await.unwrap();
+    let body: Value = serde_json::from_slice(&bytes).unwrap();
+    let entry = |key: &str| {
+        body["data"]["settings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|setting| setting["key"] == key)
+            .unwrap_or_else(|| panic!("{key} is listed"))
+            .clone()
+    };
+    assert_eq!(entry("target_crf")["value"], json!(18));
+    assert_eq!(entry("target_crf")["default_value"], json!(18));
+    for key in ["target_prefer_hevc10", "target_keep_av1", "target_fix_dts"] {
+        assert_eq!(entry(key)["value"], json!(false), "{key}");
+    }
+}
+
+#[tokio::test]
+async fn the_server_refuses_an_invalid_target_profile() {
+    let h = Harness::new();
+    for settings in [
+        json!({"target_crf":52}),
+        json!({"target_crf":-1}),
+        json!({"target_crf":"18"}),
+        json!({"target_keep_av1":1}),
+        json!({"target_prefer_hevc10":"yes"}),
+        json!({"target_fix_dts":null}),
+    ] {
+        let (status, body) = set_settings(&h, settings.clone()).await;
+        assert_eq!(
+            status,
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "{settings} {body}"
+        );
+    }
+    assert_eq!(
+        h.sql::<i64>("SELECT count(*) FROM runtime_settings WHERE key LIKE 'target_%'"),
+        0
+    );
+    assert_eq!(
+        h.sql::<String>("SELECT encode_need FROM media_files WHERE id=2"),
+        "video",
+        "a refused change leaves the needs alone"
+    );
+}
+
+#[tokio::test]
+async fn a_changed_target_profile_makes_the_needs_unknown_through_the_api() {
+    let h = Harness::new();
+    let (status, body) = set_settings(&h, json!({"target_keep_av1":true})).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        h.sql::<i64>("SELECT count(*) FROM media_files WHERE encode_need<>'unknown'"),
+        0
+    );
+}
+
+#[tokio::test]
+async fn a_retry_after_a_profile_change_is_refused_and_says_to_queue_again() {
+    let h = Harness::new();
+    let (status, body) = h
+        .create_job(json!({"action":"prepare","media_ids":[Harness::id(2)],"manual_approval":true}))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    h.fail_the_item();
+    let (status, body) = set_settings(&h, json!({"target_crf":24})).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let job = body_job(&h);
+    let (status, body) = h
+        .post(
+            &format!("/api/v1/jobs/{job}/retry"),
+            "retry-job",
+            json!({"job_id":job,"operation":"retry"}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert!(body.to_string().contains("queue it again"), "{body}");
+}
+
+/// The opaque id of the newest job.
+fn body_job(h: &Harness) -> String {
+    Opaque::new(SECRET.as_bytes()).encode("j", h.sql::<i64>("SELECT max(id) FROM jobs"))
+}
+
 #[tokio::test]
 async fn a_retry_takes_the_stored_allowance_and_force_unchanged() {
     let h = Harness::new();
@@ -380,6 +518,7 @@ async fn only_an_item_with_encoding_not_allowed_can_be_raised() {
 }
 
 /// The Kodierfreigabe recorded on each item, by media id, with its signature checked.
+#[allow(clippy::too_many_lines)] // One walk through everything the signature binds.
 fn item_decisions(h: &Harness) -> Vec<(i64, EncodeAllowance, bool)> {
     use atvprep_manager::{
         approval::{ApprovalItem, ApprovalVerifier, item_encode, prepare_policy_block},
@@ -419,6 +558,8 @@ fn item_decisions(h: &Harness) -> Vec<(i64, EncodeAllowance, bool)> {
                         encode,
                         delete_original,
                         force: atvprep_manager::approval::item_force(&item.settings_snapshot),
+                        profile: atvprep_manager::approval::item_profile(&item.settings_snapshot)
+                            .unwrap(),
                     },
                     ctx.clock.now_micros() / 1_000_000,
                 )
@@ -444,11 +585,38 @@ fn item_decisions(h: &Harness) -> Vec<(i64, EncodeAllowance, bool)> {
                             encode,
                             delete_original,
                             force: !force,
+                            profile: atvprep_manager::approval::item_profile(
+                                &item.settings_snapshot
+                            )
+                            .unwrap(),
                         },
                         ctx.clock.now_micros() / 1_000_000,
                     )
                     .is_some(),
                 "the decision to rebuild is part of the signature"
+            );
+            assert!(
+                verifier
+                    .check(
+                        &item.settings_snapshot,
+                        &ApprovalItem {
+                            job_id: job,
+                            media_id: item.media_file_id,
+                            action: &item.action,
+                            identity: &identity,
+                            encode,
+                            delete_original,
+                            force,
+                            profile: atvprep_manager::settings::TargetProfile {
+                                crf: 40,
+                                ..atvprep_manager::approval::item_profile(&item.settings_snapshot)
+                                    .unwrap()
+                            },
+                        },
+                        ctx.clock.now_micros() / 1_000_000,
+                    )
+                    .is_some(),
+                "the target profile is part of the signature"
             );
             (item.media_file_id, encode, delete_original)
         })

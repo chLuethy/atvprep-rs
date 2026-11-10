@@ -2,7 +2,9 @@
 use super::process::PrepareMode;
 use crate::{
     Error, Result,
-    approval::{ApprovalItem, ApprovalVerifier, item_encode, item_force, prepare_policy_block},
+    approval::{
+        ApprovalItem, ApprovalVerifier, item_encode, item_force, item_profile, prepare_policy_block,
+    },
     clock::format_micros,
     jobs::Jobs,
     repo::Ctx,
@@ -61,10 +63,13 @@ pub fn authorize_prepare(
     }
     let encode = item_encode(snapshot)
         .ok_or_else(|| Error::Invalid("The job carries no encoding allowance.".to_owned()))?;
+    let profile = item_profile(snapshot)
+        .ok_or_else(|| Error::Invalid("The job carries no target profile.".to_owned()))?;
     let mode = PrepareMode {
         encode,
         delete_original: snapshot["delete_original"] == Value::Bool(true),
         force: item_force(snapshot),
+        profile,
     };
     if let Some(reason) = verifier.check(
         snapshot,
@@ -76,6 +81,7 @@ pub fn authorize_prepare(
             encode: mode.encode,
             delete_original: mode.delete_original,
             force: mode.force,
+            profile: mode.profile,
         },
         ctx.clock.now_micros() / 1_000_000,
     ) {
@@ -136,10 +142,14 @@ fn authorize_schedule_job(
     if encode != EncodeAllowance::Copy && !params.allow_reencode {
         return refuse("The schedule does not allow a re-encode.");
     }
+    let Some(profile) = item_profile(snapshot) else {
+        return refuse("The job carries no target profile.");
+    };
     Ok(PrepareMode {
         encode,
         delete_original: params.delete_original,
         force: false,
+        profile,
     })
 }
 
@@ -180,11 +190,12 @@ mod tests {
                 encode: EncodeAllowance::Copy,
                 delete_original: false,
                 force: false,
+                profile: crate::settings::TargetProfile::default(),
             },
             1,
             clock.now_micros() / 1_000_000,
         );
-        let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","encode":"copy","manual_approval":true,"approved_by":1,"approved_at":clock.now_micros()/1_000_000,"approval_mac":signature});
+        let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","profile":crate::settings::TargetProfile::default().to_json(),"encode":"copy","manual_approval":true,"approved_by":1,"approved_at":clock.now_micros()/1_000_000,"approval_mac":signature});
         conn.raw()
             .execute(
                 "UPDATE job_items SET settings_snapshot_json=?1 WHERE id=1",
@@ -243,7 +254,7 @@ mod tests {
                 .unwrap();
         };
         let queue = |params: &ScheduleParams<'_>| {
-            let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","encode":"copy","manual_approval":false,
+            let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","profile":crate::settings::TargetProfile::default().to_json(),"encode":"copy","manual_approval":false,
                 "schedule_id":1,"schedule_params":params.to_json()});
             conn.raw()
                 .execute(
@@ -338,11 +349,12 @@ mod tests {
                 encode,
                 delete_original,
                 force: false,
+                profile: crate::settings::TargetProfile::default(),
             },
             1,
             clock.now_micros() / 1_000_000,
         );
-        let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","encode":encode.as_str(),"delete_original":delete_original,"manual_approval":true,"approved_by":1,"approved_at":clock.now_micros()/1_000_000,"approval_mac":signature});
+        let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","profile":crate::settings::TargetProfile::default().to_json(),"encode":encode.as_str(),"delete_original":delete_original,"manual_approval":true,"approved_by":1,"approved_at":clock.now_micros()/1_000_000,"approval_mac":signature});
         conn.raw()
             .execute(
                 "UPDATE job_items SET settings_snapshot_json=?1 WHERE id=1",
@@ -371,7 +383,8 @@ mod tests {
                 PrepareMode {
                     encode,
                     delete_original,
-                    force: false
+                    force: false,
+                    profile: crate::settings::TargetProfile::default(),
                 }
             );
         }
@@ -441,7 +454,7 @@ mod tests {
             allow_reencode,
         };
         let queue = |allow_reencode: bool, item_encode: EncodeAllowance| {
-            let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","encode":item_encode.as_str(),"manual_approval":false,
+            let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","profile":crate::settings::TargetProfile::default().to_json(),"encode":item_encode.as_str(),"manual_approval":false,
                 "schedule_id":1,"schedule_params":params(allow_reencode).to_json()});
             conn.raw()
                 .execute(
@@ -466,6 +479,7 @@ mod tests {
             encode: EncodeAllowance::Copy,
             delete_original: false,
             force: false,
+            profile: crate::settings::TargetProfile::default(),
         };
 
         sign(false);
@@ -482,7 +496,8 @@ mod tests {
             PrepareMode {
                 encode: EncodeAllowance::All,
                 delete_original: false,
-                force: false
+                force: false,
+                profile: crate::settings::TargetProfile::default(),
             }
         );
         queue(true, EncodeAllowance::Copy);
@@ -493,7 +508,7 @@ mod tests {
         conn.raw()
             .execute(
                 "UPDATE job_items SET settings_snapshot_json=json_set(?1,'$.force',json('true')) WHERE id=1",
-                [json!({"pipeline":"prepare","policy":"encode-v3","encode":"copy","manual_approval":false,
+                [json!({"pipeline":"prepare","policy":"encode-v3","profile":crate::settings::TargetProfile::default().to_json(),"encode":"copy","manual_approval":false,
                     "schedule_id":1,"schedule_params":params(false).to_json()}).to_string()],
             )
             .unwrap();

@@ -84,6 +84,7 @@ fn an_approved_fix_schedule_queues_a_job_bound_to_its_parameters() {
     assert_eq!(snapshot["schedule_id"], 1);
     assert_eq!(snapshot["pipeline"], "prepare");
     assert_eq!(snapshot["policy"], "encode-v3");
+    assert_eq!(snapshot["profile"]["crf"], 18);
     assert_eq!(snapshot["schedule_params"]["max_files"], 5);
     assert_eq!(snapshot["schedule_params"]["delete_original"], false);
     assert_eq!(snapshot["schedule_params"]["action"], "fix");

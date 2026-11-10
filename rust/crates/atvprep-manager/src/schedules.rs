@@ -630,6 +630,7 @@ fn run_change_schedule(
     job.settings_snapshot = serde_json::json!({
         "pipeline": "prepare",
         "policy": crate::approval::PREPARE_POLICY,
+        "profile": crate::settings::target_profile(ctx.conn)?.to_json(),
         "delete_original": delete_original,
         "delete_original_confirmed": false,
         "manual_approval": false,

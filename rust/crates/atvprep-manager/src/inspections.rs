@@ -89,7 +89,10 @@ impl Inspections<'_> {
                 ],
             )?;
         }
-        let need = evaluate(verified.as_ref().unwrap_or(inspection)).need;
+        if inspection.tool_name != "verify" {
+            return Ok(());
+        }
+        let need = evaluate(inspection).need;
         let (need, change) = match need {
             NeedUpdate::Keep => return Ok(()),
             NeedUpdate::Unknown => (UNKNOWN, UNKNOWN),

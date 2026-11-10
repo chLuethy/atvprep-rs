@@ -111,10 +111,13 @@ fn queue_prepare(
         .collect();
     let delete_original = atvprep_manager::schedules::delete_original_setting(ctx.conn)
         .map_err(|_| MutationError::Database)?;
+    let profile =
+        atvprep_manager::settings::target_profile(ctx.conn).map_err(|_| MutationError::Database)?;
     let approved_by = approver(ctx, state, decision.session_token)?;
     new.settings_snapshot = json!({
         "pipeline": "prepare",
         "policy": atvprep_manager::approval::PREPARE_POLICY,
+        "profile": profile.to_json(),
         "delete_original": delete_original,
         "delete_original_confirmed": false,
         "manual_approval": true,
@@ -179,6 +182,8 @@ fn sign_job(ctx: Ctx<'_>, state: &AppState, job: i64) -> Result<(), MutationErro
                         .ok_or(MutationError::Database)?,
                     delete_original: snapshot["delete_original"] == json!(true),
                     force: atvprep_manager::approval::item_force(&snapshot),
+                    profile: atvprep_manager::approval::item_profile(&snapshot)
+                        .ok_or(MutationError::Database)?,
                 },
                 person,
                 time
@@ -237,6 +242,11 @@ pub async fn retry(
                         "a file changed since the job was queued; queue it again" => {
                             MutationError::Rejected(
                                 "a file changed since the job was queued; queue it again",
+                            )
+                        }
+                        "the target profile changed since the job was queued; queue it again" => {
+                            MutationError::Rejected(
+                                "the target profile changed since the job was queued; queue it again",
                             )
                         }
                         _ => MutationError::Rejected("job cannot be retried"),

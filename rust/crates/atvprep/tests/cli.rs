@@ -248,6 +248,7 @@ fn worker_hands_a_pinned_directory_to_the_real_cli() {
             encode: atvprep_core::encode::EncodeAllowance::Copy,
             delete_original: false,
             force: false,
+            profile: atvprep_manager::settings::TargetProfile::default(),
         },
         &environment,
         Duration::from_secs(30),
@@ -307,6 +308,7 @@ fn the_worker_re_encodes_for_real_only_with_the_approved_mode() {
         encode: atvprep_core::encode::EncodeAllowance::Copy,
         delete_original: false,
         force: false,
+        profile: atvprep_manager::settings::TargetProfile::default(),
     });
     assert_eq!(code, Some(0), "{output}");
     assert!(
@@ -324,6 +326,7 @@ fn the_worker_re_encodes_for_real_only_with_the_approved_mode() {
         encode: atvprep_core::encode::EncodeAllowance::Audio,
         delete_original: false,
         force: false,
+        profile: atvprep_manager::settings::TargetProfile::default(),
     });
     assert_eq!(code, Some(0), "{output}");
     assert!(
@@ -337,6 +340,7 @@ fn the_worker_re_encodes_for_real_only_with_the_approved_mode() {
         encode: atvprep_core::encode::EncodeAllowance::All,
         delete_original: true,
         force: false,
+        profile: atvprep_manager::settings::TargetProfile::default(),
     });
     assert_eq!(code, Some(0), "{output}");
     assert!(output.contains("ATVPREP-OUTCOME reencoded"), "{output}");
@@ -553,7 +557,7 @@ fn worker_executes_a_claimed_verification_and_releases_its_permit() {
     let ids = [media.id];
     let mut prepare = NewJob::new("fix", &ids);
     prepare.trigger = "manual";
-    prepare.settings_snapshot = serde_json::json!({"pipeline":"prepare","policy":atvprep_manager::approval::PREPARE_POLICY,"encode":"copy","manual_approval":true,"approved_by":session.id,"approved_at":ctx.clock.now_micros()/1_000_000,"delete_original":false,"delete_original_confirmed":false});
+    prepare.settings_snapshot = serde_json::json!({"pipeline":"prepare","policy":atvprep_manager::approval::PREPARE_POLICY,"profile":atvprep_manager::settings::TargetProfile::default().to_json(),"encode":"copy","manual_approval":true,"approved_by":session.id,"approved_at":ctx.clock.now_micros()/1_000_000,"delete_original":false,"delete_original_confirmed":false});
     let job = Jobs(ctx).create(&prepare).unwrap();
     let queued = Jobs(ctx).items(job.id).unwrap().remove(0);
     let recorded = atvprep_manager::snapshots::InputSnapshots(ctx)
@@ -577,6 +581,7 @@ fn worker_executes_a_claimed_verification_and_releases_its_permit() {
             encode: atvprep_core::encode::EncodeAllowance::Copy,
             delete_original: false,
             force: false,
+            profile: atvprep_manager::settings::TargetProfile::default(),
         },
         session.id,
         signed["approved_at"].as_i64().unwrap()
@@ -793,6 +798,7 @@ fn cancelling_a_re_encode_removes_the_partial_file() {
             encode: atvprep_core::encode::EncodeAllowance::All,
             delete_original: true,
             force: false,
+            profile: atvprep_manager::settings::TargetProfile::default(),
         },
         &environment,
         Duration::from_secs(60),

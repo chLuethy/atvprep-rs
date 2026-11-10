@@ -372,6 +372,14 @@ impl Jobs<'_> {
             // A retry is a new decision by the person who clicked it, about the file the job was for.
             let owned: Vec<JobItem> = retry_items.iter().map(|i| (*i).clone()).collect();
             self.require_same_files(&owned)?;
+            if crate::approval::item_profile(&snapshot)
+                != Some(crate::settings::target_profile(self.0.conn)?)
+            {
+                return Err(Error::Invalid(
+                    "the target profile changed since the job was queued; queue it again"
+                        .to_owned(),
+                ));
+            }
             if let Some(object) = snapshot.as_object_mut() {
                 object.remove("approval_mac");
                 if let Some(person) = approved_by {

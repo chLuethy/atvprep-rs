@@ -9,6 +9,7 @@ use crate::{
     jobs::Jobs,
     leases::MediaExecutorLease,
     repo::Ctx,
+    settings::{TargetProfile, target_profile},
     snapshots::{InputSnapshot, InputSnapshots},
     state_machine::{ItemStatus, JobStateMachine, JobStatus},
 };
@@ -146,11 +147,21 @@ pub fn execute_claimed(
             encode: EncodeAllowance::Copy,
             delete_original: false,
             force: false,
+            profile: TargetProfile::default(),
         };
         if changing {
             // A job from an older policy can never become valid: refused for good, "queue it again".
             if let Some(reason) = crate::approval::prepare_policy_block(&item.settings_snapshot) {
                 return Err(Error::Invalid(reason.to_owned()));
+            }
+            // Signed for the profile it was queued under: a changed profile is a new decision.
+            if crate::approval::item_profile(&item.settings_snapshot)
+                != Some(crate::db::retry_busy(|| target_profile(ctx.conn))?)
+            {
+                return Err(Error::Invalid(
+                    "The target profile changed after this job was queued. Queue the fix again."
+                        .to_owned(),
+                ));
             }
             let verifier = config
                 .approvals
@@ -287,6 +298,8 @@ pub fn execute_claimed(
                 !matches!(status, JobStatus::Queued | JobStatus::Running)
             })
         };
+        // „Prüfen“ runs against the profile of this moment; what it stored is checked again below.
+        let verify_profile = crate::db::retry_busy(|| target_profile(ctx.conn))?;
         let mut output =
             super::execution_output::ClaimedOutput::new(ctx, owner, fence, item_id, item.job_id);
         let process = if changing {
@@ -316,6 +329,7 @@ pub fn execute_claimed(
             run_pinned_verify(
                 &config.executable,
                 &target,
+                verify_profile,
                 &config.environment,
                 config.timeout,
                 config.grace,
@@ -382,6 +396,9 @@ pub fn execute_claimed(
                 },
                 None,
             )?;
+            if item.action == "verify" {
+                forget_need_of_a_superseded_profile(write, item.media_file_id, verify_profile)?;
+            }
             tx.commit()?;
         }
         if changing {
@@ -474,6 +491,22 @@ pub fn execute_claimed(
             Err(error)
         }
     }
+}
+
+/// A check that ran against a profile changed in the meantime must not leave its need behind: the
+/// file goes back to „unbekannt“, and the background check asks again under the new profile.
+fn forget_need_of_a_superseded_profile(
+    ctx: Ctx<'_>,
+    media_id: i64,
+    used: TargetProfile,
+) -> Result<()> {
+    if target_profile(ctx.conn)? != used {
+        ctx.conn.execute(
+            "UPDATE media_files SET encode_need='unknown', planned_change='unknown' WHERE id=?1",
+            [media_id],
+        )?;
+    }
+    Ok(())
 }
 
 /// Whether the CLI reported that it removed the old container after a verified MP4.
@@ -588,4 +621,52 @@ fn complete_prepare(
     }
     tx.commit()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{clock::FixedClock, db::Db, schema, settings::Settings};
+    use serde_json::json;
+
+    #[test]
+    fn a_check_against_a_superseded_profile_leaves_the_file_unknown() {
+        let db = Db::memory().unwrap();
+        let mut conn = db.conn().unwrap();
+        schema::migrate(&mut conn).unwrap();
+        let clock = FixedClock(1_700_000_000_000_000);
+        let ctx = Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        };
+        conn.raw().execute_batch(
+            "INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'r','/r');
+             INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,
+               discovery_state,compliance_state,workflow_state,desired_action,encode_need,planned_change)
+             VALUES (1,1,'a.mp4','movie','.mp4',1,1,'a','present','clean','idle','none','video','reencode');",
+        ).unwrap();
+        let need = || {
+            conn.raw()
+                .query_row("SELECT encode_need FROM media_files WHERE id=1", [], |r| {
+                    r.get::<_, String>(0)
+                })
+                .unwrap()
+        };
+
+        forget_need_of_a_superseded_profile(ctx, 1, TargetProfile::default()).unwrap();
+        assert_eq!(
+            need(),
+            "video",
+            "the profile the check ran against still holds"
+        );
+
+        Settings(ctx)
+            .set("target_crf", &json!(24), "o", None)
+            .unwrap();
+        conn.raw()
+            .execute("UPDATE media_files SET encode_need='video'", [])
+            .unwrap();
+        forget_need_of_a_superseded_profile(ctx, 1, TargetProfile::default()).unwrap();
+        assert_eq!(need(), "unknown");
+    }
 }

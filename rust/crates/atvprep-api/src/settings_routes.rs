@@ -24,7 +24,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-const KEYS: [&str; 9] = [
+const KEYS: [&str; 13] = [
     "delete_original",
     "event_retention_days",
     "job_retention_days",
@@ -34,6 +34,10 @@ const KEYS: [&str; 9] = [
     "scan_exclude_dirs",
     "scan_interval_seconds",
     "settle_seconds",
+    "target_crf",
+    "target_fix_dts",
+    "target_keep_av1",
+    "target_prefer_hevc10",
 ];
 
 fn bounded(value: Value) -> Value {

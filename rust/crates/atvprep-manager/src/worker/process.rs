@@ -1,6 +1,6 @@
 //! Bounded subprocess execution with process-group cancellation.
 use super::executor::validate_executable;
-use crate::{Error, Result};
+use crate::{Error, Result, settings::TargetProfile};
 use atvprep_core::encode::EncodeAllowance;
 use atvprep_core::prepare::paths::is_mp4_like;
 use std::os::unix::process::CommandExt;
@@ -121,6 +121,8 @@ pub struct PrepareMode {
     pub delete_original: bool,
     /// The signed decision to rebuild the file even when it is at the target.
     pub force: bool,
+    /// The signed Zielprofil, passed to the CLI as its own flags.
+    pub profile: TargetProfile,
 }
 
 /// The argument vector of `atvprep prepare` for one pinned leaf.
@@ -139,6 +141,7 @@ fn prepare_arguments(leaf: &str, identity: (i128, i128, i128), mode: PrepareMode
     if mode.force {
         arguments.push("--force".to_owned());
     }
+    arguments.extend(mode.profile.cli_arguments());
     arguments.extend([
         "--manager-parent-fd".to_owned(),
         "0".to_owned(),
@@ -352,13 +355,41 @@ pub fn run_pinned_probe(
     )
 }
 
+/// The argument vector of `atvprep verify` for one pinned leaf.
+fn verify_arguments(
+    leaf: &str,
+    identity: (i128, i128, i128),
+    profile: TargetProfile,
+) -> Vec<String> {
+    let (device, inode, ctime) = identity;
+    let mut arguments = vec!["verify".to_owned(), "--json".to_owned()];
+    arguments.extend(profile.cli_arguments());
+    arguments.extend([
+        "--manager-parent-fd".to_owned(),
+        "0".to_owned(),
+        "--manager-leaf".to_owned(),
+        leaf.to_owned(),
+        "--manager-device".to_owned(),
+        device.to_string(),
+        "--manager-inode".to_owned(),
+        inode.to_string(),
+        "--manager-ctime-ns".to_owned(),
+        ctime.to_string(),
+        "--".to_owned(),
+        leaf.to_owned(),
+    ]);
+    arguments
+}
+
 /// Verify a pinned library file without exposing its configured root to the child.
 ///
 /// # Errors
 /// Rejects stale inputs and failed descriptor handoff or process execution.
+#[allow(clippy::too_many_arguments)] // The profile joins the explicit process policy at the spawn boundary.
 pub fn run_pinned_verify(
     executable: &Path,
     target: &atvprep_core::fd_fix_contract::FdFixTarget,
+    profile: TargetProfile,
     environment: &BTreeMap<String, String>,
     timeout: Duration,
     grace: Duration,
@@ -373,23 +404,7 @@ pub fn run_pinned_verify(
         rustix::fs::Mode::empty(),
     )
     .map_err(|_| Error::Invalid("cannot hand off media directory".to_owned()))?;
-    let (device, inode, ctime) = target.identity();
-    let arguments = vec![
-        "verify".to_owned(),
-        "--json".to_owned(),
-        "--manager-parent-fd".to_owned(),
-        "0".to_owned(),
-        "--manager-leaf".to_owned(),
-        target.leaf_name().to_owned(),
-        "--manager-device".to_owned(),
-        device.to_string(),
-        "--manager-inode".to_owned(),
-        inode.to_string(),
-        "--manager-ctime-ns".to_owned(),
-        ctime.to_string(),
-        "--".to_owned(),
-        target.leaf_name().to_owned(),
-    ];
+    let arguments = verify_arguments(target.leaf_name(), target.identity(), profile);
     run_with_stdin(
         executable,
         &arguments,
@@ -407,6 +422,54 @@ mod tests {
     use super::*;
 
     #[test]
+    fn prepare_and_verify_pass_the_whole_profile_to_the_cli_and_nothing_extra_by_default() {
+        let carried = TargetProfile {
+            crf: 24,
+            prefer_hevc10: true,
+            keep_av1: true,
+            fix_dts: true,
+        };
+        let prepare = |profile| {
+            prepare_arguments(
+                "a.mp4",
+                (1, 2, 3),
+                PrepareMode {
+                    encode: EncodeAllowance::Copy,
+                    delete_original: false,
+                    force: false,
+                    profile,
+                },
+            )
+        };
+        let verify = |profile| verify_arguments("a.mp4", (1, 2, 3), profile);
+        for arguments in [prepare(carried), verify(carried)] {
+            assert!(
+                arguments
+                    .windows(2)
+                    .any(|w| w[0] == "--crf" && w[1] == "24")
+            );
+            for flag in ["--prefer-hevc10", "--keep-av1", "--fix-dts"] {
+                assert!(arguments.iter().any(|a| a == flag), "{flag}");
+            }
+            let flags_end = arguments.iter().position(|a| a == "--").unwrap();
+            assert!(arguments[..flags_end].iter().any(|a| a == "--crf"));
+        }
+        for arguments in [
+            prepare(TargetProfile::default()),
+            verify(TargetProfile::default()),
+        ] {
+            assert!(
+                arguments
+                    .windows(2)
+                    .any(|w| w[0] == "--crf" && w[1] == "18")
+            );
+            for flag in ["--prefer-hevc10", "--keep-av1", "--fix-dts"] {
+                assert!(!arguments.iter().any(|a| a == flag), "{flag}");
+            }
+        }
+    }
+
+    #[test]
     fn the_cli_starts_with_the_items_own_level_and_only_another_container_may_be_deleted() {
         fn level(arguments: &[String]) -> &str {
             let at = arguments.iter().position(|a| a == "--encode").unwrap();
@@ -420,6 +483,7 @@ mod tests {
                     encode,
                     delete_original,
                     force: false,
+                    profile: crate::settings::TargetProfile::default(),
                 },
             )
         };

@@ -737,6 +737,42 @@
                 "value": 120
               },
               {
+                "default_value": 18,
+                "effective_revision": 1,
+                "key": "target_crf",
+                "last_changed_revision": null,
+                "revision": 0,
+                "source": "default",
+                "value": 18
+              },
+              {
+                "default_value": false,
+                "effective_revision": 1,
+                "key": "target_fix_dts",
+                "last_changed_revision": null,
+                "revision": 0,
+                "source": "default",
+                "value": false
+              },
+              {
+                "default_value": false,
+                "effective_revision": 1,
+                "key": "target_keep_av1",
+                "last_changed_revision": null,
+                "revision": 0,
+                "source": "default",
+                "value": false
+              },
+              {
+                "default_value": false,
+                "effective_revision": 1,
+                "key": "target_prefer_hevc10",
+                "last_changed_revision": null,
+                "revision": 0,
+                "source": "default",
+                "value": false
+              },
+              {
                 "default_value": null,
                 "effective_revision": 1,
                 "guidance": "Configured outside the runtime settings page; restart the manager after deployment/config changes.",

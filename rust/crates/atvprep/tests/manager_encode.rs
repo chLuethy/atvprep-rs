@@ -23,6 +23,7 @@ use atvprep_manager::{
     media::Media,
     repo::Ctx,
     schema,
+    settings::{Settings, TargetProfile},
     snapshots::InputSnapshots,
     state_machine::ItemStatus,
     worker::execution::{
@@ -140,6 +141,17 @@ fn world_with(
     delete_original: bool,
     force: bool,
 ) -> World {
+    world_profiled(files, delete_original, force, TargetProfile::default())
+}
+
+/// Like [`world_with`], under `profile` as the current Zielprofil, recorded and signed on the items.
+#[allow(clippy::too_many_lines)] // One signed job, set up the way the API queues it.
+fn world_profiled(
+    files: &[(&str, MakeFile, EncodeAllowance)],
+    delete_original: bool,
+    force: bool,
+    profile: TargetProfile,
+) -> World {
     require_media_tools(&search_path());
     let dir = tempfile::tempdir().unwrap();
     let root_path = dir.path().canonicalize().unwrap();
@@ -171,12 +183,24 @@ fn world_with(
             rusqlite::params![format_micros(clock.now_micros() + 600_000_000), clock.now()],
         )
         .unwrap();
+    Settings(ctx)
+        .set_many(
+            &[
+                ("target_crf", json!(profile.crf)),
+                ("target_prefer_hevc10", json!(profile.prefer_hevc10)),
+                ("target_keep_av1", json!(profile.keep_av1)),
+                ("target_fix_dts", json!(profile.fix_dts)),
+            ],
+            "test",
+            None,
+        )
+        .unwrap();
     let ids: Vec<i64> = media.iter().map(|(_, id)| *id).collect();
     let mut new = NewJob::new("fix", &ids);
     new.trigger = "manual";
     new.settings_snapshot = json!({"pipeline":"prepare","policy":PREPARE_POLICY,
         "delete_original":delete_original,"force":force,"manual_approval":true,"approved_by":1,
-        "approved_at":clock.now_micros()/1_000_000});
+        "approved_at":clock.now_micros()/1_000_000,"profile":profile.to_json()});
     for ((_, id), (_, _, allowance)) in media.iter().zip(files) {
         new.encode_media.insert(*id, *allowance);
     }
@@ -201,6 +225,7 @@ fn world_with(
                 encode,
                 delete_original,
                 force,
+                profile,
             },
             1,
             clock.now_micros() / 1_000_000,
@@ -761,6 +786,7 @@ fn only_all_with_a_video_or_unknown_need_gets_the_four_hour_limit() {
                 encode,
                 delete_original: false,
                 force: false,
+                profile: TargetProfile::default(),
             },
             need,
         )
@@ -781,4 +807,127 @@ fn only_all_with_a_video_or_unknown_need_gets_the_four_hour_limit() {
     // A longer configured limit is never shortened.
     let long = Duration::from_hours(6);
     assert_eq!(limit(All, Some(EncodeNeed::Video), long), long);
+}
+
+const KEEP_AV1: TargetProfile = TargetProfile {
+    crf: 18,
+    prefer_hevc10: false,
+    keep_av1: true,
+    fix_dts: false,
+};
+
+fn av1(path: &Path) {
+    std::fs::copy(testdata("av1.mp4"), path).unwrap();
+}
+
+/// One file under `profile`, already checked with the real CLI: the stored need and the world.
+fn checked_under(
+    make: MakeFile,
+    allowance: EncodeAllowance,
+    profile: TargetProfile,
+) -> (World, Option<EncodeNeed>) {
+    let world = world_profiled(&[("file.mp4", make, allowance)], false, false, profile);
+    let (need, _) = world.verified();
+    (world, need)
+}
+
+#[test]
+fn an_av1_file_needs_video_under_the_default_profile() {
+    let (_, need) = checked_under(av1, Copy, TargetProfile::default());
+    assert_eq!(need, Some(EncodeNeed::Video));
+}
+
+#[test]
+fn with_keep_av1_a_fitting_av1_file_needs_nothing_and_stays_av1() {
+    let (world, need) = checked_under(av1, Copy, KEEP_AV1);
+    assert_eq!(need, Some(EncodeNeed::None));
+    let (item, result) = world.run_next();
+    result.unwrap();
+    assert_ran(&world.ended(item));
+    assert_eq!(codecs(&world.path("file.mp4"), "v"), ["av1"]);
+}
+
+#[test]
+fn prefer_hevc10_turns_h264_into_a_video_need_and_the_run_follows_it() {
+    let profile = TargetProfile {
+        prefer_hevc10: true,
+        ..TargetProfile::default()
+    };
+    let (world, need) = checked_under(clean, All, profile);
+    assert_eq!(need, Some(EncodeNeed::Video));
+    let (item, result) = world.run_next();
+    result.unwrap();
+    assert_ran(&world.ended(item));
+    assert_eq!(codecs(&world.path("file.mp4"), "v"), ["hevc"]);
+}
+
+#[test]
+fn the_crf_of_the_profile_reaches_the_encoder() {
+    let size_at = |crf| {
+        let profile = TargetProfile {
+            crf,
+            ..TargetProfile::default()
+        };
+        let world = world_profiled(&[("file.mp4", high10, All)], false, false, profile);
+        let (item, result) = world.run_next();
+        result.unwrap();
+        assert_ran(&world.ended(item));
+        std::fs::metadata(world.path("file.mp4")).unwrap().len()
+    };
+    assert!(size_at(10) > size_at(45), "a lower CRF keeps more data");
+}
+
+#[test]
+fn a_profile_changed_after_queueing_refuses_the_item_for_good() {
+    let world = world(&[("file.mp4", high10, All)], false);
+    let before = std::fs::read(world.path("file.mp4")).unwrap();
+    let clock = SystemClock;
+    Settings(world.ctx(&clock))
+        .set("target_keep_av1", &json!(true), "test", None)
+        .unwrap();
+    let (item, result) = world.run_next();
+    assert!(result.is_err());
+    let ended = world.ended(item);
+    assert_eq!(ended.status, ItemStatus::StaleInput);
+    let detail = ended.detail.unwrap();
+    assert!(detail.contains("target profile"), "{detail}");
+    assert!(detail.contains("Queue"), "{detail}");
+    assert_eq!(std::fs::read(world.path("file.mp4")).unwrap(), before);
+}
+
+#[test]
+fn a_profile_rewritten_on_the_item_breaks_the_signature_even_if_it_matches_the_settings() {
+    let world = world(&[("file.mp4", high10, All)], false);
+    let before = std::fs::read(world.path("file.mp4")).unwrap();
+    let clock = SystemClock;
+    Settings(world.ctx(&clock))
+        .set("target_crf", &json!(30), "test", None)
+        .unwrap();
+    world
+        .conn
+        .raw()
+        .execute(
+            "UPDATE job_items SET settings_snapshot_json=json_set(settings_snapshot_json,'$.profile.crf',30)",
+            [],
+        )
+        .unwrap();
+    let (_, result) = world.run_next();
+    assert!(result.is_err());
+    assert_eq!(std::fs::read(world.path("file.mp4")).unwrap(), before);
+}
+
+#[test]
+fn an_item_without_a_profile_is_refused_for_good() {
+    let world = world(&[("file.mp4", high10, All)], false);
+    world
+        .conn
+        .raw()
+        .execute(
+            "UPDATE job_items SET settings_snapshot_json=json_remove(settings_snapshot_json,'$.profile')",
+            [],
+        )
+        .unwrap();
+    let (item, result) = world.run_next();
+    assert!(result.is_err());
+    assert_eq!(world.ended(item).status, ItemStatus::StaleInput);
 }

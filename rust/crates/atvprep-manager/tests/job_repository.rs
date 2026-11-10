@@ -468,7 +468,7 @@ fn a_prepare_retry_needs_the_same_files_and_drops_the_old_approval() {
     let media = f.media(&["a.mp4"]);
     let jobs = Jobs(f.ctx());
     let mut new = NewJob::new("fix", &media);
-    new.settings_snapshot = json!({"pipeline": "prepare", "approval_mac": "abc", "approved_by": 1});
+    new.settings_snapshot = json!({"pipeline": "prepare", "approval_mac": "abc", "approved_by": 1, "profile": atvprep_manager::settings::TargetProfile::default().to_json()});
     let job = jobs.create(&new).unwrap();
     f.sql("UPDATE job_items SET status='failed'");
     let retry = jobs.retry(job.id, Some(42)).unwrap();
@@ -630,7 +630,7 @@ fn a_prepare_item_carries_its_own_allowance_through_a_retry() {
     let jobs = Jobs(f.ctx());
     let mut new = NewJob::new("fix", &media);
     new.trigger = "manual";
-    new.settings_snapshot = json!({"pipeline":"prepare","policy":atvprep_manager::approval::PREPARE_POLICY,"manual_approval":true,"approved_by":1,"approved_at":1});
+    new.settings_snapshot = json!({"pipeline":"prepare","policy":atvprep_manager::approval::PREPARE_POLICY,"profile":atvprep_manager::settings::TargetProfile::default().to_json(),"manual_approval":true,"approved_by":1,"approved_at":1});
     new.encode_media
         .insert(media[1], atvprep_core::encode::EncodeAllowance::All);
     let job = jobs.create(&new).unwrap();

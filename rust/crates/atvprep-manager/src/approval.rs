@@ -1,4 +1,5 @@
 //! Cryptographic binding for explicit manual approvals and their Kodierfreigabe.
+use crate::settings::TargetProfile;
 use atvprep_core::encode::EncodeAllowance;
 use hmac::{Hmac, Mac};
 use serde_json::{Value, json};
@@ -21,6 +22,12 @@ pub fn item_encode(snapshot: &Value) -> Option<EncodeAllowance> {
         .and_then(EncodeAllowance::parse)
 }
 
+/// The Zielprofil recorded on an item, if it holds one.
+#[must_use]
+pub fn item_profile(snapshot: &Value) -> Option<TargetProfile> {
+    snapshot.get("profile").and_then(TargetProfile::from_json)
+}
+
 /// Whether an item records the decision to rebuild its file (`force`).
 #[must_use]
 pub fn item_force(snapshot: &Value) -> bool {
@@ -37,6 +44,9 @@ pub fn prepare_policy_block(snapshot: &Value) -> Option<&'static str> {
     }
     if item_encode(snapshot).is_none() {
         return Some("This job carries no encoding allowance. Queue the fix again.");
+    }
+    if item_profile(snapshot).is_none() {
+        return Some("This job carries no target profile. Queue the fix again.");
     }
     if let Some(schedule) = snapshot.get("schedule_id").filter(|v| !v.is_null()) {
         // A job from a schedule carries no session approval; the schedule's own signature,
@@ -137,6 +147,8 @@ pub struct ApprovalItem<'a> {
     /// The operator's decision to rebuild this file even when it is at the target. Manual jobs
     /// only (a schedule never carries it); signed, so it cannot be added later.
     pub force: bool,
+    /// The Zielprofil this item runs against. Signed, so it cannot be swapped later.
+    pub profile: TargetProfile,
 }
 
 /// A verifier derived from an external secret, never from database state.
@@ -170,11 +182,16 @@ impl ApprovalVerifier {
         ];
         // The decisions are appended only when one is set, so an item that copies and keeps its
         // original signs exactly as before; setting either later changes the array and the MAC.
-        if item.encode != EncodeAllowance::Copy || item.delete_original || item.force {
+        if item.encode != EncodeAllowance::Copy
+            || item.delete_original
+            || item.force
+            || item.profile != TargetProfile::default()
+        {
             parts.push(json!({
                 "encode": item.encode.as_str(),
                 "delete_original": item.delete_original,
                 "force": item.force,
+                "profile": item.profile.to_json(),
             }));
         }
         self.mac_over(&Value::Array(parts))
@@ -404,6 +421,7 @@ mod tests {
             encode: EncodeAllowance::Copy,
             delete_original: false,
             force: false,
+            profile: crate::settings::TargetProfile::default(),
         };
         assert_ne!(verifier.sign(&item, 5, 1000), mac);
         let stranger = ApprovalVerifier::new(b"other").unwrap();
@@ -416,7 +434,7 @@ mod tests {
 
     #[test]
     fn a_schedule_snapshot_passes_the_policy_only_with_its_parameters() {
-        let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","encode":"copy","manual_approval":false,
+        let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","profile":crate::settings::TargetProfile::default().to_json(),"encode":"copy","manual_approval":false,
             "schedule_id":3,"schedule_params":{"action":"fix"}});
         assert_eq!(prepare_policy_block(&snapshot), None);
         let mut bare = snapshot.clone();
@@ -443,6 +461,7 @@ mod tests {
                 encode: EncodeAllowance::Copy,
                 delete_original: false,
                 force: false,
+                profile: crate::settings::TargetProfile::default(),
             };
             let signature = verifier.sign(&item, 5, 1000);
             assert_eq!(signature, case["expected"].as_str().unwrap());
@@ -468,7 +487,7 @@ mod tests {
 
     #[test]
     fn policy_requires_an_explicit_bound_manual_approval() {
-        let mut snapshot = json!({"pipeline":"prepare","policy":"encode-v3","encode":"copy","manual_approval":true,"approved_by":5});
+        let mut snapshot = json!({"pipeline":"prepare","policy":"encode-v3","profile":crate::settings::TargetProfile::default().to_json(),"encode":"copy","manual_approval":true,"approved_by":5});
         assert_eq!(prepare_policy_block(&snapshot), None);
         snapshot["schedule_id"] = Value::Null;
         snapshot["approved_by"] = json!(true);
@@ -486,6 +505,7 @@ mod tests {
             encode: EncodeAllowance::Copy,
             delete_original: false,
             force: false,
+            profile: crate::settings::TargetProfile::default(),
         };
         for signed in [
             EncodeAllowance::Copy,
@@ -552,7 +572,7 @@ mod tests {
 
     #[test]
     fn only_the_current_policy_with_a_known_allowance_passes() {
-        let current = json!({"pipeline":"prepare","policy":"encode-v3","encode":"audio","manual_approval":true,"approved_by":5});
+        let current = json!({"pipeline":"prepare","policy":"encode-v3","profile":crate::settings::TargetProfile::default().to_json(),"encode":"audio","manual_approval":true,"approved_by":5});
         assert_eq!(prepare_policy_block(&current), None);
         let mut old = current.clone();
         old["policy"] = json!("copy-only-v2");
