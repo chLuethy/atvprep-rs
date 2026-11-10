@@ -65,8 +65,9 @@ export const Inspector: Component<{
   api: Api;
   fileId: string;
   onFix?: (file: FileDetail) => void;
-  /** The delete-original setting, which decides what the confirmation says about another container. */
   onVerify?: (id: string) => void;
+  /** The setting „Delete original“, which decides what the confirmation says about another container; null when unknown. */
+  deleteOriginal?: boolean | null;
   /** Bumped by the page after it queued something, so the file is read again right away. */
   version?: number;
   /** Told after this view queued a job itself (a re-inspection), so the page can follow the queue. */
@@ -196,7 +197,7 @@ export const Inspector: Component<{
     const inspection = latest();
     return inspection ? summarizeInspection(inspection.result) : undefined;
   };
-  const confirm = (f: FileDetail) => prepareConfirm(f);
+  const confirm = (f: FileDetail) => prepareConfirm(f, props.deleteOriginal ?? null);
   const encode = createEncodeChoice();
   const submitConvert = async () => {
     if (convertBusy() || !encode.ready()) return;
@@ -205,7 +206,8 @@ export const Inspector: Component<{
     // The id the server put in the file it sent, as Verify does: the one in the address may be URL-encoded.
     const id = file()?.id ?? rawId(props.fileId);
     const level = encode.level();
-    const result = await queueJob(props.api, "prepare", [id], `${convertKey}-${level}`, { encode: level, confirmVideoEncode: level === "all" });
+    const force = encode.force();
+    const result = await queueJob(props.api, "prepare", [id], `${convertKey}-${level}-${force}`, { encode: level, confirmVideoEncode: level === "all", force });
     setConvertBusy(false);
     if (!result.ok) {
       setConvertError(result.session ? t(SESSION_EXPIRED) : result.detail ? t("Unable to queue the preparation. The server said: {detail}.", { detail: result.detail }) : t("Unable to queue the preparation. Try again."));
@@ -278,8 +280,8 @@ export const Inspector: Component<{
           </Show>
           <Show when={converting()}>
             <div class="confirm" role="region" aria-label={t("Prepare")} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); setConverting(false); } }}>
-              <For each={confirm(f()).lines}>{(line) => (confirm(f()).reencode ? <p class="notice warn" role="alert">{line}</p> : <p>{line}</p>)}</For>
-              <EncodeChoice choice={encode} />
+              <For each={confirm(f()).lines}>{(line, index) => (confirm(f()).reencode && index() === 0 ? <p class="notice warn" role="alert">{line}</p> : <p>{line}</p>)}</For>
+              <EncodeChoice choice={encode} offerForce />
               <Show when={convertError()}><p class="notice bad" role="alert">{convertError()}</p></Show>
               <div class="insp-actions">
                 <Button variant="primary" disabled={convertBusy() || !encode.ready()} onClick={() => void submitConvert()}>{t("Confirm prepare")}</Button>

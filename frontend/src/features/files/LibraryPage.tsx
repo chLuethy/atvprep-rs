@@ -126,6 +126,7 @@ export const LibraryPage: Component<{
   const [convertible, setConvertible] = createSignal(0);
   const [encodeAudioCount, setEncodeAudioCount] = createSignal(0);
   const [encodeVideoCount, setEncodeVideoCount] = createSignal(0);
+  const [deleteOriginal, setDeleteOriginal] = createSignal<boolean | null>(null);
   const [embedCount, setEmbedCount] = createSignal(0);
   const [convertedCount, setConvertedCount] = createSignal(0);
   const [removeOpen, setRemoveOpen] = createSignal(false);
@@ -213,6 +214,7 @@ export const LibraryPage: Component<{
     setConvertible(summary.convert);
     setEncodeAudioCount(summary.encodeAudio);
     setEncodeVideoCount(summary.encodeVideo);
+    setDeleteOriginal(summary.deleteOriginal);
     setEmbedCount(summary.embed);
     setConvertedCount(summary.converted);
   };
@@ -381,13 +383,13 @@ export const LibraryPage: Component<{
     setPreviewRows(selection);
   };
   const previewFiles = () => previewRows() ?? [];
-  const queuePrepare = async (encode: EncodeLevel): Promise<JobResult> => {
+  const queuePrepare = async (encode: EncodeLevel, force: boolean): Promise<JobResult> => {
     const rowsToQueue = preparableRows(previewFiles());
     const queued = new Set<string>();
     let failure: JobResult | null = null;
     const ids = rowsToQueue.map((row) => row.id);
     if (ids.length > 0) {
-      const result = await queueJob(props.api, "prepare", ids, keyFor("preview", `${encode}:${ids.join(",")}`), { encode, confirmVideoEncode: encode === "all" });
+      const result = await queueJob(props.api, "prepare", ids, keyFor("preview", `${encode}:${force}:${ids.join(",")}`), { encode, confirmVideoEncode: encode === "all", force });
       if (result.ok) ids.forEach((id) => queued.add(id));
       else failure = result;
     }
@@ -723,13 +725,14 @@ export const LibraryPage: Component<{
                 <div class="empty"><b>{tn("{count} item selected", "{count} items selected", colCount())}</b>{t("Use the bar below or right click for actions. V verifies, F previews the preparation.")}</div>
               </Show>
             }>
-              {(id) => <Inspector api={props.api} fileId={id()} version={inspectorVersion()} onQueued={follow} onFix={(file) => openPreview([file])} onVerify={(fileId) => void verify([fileId])} />}
+              {(id) => <Inspector api={props.api} fileId={id()} deleteOriginal={deleteOriginal()} version={inspectorVersion()} onQueued={follow} onFix={(file) => openPreview([file])} onVerify={(fileId) => void verify([fileId])} />}
             </Show>
           }
         >
           <FixPreview
             files={preparableRows(previewFiles())}
             skipped={previewFiles().length - preparableRows(previewFiles()).length}
+            deleteOriginal={deleteOriginal()}
             onQueue={queuePrepare}
             onClose={() => setPreviewRows(null)}
           />

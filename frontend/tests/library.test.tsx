@@ -36,7 +36,7 @@ function makeApi(options: { rows?: unknown[]; next?: string | null; more?: unkno
     request: vi.fn(async (path: string, init?: RequestInit) => {
       calls.push({ path, init });
       if (path === "/jobs") return json({ id: "j_1" }, 201);
-      if (path === "/dashboard") return json({ files: { clean: 1, warning: 1, blocker: 1, unknown: 1 }, scans: {}, jobs: {} });
+      if (path === "/dashboard") return json({ files: { clean: 1, warning: 1, blocker: 1, unknown: 1 }, scans: {}, jobs: {}, delete_original: false });
       if (path.startsWith("/files?")) {
         if (options.fail) return json({}, 503);
         if (path.includes("cursor=c2")) return json(options.more ?? [], 200, { next_cursor: null });

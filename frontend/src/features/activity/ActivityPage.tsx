@@ -256,7 +256,7 @@ export const ActivityPage: Component<{ api: Api; activeId?: string | undefined; 
       <aside class="lib-side" aria-label={t("Job details")}>
         <Button variant="quiet" class="back-to-list" onClick={() => props.onOpen(undefined)}>{t("Back to list")}</Button>
         <Show when={props.activeId} fallback={<div class="empty"><b>{t("Select a job to see what it did")}</b>{t("Use the arrow keys to move through the list.")}</div>}>
-          {(id) => <JobDetail api={props.api} jobId={id()} onChanged={() => void refresh()} onRetried={(newId) => { void refresh(); setNotice(t("Retry queued. Showing the new job.")); props.onOpen(newId); }} />}
+          {(id) => <JobDetail api={props.api} jobId={id()} onChanged={() => void refresh()} onRetried={(newId) => { void refresh(); setNotice(t("Retry queued. Showing the new job.")); props.onOpen(newId); }} onRaised={(newId) => { void refresh(); setNotice(t("Preparation queued. Showing the new job.")); props.onOpen(newId); }} />}
         </Show>
       </aside>
     </div>

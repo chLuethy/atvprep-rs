@@ -324,6 +324,81 @@ describe("JobDetail: what happened", () => {
     expect(view.queryByRole("region", { name: "Why it failed" })).not.toBeInTheDocument();
   });
 
+  const refused = (encode: string) => item({ encode, error_code: "encode_not_allowed", error_detail: "Encoding not allowed (need=video allowance=audio): the file stays as it was." });
+  const raising = () => (path: string, init?: RequestInit) => (path === "/job-items/i_1/raise-encode" && init?.method === "POST" ? json({ id: "j_new", status: "queued" }) : undefined);
+  const raisedBodies = (api: Api) => calls(api)
+    .filter(([path, init]) => path === "/job-items/i_1/raise-encode" && init?.method === "POST")
+    .map(([, init]) => JSON.parse(String(init?.body)) as unknown);
+
+  it("offers the higher allowance only on an item whose encoding was not allowed", async () => {
+    const view = render(() => <JobDetail api={detailApi({ status: "failed", succeeded_count: 0, failed_count: 1 }, [item({ status: "failed", encode: "audio", error_code: "other" })])} jobId="j_1" />);
+    await view.findByRole("heading", { name: "Heat" });
+    expect(view.queryByRole("button", { name: "Prepare with a higher allowance" })).not.toBeInTheDocument();
+  });
+
+  it("offers no higher allowance when the item already had the highest", async () => {
+    const view = render(() => <JobDetail api={detailApi({}, [refused("all")])} jobId="j_1" />);
+    await view.findByRole("status", { name: "Encoding not allowed" });
+    expect(view.queryByRole("button", { name: "Prepare with a higher allowance" })).not.toBeInTheDocument();
+  });
+
+  it("holds the video level back until it is confirmed and opens the new job", async () => {
+    const api = detailApi({}, [refused("audio")], raising());
+    const opened: string[] = [];
+    const view = render(() => <JobDetail api={api} jobId="j_1" onRaised={(id) => opened.push(id)} />);
+
+    await fireEvent.click(await view.findByRole("button", { name: "Prepare with a higher allowance" }));
+    const region = await view.findByRole("region", { name: "Prepare with a higher allowance" });
+    const panel = within(region);
+    expect(panel.queryByRole("radio", { name: /^Copy only/ })).not.toBeInTheDocument();
+    expect(panel.queryByRole("radio", { name: /^Encode audio\b(?! and)/ })).not.toBeInTheDocument();
+    expect(panel.getByRole("radio", { name: /^Encode audio and video/ })).toBeChecked();
+    expect(panel.queryByRole("checkbox", { name: /^Force rebuild/ })).not.toBeInTheDocument();
+    expect(panel.getByRole("button", { name: "Confirm" })).toBeDisabled();
+
+    await fireEvent.click(panel.getByRole("checkbox", { name: /re-encoded/ }));
+    await fireEvent.click(panel.getByRole("button", { name: "Confirm" }));
+
+    await waitFor(() => expect(opened).toEqual(["j_new"]));
+    expect(raisedBodies(api)).toEqual([{ encode: "all", confirm_video_encode: true }]);
+  });
+
+  it("raises a copy item to audio without a further confirmation", async () => {
+    const api = detailApi({}, [refused("copy")], raising());
+    const view = render(() => <JobDetail api={api} jobId="j_1" />);
+
+    await fireEvent.click(await view.findByRole("button", { name: "Prepare with a higher allowance" }));
+    const panel = within(await view.findByRole("region", { name: "Prepare with a higher allowance" }));
+    expect(panel.getByRole("radio", { name: /^Encode audio\b(?! and)/ })).toBeChecked();
+    await fireEvent.click(panel.getByRole("button", { name: "Confirm" }));
+
+    await waitFor(() => expect(raisedBodies(api)).toEqual([{ encode: "audio" }]));
+  });
+
+  it("says when the higher allowance could not be queued", async () => {
+    const api = detailApi({}, [refused("audio")], (path, init) => (path === "/job-items/i_1/raise-encode" && init?.method === "POST" ? json({ detail: "no" }, 409) : undefined));
+    const view = render(() => <JobDetail api={api} jobId="j_1" />);
+
+    await fireEvent.click(await view.findByRole("button", { name: "Prepare with a higher allowance" }));
+    const panel = within(await view.findByRole("region", { name: "Prepare with a higher allowance" }));
+    await fireEvent.click(panel.getByRole("checkbox", { name: /re-encoded/ }));
+    await fireEvent.click(panel.getByRole("button", { name: "Confirm" }));
+
+    expect(await panel.findByRole("alert")).toHaveTextContent("Unable to queue the preparation");
+  });
+
+  it("says that originals of other containers go, for a job with the setting on", async () => {
+    const view = render(() => <JobDetail api={detailApi({ delete_original: true })} jobId="j_1" />);
+    await view.findByRole("heading", { name: "Heat" });
+    expect(view.getByText("The original of another container is removed once its new MP4 passes verification.")).toBeInTheDocument();
+  });
+
+  it("says nothing about originals for a job with the setting off", async () => {
+    const view = render(() => <JobDetail api={detailApi({ delete_original: false })} jobId="j_1" />);
+    await view.findByRole("heading", { name: "Heat" });
+    expect(view.queryByText(/original/i)).toBeNull();
+  });
+
   it("shows no encoding note on an item that ran normally", async () => {
     const view = render(() => <JobDetail api={detailApi()} jobId="j_1" />);
     await view.findByRole("heading", { name: "Heat" });

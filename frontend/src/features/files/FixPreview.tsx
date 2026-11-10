@@ -19,7 +19,9 @@ const NEED_ORDER: ReadonlyArray<EncodeNeed> = ["video", "audio", "none", "unknow
 export const FixPreview: Component<{
   files: FileRow[];
   skipped: number;
-  onQueue: (encode: EncodeLevel) => Promise<JobResult>;
+  /** The setting „Delete original“; null when it cannot be read. */
+  deleteOriginal?: boolean | null;
+  onQueue: (encode: EncodeLevel, force: boolean) => Promise<JobResult>;
   onClose: () => void;
 }> = (props) => {
   const [busy, setBusy] = createSignal(false);
@@ -29,7 +31,7 @@ export const FixPreview: Component<{
   const totalBytes = () => props.files.reduce((sum, file) => sum + file.size, 0);
   const largest = () => props.files.reduce((max, file) => Math.max(max, file.size), 0);
   const count = () => props.files.length;
-  const confirms = (file: FileRow) => prepareConfirm(file);
+  const confirms = (file: FileRow) => prepareConfirm(file, props.deleteOriginal ?? null);
   /** An MP4 that is only rewritten in place: one sentence for all of them instead of one each. */
   const plain = (file: FileRow) => isMp4Like(file.suffix) && !confirms(file).reencode;
 
@@ -42,7 +44,7 @@ export const FixPreview: Component<{
     setBusy(true);
     setFailure(null);
     try {
-      const result = await props.onQueue(encode.level());
+      const result = await props.onQueue(encode.level(), encode.force());
       if (!result.ok) setFailure(result.session ? "session" : "queue");
     } finally {
       setBusy(false);
@@ -78,7 +80,7 @@ export const FixPreview: Component<{
               <b>{name.title || file.kind}</b> <span class="muted">{verdict.label} · {formatSize(file.size)}</span>
               <p class="muted pv-plan">{t("Encoding need")}: <b>{needLabel(file.encode_need)}</b> · {t("Change")}: <b>{changeLabel(file.planned_change)}</b></p>
               <Show when={!plain(file)}>
-                <For each={confirms(file).lines}>{(line) => <p class={confirms(file).reencode ? "notice warn" : "muted"} role={confirms(file).reencode ? "alert" : undefined}>{line}</p>}</For>
+                <For each={confirms(file).lines}>{(line, index) => <p class={confirms(file).reencode && index() === 0 ? "notice warn" : "muted"} role={confirms(file).reencode && index() === 0 ? "alert" : undefined}>{line}</p>}</For>
               </Show>
               <Show when={(file.pending_sidecars ?? 0) > 0}>
                 <ul class="plain changes" aria-label={t("Subtitles to embed")}>
@@ -115,7 +117,7 @@ export const FixPreview: Component<{
       <p class="muted">{t("Derived from the verify report. The fix itself decides the final result.")}</p>
       <Show when={failure() === "queue"}><p class="notice bad" role="alert">{t("Unable to queue the prepare job. Try again.")}</p></Show>
       <Show when={failure() === "session"}><p class="notice bad" role="alert">{t(SESSION_EXPIRED)}</p></Show>
-      <EncodeChoice choice={encode} />
+      <EncodeChoice choice={encode} offerForce />
       <Show when={needCount("video") > 0 && encode.level() !== "all"}>
         <p class="notice warn" role="alert">{tn("{reencode} of {count} file needs a re-encode. It only runs with “Encode audio and video”; otherwise the file stays as it is.", "{reencode} of {count} files need a re-encode. It only runs with “Encode audio and video”; otherwise the files stay as they are.", count(), { reencode: needCount("video") })}</p>
       </Show>

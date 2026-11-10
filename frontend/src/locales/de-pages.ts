@@ -122,6 +122,8 @@ export const dePages: Record<string, string | readonly [string, string]> = {
   "Folders the scan skips": "Ordner, die der Scan überspringt",
   "Parallel conversions": "Parallele Konvertierungen",
   "Parallel checks": "Parallele Prüfungen",
+  "Delete original": "Original löschen",
+  "Removes the old non-MP4 container once its new MP4 passes verification. It does not decide whether a file may be encoded.": "Entfernt den alten Nicht-MP4-Container, sobald seine neue MP4 die Prüfung bestanden hat. Sie entscheidet nicht darüber, ob eine Datei kodiert werden darf.",
   "Keep events for (days)": "Ereignisse aufbewahren (Tage)",
   "Keep logs for (days)": "Protokolle aufbewahren (Tage)",
   "Keep jobs for (days)": "Aufträge aufbewahren (Tage)",

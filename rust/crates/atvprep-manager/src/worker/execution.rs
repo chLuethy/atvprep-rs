@@ -145,6 +145,7 @@ pub fn execute_claimed(
         let mut mode = PrepareMode {
             encode: EncodeAllowance::Copy,
             delete_original: false,
+            force: false,
         };
         if changing {
             // A job from an older policy can never become valid: refused for good, "queue it again".
@@ -475,6 +476,46 @@ pub fn execute_claimed(
     }
 }
 
+/// Whether the CLI reported that it removed the old container after a verified MP4.
+fn source_removed(process: &ProcessResult) -> bool {
+    process.reason == StopReason::Exited
+        && process.exit_code == Some(0)
+        && String::from_utf8_lossy(&process.output)
+            .lines()
+            .any(|line| line.trim() == "ATVPREP-SOURCE removed")
+}
+
+/// The old container is gone on purpose: its row leaves the library (jobs and inspections are
+/// kept), so it is not offered as a missing file, and a scan picks up the new MP4.
+fn complete_removed_source(
+    ctx: Ctx<'_>,
+    item: &crate::models::JobItem,
+    owner: &str,
+    fence: i64,
+) -> Result<()> {
+    let tx =
+        rusqlite::Transaction::new_unchecked(ctx.conn, rusqlite::TransactionBehavior::Immediate)?;
+    let write = Ctx {
+        conn: &tx,
+        clock: ctx.clock,
+    };
+    if !authority(write, item.id, owner, fence)? {
+        return Err(Error::Conflict(
+            "worker lost its Prepare completion authority".to_owned(),
+        ));
+    }
+    let media = crate::media::Media(write)
+        .get(item.media_file_id)?
+        .ok_or_else(|| Error::Invalid("prepared media not found".to_owned()))?;
+    tx.execute(
+        "UPDATE media_files SET discovery_state='missing',dismissed_at=?1 WHERE id=?2",
+        rusqlite::params![ctx.clock.now(), media.id],
+    )?;
+    crate::scans::Scans(write).request_manual(media.root_id)?;
+    tx.commit()?;
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)] // Completion is bound to the claimed item and its pinned input.
 fn complete_prepare(
     ctx: Ctx<'_>,
@@ -486,6 +527,9 @@ fn complete_prepare(
     fence: i64,
     process: &ProcessResult,
 ) -> Result<()> {
+    if source_removed(process) {
+        return complete_removed_source(ctx, item, owner, fence);
+    }
     let root = std::path::Path::new(root);
     let after = atvprep_core::fd_fix_contract::FdFixTarget::from_library(root, relative)
         .map_err(|_| Error::Invalid("prepared source is no longer accessible".to_owned()))?;

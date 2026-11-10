@@ -198,6 +198,8 @@ export type Summary = {
   converted: number;
   jobsActive: boolean;
   jobs: { running: number; queued: number };
+  /** The setting „Delete original“; null when the server does not say. */
+  deleteOriginal: boolean | null;
 };
 
 /** File counts per compliance state for the filter chips, and whether any job is still waiting or running. */
@@ -205,9 +207,9 @@ export async function loadSummary(api: Api): Promise<Summary | null> {
   try {
     const response = await api.request("/dashboard");
     if (!response.ok) return null;
-    const body = (await response.json()) as { data?: { files?: Record<string, number>; missing?: number; convert?: number; encode_audio?: number; encode_video?: number; embed?: number; converted?: number; jobs?: Record<string, number> } };
+    const body = (await response.json()) as { data?: { files?: Record<string, number>; missing?: number; convert?: number; encode_audio?: number; encode_video?: number; embed?: number; converted?: number; delete_original?: boolean; jobs?: Record<string, number> } };
     const jobs = body.data?.jobs ?? {};
-    return { counts: body.data?.files ?? null, missing: body.data?.missing ?? 0, convert: body.data?.convert ?? 0, encodeAudio: body.data?.encode_audio ?? 0, encodeVideo: body.data?.encode_video ?? 0, embed: body.data?.embed ?? 0, converted: body.data?.converted ?? 0, jobsActive: (jobs.queued ?? 0) + (jobs.running ?? 0) > 0, jobs: { running: jobs.running ?? 0, queued: jobs.queued ?? 0 } };
+    return { counts: body.data?.files ?? null, missing: body.data?.missing ?? 0, convert: body.data?.convert ?? 0, encodeAudio: body.data?.encode_audio ?? 0, encodeVideo: body.data?.encode_video ?? 0, embed: body.data?.embed ?? 0, converted: body.data?.converted ?? 0, jobsActive: (jobs.queued ?? 0) + (jobs.running ?? 0) > 0, jobs: { running: jobs.running ?? 0, queued: jobs.queued ?? 0 }, deleteOriginal: body.data?.delete_original ?? null };
   } catch {
     return null;
   }
@@ -265,7 +267,8 @@ export type JobResult = { ok: true } | { ok: false; session: boolean; detail?: s
  * container an MP4 that Apple TV plays. The server takes at most 100 files per job.
  * Starting a prepare is the explicit approval (`manual_approval`), bound to the session by the server.
  * It never asks to delete an original itself. A prepare carries its Kodierfreigabe; the level `all` also
- * needs `confirmVideoEncode` (the server refuses it otherwise). The caller owns the idempotency key so a
+ * needs `confirmVideoEncode` (the server refuses it otherwise). `force` rebuilds even a file at the target,
+ * within that same level. The caller owns the idempotency key so a
  * retried attempt reuses it.
  */
 export async function queueJob(
@@ -273,11 +276,11 @@ export async function queueJob(
   action: "prepare" | "verify" | "inspect",
   mediaIds: string[],
   idempotencyKey: string,
-  options: { encode?: EncodeLevel; confirmVideoEncode?: boolean } = {},
+  options: { encode?: EncodeLevel; confirmVideoEncode?: boolean; force?: boolean } = {},
 ): Promise<JobResult> {
   const encode = options.encode ?? "audio";
   const body = action === "prepare"
-    ? { action, media_ids: mediaIds, manual_approval: true, encode, ...(encode === "all" && options.confirmVideoEncode ? { confirm_video_encode: true } : {}) }
+    ? { action, media_ids: mediaIds, manual_approval: true, encode, ...(encode === "all" && options.confirmVideoEncode ? { confirm_video_encode: true } : {}), ...(options.force ? { force: true } : {}) }
     : { action, media_ids: mediaIds, manual_approval: false };
   try {
     const response = await api.request("/jobs", {

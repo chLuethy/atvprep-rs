@@ -21,6 +21,12 @@ pub fn item_encode(snapshot: &Value) -> Option<EncodeAllowance> {
         .and_then(EncodeAllowance::parse)
 }
 
+/// Whether an item records the decision to rebuild its file (`force`).
+#[must_use]
+pub fn item_force(snapshot: &Value) -> bool {
+    snapshot.get("force") == Some(&Value::Bool(true))
+}
+
 /// Explain why a snapshot cannot authorize a media-changing job.
 #[must_use]
 pub fn prepare_policy_block(snapshot: &Value) -> Option<&'static str> {
@@ -128,6 +134,9 @@ pub struct ApprovalItem<'a> {
     pub encode: EncodeAllowance,
     /// The `delete_original` setting recorded when the job was queued. Signed as well.
     pub delete_original: bool,
+    /// The operator's decision to rebuild this file even when it is at the target. Manual jobs
+    /// only (a schedule never carries it); signed, so it cannot be added later.
+    pub force: bool,
 }
 
 /// A verifier derived from an external secret, never from database state.
@@ -161,10 +170,12 @@ impl ApprovalVerifier {
         ];
         // The decisions are appended only when one is set, so an item that copies and keeps its
         // original signs exactly as before; setting either later changes the array and the MAC.
-        if item.encode != EncodeAllowance::Copy || item.delete_original {
-            parts.push(
-                json!({"encode": item.encode.as_str(), "delete_original": item.delete_original}),
-            );
+        if item.encode != EncodeAllowance::Copy || item.delete_original || item.force {
+            parts.push(json!({
+                "encode": item.encode.as_str(),
+                "delete_original": item.delete_original,
+                "force": item.force,
+            }));
         }
         self.mac_over(&Value::Array(parts))
     }
@@ -392,6 +403,7 @@ mod tests {
             identity: &[],
             encode: EncodeAllowance::Copy,
             delete_original: false,
+            force: false,
         };
         assert_ne!(verifier.sign(&item, 5, 1000), mac);
         let stranger = ApprovalVerifier::new(b"other").unwrap();
@@ -430,6 +442,7 @@ mod tests {
                 identity,
                 encode: EncodeAllowance::Copy,
                 delete_original: false,
+                force: false,
             };
             let signature = verifier.sign(&item, 5, 1000);
             assert_eq!(signature, case["expected"].as_str().unwrap());
@@ -472,6 +485,7 @@ mod tests {
             identity: &[],
             encode: EncodeAllowance::Copy,
             delete_original: false,
+            force: false,
         };
         for signed in [
             EncodeAllowance::Copy,
@@ -520,6 +534,19 @@ mod tests {
                 )
                 .is_some(),
             "a decision added after signing must not verify"
+        );
+        assert!(
+            verifier
+                .check(
+                    &snapshot,
+                    &ApprovalItem {
+                        force: true,
+                        ..base
+                    },
+                    1000
+                )
+                .is_some(),
+            "a rebuild added after signing must not verify"
         );
     }
 

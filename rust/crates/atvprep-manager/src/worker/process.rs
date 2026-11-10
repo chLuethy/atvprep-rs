@@ -2,6 +2,7 @@
 use super::executor::validate_executable;
 use crate::{Error, Result};
 use atvprep_core::encode::EncodeAllowance;
+use atvprep_core::prepare::paths::is_mp4_like;
 use std::os::unix::process::CommandExt;
 use std::{
     collections::BTreeMap,
@@ -118,6 +119,8 @@ pub struct PrepareMode {
     pub encode: EncodeAllowance,
     /// The signed `delete_original` setting.
     pub delete_original: bool,
+    /// The signed decision to rebuild the file even when it is at the target.
+    pub force: bool,
 }
 
 /// The argument vector of `atvprep prepare` for one pinned leaf.
@@ -129,9 +132,12 @@ fn prepare_arguments(leaf: &str, identity: (i128, i128, i128), mode: PrepareMode
         "--encode".to_owned(),
         mode.encode.as_str().to_owned(),
     ];
-    // As before this ticket: only an item released for video may remove its original (#56).
-    if mode.encode == EncodeAllowance::All && mode.delete_original {
+    // Removes the old container once the new MP4 passed verification; an MP4 is never removed.
+    if mode.delete_original && !is_mp4_like(Path::new(leaf)) {
         arguments.push("--delete-original".to_owned());
+    }
+    if mode.force {
+        arguments.push("--force".to_owned());
     }
     arguments.extend([
         "--manager-parent-fd".to_owned(),
@@ -401,20 +407,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_cli_starts_with_the_items_own_level_and_only_all_may_delete() {
+    fn the_cli_starts_with_the_items_own_level_and_only_another_container_may_be_deleted() {
         fn level(arguments: &[String]) -> &str {
             let at = arguments.iter().position(|a| a == "--encode").unwrap();
             &arguments[at + 1]
         }
-        let args = |encode, delete_original| {
+        let args_for = |leaf: &str, encode, delete_original| {
             prepare_arguments(
-                "a.mp4",
+                leaf,
                 (1, 2, 3),
                 PrepareMode {
                     encode,
                     delete_original,
+                    force: false,
                 },
             )
+        };
+        let args = |encode, delete_original| args_for("a.mp4", encode, delete_original);
+        let deletes = |leaf, encode, delete_original| {
+            args_for(leaf, encode, delete_original).contains(&"--delete-original".to_owned())
         };
         for (encode, name) in [
             (EncodeAllowance::Copy, "copy"),
@@ -422,10 +433,11 @@ mod tests {
             (EncodeAllowance::All, "all"),
         ] {
             assert_eq!(level(&args(encode, false)), name);
-            assert!(!args(encode, false).contains(&"--delete-original".to_owned()));
+            assert!(deletes("a.mkv", encode, true));
+            assert!(!deletes("a.mkv", encode, false));
+            assert!(!deletes("a.mp4", encode, true));
+            assert!(!deletes("a.MOV", encode, true));
         }
-        assert!(!args(EncodeAllowance::Audio, true).contains(&"--delete-original".to_owned()));
-        assert!(args(EncodeAllowance::All, true).contains(&"--delete-original".to_owned()));
         // The leaf and the pinned identity always travel the same way.
         let arguments = args(EncodeAllowance::All, true);
         assert_eq!(arguments[0], "prepare");

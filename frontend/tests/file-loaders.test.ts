@@ -77,6 +77,19 @@ describe("loadCounts", () => {
 });
 
 describe("queueJob", () => {
+  it("asks for a forced rebuild only when told to, and only for a prepare", async () => {
+    const api = apiFor(() => json({ id: "j_1" }, 201));
+
+    await queueJob(api, "prepare", ["m_f1"], "key-a", { encode: "copy", force: true });
+    await queueJob(api, "prepare", ["m_f1"], "key-b", { encode: "copy", force: false });
+    await queueJob(api, "verify", ["m_f1"], "key-c", { force: true });
+
+    const calls = (api.request as ReturnType<typeof vi.fn>).mock.calls as Array<[string, RequestInit]>;
+    expect(JSON.parse(String(calls[0]![1].body))).toEqual({ action: "prepare", media_ids: ["m_f1"], manual_approval: true, encode: "copy", force: true });
+    expect(JSON.parse(String(calls[1]![1].body))).toEqual({ action: "prepare", media_ids: ["m_f1"], manual_approval: true, encode: "copy" });
+    expect(JSON.parse(String(calls[2]![1].body))).toEqual({ action: "verify", media_ids: ["m_f1"], manual_approval: false });
+  });
+
   it("sends the documented body for a prepare and for a verification, never a fix or convert", async () => {
     const api = apiFor(() => json({ id: "j_1" }, 201));
 

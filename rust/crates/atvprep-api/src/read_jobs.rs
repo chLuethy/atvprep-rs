@@ -73,15 +73,17 @@ fn view(row: &rusqlite::Row<'_>, opaque: &Opaque) -> rusqlite::Result<(i64, Valu
         &action
     };
     let origin: Option<i64> = row.get(4)?;
-    Ok((
-        id,
-        json!({"id":opaque.encode("j",id),"action":public_action,"status":row.get::<_,JobStatus>(2)?,"trigger":row.get::<_,String>(3)?,
+    let mut job = json!({"id":opaque.encode("j",id),"action":public_action,"status":row.get::<_,JobStatus>(2)?,"trigger":row.get::<_,String>(3)?,
         "origin_job_id":origin.map(|v|opaque.encode("j",v)),"requested_at":row.get::<_,Option<String>>(5)?.map(|v|timestamp(&v)),
         "started_at":row.get::<_,Option<String>>(6)?.map(|v|timestamp(&v)),"finished_at":row.get::<_,Option<String>>(7)?.map(|v|timestamp(&v)),
         "total_count":row.get::<_,i64>(8)?,"succeeded_count":row.get::<_,i64>(9)?,"failed_count":row.get::<_,i64>(10)?,"cancelled_count":row.get::<_,i64>(11)?,
         "delete_confirmed":snapshot.get("delete_original_confirmed").and_then(Value::as_bool).unwrap_or(false),
-        "subject":row.get::<_,Option<String>>(13)?.map(|value| subject(&value)),"progress":row.get::<_,Option<i64>>(14)?}),
-    ))
+        "subject":row.get::<_,Option<String>>(13)?.map(|value| subject(&value)),"progress":row.get::<_,Option<i64>>(14)?});
+    // Only a job that may remove originals carries the field; every other job reads as before.
+    if snapshot.get("delete_original").and_then(Value::as_bool) == Some(true) {
+        job["delete_original"] = json!(true);
+    }
+    Ok((id, job))
 }
 
 /// Parse an optional job-status query filter; an empty value means "no filter".
@@ -221,15 +223,17 @@ fn item_view(row: &rusqlite::Row<'_>, opaque: &Opaque) -> rusqlite::Result<((i64
     let output: Option<i64> = row.get(8)?;
     let detail: Option<String> = row.get(10)?;
     let detail = detail.map(|value| safe_diagnostic(&value, 1024));
-    Ok((
-        (position, id),
-        json!({"id":opaque.encode("i",id),"job_id":opaque.encode("j",job_id),"media_id":opaque.encode("m",media_id),
+    let mut row_json = json!({"id":opaque.encode("i",id),"job_id":opaque.encode("j",job_id),"media_id":opaque.encode("m",media_id),
         "action":action,"position":position,"status":row.get::<_,ItemStatus>(5)?,"attempt":row.get::<_,i64>(6)?,
         "delete_confirmed":snapshot.get("delete_original_confirmed").and_then(Value::as_bool).unwrap_or(false),
         "output_media_id":output.map(|id|opaque.encode("m",id)),"error_code":row.get::<_,Option<String>>(9)?.map(|v| safe_head(&v,128)),
         "error_detail":detail,"progress":row.get::<_,Option<i64>>(11)?,"started_at":row.get::<_,Option<String>>(12)?.map(|v|timestamp(&v)),
-        "finished_at":row.get::<_,Option<String>>(13)?.map(|v|timestamp(&v)),"display_path":row.get::<_,Option<String>>(14)?.map(|v|subject(&v))}),
-    ))
+        "finished_at":row.get::<_,Option<String>>(13)?.map(|v|timestamp(&v)),"display_path":row.get::<_,Option<String>>(14)?.map(|v|subject(&v))});
+    // Only an item under the prepare policy has a Kodierfreigabe; every other item keeps its shape.
+    if let Some(level) = atvprep_manager::approval::item_encode(&snapshot) {
+        row_json["encode"] = json!(level.as_str());
+    }
+    Ok(((position, id), row_json))
 }
 
 /// List a job's items in position order with an authenticated composite cursor.

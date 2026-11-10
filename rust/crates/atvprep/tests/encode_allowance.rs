@@ -292,7 +292,7 @@ fn verify_report(flags: &[&str], file: &Path) -> serde_json::Value {
     let mut args: Vec<OsString> = vec!["verify".into(), "--json".into()];
     args.extend(flags.iter().map(OsString::from));
     args.push(file.into());
-    run(&args, &Environment::from_process(), io);
+    let _ = run(&args, &Environment::from_process(), io);
     let document: serde_json::Value = serde_json::from_str(&out.contents()).unwrap();
     document["reports"][0].clone()
 }

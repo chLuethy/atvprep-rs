@@ -21,25 +21,36 @@ export type PrepareConfirm = {
   reencode: boolean;
 };
 
-/** What the confirmation for one file says: the server's Kodierbedarf, in words, and what a level does with it. */
-export function prepareConfirm(file: { suffix: string; encode_need?: EncodeNeed | undefined }): PrepareConfirm {
+/**
+ * What the confirmation for one file says: the server's Kodierbedarf, in words, and what a level does
+ * with it. `deleteOriginal` is the setting „Delete original“, or null when it cannot be read.
+ */
+export function prepareConfirm(file: { suffix: string; encode_need?: EncodeNeed | undefined }, deleteOriginal: boolean | null = null): PrepareConfirm {
   const mp4 = isMp4Like(file.suffix);
+  const container = mp4 ? [] : [containerLine(file.suffix, deleteOriginal)];
   if (file.encode_need === "video") {
     return {
-      lines: [t("The video has to be re-encoded. That only runs with “Encode audio and video”; otherwise the file stays as it is and the job says so.")],
+      lines: [t("The video has to be re-encoded. That only runs with “Encode audio and video”; otherwise the file stays as it is and the job says so."), ...container],
       reencode: true,
     };
   }
   if (file.encode_need === "audio") {
-    return { lines: [t("Audio has to be encoded. That only runs with “Encode audio” or higher; otherwise the file stays as it is and the job says so.")], reencode: false };
+    return { lines: [t("Audio has to be encoded. That only runs with “Encode audio” or higher; otherwise the file stays as it is and the job says so."), ...container], reencode: false };
   }
   if (file.encode_need === "unknown") {
-    return { lines: [t("The encoding need is not known yet. The run keeps to the level you choose and says so if the file needs more.")], reencode: false };
+    return { lines: [t("The encoding need is not known yet. The run keeps to the level you choose and says so if the file needs more."), ...container], reencode: false };
   }
   if (mp4) {
     return { lines: [t("Prepare rewrites this MP4 in place where needed. Files already at the target are left alone.")], reencode: false };
   }
-  return { lines: [t("Prepare writes an MP4 next to this {suffix} file. The original is kept.", { suffix: file.suffix })], reencode: false };
+  return { lines: [containerLine(file.suffix, deleteOriginal)], reencode: false };
+}
+
+/** What Prepare does with another container: the new MP4 beside it, and whether the old file goes. */
+function containerLine(suffix: string, deleteOriginal: boolean | null): string {
+  if (deleteOriginal === true) return t("Prepare writes an MP4 next to this {suffix} file. The original is removed once the new MP4 passes verification.", { suffix });
+  if (deleteOriginal === false) return t("Prepare writes an MP4 next to this {suffix} file. The original is kept.", { suffix });
+  return t("Prepare writes an MP4 next to this {suffix} file. Whether the original is removed depends on the setting “Delete original”, which cannot be read right now.", { suffix });
 }
 
 /**
