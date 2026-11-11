@@ -60,18 +60,22 @@ pub(crate) fn safe_diagnostic(value: &str, limit: usize) -> String {
     crate::redact::redact_log_tail(value, limit)
 }
 
+/// The action as the API names it: every job that changes files is Vorbereiten (`prepare`), also the
+/// history entries stored under the former names `fix` and `convert` (ADR 0008).
+fn public_action(stored: &str) -> &str {
+    if matches!(stored, "fix" | "convert") {
+        "prepare"
+    } else {
+        stored
+    }
+}
+
 fn view(row: &rusqlite::Row<'_>, opaque: &Opaque) -> rusqlite::Result<(i64, Value)> {
     let id: i64 = row.get(0)?;
     let action: String = row.get(1)?;
     let snapshot: String = row.get(12)?;
     let snapshot: Value = serde_json::from_str(&snapshot).unwrap_or(Value::Null);
-    let public_action = if matches!(action.as_str(), "fix" | "convert")
-        && snapshot.get("pipeline").and_then(Value::as_str) == Some("prepare")
-    {
-        "prepare"
-    } else {
-        &action
-    };
+    let public_action = public_action(&action);
     let origin: Option<i64> = row.get(4)?;
     let mut job = json!({"id":opaque.encode("j",id),"action":public_action,"status":row.get::<_,JobStatus>(2)?,"trigger":row.get::<_,String>(3)?,
         "origin_job_id":origin.map(|v|opaque.encode("j",v)),"requested_at":row.get::<_,Option<String>>(5)?.map(|v|timestamp(&v)),
@@ -213,13 +217,7 @@ fn item_view(row: &rusqlite::Row<'_>, opaque: &Opaque) -> rusqlite::Result<((i64
     let position: i64 = row.get(4)?;
     let snapshot: String = row.get(7)?;
     let snapshot: Value = serde_json::from_str(&snapshot).unwrap_or(Value::Null);
-    let action = if matches!(action.as_str(), "fix" | "convert")
-        && snapshot.get("pipeline").and_then(Value::as_str) == Some("prepare")
-    {
-        "prepare"
-    } else {
-        &action
-    };
+    let action = public_action(&action);
     let output: Option<i64> = row.get(8)?;
     let detail: Option<String> = row.get(10)?;
     let detail = detail.map(|value| safe_diagnostic(&value, 1024));
@@ -355,7 +353,7 @@ pub async fn jobs(
     let descending = query.order.as_deref() == Some("desc");
     let result = tokio::task::spawn_blocking(move || {
         let conn=state.db.conn().map_err(|_|())?;
-        let sql=format!("{job_select} WHERE j.cleared_at IS NULL AND (?1 IS NULL OR j.status=?1) AND (?2 IS NULL OR j.status!=?2) AND (?3 IS NULL OR j.action=?3 OR (?3='prepare' AND j.action IN ('fix','convert'))) AND (?4 IS NULL OR (CASE WHEN ?5 THEN j.id<?4 ELSE j.id>?4 END)) ORDER BY j.id {} LIMIT ?6", if descending {"DESC"} else {"ASC"},job_select=job_select());
+        let sql=format!("{job_select} WHERE j.cleared_at IS NULL AND (?1 IS NULL OR j.status=?1) AND (?2 IS NULL OR j.status!=?2) AND (?3 IS NULL OR (j.action=?3 AND ?3 NOT IN ('fix','convert')) OR (?3='prepare' AND j.action IN ('fix','convert'))) AND (?4 IS NULL OR (CASE WHEN ?5 THEN j.id<?4 ELSE j.id>?4 END)) ORDER BY j.id {} LIMIT ?6", if descending {"DESC"} else {"ASC"},job_select=job_select());
         let mut stmt=conn.raw().prepare(&sql).map_err(|_|())?;
         let rows=stmt.query_map(params![status,exclude_status,query.action.filter(|v|!v.is_empty()),after,descending,i64::try_from(limit+1).map_err(|_|())?],|row|view(row,&opaque)).map_err(|_|())?;
         let mut data=Vec::new(); let mut last=None; let mut used=0usize; let mut more=false; let mut truncated=false;

@@ -176,9 +176,7 @@
             "enum": [
               "inspect",
               "verify",
-              "prepare",
-              "fix",
-              "convert"
+              "prepare"
             ],
             "title": "Action",
             "type": "string"
@@ -1642,9 +1640,7 @@
           "action": {
             "enum": [
               "verify",
-              "prepare",
-              "fix",
-              "convert"
+              "prepare"
             ],
             "title": "Action",
             "type": "string"

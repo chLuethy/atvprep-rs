@@ -107,6 +107,19 @@ impl Harness {
         .await
     }
 
+    async fn get(&self, path: &str) -> Value {
+        let request = Request::builder()
+            .uri(path)
+            .header("origin", "http://testserver")
+            .header("cookie", format!("__Host-atvprep_session={}", self.token))
+            .body(Body::empty())
+            .unwrap();
+        let response = self.app.clone().oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK, "{path}");
+        let bytes = to_bytes(response.into_body(), 1 << 20).await.unwrap();
+        serde_json::from_slice(&bytes).unwrap()
+    }
+
     async fn post(&self, path: &str, action: &str, body: Value) -> (StatusCode, Value) {
         self.send("POST", path, action, body).await
     }
@@ -157,7 +170,7 @@ impl Harness {
 async fn audio_and_video_is_refused_without_the_confirmation() {
     let h = Harness::new();
     let ids = [Harness::id(1), Harness::id(2)];
-    for action in ["prepare", "fix", "convert"] {
+    for action in ["prepare"] {
         let (status, body) = h
             .create_job(
                 json!({"action":action,"media_ids":ids,"manual_approval":true,"encode":"all"}),
@@ -621,4 +634,84 @@ fn item_decisions(h: &Harness) -> Vec<(i64, EncodeAllowance, bool)> {
             (item.media_file_id, encode, delete_original)
         })
         .collect()
+}
+
+#[tokio::test]
+async fn the_old_action_names_are_no_longer_accepted() {
+    let h = Harness::new();
+    for action in ["fix", "convert"] {
+        let (status, body) = h
+            .create_job(
+                json!({"action":action,"media_ids":[Harness::id(1)],"manual_approval":true}),
+            )
+            .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{action}: {body}");
+    }
+    assert_eq!(h.sql::<i64>("SELECT count(*) FROM jobs"), 0);
+}
+
+#[tokio::test]
+async fn a_prepare_is_answered_and_listed_as_prepare() {
+    let h = Harness::new();
+    let (status, created) = h
+        .create_job(json!({"action":"prepare","media_ids":[Harness::id(1)],"manual_approval":true}))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    assert_eq!(created["data"]["action"], "prepare");
+    let job = created["data"]["id"].as_str().unwrap();
+    assert_eq!(
+        h.get(&format!("/api/v1/jobs/{job}")).await["data"]["action"],
+        "prepare"
+    );
+    assert_eq!(
+        h.get("/api/v1/jobs?action=prepare").await["data"][0]["id"],
+        job
+    );
+}
+
+#[tokio::test]
+async fn existing_history_entries_read_as_prepare() {
+    let h = Harness::new();
+    {
+        let conn = h.state.db.conn().unwrap();
+        conn.raw()
+            .execute_batch(
+                "INSERT INTO jobs(id,action,status,trigger) VALUES(1,'fix','succeeded','manual'),(2,'convert','failed','manual');
+                 INSERT INTO job_items(id,job_id,media_file_id,action,position,status) VALUES(1,1,1,'fix',0,'succeeded'),(2,2,2,'convert',0,'failed');",
+            )
+            .unwrap();
+    }
+    let listed = h.get("/api/v1/jobs").await;
+    let actions: Vec<&str> = listed["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|job| job["action"].as_str().unwrap())
+        .collect();
+    assert_eq!(actions, ["prepare", "prepare"], "{listed}");
+    let queue = h.get("/api/v1/dashboard/queue?limit=5").await;
+    assert!(!queue.to_string().contains("\"fix\""), "{queue}");
+    let by_filter = h.get("/api/v1/jobs?action=prepare").await;
+    assert_eq!(
+        by_filter["data"].as_array().unwrap().len(),
+        2,
+        "{by_filter}"
+    );
+    assert!(
+        h.get("/api/v1/jobs?action=fix").await["data"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    for (job, item) in [(1, 1), (2, 2)] {
+        let opaque = Opaque::new(SECRET.as_bytes());
+        let job = opaque.encode("j", job);
+        assert_eq!(
+            h.get(&format!("/api/v1/jobs/{job}")).await["data"]["action"],
+            "prepare"
+        );
+        let items = h.get(&format!("/api/v1/jobs/{job}/items")).await;
+        assert_eq!(items["data"][0]["action"], "prepare", "{items}");
+        assert_eq!(items["data"][0]["id"], opaque.encode("i", item));
+    }
 }

@@ -2,7 +2,7 @@
   "cases": [
     {
       "expected": {
-        "completed": 23
+        "completed": 25
       },
       "input": {
         "seed": "jobs",
@@ -441,6 +441,35 @@
               "authenticated": true,
               "body_json": "{\"action\":\"fix\",\"media_ids\":[\"<m:2>\"],\"manual_approval\":true}",
               "csrf_action": "create-job",
+              "csrf_alias": "old-fix",
+              "idempotency_key": "old-fix",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs"
+            },
+            "response": {
+              "body": {
+                "detail": "request validation failed",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "request validation failed"
+                },
+                "instance": "/api/v1/jobs",
+                "status": 422,
+                "title": "request validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"action\":\"prepare\",\"media_ids\":[\"<m:2>\"],\"manual_approval\":true}",
+              "csrf_action": "create-job",
               "csrf_alias": "fix",
               "idempotency_key": "fix",
               "method": "POST",
@@ -465,6 +494,35 @@
             "request": {
               "authenticated": true,
               "body_json": "{\"action\":\"convert\",\"media_ids\":[\"<m:3>\"],\"manual_approval\":true}",
+              "csrf_action": "create-job",
+              "csrf_alias": "old-convert",
+              "idempotency_key": "old-convert",
+              "method": "POST",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs"
+            },
+            "response": {
+              "body": {
+                "detail": "request validation failed",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "request validation failed"
+                },
+                "instance": "/api/v1/jobs",
+                "status": 422,
+                "title": "request validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "body_json": "{\"action\":\"prepare\",\"media_ids\":[\"<m:3>\"],\"manual_approval\":true}",
               "csrf_action": "create-job",
               "csrf_alias": "convert",
               "idempotency_key": "convert",

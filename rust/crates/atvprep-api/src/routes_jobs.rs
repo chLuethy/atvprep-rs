@@ -51,10 +51,7 @@ pub async fn create(
     const PATH: &str = "/api/v1/jobs";
     if input.media_ids.is_empty()
         || input.media_ids.len() > 100
-        || !matches!(
-            input.action.as_str(),
-            "inspect" | "verify" | "prepare" | "fix" | "convert"
-        )
+        || !matches!(input.action.as_str(), "inspect" | "verify" | "prepare")
     {
         return crate::read::error(StatusCode::UNPROCESSABLE_ENTITY, "invalid request", PATH);
     }
@@ -62,7 +59,7 @@ pub async fn create(
     let session_token =
         routes_auth::cookie(&headers, state.config.session_cookie_secure).unwrap_or_default();
     mutate(state,headers,"POST",PATH.to_owned(),"create-job",body,move |ctx,state| {
-        let prepares=matches!(input.action.as_str(),"prepare"|"fix"|"convert");
+        let prepares=input.action=="prepare";
         let opaque=Opaque::new(state.api_secret.as_bytes());
         let ids=input.media_ids.iter().map(|value|opaque.decode(value,"m").ok().filter(|id|*id>0).ok_or(MutationError::InvalidInput("media_ids must contain opaque identifiers"))).collect::<Result<Vec<_>,_>>()?;
         if input.force && !prepares {return Err(MutationError::InvalidInput("force is only available when preparing"));}
