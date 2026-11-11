@@ -505,6 +505,18 @@ async fn the_items_of_a_job_report_their_allowance() {
 }
 
 #[tokio::test]
+async fn the_items_of_a_job_report_the_stored_need_of_their_file() {
+    let h = Harness::new();
+    let (_, created) = h
+        .create_job(json!({"action":"prepare","media_ids":[Harness::id(1),Harness::id(2)],"manual_approval":true,"encode":"copy"}))
+        .await;
+    let job = created["data"]["id"].as_str().unwrap();
+    let body = h.get(&format!("/api/v1/jobs/{job}/items")).await;
+    assert_eq!(body["data"][0]["encode_need"], "unknown", "{body}");
+    assert_eq!(body["data"][1]["encode_need"], "video", "{body}");
+}
+
+#[tokio::test]
 async fn raising_needs_a_higher_level_than_the_item_had() {
     let h = Harness::new();
     h.create_job(json!({"action":"prepare","media_ids":[Harness::id(2)],"manual_approval":true,"encode":"audio"}))

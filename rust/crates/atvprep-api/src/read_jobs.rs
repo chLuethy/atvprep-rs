@@ -228,8 +228,12 @@ fn item_view(row: &rusqlite::Row<'_>, opaque: &Opaque) -> rusqlite::Result<((i64
         "error_detail":detail,"progress":row.get::<_,Option<i64>>(11)?,"started_at":row.get::<_,Option<String>>(12)?.map(|v|timestamp(&v)),
         "finished_at":row.get::<_,Option<String>>(13)?.map(|v|timestamp(&v)),"display_path":row.get::<_,Option<String>>(14)?.map(|v|subject(&v))});
     // Only an item under the prepare policy has a Kodierfreigabe; every other item keeps its shape.
+    // Next to it the file's stored Kodierbedarf, so a higher allowance can be offered to fit it.
     if let Some(level) = atvprep_manager::approval::item_encode(&snapshot) {
         row_json["encode"] = json!(level.as_str());
+        if let Some(need) = row.get::<_, Option<String>>(15)? {
+            row_json["encode_need"] = json!(need);
+        }
     }
     Ok(((position, id), row_json))
 }
@@ -262,7 +266,7 @@ pub async fn items(
         let conn=state.db.conn().map_err(|_|())?;
         let exists:bool=conn.raw().query_row("SELECT EXISTS(SELECT 1 FROM jobs WHERE id=?1)",[job_id],|row|row.get(0)).map_err(|_|())?;
         if !exists { return Ok(None); }
-        let mut stmt=conn.raw().prepare("SELECT i.id,i.job_id,i.media_file_id,i.action,i.position,i.status,i.attempt,i.settings_snapshot_json,i.output_media_file_id,i.error_code,i.error_detail,i.progress,i.started_at,i.finished_at,m.relative_path FROM job_items i LEFT JOIN media_files m ON m.id=i.media_file_id WHERE i.job_id=?1 AND (?2 IS NULL OR i.position>?2 OR (i.position=?2 AND i.id>?3)) ORDER BY i.position,i.id LIMIT ?4").map_err(|_|())?;
+        let mut stmt=conn.raw().prepare("SELECT i.id,i.job_id,i.media_file_id,i.action,i.position,i.status,i.attempt,i.settings_snapshot_json,i.output_media_file_id,i.error_code,i.error_detail,i.progress,i.started_at,i.finished_at,m.relative_path,m.encode_need FROM job_items i LEFT JOIN media_files m ON m.id=i.media_file_id WHERE i.job_id=?1 AND (?2 IS NULL OR i.position>?2 OR (i.position=?2 AND i.id>?3)) ORDER BY i.position,i.id LIMIT ?4").map_err(|_|())?;
         let rows=stmt.query_map(params![job_id,cursor.map(|c|c.0),cursor.map(|c|c.1),i64::try_from(limit+1).map_err(|_|())?],|row|item_view(row,&opaque)).map_err(|_|())?;
         let mut data=Vec::new();let mut last=None;let mut used=0usize;let mut more=false;let mut truncated=false;
         for row in rows {let (key,value)=row.map_err(|_|())?;if data.len()==limit {more=true;break;} let size=serde_json::to_vec(&value).map_err(|_|())?.len();if size>crate::bounds::MAX_ELEMENT_BYTES || used.saturating_add(size).saturating_add(data.len()+256)>crate::bounds::MAX_RESPONSE_BYTES {more=true;truncated=true;break;}used+=size;last=Some(key);data.push(value);}
