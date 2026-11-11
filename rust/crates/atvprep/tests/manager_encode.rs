@@ -301,9 +301,30 @@ impl World {
         let job = Jobs(ctx).create(&NewJob::new("verify", &ids)).unwrap();
         let (item, result) = self.run_item_of(job.id);
         result.unwrap();
-        assert_eq!(self.ended(item).status, ItemStatus::Succeeded);
+        self.assert_checked(item);
         let row = Media(ctx).get(media).unwrap().unwrap();
         (row.encode_need, row.planned_change)
+    }
+
+    /// The check `item` succeeded; otherwise its code, exit code and log say why not.
+    fn assert_checked(&self, item: i64) {
+        let ended = self.ended(item);
+        let (exit, log): (Option<i64>, Option<String>) = self
+            .conn
+            .raw()
+            .query_row(
+                "SELECT exit_code, log_tail FROM job_items WHERE id=?1",
+                [item],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            ended.status,
+            ItemStatus::Succeeded,
+            "code={:?} exit={exit:?} detail={:?} log={log:?}",
+            ended.code,
+            ended.detail
+        );
     }
 
     /// Claim the next queued item and run it to its end.
@@ -1100,23 +1121,7 @@ impl World {
         for _ in &ids {
             let (item, result) = self.run_item_of(job.id);
             result.unwrap();
-            let ended = self.ended(item);
-            let log: Option<String> = self
-                .conn
-                .raw()
-                .query_row(
-                    "SELECT log_tail FROM job_items WHERE id=?1",
-                    [item],
-                    |row| row.get(0),
-                )
-                .unwrap();
-            assert_eq!(
-                ended.status,
-                ItemStatus::Succeeded,
-                "{:?} {:?} {log:?}",
-                ended.code,
-                ended.detail
-            );
+            self.assert_checked(item);
         }
     }
 
