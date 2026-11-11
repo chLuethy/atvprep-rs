@@ -279,7 +279,7 @@ describe("Inspector: tracks and inspection", () => {
 describe("Inspector: playback in Wave", () => {
   afterEach(() => window.localStorage.clear());
 
-  it("compares the bitrate with the Wave limit and says what a fix cannot change", async () => {
+  it("compares the bitrate with the Wave limit and says what preparing cannot change", async () => {
     const view = render(() => <Inspector api={standard()} fileId="m_f1" />);
     const section = await view.findByRole("region", { name: "Playback in Wave" });
 
@@ -288,7 +288,7 @@ describe("Inspector: playback in Wave", () => {
 
     expect(within(section).getByText("Wave transcodes this file")).toBeInTheDocument();
     expect(section).toHaveTextContent("12.1 Mbps is over your 10 Mbps limit");
-    expect(section).toHaveTextContent(/a fix does not change this/i);
+    expect(section).toHaveTextContent(/prepare does not change this/i);
   });
 
   it("remembers the chosen limit", async () => {

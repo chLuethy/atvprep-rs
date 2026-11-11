@@ -58,9 +58,9 @@ function changeFor(reason: ParsedReason): Change | null {
     case "avc-level-atv-limit":
     case "hevc-level-atv-limit":
     case "audio-sample-rate":
-      return { kind: "none", rule, text: t("{message}. A fix does not change this; it needs a re-encode.", { message: reason.message }) };
+      return { kind: "none", rule, text: t("{message}. Only a re-encode changes this.", { message: reason.message }) };
     default:
-      return { kind: "none", rule, text: t("{message} (the effect of a fix is unknown for this rule)", { message: reason.message }) };
+      return { kind: "none", rule, text: t("{message} (what Prepare does about this rule is unknown)", { message: reason.message }) };
   }
 }
 

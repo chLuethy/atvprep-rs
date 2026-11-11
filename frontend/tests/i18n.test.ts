@@ -91,3 +91,25 @@ describe("the German catalogue", () => {
     expect(unused).toEqual([]);
   });
 });
+
+describe("the words for preparing (GLOSSARY.md)", () => {
+  const german = (): Array<[string, string]> => Object.entries(de).flatMap(([english, text]) => (typeof text === "string" ? [text] : [...text]).map((form): [string, string] => [english, form]));
+
+  it("calls the action Vorbereiten in German, never Überarbeiten, Reparieren or Konvertieren", () => {
+    const wrong = german().filter(([, text]) => /Reparier|Reparatur|Konvertieren|[Kk]onvertierung|(?<!Teil)[Üü]berarbeit/.test(text));
+    expect(wrong).toEqual([]);
+    setLanguage("de");
+    expect(t("Prepare")).toBe("Vorbereiten");
+  });
+
+  it("names no action Fix or Convert in English", () => {
+    const allowed = new Set(["Fix negative start times (DTS)", "CRF {crf}, HEVC10 {hevc10}, keep AV1 {av1}, DTS fix {dts}", "To convert", "to convert", "{count} to convert"]);
+    const wrong = [...used().keys()].filter((text) => !allowed.has(text) && /\b(fix|fixes|convert|conversions?)\b/i.test(text));
+    expect(wrong).toEqual([]);
+  });
+
+  it("keeps Re-Encode for the video and calls encoding audio Audio-Kodierung", () => {
+    const wrong = german().filter(([, text]) => /Re-Encode/.test(text) && /Audio|Ton|Stereo|Spur/.test(text) && !/Video/.test(text));
+    expect(wrong).toEqual([]);
+  });
+});

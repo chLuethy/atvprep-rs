@@ -50,7 +50,7 @@ describe("expectedChanges: what a fix does for each verify reason", () => {
     const [level] = changes("[warning] avc-level-atv-limit: H.264 level 6.0 exceeds 5.2");
     expect(level).toMatchObject({ kind: "none", rule: "avc-level-atv-limit" });
     expect(level?.text).toContain("H.264 level 6.0 exceeds 5.2");
-    expect(level?.text).toMatch(/needs a re-encode/i);
+    expect(level?.text).toMatch(/only a re-encode changes this/i);
     expect(changes("[warning] hevc-level-atv-limit: level 6.1")[0]?.kind).toBe("none");
     expect(changes("[warning] audio-sample-rate: 96 kHz")[0]?.kind).toBe("none");
   });
@@ -58,7 +58,7 @@ describe("expectedChanges: what a fix does for each verify reason", () => {
   it("does not claim to know a rule it has never seen", () => {
     const [unknown] = changes("[warning] brand-new-rule: something");
     expect(unknown).toMatchObject({ kind: "none", rule: "brand-new-rule" });
-    expect(unknown?.text).toMatch(/effect of a fix is unknown/i);
+    expect(unknown?.text).toMatch(/what Prepare does about this rule is unknown/i);
   });
 
   it("ignores free-text reasons that are not violations", () => {

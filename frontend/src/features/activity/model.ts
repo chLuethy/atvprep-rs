@@ -36,7 +36,7 @@ export const canCancel = (job: Pick<JobRow, "status">) => job.status === "queued
 /** A retry needs failed items and nothing still in flight, which only these two end states guarantee. */
 export const canRetry = (job: Pick<JobRow, "status">) => job.status === "failed" || job.status === "partial_success";
 
-const ACTIONS: Record<string, string> = { prepare: N("Prepare"), verify: N("Verify"), fix: N("Fix"), convert: N("Convert"), inspect: N("Inspect") };
+const ACTIONS: Record<string, string> = { prepare: N("Prepare"), verify: N("Verify"), inspect: N("Inspect") };
 export const actionLabel = (action: string) => (ACTIONS[action] ? t(ACTIONS[action]) : humanize(action));
 
 export function jobTitle(job: JobRow): string {

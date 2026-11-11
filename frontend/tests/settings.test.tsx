@@ -27,7 +27,7 @@ describe("audited runtime settings UI", () => {
     const view = render(() => <SettingsPage api={api} />);
     expect(await view.findByRole("heading", { name: "Runtime settings" })).toBeInTheDocument();
     expect(await view.findByLabelText("Scan interval (seconds)")).toHaveValue(60);
-    expect(view.getByLabelText("Parallel conversions")).toHaveValue(4);
+    expect(view.getByLabelText("Parallel preparations")).toHaveValue(4);
     expect(view.getByText("Revision 7")).toBeInTheDocument();
     expect(view.getByText(/operator/)).toBeInTheDocument();
     expect(view.getByLabelText("Server version")).toHaveValue("1.2.3");
@@ -130,7 +130,7 @@ describe("audited runtime settings UI", () => {
     fireEvent.input(view.getByLabelText("Scan interval (seconds)"), { target: { value: "90" } });
     fireEvent.click(view.getByRole("button", { name: "Save settings" }));
     await waitFor(() => expect(view.getByText(/settings saved/i)).toBeInTheDocument());
-    expect(view.getByLabelText("Parallel conversions")).toHaveValue(4);
+    expect(view.getByLabelText("Parallel preparations")).toHaveValue(4);
     expect(view.getByLabelText("Server version")).toBeDisabled();
   });
 
@@ -157,7 +157,7 @@ describe("audited runtime settings UI", () => {
     await view.findByLabelText("Scan interval (seconds)");
 
     expect(within(view.getByRole("region", { name: "Library scan" })).getByLabelText("Scan interval (seconds)")).toBeInTheDocument();
-    expect(within(view.getByRole("region", { name: "Automation" })).getByLabelText("Parallel conversions")).toBeInTheDocument();
+    expect(within(view.getByRole("region", { name: "Automation" })).getByLabelText("Parallel preparations")).toBeInTheDocument();
     expect(within(view.getByRole("region", { name: "Retention" })).getByLabelText("Keep events for (days)")).toBeInTheDocument();
     expect(within(view.getByRole("region", { name: "Other" })).getByLabelText("Server version")).toBeDisabled();
   });
@@ -244,7 +244,7 @@ describe("audited runtime settings UI", () => {
     const view = render(() => <SettingsPage api={api} />);
     await view.findByLabelText("Scan interval (seconds)");
 
-    const button = view.getByRole("button", { name: "Show history of Parallel conversions" });
+    const button = view.getByRole("button", { name: "Show history of Parallel preparations" });
 
     expect(button).toHaveTextContent("History");
   });

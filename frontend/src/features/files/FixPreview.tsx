@@ -95,7 +95,7 @@ export const FixPreview: Component<{
               </Show>
               <Show
                 when={changes.length > 0}
-                fallback={<Show when={(file.pending_sidecars ?? 0) === 0 && isMp4Like(file.suffix)}><p class="muted">{t("The server asked for a fix; the verify report lists nothing more specific.")}</p></Show>}
+                fallback={<Show when={(file.pending_sidecars ?? 0) === 0 && isMp4Like(file.suffix)}><p class="muted">{t("The server asks for Prepare; the verify report lists nothing more specific.")}</p></Show>}
               >
                 <ul class="plain changes">
                   <For each={changes}>{(change) => (
@@ -109,12 +109,12 @@ export const FixPreview: Component<{
         }}</For>
       </ul>
       <Show when={props.skipped > 0}>
-        <p class="muted">{tn("{count} selected file skipped: already ready, not verified, not fixable, or nothing a fix would change.", "{count} selected files skipped: already ready, not verified, not fixable, or nothing a fix would change.", props.skipped)}</p>
+        <p class="muted">{tn("{count} selected file skipped: already ready, not verified, not fixable, or nothing Prepare would change.", "{count} selected files skipped: already ready, not verified, not fixable, or nothing Prepare would change.", props.skipped)}</p>
       </Show>
       <Show when={props.files.some(plain)}>
         <p class="muted">{prepareConfirm({ suffix: ".mp4", encode_need: "none" }).lines[0]}</p>
       </Show>
-      <p class="muted">{t("Derived from the verify report. The fix itself decides the final result.")}</p>
+      <p class="muted">{t("Derived from the verify report. Prepare itself decides the final result.")}</p>
       <Show when={failure() === "queue"}><p class="notice bad" role="alert">{t("Unable to queue the prepare job. Try again.")}</p></Show>
       <Show when={failure() === "session"}><p class="notice bad" role="alert">{t(SESSION_EXPIRED)}</p></Show>
       <EncodeChoice choice={encode} offerForce />

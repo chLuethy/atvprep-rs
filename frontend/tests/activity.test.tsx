@@ -13,12 +13,12 @@ const apiFor = (handler: (path: string, init?: RequestInit) => Response | Promis
 const calls = (api: Api) => (api.request as unknown as ReturnType<typeof vi.fn>).mock.calls as Array<[string, RequestInit | undefined]>;
 
 const job = (over: Record<string, unknown> = {}) => ({
-  id: "j_1", action: "fix", status: "succeeded", trigger: "manual", origin_job_id: null,
+  id: "j_1", action: "prepare", status: "succeeded", trigger: "manual", origin_job_id: null,
   requested_at: "2026-07-20T10:00:00Z", started_at: "2026-07-20T10:01:00Z", finished_at: "2026-07-20T10:02:00Z",
   total_count: 1, succeeded_count: 1, failed_count: 0, cancelled_count: 0, subject: "Film/Heat (1995)/Heat.mp4", ...over,
 });
 const item = (over: Record<string, unknown> = {}) => ({
-  id: "i_1", job_id: "j_1", media_id: "m_1", action: "fix", position: 1, status: "succeeded", attempt: 1,
+  id: "i_1", job_id: "j_1", media_id: "m_1", action: "prepare", position: 1, status: "succeeded", attempt: 1,
   output_media_id: null, display_path: "Film/Heat (1995)/Heat.mp4", error_code: null, error_detail: null, ...over,
 });
 afterEach(() => { vi.useRealTimers(); });
@@ -49,7 +49,7 @@ describe("ActivityPage: the list", () => {
     const view = render(() => <ActivityPage api={api} onOpen={vi.fn()} />);
 
     expect(await view.findByText("Heat and 1 more")).toBeInTheDocument();
-    expect(view.getByText(/Fix · 1 of 2 succeeded, 1 failed/)).toBeInTheDocument();
+    expect(view.getByText(/Prepare · 1 of 2 succeeded, 1 failed/)).toBeInTheDocument();
     expect(within(view.getByRole("region", { name: "History" })).getByText("Partly failed")).toBeInTheDocument();
     expect(calls(api)[0]![0]).toBe("/jobs?limit=50&order=desc&exclude_status=cancelled");
   });

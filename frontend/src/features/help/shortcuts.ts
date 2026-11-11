@@ -27,7 +27,7 @@ export const SHORTCUTS: ReadonlyArray<ShortcutGroup> = [
       { chords: [["Space"], ["X"]], does: N("Add the file to the selection or take it out") },
       { chords: [["→"]], does: N("Columns view: open the folder") },
       { chords: [["←"]], does: N("Columns view: back to the folder before") },
-      { chords: [["F"]], does: N("Preview a fix for the selected files") },
+      { chords: [["F"]], does: N("Preview preparing the selected files") },
       { chords: [["V"]], does: N("Verify the selected files") },
       { chords: [["I"]], does: N("Re-inspect the selected files") },
       { chords: [["Shift", "F10"]], does: N("Open the menu for the selection") },

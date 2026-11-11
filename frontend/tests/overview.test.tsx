@@ -149,11 +149,11 @@ describe("OverviewPage: running and recent", () => {
 
   it("names the file a running job is about when the server says which", async () => {
     const view = render(() => <OverviewPage api={api(base({
-      "/dashboard/queue?limit=5": { data: { total: 1, jobs: [{ id: "j2", action: "fix", status: "queued", total_count: 2, succeeded_count: 0, failed_count: 0, cancelled_count: 0, subject: "Film/Heat (1995)/Heat.mp4" }] } },
+      "/dashboard/queue?limit=5": { data: { total: 1, jobs: [{ id: "j2", action: "prepare", status: "queued", total_count: 2, succeeded_count: 0, failed_count: 0, cancelled_count: 0, subject: "Film/Heat (1995)/Heat.mp4" }] } },
     })) as never} />);
 
     const now = await view.findByRole("region", { name: "Running now" });
-    expect(within(now).getByRole("link", { name: "Fix: Heat and 1 more · 0 of 2 succeeded" })).toHaveAttribute("href", "/jobs/j2");
+    expect(within(now).getByRole("link", { name: "Prepare: Heat and 1 more · 0 of 2 succeeded" })).toHaveAttribute("href", "/jobs/j2");
     expect(within(now).getByText("1 active job")).toBeInTheDocument();
   });
 
