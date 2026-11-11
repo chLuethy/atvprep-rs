@@ -116,6 +116,10 @@ pub fn router(state: AppState) -> Router {
             axum::routing::post(schedule_routes::run),
         )
         .route("/api/v1/job-items/{item_id}/log", get(read_jobs::item_log))
+        .route(
+            "/api/v1/job-items/{item_id}/raise-encode",
+            axum::routing::post(routes_jobs::raise_encode),
+        )
         .route("/api/v1/files/counts", get(read_files::trait_counts))
         .route("/api/v1/files/{media_id}/jobs", get(read_jobs::file_jobs))
         .route("/api/v1/files", get(read_files::list))
@@ -480,7 +484,7 @@ mod tests {
         (3,1,'other.mkv','video','.mkv',1,1,'c','present','unknown','idle','none','[]',NULL),
         (4,1,'gone.mkv','video','.mkv',1,1,'d','missing','unknown','idle','none','[]',NULL),
         (5,1,'dismissed.mkv','video','.mkv',1,1,'e','missing','unknown','idle','none','[]','2026-01-01');
-        UPDATE media_files SET needs_reencode=1 WHERE id=1;
+        UPDATE media_files SET encode_need='video' WHERE id=1;
         INSERT INTO jobs(action,status) VALUES('verify','queued'); INSERT INTO scan_runs(root_id,generation,status) VALUES(1,1,'succeeded');
         INSERT INTO runtime_settings(key,value_json,value_type,revision) VALUES('delete_original','true','bool',1);").unwrap();
         let token = routes_auth::service(&state, &conn)
@@ -504,7 +508,8 @@ mod tests {
         assert_eq!(body["data"]["missing"], 1);
         assert_eq!(body["data"]["convert"], 1);
         assert_eq!(body["data"]["converted"], 1);
-        assert_eq!(body["data"]["reencode"], 1);
+        assert_eq!(body["data"]["encode_video"], 1);
+        assert_eq!(body["data"]["encode_audio"], 0);
         assert_eq!(body["data"]["files"]["unknown"], 2);
         assert_eq!(body["data"]["delete_original"], true);
         assert_eq!(body["data"]["jobs"]["queued"], 1);
@@ -613,7 +618,7 @@ mod tests {
             )
             .unwrap();
         let destructive =
-            serde_json::json!({"name":"Unsafe","action":"fix","days":[0],"time":"12:30"});
+            serde_json::json!({"name":"Unsafe","action":"prepare","days":[0],"time":"12:30"});
         assert_eq!(
             app.clone()
                 .oneshot(request(&destructive, "unsafe", &csrf2))
@@ -865,7 +870,7 @@ mod tests {
         atvprep_manager::schema::migrate(&mut conn).unwrap();
         conn.raw()
             .execute_batch(
-                "INSERT INTO schedules(id,name,action,days_mask,time_of_day,max_files,enabled) VALUES(1,'Old fix','fix',1,'12:30',20,0);",
+                "INSERT INTO schedules(id,name,action,days_mask,time_of_day,max_files,enabled) VALUES(1,'Old prepare','prepare',1,'12:30',20,0);",
             )
             .unwrap();
         let auth = routes_auth::service(&state, &conn).unwrap();
@@ -917,24 +922,20 @@ mod tests {
         };
         // Too frequent for a schedule that changes files, with the minimum named.
         for (key, cron) in [("a", "0,10 * * * *"), ("b", "* * * * *")] {
-            let (status, body) = create("x", "fix", cron, 5, key).await;
+            let (status, body) = create("x", "prepare", cron, 5, key).await;
             assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{cron}");
             assert!(body["detail"].as_str().unwrap().contains("15"), "{body}");
         }
         // Too many files, with the limit named.
-        for (key, action, max, limit) in [
-            ("c", "fix", 13, "12"),
-            ("d", "convert", 7, "6"),
-            ("e", "verify", 501, "500"),
-        ] {
+        for (key, action, max, limit) in [("c", "prepare", 13, "12"), ("e", "verify", 501, "500")] {
             let (status, body) = create("x", action, "*/15 * * * *", max, key).await;
             assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{action}");
             assert!(body["detail"].as_str().unwrap().contains(limit), "{body}");
         }
         // At the limits, and the actions without one.
         for (key, action, cron, max) in [
-            ("f", "fix", "*/15 * * * *", 12),
-            ("g", "convert", "0,30 * * * *", 6),
+            ("f", "prepare", "*/15 * * * *", 12),
+            ("g", "prepare", "0,30 * * * *", 6),
             ("h", "verify", "* * * * *", 500),
             ("i", "scan", "* * * * *", 25),
         ] {
@@ -997,9 +998,10 @@ mod tests {
                 .unwrap()
             }
         };
-        let fix =
-            get("/api/v1/schedules/cron-preview?expression=0,10%20*%20*%20*%20*&action=fix".into())
-                .await;
+        let fix = get(
+            "/api/v1/schedules/cron-preview?expression=0,10%20*%20*%20*%20*&action=prepare".into(),
+        )
+        .await;
         assert_eq!(fix["data"]["valid"], false);
         assert!(
             fix["data"]["error"].as_str().unwrap().contains("15"),
@@ -1016,7 +1018,7 @@ mod tests {
         let listed = get("/api/v1/schedules".into()).await;
         assert_eq!(
             listed["meta"]["limits"],
-            serde_json::json!({"min_change_interval_minutes":15,"max_files":{"verify":500,"fix":12,"convert":6}})
+            serde_json::json!({"min_change_interval_minutes":15,"max_files":{"verify":500,"prepare":12},"max_files_video":6})
         );
     }
 
@@ -1027,7 +1029,7 @@ mod tests {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private'); INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES(1,1,'film.mp4','video','.mp4',1,1,'a','present','clean','idle','none'); INSERT INTO schedules(id,name,action,days_mask,time_of_day,enabled) VALUES(1,'Verify','verify',1,'12:30',1),(2,'Legacy','fix',1,'12:30',0);").unwrap();
+        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private'); INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES(1,1,'film.mp4','video','.mp4',1,1,'a','present','clean','idle','none'); INSERT INTO schedules(id,name,action,days_mask,time_of_day,enabled) VALUES(1,'Verify','verify',1,'12:30',1),(2,'Legacy','prepare',1,'12:30',0);").unwrap();
         let auth = routes_auth::service(&state, &conn).unwrap();
         let session = auth.create().unwrap();
         let opaque = crate::opaque::Opaque::new(state.api_secret.as_bytes());
@@ -1137,7 +1139,7 @@ mod tests {
         state.clock = Arc::new(atvprep_manager::clock::FixedClock(1_700_000_000_000_000));
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private'); INSERT INTO schedules(id,name,action,root_id,compliance_state,days_mask,time_of_day,enabled,armed_at) VALUES(1,'Old','verify',1,'clean',1,'12:30',0,'2020-01-01 00:00:00'),(2,'Legacy','fix',NULL,NULL,1,'12:30',0,'2020-01-01 00:00:00');").unwrap();
+        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private'); INSERT INTO schedules(id,name,action,root_id,compliance_state,days_mask,time_of_day,enabled,armed_at) VALUES(1,'Old','verify',1,'clean',1,'12:30',0,'2020-01-01 00:00:00'),(2,'Legacy','prepare',NULL,NULL,1,'12:30',0,'2020-01-01 00:00:00');").unwrap();
         let auth = routes_auth::service(&state, &conn).unwrap();
         let session = auth.create().unwrap();
         let opaque = crate::opaque::Opaque::new(state.api_secret.as_bytes());
@@ -1214,7 +1216,7 @@ mod tests {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private'),(2,'Shows','/shows'); INSERT INTO schedules(id,name,action,days_mask,time_of_day,enabled) VALUES(1,'Old repair','fix',1,'12:30',0);").unwrap();
+        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private'),(2,'Shows','/shows'); INSERT INTO schedules(id,name,action,days_mask,time_of_day,enabled) VALUES(1,'Old repair','prepare',1,'12:30',0);").unwrap();
         let auth = routes_auth::service(&state, &conn).unwrap();
         let session = auth.create().unwrap();
         let opaque = crate::opaque::Opaque::new(state.api_secret.as_bytes());
@@ -1274,7 +1276,7 @@ mod tests {
             "/api/v1/schedules".to_owned(),
             "create-schedule",
             "prepare-create",
-            serde_json::json!({"name":"Old word","action":"prepare","days":[0],"time":"02:00"}),
+            serde_json::json!({"name":"Old word","action":"fix","days":[0],"time":"02:00","max_files":5}),
         )
         .await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
@@ -1324,7 +1326,8 @@ mod tests {
             .unwrap();
         let listed: serde_json::Value =
             serde_json::from_slice(&to_bytes(listed.into_body(), 65536).await.unwrap()).unwrap();
-        assert_eq!(listed["data"][0]["action"], "fix");
+        assert_eq!(listed["data"][0]["action"], "prepare");
+
         assert_eq!(listed["data"][1]["action"], "scan");
     }
 
@@ -1629,7 +1632,7 @@ mod tests {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw().execute_batch("INSERT INTO jobs(id,action,status,settings_snapshot_json) VALUES(1,'fix','queued','{\"pipeline\":\"prepare\",\"delete_original_confirmed\":true}'),(2,'verify','succeeded','{}'),(3,'convert','queued','{}'); UPDATE jobs SET cleared_at='2026-01-01' WHERE id=3;").unwrap();
+        conn.raw().execute_batch("INSERT INTO jobs(id,action,status,settings_snapshot_json) VALUES(1,'fix','queued','{\"pipeline\":\"prepare\",\"delete_original_confirmed\":true,\"delete_original\":true}'),(2,'verify','succeeded','{}'),(3,'convert','queued','{}'); UPDATE jobs SET cleared_at='2026-01-01' WHERE id=3;").unwrap();
         let token = routes_auth::service(&state, &conn)
             .unwrap()
             .create()
@@ -1653,6 +1656,7 @@ mod tests {
             serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
         assert_eq!(body["data"][0]["action"], "prepare");
         assert_eq!(body["data"][0]["delete_confirmed"], true);
+        assert_eq!(body["data"][0]["delete_original"], true);
         let id = body["data"][0]["id"].as_str().unwrap();
         let detail = app
             .clone()

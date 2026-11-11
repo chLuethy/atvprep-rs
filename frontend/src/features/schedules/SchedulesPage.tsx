@@ -6,12 +6,13 @@ import { formatDateTime } from "../../lib/time";
 import { loadRoots, type RootRow } from "../scan/loaders";
 import {
   createSchedule, deleteSchedule, loadEnableFacts, loadSchedules, previewCron, runScheduleNow, setEnabled, updateSchedule,
-  changesFiles, type Action, type Api, type CronPreview, type EnableFacts, type Limits, type Schedule, type ScheduleInput,
+  changesFiles, ENCODE_LEVELS, maxFilesLimit, type Action, type Api, type CronPreview, type EncodeLevel, type EnableFacts, type Limits,
+  type Schedule, type ScheduleInput, type TargetProfile,
 } from "./loaders";
 import {
-  actionName, CRON_EXAMPLES, DAYS, defaultState, describeLast, describeNext, describeResult,
-  describeProblem, describeTarget, describeWhen, EVERY_DAY, filterSchedules, simpleForm, sortSchedules, stateChoices, WEEKDAYS,
-  weeklyCron, type ListFilter, type SortKey,
+  actionName, CRON_EXAMPLES, DAYS, defaultState, describeLast, describeNext, describeProfile, describeResult,
+  describeProblem, describeTarget, describeWhen, encodeHint, encodeName, EVERY_DAY, filterSchedules, simpleForm, sortSchedules,
+  stateChoices, WEEKDAYS, weeklyCron, type ListFilter, type SortKey,
 } from "./model";
 import { ListToolbar } from "./ListToolbar";
 
@@ -20,11 +21,11 @@ type Phase = "loading" | "ready" | "error" | "session";
 /** Which inline question a row is asking: turn on, run now, or delete. */
 type Asking = { id: string; kind: "delete" | "enable" } | null;
 
-const blank = (): ScheduleInput => ({ name: "", action: "verify", rootId: null, complianceState: defaultState("verify"), days: [...WEEKDAYS], time: "03:00", cron: null, maxFiles: 25, allowReencode: false });
+const blank = (): ScheduleInput => ({ name: "", action: "verify", rootId: null, complianceState: defaultState("verify"), days: [...WEEKDAYS], time: "03:00", cron: null, maxFiles: 25, encode: "copy" });
 
 const problem = (detail: string | undefined, fallback: string) => (detail ? t("{fallback} The server said: {detail}.", { fallback, detail: describeProblem(detail) }) : fallback);
 
-/** Timetables that verify, fix or convert the files that match a filter, or scan the libraries. */
+/** Timetables that verify or prepare the files that match a filter, or scan the libraries. */
 export const SchedulesPage: Component<{ api: Api }> = (props) => {
   const [rows, setRows] = createSignal<Schedule[]>([]);
   /** What the server allows; null until it says (an older server never does). */
@@ -69,7 +70,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
     queueMicrotask(() => nameInput?.focus());
   };
   const draftOf = (schedule: Schedule, name: string): ScheduleInput =>
-    ({ name, action: schedule.action, rootId: schedule.root_id, complianceState: schedule.compliance_state, days: [...schedule.days], time: schedule.time, cron: simpleForm(schedule.cron) ? null : schedule.cron, maxFiles: schedule.max_files ?? 25, allowReencode: schedule.allow_reencode ?? false });
+    ({ name, action: schedule.action, rootId: schedule.root_id, complianceState: schedule.compliance_state, days: [...schedule.days], time: schedule.time, cron: simpleForm(schedule.cron) ? null : schedule.cron, maxFiles: schedule.max_files ?? 25, encode: schedule.encode ?? "copy" });
   const openEdit = (schedule: Schedule) => {
     fresh(); setFormError(null); setNotice(null); setAsking(null);
     setDraft(draftOf(schedule, schedule.name));
@@ -117,8 +118,8 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
     patch({ days: days.includes(day) ? days.filter((known) => known !== day) : [...days, day].sort((a, b) => a - b) });
   };
 
-  /** The most files one run of this action may take, as the server says; null when it has not said. */
-  const maxFilesFor = (action: Action): number | null => limits()?.maxFiles[action] ?? null;
+  /** The most files one run of this action and level may take, as the server says; null when it has not said. */
+  const maxFilesFor = (action: Action, encode: EncodeLevel): number | null => maxFilesLimit(limits(), action, encode);
 
   const problems = () => {
     const value = draft();
@@ -133,7 +134,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
       if (value.days.length === 0) found.push(t("Pick at least one day."));
       if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value.time)) found.push(t("Set a time."));
     }
-    const cap = maxFilesFor(value.action);
+    const cap = maxFilesFor(value.action, value.encode);
     if (value.action !== "scan" && (!Number.isInteger(value.maxFiles) || value.maxFiles < 1 || (cap !== null && value.maxFiles > cap))) {
       found.push(cap === null ? t("Files per run must be at least 1.") : t("Files per run must be 1 to {max}.", { max: cap }));
     }
@@ -184,7 +185,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
       const found = await loadEnableFacts(props.api, schedule.id);
       setBusy(false);
       if (found && "session" in found) { setRowError(t(SESSION_EXPIRED)); return; }
-      setFacts(found ?? { matching: Math.min(schedule.matching ?? 0, schedule.max_files ?? 0), deleteOriginal: null });
+      setFacts(found ?? { matching: Math.min(schedule.matching ?? 0, schedule.max_files ?? 0), deleteOriginal: null, encode: schedule.encode ?? null, profile: schedule.profile ?? null });
       ask(schedule.id, "enable");
       return;
     }
@@ -267,7 +268,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
         <div class="sched-field action">
           <span id="sched-action-label">{t("Action")}</span>
           <div class="seg" role="group" aria-labelledby="sched-action-label">
-            <For each={["verify", "fix", "convert", "scan"] as Action[]}>{(action) => (
+            <For each={["verify", "prepare", "scan"] as Action[]}>{(action) => (
               <button type="button" aria-pressed={draft().action === action} disabled={editing()?.id !== null} onClick={() => chooseAction(action)}>{actionName(action)}</button>
             )}</For>
           </div>
@@ -313,17 +314,23 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
         <Show when={draft().action !== "scan"}>
           <div class="sched-field">
             <label for="sched-max-files">{t("Files per run")}</label>
-            <input id="sched-max-files" class="input" type="number" min="1" max={maxFilesFor(draft().action) ?? undefined} value={draft().maxFiles} aria-describedby="sched-max-files-hint" onInput={(event) => patch({ maxFiles: Number(event.currentTarget.value) })} />
-            <span id="sched-max-files-hint" class="muted">{(() => { const cap = maxFilesFor(draft().action); return cap === null ? "" : t("At most {max} files per run.", { max: cap }); })()}</span>
+            <input id="sched-max-files" class="input" type="number" min="1" max={maxFilesFor(draft().action, draft().encode) ?? undefined} value={draft().maxFiles} aria-describedby="sched-max-files-hint" onInput={(event) => patch({ maxFiles: Number(event.currentTarget.value) })} />
+            <span id="sched-max-files-hint" class="muted">{(() => { const cap = maxFilesFor(draft().action, draft().encode); return cap === null ? "" : t("At most {max} files per run.", { max: cap }); })()}</span>
           </div>
         </Show>
         <Show when={changesFiles(draft().action)}>
-          <div class="sched-field">
-            <label>
-              <input type="checkbox" checked={draft().allowReencode} aria-describedby="sched-reencode-hint" onChange={(event) => patch({ allowReencode: event.currentTarget.checked })} />
-              {" "}{t("Re-encode allowed")}
-            </label>
-            <span id="sched-reencode-hint" class="muted">{t("With this, the schedule re-encodes files that need it and replaces the original, but only while the setting “delete_original” is on; otherwise those files stay unchanged and the run reports a re-encode as needed. Without it, such files are skipped. Changing it ends your approval.")}</span>
+          <div class="sched-field wide" role="radiogroup" aria-labelledby="sched-encode-label" aria-describedby="sched-encode-hint">
+            <span id="sched-encode-label">{t("Encoding allowance")}</span>
+            <For each={ENCODE_LEVELS}>{(level) => (
+              <div class="sched-encode">
+                <label>
+                  <input type="radio" name="sched-encode" value={level} checked={draft().encode === level} aria-describedby={`sched-encode-${level}`} onChange={() => patch({ encode: level })} />
+                  {" "}{encodeName(level)}
+                </label>
+                <span id={`sched-encode-${level}`} class="muted">{encodeHint(level)}</span>
+              </div>
+            )}</For>
+            <span id="sched-encode-hint" class="muted">{t("A file that needs more than this is left out of the run. Changing it ends your approval.")}</span>
           </div>
         </Show>
       </div>
@@ -379,12 +386,20 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
     </ul>
   );
 
-  /** What a re-encode does under this schedule, given the signed permission and the `delete_original` setting. */
-  const reencodeStatement = (allowed: boolean, deleteOriginal: boolean | null): string => {
-    if (!allowed) return t("Re-encoding is not allowed: files that need a re-encode are skipped. Originals are kept.");
-    if (deleteOriginal === true) return t("Re-encoding is allowed: files that need it are re-encoded and replace the original.");
-    if (deleteOriginal === false) return t("Re-encoding is allowed, but the setting “delete_original” is off: files that need it stay unchanged and the run reports a re-encode as needed.");
-    return t("Re-encoding is allowed. It replaces the original and only runs while the setting “delete_original” is on; that setting cannot be checked right now.");
+  /** The Kodierfreigabe this schedule is signed with, and what it takes. */
+  const encodeStatement = (level: EncodeLevel): string =>
+    t("Encoding allowance: {level}. {hint}", { level: encodeName(level), hint: encodeHint(level) });
+
+  /** The Zielprofil the schedule is signed against; the server reports the current one. */
+  const profileStatement = (profile: TargetProfile | null): string => profile
+    ? t("Target profile: {profile}.", { profile: describeProfile(profile) })
+    : t("The target profile cannot be checked right now. Turning the schedule on signs the current one.");
+
+  /** What a run does with the old file of another container, given the setting „Delete original“. */
+  const originalStatement = (deleteOriginal: boolean | null): string => {
+    if (deleteOriginal === true) return t("The setting “Delete original” is on: another container's original is removed once its new MP4 passes verification.");
+    if (deleteOriginal === false) return t("The setting “Delete original” is off: originals are kept.");
+    return t("The setting “Delete original” cannot be checked right now. If it is on, another container's original is removed once its new MP4 passes verification.");
   };
 
   const renderEnableQuestion = (schedule: Schedule) => (
@@ -394,14 +409,18 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
         {(known) => (
           <>
             <p><b>{tn("{count} file matches now", "{count} files match now", known().matching)}</b></p>
-            <p>{reencodeStatement(schedule.allow_reencode === true, known().deleteOriginal)}</p>
+            <p>{encodeStatement(known().encode ?? schedule.encode ?? "copy")}</p>
+            <p>{profileStatement(known().profile ?? schedule.profile ?? null)}</p>
+            <p>{originalStatement(known().deleteOriginal)}</p>
           </>
         )}
       </Show>
       <Show when={!facts()}>
-        <p>{reencodeStatement(schedule.allow_reencode === true, null)}</p>
+        <p>{encodeStatement(schedule.encode ?? "copy")}</p>
+        <p>{profileStatement(schedule.profile ?? null)}</p>
+        <p>{originalStatement(null)}</p>
       </Show>
-      <p class="muted">{t("Your approval applies to these settings only. It ends when you change the library, the filter, the files per run or the re-encode permission, or when you pause the schedule.")}</p>
+      <p class="muted">{t("Your approval applies to these settings only. It ends when you change the library, the filter, the files per run, the encoding allowance, the target profile or the setting “Delete original”, or when you pause the schedule.")}</p>
       <Show when={rowError()}><p class="notice bad" role="alert">{rowError()}</p></Show>
       <div class="insp-actions">
         <Button
@@ -466,7 +485,7 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
         <h1 id="schedules-title">{t("Schedules")}</h1>
         <Button variant="primary" ref={(element) => { newButton = element; }} aria-expanded={editing() !== null} onClick={openNew}>{t("New schedule")} <Kbd>N</Kbd></Button>
       </header>
-      <p class="muted sched-lede">{t("Check, repair or convert the files that match a filter, or scan your libraries, on the days and time you choose. Times are the server's.")}</p>
+      <p class="muted sched-lede">{t("Check or prepare the files that match a filter, or scan your libraries, on the days and time you choose. Times are the server's.")}</p>
       <Show when={notice()}><p class="notice ok" role="status">{notice()}</p></Show>
       <Show when={editing()}>{renderEditor()}</Show>
       <Show when={phase() !== "loading"} fallback={<p class="muted">{t("Loading schedules")}</p>}>
@@ -481,7 +500,8 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
             fallback={
               <div class="empty">
                 <b>{t("No schedules yet")}</b>
-                <span>{t("A schedule checks or scans by itself. One that repairs or converts files starts paused and runs only after you turn it on and confirm.")}</span>
+                <span>{t("A schedule checks or scans by itself. One that prepares files starts paused and runs only after you turn it on and confirm.")}</span>
+
               </div>
             }
           >

@@ -15,8 +15,9 @@ import {
   wasJustFixed,
   type ParsedReason,
 } from "./model";
-import { convertPlan, isMp4Like } from "./convertPlan";
-import { prepareConfirm, preparable } from "./preparePlan";
+import { isMp4Like } from "./container";
+import { changeLabel, needLabel, prepareConfirm, preparable } from "./preparePlan";
+import { createEncodeChoice, EncodeChoice } from "./EncodeChoice";
 import { LIMIT_OPTIONS_MBPS, readWaveLimit, waveVerdict, writeWaveLimit } from "./playback";
 import { Sidecars } from "./Sidecars";
 
@@ -64,8 +65,9 @@ export const Inspector: Component<{
   api: Api;
   fileId: string;
   onFix?: (file: FileDetail) => void;
-  /** The delete-original setting, which decides what the confirmation says about another container. */
   onVerify?: (id: string) => void;
+  /** The setting „Delete original“, which decides what the confirmation says about another container; null when unknown. */
+  deleteOriginal?: boolean | null;
   /** Bumped by the page after it queued something, so the file is read again right away. */
   version?: number;
   /** Told after this view queued a job itself (a re-inspection), so the page can follow the queue. */
@@ -195,15 +197,17 @@ export const Inspector: Component<{
     const inspection = latest();
     return inspection ? summarizeInspection(inspection.result) : undefined;
   };
-  const plan = () => convertPlan(summary()?.tracks ?? []);
-  const confirm = (f: FileDetail) => prepareConfirm(f, summary()?.tracks ?? []);
-  const submitConvert = async (confirmReencode = false) => {
-    if (convertBusy()) return;
+  const confirm = (f: FileDetail) => prepareConfirm(f, props.deleteOriginal ?? null);
+  const encode = createEncodeChoice();
+  const submitConvert = async () => {
+    if (convertBusy() || !encode.ready()) return;
     setConvertBusy(true);
     setConvertError(null);
     // The id the server put in the file it sent, as Verify does: the one in the address may be URL-encoded.
     const id = file()?.id ?? rawId(props.fileId);
-    const result = await queueJob(props.api, "prepare", [id], confirmReencode ? `${convertKey}-reencode` : convertKey, { confirmReencode });
+    const level = encode.level();
+    const force = encode.force();
+    const result = await queueJob(props.api, "prepare", [id], `${convertKey}-${level}-${force}`, { encode: level, confirmVideoEncode: level === "all", force });
     setConvertBusy(false);
     if (!result.ok) {
       setConvertError(result.session ? t(SESSION_EXPIRED) : result.detail ? t("Unable to queue the preparation. The server said: {detail}.", { detail: result.detail }) : t("Unable to queue the preparation. Try again."));
@@ -242,6 +246,7 @@ export const Inspector: Component<{
           <div class="insp-verdict">
             <StatusChip kind={verdict().kind} icon={verdict().icon}>{verdict().label}</StatusChip>
           </div>
+          <p class="muted insp-need">{t("Encoding need")}: <b>{needLabel(f().encode_need)}</b> · {t("Change")}: <b>{changeLabel(f().planned_change)}</b></p>
           <div class="insp-actions">
             <Show when={f().fix_status}>
               {(status) => <Button variant="primary" disabled title={t("A preparation for this file is already in progress.")}>{(() => { const label = `Prepare ${status()}`; return BUSY[label] ? t(BUSY[label]) : label; })()}</Button>}
@@ -275,18 +280,11 @@ export const Inspector: Component<{
           </Show>
           <Show when={converting()}>
             <div class="confirm" role="region" aria-label={t("Prepare")} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); setConverting(false); } }}>
-              <For each={confirm(f()).lines}>{(line) => (confirm(f()).reencode ? <p class="notice warn" role="alert">{line}</p> : <p>{line}</p>)}</For>
-              <ul class="plain">
-                <For each={plan().lines}>{(line) => <li>{line}</li>}</For>
-              </ul>
+              <For each={confirm(f()).lines}>{(line, index) => (confirm(f()).reencode && index() === 0 ? <p class="notice warn" role="alert">{line}</p> : <p>{line}</p>)}</For>
+              <EncodeChoice choice={encode} offerForce />
               <Show when={convertError()}><p class="notice bad" role="alert">{convertError()}</p></Show>
               <div class="insp-actions">
-                <Show
-                  when={confirm(f()).reencode}
-                  fallback={<Button variant="primary" disabled={convertBusy()} onClick={() => void submitConvert()}>{t("Confirm prepare")}</Button>}
-                >
-                  <Button variant="primary" disabled={convertBusy()} onClick={() => void submitConvert(true)}>{t("Confirm with re-encode")}</Button>
-                </Show>
+                <Button variant="primary" disabled={convertBusy() || !encode.ready()} onClick={() => void submitConvert()}>{t("Confirm prepare")}</Button>
                 <Button variant="quiet" onClick={() => setConverting(false)}>{t("Cancel")}</Button>
               </div>
             </div>

@@ -14,17 +14,17 @@ describe("library filter list", () => {
   });
 
   it("drops properties from an old hide list, since hiding them is not what a property filter does now", () => {
-    expect(normalizeHidden("embed,clean,reencode")).toBe("clean");
-    expect(normalizeHidden("reencode")).toBe("");
+    expect(normalizeHidden("embed,clean,encode_video")).toBe("clean");
+    expect(normalizeHidden("encode_video")).toBe("");
   });
 
   it("keeps the chosen properties as a canonical list of known properties only", () => {
-    expect(normalizeHas("embed,clean,reencode,nonsense,embed")).toBe("reencode,embed");
+    expect(normalizeHas("embed,clean,encode_video,nonsense,embed")).toBe("encode_video,embed");
     expect(normalizeHas(undefined)).toBe("");
     expect(toggleHas("", "embed")).toBe("embed");
     expect(toggleHas("embed", "convert")).toBe("convert,embed");
     expect(toggleHas("convert,embed", "convert")).toBe("embed");
-    expect([...hasSet("reencode,embed")]).toEqual(["reencode", "embed"]);
+    expect([...hasSet("encode_video,embed")]).toEqual(["encode_video", "embed"]);
   });
 
   it("flips one entry between shown and hidden", () => {

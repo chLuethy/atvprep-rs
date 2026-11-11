@@ -1,41 +1,63 @@
-import { t } from "../../lib/i18n";
-import { convertPlan, isMp4Like } from "./convertPlan";
+import { N, t } from "../../lib/i18n";
+import { isMp4Like } from "./container";
 import { fixesAnything } from "./fixPlan";
-import { isFixable, type Track } from "./model";
+import { isFixable } from "./model";
+
+/** The Kodierbedarf the server stored for a file; a value it has not sent yet counts as unknown. */
+export type EncodeNeed = "none" | "audio" | "video" | "unknown";
+/** The Änderungsart the server stored for a file. */
+export type PlannedChange = "none" | "patch" | "remux" | "audio" | "reencode" | "unknown";
+
+const NEED_LABEL: Record<EncodeNeed, string> = { none: N("No encoding"), audio: N("Audio"), video: N("Video"), unknown: N("Unknown") };
+const CHANGE_LABEL: Record<PlannedChange, string> = { none: N("Unchanged"), patch: N("Patch"), remux: N("Remux"), audio: N("Audio encoding"), reencode: N("Re-encode"), unknown: N("Unknown") };
+
+export const needLabel = (need: EncodeNeed | undefined): string => t(NEED_LABEL[need ?? "unknown"]);
+export const changeLabel = (change: PlannedChange | undefined): string => t(CHANGE_LABEL[change ?? "unknown"]);
 
 export type PrepareConfirm = {
   /** What Prepare is about to do to this file, in the words the confirmation shows. */
   lines: string[];
-  /** The video has to be re-encoded: that needs its own explicit confirmation (ADR 0007). */
+  /** The video has to be re-encoded, which only the level „Encode audio and video“ allows (ADR 0008). */
   reencode: boolean;
 };
 
 /**
- * What the confirmation for one file says. A file that has to be re-encoded says so, says that the
- * re-encode replaces the original and only runs while `delete_original` is on, and needs its own
- * explicit confirmation.
- * `tracks` are only read for another container, whose re-encode is predicted from its codecs.
+ * What the confirmation for one file says: the server's Kodierbedarf, in words, and what a level does
+ * with it. `deleteOriginal` is the setting „Delete original“, or null when it cannot be read.
  */
-export function prepareConfirm(file: { suffix: string; needs_reencode?: boolean | undefined }, tracks: ReadonlyArray<Track>): PrepareConfirm {
+export function prepareConfirm(file: { suffix: string; encode_need?: EncodeNeed | undefined }, deleteOriginal: boolean | null = null): PrepareConfirm {
   const mp4 = isMp4Like(file.suffix);
-  const reencode = file.needs_reencode === true || (!mp4 && convertPlan(tracks).videoEncode);
-  if (reencode) {
+  const container = mp4 ? [] : [containerLine(file.suffix, deleteOriginal)];
+  if (file.encode_need === "video") {
     return {
-      lines: [t("The video has to be re-encoded. That takes longer and replaces the original, so it needs your explicit confirmation. It only runs while the setting “delete_original” is on; otherwise the file stays as it is and the job reports that a re-encode is needed.")],
+      lines: [t("The video has to be re-encoded. That only runs with “Encode audio and video”; otherwise the file stays as it is and the job says so."), ...container],
       reencode: true,
     };
+  }
+  if (file.encode_need === "audio") {
+    return { lines: [t("Audio has to be encoded. That only runs with “Encode audio” or higher; otherwise the file stays as it is and the job says so."), ...container], reencode: false };
+  }
+  if (file.encode_need === "unknown") {
+    return { lines: [t("The encoding need is not known yet. The run keeps to the level you choose and says so if the file needs more."), ...container], reencode: false };
   }
   if (mp4) {
     return { lines: [t("Prepare rewrites this MP4 in place where needed. Files already at the target are left alone.")], reencode: false };
   }
-  return { lines: [t("Prepare writes an MP4 next to this {suffix} file. The original is kept.", { suffix: file.suffix })], reencode: false };
+  return { lines: [containerLine(file.suffix, deleteOriginal)], reencode: false };
+}
+
+/** What Prepare does with another container: the new MP4 beside it, and whether the old file goes. */
+function containerLine(suffix: string, deleteOriginal: boolean | null): string {
+  if (deleteOriginal === true) return t("Prepare writes an MP4 next to this {suffix} file. The original is removed once the new MP4 passes verification.", { suffix });
+  if (deleteOriginal === false) return t("Prepare writes an MP4 next to this {suffix} file. The original is kept.", { suffix });
+  return t("Prepare writes an MP4 next to this {suffix} file. Whether the original is removed depends on the setting “Delete original”, which cannot be read right now.", { suffix });
 }
 
 /**
  * Whether queueing Prepare for this file can change anything. Another container is always worth
  * preparing unless its converted MP4 is already kept next to it; an MP4 needs a violation Prepare
- * resolves or a subtitle file to merge. A video that needs a re-encode is offered too: the preview
- * asks for the explicit confirmation.
+ * resolves or a subtitle file to merge. A file that needs encoding, or whose need is not known yet,
+ * is offered too: the preview sets the allowance and the run enforces it.
  */
 export function preparable(file: {
   discovery_state: string;
@@ -45,10 +67,10 @@ export function preparable(file: {
   desired_action: string;
   pending_sidecars?: number | undefined;
   fix_status?: string | null | undefined;
-  needs_reencode?: boolean | undefined;
+  encode_need?: EncodeNeed | undefined;
 }): boolean {
   if (file.discovery_state !== "present" || file.fix_status || file.converted_kept) return false;
   if (!isMp4Like(file.suffix)) return true;
-  if (file.needs_reencode) return true;
+  if (file.encode_need === "audio" || file.encode_need === "video" || file.encode_need === "unknown") return true;
   return isFixable(file) && fixesAnything(file);
 }

@@ -6,7 +6,7 @@ use crate::{
     state::AppState,
 };
 use atvprep_manager::{
-    media_sql::{self, CONVERTED, NEEDS_REENCODE, TO_CONVERT},
+    media_sql::{self, CONVERTED, NEEDS_AUDIO, NEEDS_VIDEO, TO_CONVERT},
     state_machine::ItemStatus,
 };
 use axum::{
@@ -80,7 +80,13 @@ fn status_token(token: &str) -> bool {
 }
 
 /// Traits that overlap and are only selected positively (`has`, AND).
-const TRAITS: [&str; 4] = ["convert", "reencode", "embed", "converted"];
+const TRAITS: [&str; 5] = [
+    "convert",
+    "encode_audio",
+    "encode_video",
+    "embed",
+    "converted",
+];
 
 fn trait_token(token: &str) -> bool {
     TRAITS.contains(&token)
@@ -257,7 +263,7 @@ async fn browse_inner(state: AppState, query: BrowseQuery, below: bool) -> Respo
         let mut stmt=conn.prepare(&format!("SELECT m.id,m.root_id,m.relative_path,m.discovery_state,m.compliance_state FROM media_files m WHERE {filter} ORDER BY lower(m.relative_path),m.id")).map_err(|_|())?;
         let rows=stmt.query_map(rusqlite::params_from_iter(values.iter()),|row|Ok((row.get::<_,i64>(0)?,row.get::<_,i64>(1)?,row.get::<_,String>(2)?,row.get::<_,String>(3)?,row.get::<_,String>(4)?))).map_err(|_|())?;
         let mut counts:BTreeMap<String,BTreeMap<String,u64>>=BTreeMap::new();let mut ids=Vec::new();let mut extra=false;
-        for row in rows {let(id,root_id,path,discovery,compliance)=row.map_err(|_|())?;let key=if matches!(query.state.as_deref(),Some("convert"|"converted"|"reencode"|"embed")){query.state.clone().unwrap_or_default()}else if discovery=="missing" {"missing".to_owned()}else if compliance=="clean" && open_ids.contains(&id) {"embed_open".to_owned()}else{compliance};
+        for row in rows {let(id,root_id,path,discovery,compliance)=row.map_err(|_|())?;let key=if matches!(query.state.as_deref(),Some("convert"|"converted"|"encode_audio"|"encode_video"|"embed")){query.state.clone().unwrap_or_default()}else if discovery=="missing" {"missing".to_owned()}else if compliance=="clean" && open_ids.contains(&id) {"embed_open".to_owned()}else{compliance};
             let group=if root.is_none(){Some(root_id.to_string())}else if below{None}else{let rest=if folder.is_empty(){path.as_str()}else{path.strip_prefix(&format!("{folder}/")).unwrap_or("")};rest.split_once('/').map(|(name,_)|name.to_owned())};
             if let Some(group)=group {*counts.entry(group).or_default().entry(key).or_default()+=1;}else if root.is_some(){if ids.len()<500 {ids.push(id);}else{extra=true;}}
         }
@@ -391,7 +397,8 @@ fn state_clause(state: &str, open: &str, values: &mut Vec<rusqlite::types::Value
         "missing" => "m.discovery_state='missing'".to_owned(),
         "convert" => format!("(m.discovery_state='present' AND {TO_CONVERT})"),
         "converted" => format!("(m.discovery_state='present' AND {CONVERTED})"),
-        "reencode" => format!("(m.discovery_state='present' AND {NEEDS_REENCODE})"),
+        "encode_audio" => format!("(m.discovery_state='present' AND {NEEDS_AUDIO})"),
+        "encode_video" => format!("(m.discovery_state='present' AND {NEEDS_VIDEO})"),
         _ => {
             values.push(state.to_owned().into());
             "m.compliance_state=?".to_owned()
@@ -683,17 +690,17 @@ fn load_file(
     opaque: &Opaque,
     media: i64,
 ) -> Result<Option<Value>, ()> {
-    let row:Option<(Value,String,String)>=conn.query_row(&format!("SELECT m.root_id,m.relative_path,m.kind,m.suffix,m.size,m.mtime_ns,m.discovery_state,m.compliance_state,m.compliance_reasons,m.workflow_state,m.desired_action,m.last_seen_at,m.status_version,m.last_success_at,m.last_error,m.fingerprint, (SELECT count(*) FROM sidecars s WHERE s.media_file_id=m.id), EXISTS(SELECT 1 FROM inspections n WHERE n.media_file_id=m.id), {CONVERTED}, m.needs_reencode FROM media_files m WHERE m.id=?1"),[media],|row|{
+    let row:Option<(Value,String,String)>=conn.query_row(&format!("SELECT m.root_id,m.relative_path,m.kind,m.suffix,m.size,m.mtime_ns,m.discovery_state,m.compliance_state,m.compliance_reasons,m.workflow_state,m.desired_action,m.last_seen_at,m.status_version,m.last_success_at,m.last_error,m.fingerprint, (SELECT count(*) FROM sidecars s WHERE s.media_file_id=m.id), EXISTS(SELECT 1 FROM inspections n WHERE n.media_file_id=m.id), {CONVERTED}, m.encode_need, m.planned_change FROM media_files m WHERE m.id=?1"),[media],|row|{
             let root:i64=row.get(0)?;let path:String=row.get(1)?;let reasons:String=row.get(8)?;let fingerprint:String=row.get(15)?;
             let parsed:Value=serde_json::from_str(&reasons).unwrap_or_else(|_|json!([]));
             let reasons:Vec<String>=parsed.as_array().map(|items|items.iter().filter_map(Value::as_str).map(str::to_owned).collect()).unwrap_or_default();
-            let needs_reencode:bool=row.get(19)?;
+            let encode_need:String=row.get(19)?;let planned_change:String=row.get(20)?;
             let safe_reasons:Vec<String>=reasons.iter().map(|reason|crate::read_jobs::safe_head(reason,2048)).collect();
             let data=json!({"id":opaque.encode("m",media),"root_id":opaque.encode("r",root),"display_path":crate::read_jobs::subject(&path),
                 "kind":row.get::<_,String>(2)?,"suffix":row.get::<_,String>(3)?,"size":row.get::<_,i64>(4)?,"mtime_ns":row.get::<_,i64>(5)?,
                 "discovery_state":row.get::<_,String>(6)?,"compliance_state":row.get::<_,String>(7)?,"compliance_reasons":safe_reasons,
                 "workflow_state":row.get::<_,String>(9)?,"desired_action":row.get::<_,String>(10)?,"last_seen_at":row.get::<_,Option<String>>(11)?.map(|v|timestamp(&v)),
-                "needs_reencode":needs_reencode,"converted_kept":row.get::<_,bool>(18)?,"fix_status":null,"pending_sidecars":0,"embed_sidecars":[],
+                "encode_need":encode_need,"planned_change":planned_change,"converted_kept":row.get::<_,bool>(18)?,"fix_status":null,"pending_sidecars":0,"embed_sidecars":[],
                 "status_version":row.get::<_,i64>(12)?,"last_success_at":row.get::<_,Option<String>>(13)?.map(|v|timestamp(&v)),
                 "has_error":row.get::<_,Option<String>>(14)?.is_some(),"sidecar_count":row.get::<_,i64>(16)?,"inspection_available":row.get::<_,bool>(17)?});
             Ok((data,path,fingerprint))

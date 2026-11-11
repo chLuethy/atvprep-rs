@@ -50,7 +50,7 @@ describe("expectedChanges: what a fix does for each verify reason", () => {
     const [level] = changes("[warning] avc-level-atv-limit: H.264 level 6.0 exceeds 5.2");
     expect(level).toMatchObject({ kind: "none", rule: "avc-level-atv-limit" });
     expect(level?.text).toContain("H.264 level 6.0 exceeds 5.2");
-    expect(level?.text).toMatch(/needs a re-encode/i);
+    expect(level?.text).toMatch(/only a re-encode changes this/i);
     expect(changes("[warning] hevc-level-atv-limit: level 6.1")[0]?.kind).toBe("none");
     expect(changes("[warning] audio-sample-rate: 96 kHz")[0]?.kind).toBe("none");
   });
@@ -58,7 +58,7 @@ describe("expectedChanges: what a fix does for each verify reason", () => {
   it("does not claim to know a rule it has never seen", () => {
     const [unknown] = changes("[warning] brand-new-rule: something");
     expect(unknown).toMatchObject({ kind: "none", rule: "brand-new-rule" });
-    expect(unknown?.text).toMatch(/effect of a fix is unknown/i);
+    expect(unknown?.text).toMatch(/what Prepare does about this rule is unknown/i);
   });
 
   it("ignores free-text reasons that are not violations", () => {
@@ -90,17 +90,17 @@ describe("expectedChanges: new and corrected mappings", () => {
 describe("expectedChanges: what Prepare adds", () => {
   it("adds a stereo track, drops a duplicate audio track and re-encodes a video that has to be", () => {
     expect(changes("[warning] stereo-twin: 1 language has surround only")[0])
-      .toEqual({ kind: "remux", rule: "stereo-twin", text: "Add an AAC stereo track for the surround-only language" });
+      .toEqual({ kind: "encode", rule: "stereo-twin", text: "Add an AAC stereo track for the surround-only language" });
     expect(changes("[warning] duplicate-audio: two identical tracks")[0])
       .toEqual({ kind: "remux", rule: "duplicate-audio", text: "Drop the duplicate audio track" });
     expect(changes("[blocker] video-reencode: the video needs a re-encode")[0])
-      .toEqual({ kind: "reencode", rule: "video-reencode", text: "Re-encode the video to HEVC (lossy, needs confirmation)" });
+      .toEqual({ kind: "encode", rule: "video-reencode", text: "Re-encode the video to HEVC (lossy, needs confirmation)" });
   });
 
   it("reports a needed re-encode in the summary and counts it as resolved by Prepare", () => {
     const summary = summarizeChanges(changes("[blocker] video-reencode: x", "[warning] avc-level-atv-limit: level 6.0"));
 
-    expect(summary).toEqual({ resolved: 1, remaining: 1, remux: false, reencode: true });
+    expect(summary).toEqual({ resolved: 1, remaining: 1, remux: false });
   });
 
   it("calls a blocker that only needs a re-encode fixable", () => {
@@ -136,11 +136,11 @@ describe("summarizeChanges", () => {
       "[warning] avc-level-atv-limit: level 6.0",
     ));
 
-    expect(summary).toEqual({ resolved: 2, remaining: 1, remux: true, reencode: false });
+    expect(summary).toEqual({ resolved: 2, remaining: 1, remux: true });
   });
 
   it("reports a patch-only fix as no remux", () => {
-    expect(summarizeChanges(changes("[blocker] ftyp-dby1-requires-atmos: x"))).toEqual({ resolved: 1, remaining: 0, remux: false, reencode: false });
+    expect(summarizeChanges(changes("[blocker] ftyp-dby1-requires-atmos: x"))).toEqual({ resolved: 1, remaining: 0, remux: false });
   });
 });
 

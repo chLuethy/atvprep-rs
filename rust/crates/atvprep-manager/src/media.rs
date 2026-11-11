@@ -150,7 +150,10 @@ impl Media<'_> {
             self.insert(root_id, relative_path, meta, scan)?;
         } else {
             self.0.conn.execute(
-                "UPDATE media_files SET kind=?3, suffix=?4, size=?5, mtime_ns=?6, fingerprint=?7,
+                "UPDATE media_files SET kind=?3, suffix=?4, size=?5, mtime_ns=?6,
+                   encode_need=CASE WHEN fingerprint=?7 THEN encode_need ELSE 'unknown' END,
+                   planned_change=CASE WHEN fingerprint=?7 THEN planned_change ELSE 'unknown' END,
+                   fingerprint=?7,
                    scanned_device=?8, scanned_inode=?9, scanned_ctime_ns=?10,
                    sidecar_fingerprint=?11, discovery_state=?12, last_seen_at=?13,
                    last_seen_scan_id=?14, last_seen_generation=?15
@@ -199,6 +202,10 @@ impl Media<'_> {
              ON CONFLICT(root_id, relative_path) DO UPDATE SET
                  kind=excluded.kind, suffix=excluded.suffix, size=excluded.size,
                  mtime_ns=excluded.mtime_ns, fingerprint=excluded.fingerprint,
+                 encode_need=CASE WHEN media_files.fingerprint=excluded.fingerprint
+                     THEN media_files.encode_need ELSE 'unknown' END,
+                 planned_change=CASE WHEN media_files.fingerprint=excluded.fingerprint
+                     THEN media_files.planned_change ELSE 'unknown' END,
                  scanned_device=excluded.scanned_device, scanned_inode=excluded.scanned_inode,
                  scanned_ctime_ns=excluded.scanned_ctime_ns,
                  sidecar_fingerprint=excluded.sidecar_fingerprint,

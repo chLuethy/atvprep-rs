@@ -8,9 +8,10 @@ import { additive, copyText, selectionMenu } from "./selection";
 import { loadBelow } from "./browse";
 import { hasSet, hiddenSet, knownState, normalizeHas, normalizeHidden, setGroupHidden, STATE_FILTERS, TRAIT_FILTERS, toggleHas, toggleHidden, type FilterEntry } from "./filters";
 import { FileTable, type Sort, type SortKey } from "./FileTable";
-import { FixPreview, type ReencodeChoice } from "./FixPreview";
+import { FixPreview } from "./FixPreview";
+import type { EncodeLevel } from "./EncodeChoice";
 import { preparable } from "./preparePlan";
-import { isMp4Like } from "./convertPlan";
+import { isMp4Like } from "./container";
 import { Inspector } from "./Inspector";
 import { ScanControl } from "../scan/ScanControl";
 import { dismissMissing, loadFiles, rawId, loadSummary, loadTraitCounts, queueJob, type Api, type FileRow, type JobResult } from "./loaders";
@@ -123,7 +124,9 @@ export const LibraryPage: Component<{
   };
   const [missing, setMissing] = createSignal(0);
   const [convertible, setConvertible] = createSignal(0);
-  const [reencodeCount, setReencodeCount] = createSignal(0);
+  const [encodeAudioCount, setEncodeAudioCount] = createSignal(0);
+  const [encodeVideoCount, setEncodeVideoCount] = createSignal(0);
+  const [deleteOriginal, setDeleteOriginal] = createSignal<boolean | null>(null);
   const [embedCount, setEmbedCount] = createSignal(0);
   const [convertedCount, setConvertedCount] = createSignal(0);
   const [removeOpen, setRemoveOpen] = createSignal(false);
@@ -139,7 +142,6 @@ export const LibraryPage: Component<{
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
   let searchInput: HTMLInputElement | undefined;
   let previewKey: { signature: string; key: string } | undefined;
-  let previewKeyConfirmed: { signature: string; key: string } | undefined;
   let verifyKey: { signature: string; key: string } | undefined;
   onCleanup(() => clearTimeout(searchTimer));
 
@@ -210,7 +212,9 @@ export const LibraryPage: Component<{
     void refreshTraitCounts();
     setMissing(summary.missing);
     setConvertible(summary.convert);
-    setReencodeCount(summary.reencode);
+    setEncodeAudioCount(summary.encodeAudio);
+    setEncodeVideoCount(summary.encodeVideo);
+    setDeleteOriginal(summary.deleteOriginal);
     setEmbedCount(summary.embed);
     setConvertedCount(summary.converted);
   };
@@ -281,7 +285,7 @@ export const LibraryPage: Component<{
   };
   const entryLabel = (token: string) => t([...STATE_FILTERS, ...TRAIT_FILTERS].find((entry) => entry.token === token)?.label ?? token);
   // The unfiltered total of each trait; the faceted count (traitCounts) wins when the server sent one.
-  const traitTotal: Record<string, () => number> = { convert: convertible, reencode: reencodeCount, embed: embedCount, converted: convertedCount };
+  const traitTotal: Record<string, () => number> = { convert: convertible, encode_audio: encodeAudioCount, encode_video: encodeVideoCount, embed: embedCount, converted: convertedCount };
   const chipCount = (filterState: string) => {
     if (filterState === "") return total();
     if (filterState === "missing") return missing();
@@ -363,11 +367,11 @@ export const LibraryPage: Component<{
     const wanted = new Set(ids);
     return visibleRows().filter((row) => wanted.has(row.id));
   };
-  const keyFor = (slot: "preview" | "verify", signature: string, confirmed = false) => {
-    const current = slot === "preview" ? (confirmed ? previewKeyConfirmed : previewKey) : verifyKey;
+  const keyFor = (slot: "preview" | "verify", signature: string) => {
+    const current = slot === "preview" ? previewKey : verifyKey;
     if (current?.signature === signature) return current.key;
     const fresh = { signature, key: crypto.randomUUID() };
-    if (slot === "verify") verifyKey = fresh; else if (confirmed) previewKeyConfirmed = fresh; else previewKey = fresh;
+    if (slot === "verify") verifyKey = fresh; else previewKey = fresh;
     return fresh.key;
   };
 
@@ -379,15 +383,13 @@ export const LibraryPage: Component<{
     setPreviewRows(selection);
   };
   const previewFiles = () => previewRows() ?? [];
-  const queuePrepare = async (choice: ReencodeChoice): Promise<JobResult> => {
-    const confirmReencode = choice === "with";
-    // Without the confirmation the files that need a re-encode stay out of the job.
-    const rowsToQueue = preparableRows(previewFiles()).filter((row) => confirmReencode || !row.needs_reencode);
+  const queuePrepare = async (encode: EncodeLevel, force: boolean): Promise<JobResult> => {
+    const rowsToQueue = preparableRows(previewFiles());
     const queued = new Set<string>();
     let failure: JobResult | null = null;
     const ids = rowsToQueue.map((row) => row.id);
     if (ids.length > 0) {
-      const result = await queueJob(props.api, "prepare", ids, keyFor("preview", ids.join(","), confirmReencode), { confirmReencode });
+      const result = await queueJob(props.api, "prepare", ids, keyFor("preview", `${encode}:${force}:${ids.join(",")}`), { encode, confirmVideoEncode: encode === "all", force });
       if (result.ok) ids.forEach((id) => queued.add(id));
       else failure = result;
     }
@@ -723,13 +725,14 @@ export const LibraryPage: Component<{
                 <div class="empty"><b>{tn("{count} item selected", "{count} items selected", colCount())}</b>{t("Use the bar below or right click for actions. V verifies, F previews the preparation.")}</div>
               </Show>
             }>
-              {(id) => <Inspector api={props.api} fileId={id()} version={inspectorVersion()} onQueued={follow} onFix={(file) => openPreview([file])} onVerify={(fileId) => void verify([fileId])} />}
+              {(id) => <Inspector api={props.api} fileId={id()} deleteOriginal={deleteOriginal()} version={inspectorVersion()} onQueued={follow} onFix={(file) => openPreview([file])} onVerify={(fileId) => void verify([fileId])} />}
             </Show>
           }
         >
           <FixPreview
             files={preparableRows(previewFiles())}
             skipped={previewFiles().length - preparableRows(previewFiles()).length}
+            deleteOriginal={deleteOriginal()}
             onQueue={queuePrepare}
             onClose={() => setPreviewRows(null)}
           />

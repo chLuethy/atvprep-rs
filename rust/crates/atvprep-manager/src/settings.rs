@@ -21,7 +21,18 @@ enum Rule {
     List,
 }
 
-const RULES: [(&str, Rule); 9] = [
+/// The highest CRF x265 accepts.
+pub const MAX_TARGET_CRF: i64 = 51;
+
+/// The settings that together make up the Zielprofil.
+const TARGET_PROFILE_KEYS: [&str; 4] = [
+    "target_crf",
+    "target_prefer_hevc10",
+    "target_keep_av1",
+    "target_fix_dts",
+];
+
+const RULES: [(&str, Rule); 13] = [
     ("scan_interval_seconds", Rule::Int(5, 86_400)),
     ("settle_seconds", Rule::Int(0, 86_400)),
     ("delete_original", Rule::Bool),
@@ -31,7 +42,125 @@ const RULES: [(&str, Rule); 9] = [
     ("log_retention_days", Rule::Int(1, MAX_RETENTION_DAYS)),
     ("job_retention_days", Rule::Int(1, MAX_RETENTION_DAYS)),
     ("scan_exclude_dirs", Rule::List),
+    ("target_crf", Rule::Int(0, MAX_TARGET_CRF)),
+    ("target_prefer_hevc10", Rule::Bool),
+    ("target_keep_av1", Rule::Bool),
+    ("target_fix_dts", Rule::Bool),
 ];
+
+/// The Zielprofil: what „Prüfen“ and „Vorbereiten“ in the manager calculate against (ADR 0008).
+/// The CLI and the hook keep their own flags and never read it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TargetProfile {
+    pub crf: u32,
+    pub prefer_hevc10: bool,
+    pub keep_av1: bool,
+    pub fix_dts: bool,
+}
+
+impl Default for TargetProfile {
+    /// The CLI's own defaults.
+    fn default() -> Self {
+        Self {
+            crf: 18,
+            prefer_hevc10: false,
+            keep_av1: false,
+            fix_dts: false,
+        }
+    }
+}
+
+impl TargetProfile {
+    /// The profile as recorded in a job snapshot and signed with its items.
+    #[must_use]
+    pub fn to_json(self) -> Value {
+        serde_json::json!({
+            "crf": self.crf,
+            "prefer_hevc10": self.prefer_hevc10,
+            "keep_av1": self.keep_av1,
+            "fix_dts": self.fix_dts,
+        })
+    }
+
+    /// A profile recorded by [`Self::to_json`]; anything else is none.
+    #[must_use]
+    pub fn from_json(value: &Value) -> Option<Self> {
+        Some(Self {
+            crf: value
+                .get("crf")?
+                .as_u64()
+                .filter(|crf| i64::try_from(*crf).is_ok_and(|crf| crf <= MAX_TARGET_CRF))?
+                .try_into()
+                .ok()?,
+            prefer_hevc10: value.get("prefer_hevc10")?.as_bool()?,
+            keep_av1: value.get("keep_av1")?.as_bool()?,
+            fix_dts: value.get("fix_dts")?.as_bool()?,
+        })
+    }
+
+    /// The CLI flags that carry this profile.
+    #[must_use]
+    pub fn cli_arguments(self) -> Vec<String> {
+        let mut arguments = vec!["--crf".to_owned(), self.crf.to_string()];
+        for (set, flag) in [
+            (self.prefer_hevc10, "--prefer-hevc10"),
+            (self.keep_av1, "--keep-av1"),
+            (self.fix_dts, "--fix-dts"),
+        ] {
+            if set {
+                arguments.push(flag.to_owned());
+            }
+        }
+        arguments
+    }
+}
+
+/// The current Zielprofil.
+///
+/// # Errors
+///
+/// SQLite rejects the read.
+pub fn target_profile(conn: &rusqlite::Connection) -> Result<TargetProfile> {
+    let stored = |key: &str| -> Result<Option<Value>> {
+        let text: Option<String> = conn
+            .query_row(
+                "SELECT value_json FROM runtime_settings WHERE key=?1",
+                [key],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(text.and_then(|text| serde_json::from_str(&text).ok()))
+    };
+    let flag = |key: &str| -> Result<bool> {
+        Ok(stored(key)?
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false))
+    };
+    Ok(TargetProfile {
+        crf: stored("target_crf")?
+            .and_then(|value| value.as_u64())
+            .and_then(|crf| u32::try_from(crf).ok())
+            .unwrap_or(TargetProfile::default().crf),
+        prefer_hevc10: flag("target_prefer_hevc10")?,
+        keep_av1: flag("target_keep_av1")?,
+        fix_dts: flag("target_fix_dts")?,
+    })
+}
+
+/// The settings revision of the last write to the Zielprofil, 0 before the first. It only moves
+/// forward, so it tells a change apart even when the profile returns to an earlier value.
+///
+/// # Errors
+///
+/// SQLite rejects the read.
+pub fn target_profile_revision(conn: &rusqlite::Connection) -> Result<i64> {
+    Ok(conn.query_row(
+        "SELECT COALESCE(MAX(revision),0) FROM runtime_settings
+         WHERE key IN ('target_crf','target_prefer_hevc10','target_keep_av1','target_fix_dts')",
+        [],
+        |row| row.get(0),
+    )?)
+}
 
 /// The value a setting has until someone overrides it.
 #[must_use]
@@ -39,11 +168,14 @@ pub fn default_of(key: &str) -> Option<Value> {
     Some(match key {
         "scan_interval_seconds" => 3600.into(),
         "settle_seconds" => 120.into(),
-        "delete_original" => false.into(),
+        "delete_original" | "target_prefer_hevc10" | "target_keep_av1" | "target_fix_dts" => {
+            false.into()
+        }
         "max_ffmpeg_workers" => 1.into(),
         "max_probe_workers" => 2.into(),
         "event_retention_days" | "log_retention_days" | "job_retention_days" => 7.into(),
         "scan_exclude_dirs" => Value::Array(Vec::new()),
+        "target_crf" => TargetProfile::default().crf.into(),
         _ => return None,
     })
 }
@@ -298,19 +430,35 @@ impl Settings<'_> {
                 now
             ],
         )?;
-        if key == "delete_original"
+        let profile_changed = TARGET_PROFILE_KEYS.contains(&key)
+            && old
+                .as_ref()
+                .map(|s| s.value.clone())
+                .or_else(|| default_of(key))
+                .as_ref()
+                != Some(value);
+        let delete_original_changed = key == "delete_original"
             && old.as_ref().is_some_and(|s| s.value == Value::Bool(true))
-                != (value == &Value::Bool(true))
-        {
-            // The signature of a fix/convert schedule binds the current value, so every such approval
-            // ends here, in the caller's transaction: the schedules show as paused instead of
-            // silently refusing their runs.
+                != (value == &Value::Bool(true));
+        if delete_original_changed || profile_changed {
+            // The signature of a schedule that prepares binds the current value of both, so every
+            // such approval ends here, in the caller's transaction: the schedules show as paused
+            // instead of silently refusing their runs.
             self.0.conn.execute(
                 "UPDATE schedules SET enabled=0, approved_by=NULL, approved_at=NULL, approval_mac=NULL
-                 WHERE action IN ('fix','convert') AND (enabled=1 OR approval_mac IS NOT NULL)",
+                 WHERE action='prepare' AND (enabled=1 OR approval_mac IS NOT NULL)",
                 [],
             )?;
         }
+        if profile_changed {
+            // Every stored need was calculated against the old profile. The background check
+            // then asks again, see `queue_need_checks`.
+            self.0.conn.execute(
+                "UPDATE media_files SET encode_need='unknown', planned_change='unknown'",
+                [],
+            )?;
+        }
+
         self.get(key)?
             .ok_or_else(|| Error::NotFound(format!("setting {key}")))
     }

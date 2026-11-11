@@ -1,3 +1,7 @@
+---
+status: superseded by ADR-0008
+---
+
 # Re-Encode ist eine eigene Freigabe
 
 Ein Re-Encode ändert eine Datei tiefgreifender und dauert länger als das Reparieren der Metadaten. Bisher entschied ein Nebeneffekt darüber, ob ein Zeitplan Dateien mit nötigem Re-Encode mitnimmt: Nur wenn die Einstellung `delete_original` an war, wurden sie berücksichtigt. Ein Betreiber konnte also nicht ausdrücklich „ja, neu kodieren“ sagen, und wer `delete_original` ansah, entschied unbemerkt mit.

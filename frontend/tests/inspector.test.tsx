@@ -279,7 +279,7 @@ describe("Inspector: tracks and inspection", () => {
 describe("Inspector: playback in Wave", () => {
   afterEach(() => window.localStorage.clear());
 
-  it("compares the bitrate with the Wave limit and says what a fix cannot change", async () => {
+  it("compares the bitrate with the Wave limit and says what preparing cannot change", async () => {
     const view = render(() => <Inspector api={standard()} fileId="m_f1" />);
     const section = await view.findByRole("region", { name: "Playback in Wave" });
 
@@ -288,7 +288,7 @@ describe("Inspector: playback in Wave", () => {
 
     expect(within(section).getByText("Wave transcodes this file")).toBeInTheDocument();
     expect(section).toHaveTextContent("12.1 Mbps is over your 10 Mbps limit");
-    expect(section).toHaveTextContent(/a fix does not change this/i);
+    expect(section).toHaveTextContent(/prepare does not change this/i);
   });
 
   it("remembers the chosen limit", async () => {
@@ -451,12 +451,18 @@ describe("Inspector: re-inspect", () => {
 describe("Inspector: what the prepare confirmation says", () => {
   const mkv = { ...detail, display_path: "Serie/Lynley.mkv", suffix: ".mkv", compliance_state: "unknown", compliance_reasons: [] };
 
-  it("always keeps the original", async () => {
-    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response(mkv) })} fileId="m_f1" />);
+  it("keeps the original while the setting is off", async () => {
+    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response(mkv) })} fileId="m_f1" deleteOriginal={false} />);
     await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
     const region = await view.findByRole("region", { name: "Prepare" });
     expect(region).toHaveTextContent("The original is kept.");
     expect(region).not.toHaveTextContent(/delet/i);
+  });
+
+  it("says the original is removed after verification while the setting is on", async () => {
+    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response(mkv) })} fileId="m_f1" deleteOriginal />);
+    await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
+    expect(await view.findByRole("region", { name: "Prepare" })).toHaveTextContent("The original is removed once the new MP4 passes verification.");
   });
 });
 
@@ -469,8 +475,8 @@ describe("Inspector: converting a file that is not an MP4", () => {
       { index: 1, codec_type: "audio", codec_name: audio, channels: 6 },
     ] },
   });
-  const forMkv = (video: string, height?: number, audio?: string, extra: Record<string, () => Response | Promise<Response>> = {}) =>
-    standard({ "/files/m_f1": () => response(mkvDetail), "/files/m_f1/inspections": () => response([mkvInspection(video, height, audio)]), ...extra });
+  const forMkv = (video: string, height?: number, audio?: string, extra: Record<string, () => Response | Promise<Response>> = {}, need: Record<string, unknown> = { encode_need: "none", planned_change: "remux" }) =>
+    standard({ "/files/m_f1": () => response({ ...mkvDetail, ...need }), "/files/m_f1/inspections": () => response([mkvInspection(video, height, audio)]), ...extra });
 
   it("offers Convert instead of Verify and Fix, and a remux needs no long-running warning", async () => {
     const view = render(() => <Inspector api={forMkv("h264")} fileId="m_f1" onVerify={() => {}} onFix={() => {}} />);
@@ -479,13 +485,32 @@ describe("Inspector: converting a file that is not an MP4", () => {
 
     expect(view.queryByRole("button", { name: "Verify" })).not.toBeInTheDocument();
     const confirm = await view.findByRole("region", { name: "Prepare" });
-    await waitFor(() => expect(confirm).toHaveTextContent("Video H264 is copied into the MP4"));
+    await waitFor(() => expect(confirm).toHaveTextContent("Prepare writes an MP4 next to this .mkv file"));
     expect(within(confirm).queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("asks for an explicit confirmation of the re-encode before it queues such a file", async () => {
+  it("shows need and change from the server and predicts nothing from the codecs", async () => {
+    // vp9 used to read as a predicted re-encode; the server says otherwise here.
+    const view = render(() => <Inspector api={forMkv("vp9")} fileId="m_f1" />);
+
+    expect(await view.findByText("No encoding")).toBeInTheDocument();
+    expect(view.getByText("Remux")).toBeInTheDocument();
+    await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
+    const confirm = await view.findByRole("region", { name: "Prepare" });
+    expect(within(confirm).queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("offers a file with an unknown need and says the run keeps to the level", async () => {
+    const view = render(() => <Inspector api={forMkv("h264", 1080, "eac3", {}, { encode_need: "unknown", planned_change: "unknown" })} fileId="m_f1" />);
+
+    await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
+    const confirm = await view.findByRole("region", { name: "Prepare" });
+    await waitFor(() => expect(confirm).toHaveTextContent(/not known yet/));
+  });
+
+  it("offers the allowance, audio preselected, and confirms the video level before it queues", async () => {
     const posted: unknown[] = [];
-    const api = forMkv("vp9", 1080, "dts", { "/jobs": () => response({ id: "j_9" }, 201) });
+    const api = forMkv("vp9", 1080, "dts", { "/jobs": () => response({ id: "j_9" }, 201) }, { encode_need: "video", planned_change: "reencode" });
     const original = api.request;
     api.request = vi.fn(async (path: string, init?: RequestInit) => {
       if (path === "/jobs") posted.push(JSON.parse(String(init?.body)));
@@ -496,11 +521,29 @@ describe("Inspector: converting a file that is not an MP4", () => {
     await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
     const confirm = await view.findByRole("region", { name: "Prepare" });
     await waitFor(() => expect(within(confirm).getByRole("alert")).toHaveTextContent(/has to be re-encoded/));
-    expect(within(confirm).queryByRole("button", { name: "Confirm prepare" })).not.toBeInTheDocument();
+    expect(within(confirm).getByRole("radio", { name: /^Encode audio\b(?! and)/ })).toBeChecked();
     expect(posted).toEqual([]);
 
-    await fireEvent.click(within(confirm).getByRole("button", { name: "Confirm with re-encode" }));
-    await waitFor(() => expect(posted).toEqual([{ action: "prepare", media_ids: ["m_f1"], manual_approval: true, confirm_reencode: true }]));
+    await fireEvent.click(within(confirm).getByRole("radio", { name: /^Encode audio and video/ }));
+    expect(within(confirm).getByRole("button", { name: "Confirm prepare" })).toBeDisabled();
+    await fireEvent.click(within(confirm).getByRole("checkbox", { name: /re-encoded/ }));
+    await fireEvent.click(within(confirm).getByRole("button", { name: "Confirm prepare" }));
+    await waitFor(() => expect(posted).toEqual([{ action: "prepare", media_ids: ["m_f1"], manual_approval: true, encode: "all", confirm_video_encode: true }]));
+  });
+
+  it("queues with the preselected Encode audio without a further step", async () => {
+    const posted: unknown[] = [];
+    const api = forMkv("h264", 1080, "eac3", { "/jobs": () => response({ id: "j_9" }, 201) });
+    const original = api.request;
+    api.request = vi.fn(async (path: string, init?: RequestInit) => {
+      if (path === "/jobs") posted.push(JSON.parse(String(init?.body)));
+      return original(path, init);
+    });
+    const view = render(() => <Inspector api={api} fileId="m_f1" />);
+
+    await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
+    await fireEvent.click(within(await view.findByRole("region", { name: "Prepare" })).getByRole("button", { name: "Confirm prepare" }));
+    await waitFor(() => expect(posted).toEqual([{ action: "prepare", media_ids: ["m_f1"], manual_approval: true, encode: "audio" }]));
   });
 
   it("keeps Verify and Fix for MP4 files and never offers Convert there", async () => {
@@ -514,7 +557,7 @@ describe("Inspector: converting a file that is not an MP4", () => {
 describe("Inspector: the convert confirmation", () => {
   it("says the original is kept after a conversion", async () => {
     const mkv = { ...detail, display_path: "Serie/Lynley.mkv", suffix: ".mkv", compliance_state: "unknown", compliance_reasons: [] };
-    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response(mkv) })} fileId="m_f1" />);
+    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response(mkv) })} fileId="m_f1" deleteOriginal={false} />);
 
     await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
 
@@ -552,7 +595,7 @@ describe("Inspector: the id sent with a conversion", () => {
     await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
     await fireEvent.click(await view.findByRole("button", { name: "Confirm prepare" }));
 
-    await waitFor(() => expect(body).toEqual({ action: "prepare", media_ids: ["m_RAW=="], manual_approval: true }));
+    await waitFor(() => expect(body).toEqual({ action: "prepare", media_ids: ["m_RAW=="], manual_approval: true, encode: "audio" }));
   });
 });
 

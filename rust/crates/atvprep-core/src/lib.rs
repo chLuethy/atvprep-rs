@@ -9,6 +9,7 @@ pub mod console;
 pub mod constants;
 pub mod copy_policy;
 pub mod duplicate_audio;
+pub mod encode;
 pub mod escalation;
 pub mod fd_fix_contract;
 pub mod ffprobe;

@@ -23,6 +23,8 @@ test.describe("activity journey", () => {
 
     await page.getByRole("region", { name: "History" }).getByRole("link", { name: /Failed Movie/ }).first().click();
     await expect(page.getByRole("heading", { name: "Failed Movie" })).toBeVisible();
+    // The fixture stores this job under its former name `fix`; the history shows it as Prepare.
+    await expect(page.locator("dt", { hasText: "Action" }).locator("xpath=following-sibling::dd[1]")).toHaveText("Prepare");
     const why = page.getByRole("region", { name: "Why it failed" });
     await expect(why).toContainText("synthetic_failure");
     await expect(why).toContainText("synthetic e2e failure");

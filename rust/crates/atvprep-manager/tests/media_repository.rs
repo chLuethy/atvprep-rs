@@ -3,6 +3,7 @@
 
 use std::path::PathBuf;
 
+use atvprep_core::encode::EncodeNeed;
 use atvprep_manager::Error;
 use atvprep_manager::clock::{Clock, FixedClock};
 use atvprep_manager::db::{Conn, Db};
@@ -615,46 +616,140 @@ fn compliance_is_projected_conservatively_and_a_verify_verdict_survives_ffprobe(
     assert_eq!(compliance(&f, media.id).0, "blocker");
 }
 
-fn needs_reencode(f: &Fixture, id: i64) -> bool {
-    Media(f.ctx()).get(id).unwrap().unwrap().needs_reencode
+fn stored_need(f: &Fixture, id: i64) -> (Option<EncodeNeed>, String) {
+    let row = Media(f.ctx()).get(id).unwrap().unwrap();
+    (row.encode_need, row.planned_change)
+}
+
+fn unknown_need() -> (Option<EncodeNeed>, String) {
+    (None, "unknown".to_owned())
+}
+
+fn reported(need: &str, change: &str) -> serde_json::Value {
+    json!({"violations": [], "encode_need": need, "planned_change": change})
 }
 
 #[test]
-fn the_re_encode_need_is_stored_with_the_check_result_independent_of_the_state() {
+fn the_need_is_stored_with_the_check_result_and_a_media_analysis_leaves_it() {
+    let f = Fixture::new();
+    let root = f.root();
+    let media = Media(f.ctx())
+        .create(root, "old.mp4", &meta("fp-1"))
+        .unwrap();
+    let inspections = Inspections(f.ctx());
+    assert_eq!(stored_need(&f, media.id), unknown_need());
+    // A media analysis says nothing about the need.
+    let vc1 = json!({"streams": [{"codec_type": "video", "codec_name": "vc1"}]});
+    inspections
+        .record(media.id, &inspection("ffprobe", "fp-1", &vc1), None)
+        .unwrap();
+    assert_eq!(compliance(&f, media.id).0, "unknown");
+    assert_eq!(stored_need(&f, media.id), unknown_need());
+    // A verify report: state plus need, whatever the state.
+    let report = json!({"violations": [
+        {"rule": "video-reencode", "severity": "warning", "message": "video vc1 needs a re-encode"}],
+        "encode_need": "video", "planned_change": "reencode"});
+    inspections
+        .record(media.id, &inspection("verify", "fp-1", &report), None)
+        .unwrap();
+    assert_eq!(compliance(&f, media.id).0, "warning");
+    assert_eq!(
+        stored_need(&f, media.id),
+        (Some(EncodeNeed::Video), "reencode".to_owned())
+    );
+    // A later media analysis of the same bytes does not take it back.
+    inspections
+        .record(media.id, &inspection("ffprobe", "fp-1", &vc1), None)
+        .unwrap();
+    assert_eq!(
+        stored_need(&f, media.id),
+        (Some(EncodeNeed::Video), "reencode".to_owned())
+    );
+    inspections
+        .record(
+            media.id,
+            &inspection("verify", "fp-1", &reported("none", "none")),
+            None,
+        )
+        .unwrap();
+    assert_eq!(
+        stored_need(&f, media.id),
+        (Some(EncodeNeed::None), "none".to_owned())
+    );
+}
+
+#[test]
+fn an_old_report_without_a_need_keeps_a_migrated_video_need() {
+    let f = Fixture::new();
+    let root = f.root();
+    let media = Media(f.ctx())
+        .create(root, "old.mp4", &meta("fp-1"))
+        .unwrap();
+    f.conn
+        .raw()
+        .execute(
+            "UPDATE media_files SET encode_need='video', planned_change='reencode'",
+            [],
+        )
+        .unwrap();
+    let old = json!({"violations": [
+        {"rule": "video-reencode", "severity": "warning", "message": "needs a re-encode"}]});
+    Inspections(f.ctx())
+        .record(media.id, &inspection("verify", "fp-1", &old), None)
+        .unwrap();
+    assert_eq!(
+        stored_need(&f, media.id),
+        (Some(EncodeNeed::Video), "reencode".to_owned())
+    );
+}
+
+#[test]
+fn a_changed_file_is_unknown_again() {
+    let f = Fixture::new();
+    let root = f.root();
+    let media = Media(f.ctx())
+        .create(root, "old.mp4", &meta("fp-1"))
+        .unwrap();
+    Inspections(f.ctx())
+        .record(
+            media.id,
+            &inspection("verify", "fp-1", &reported("audio", "audio")),
+            None,
+        )
+        .unwrap();
+    Media(f.ctx())
+        .upsert(root, "old.mp4", &meta("fp-2"), None)
+        .unwrap();
+    assert_eq!(stored_need(&f, media.id), unknown_need());
+}
+
+#[test]
+fn a_check_of_another_container_sets_the_need_but_not_the_state() {
     let f = Fixture::new();
     let root = f.root();
     let media = Media(f.ctx())
         .create(root, "old.mkv", &meta("fp-1"))
         .unwrap();
     let inspections = Inspections(f.ctx());
-    assert!(!needs_reencode(&f, media.id));
-    // A pure media analysis: state unknown, but the need is known.
-    let vc1 = json!({"streams": [{"codec_type": "video", "codec_name": "vc1"}]});
-    inspections
-        .record(media.id, &inspection("ffprobe", "fp-1", &vc1), None)
+    f.conn
+        .raw()
+        .execute("UPDATE media_files SET suffix='.mkv'", [])
         .unwrap();
-    assert_eq!(compliance(&f, media.id).0, "unknown");
-    assert!(needs_reencode(&f, media.id));
-    // A verify report: state plus need, whatever the state.
+    let probe = json!({"streams": []});
+    inspections
+        .record(media.id, &inspection("ffprobe", "fp-1", &probe), None)
+        .unwrap();
     let report = json!({"violations": [
-        {"rule": "video-reencode", "severity": "warning", "message": "video vc1 needs a re-encode"}]});
+        {"rule": "no-fragments", "severity": "blocker", "message": "rule crashed: not an mp4"}],
+        "encode_need": "audio", "planned_change": "audio"});
     inspections
         .record(media.id, &inspection("verify", "fp-1", &report), None)
         .unwrap();
-    assert_eq!(compliance(&f, media.id).0, "warning");
-    assert!(needs_reencode(&f, media.id));
-    // The need goes away with a clean report, and backfill reproduces it.
-    let clean = json!({"violations": []});
-    inspections
-        .record(media.id, &inspection("verify", "fp-1", &clean), None)
-        .unwrap();
-    assert!(!needs_reencode(&f, media.id));
-    f.conn
-        .raw()
-        .execute("UPDATE media_files SET needs_reencode=1", [])
-        .unwrap();
-    inspections.backfill_compliance().unwrap();
-    assert!(!needs_reencode(&f, media.id));
+    assert_eq!(compliance(&f, media.id).0, "unknown");
+    assert_eq!(
+        stored_need(&f, media.id),
+        (Some(EncodeNeed::Audio), "audio".to_owned())
+    );
 }
 
 #[test]

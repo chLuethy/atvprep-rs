@@ -207,7 +207,8 @@ fn contract(dir: &Path, leaf: &str) -> (std::fs::File, Vec<String>) {
         meta.ino().to_string(),
         "--manager-ctime-ns".to_owned(),
         (i128::from(meta.ctime()) * 1_000_000_000 + i128::from(meta.ctime_nsec())).to_string(),
-        "--copy-only".to_owned(),
+        "--encode".to_owned(),
+        "copy".to_owned(),
         dir.join(leaf).to_string_lossy().into_owned(),
     ];
     (parent, args)
@@ -243,7 +244,12 @@ fn worker_hands_a_pinned_directory_to_the_real_cli() {
     let result = run_pinned_prepare(
         Path::new(env!("CARGO_BIN_EXE_atvprep")),
         &target,
-        PrepareMode::default(),
+        PrepareMode {
+            encode: atvprep_core::encode::EncodeAllowance::Copy,
+            delete_original: false,
+            force: false,
+            profile: atvprep_manager::settings::TargetProfile::default(),
+        },
         &environment,
         Duration::from_secs(30),
         Duration::from_millis(100),
@@ -297,27 +303,44 @@ fn the_worker_re_encodes_for_real_only_with_the_approved_mode() {
     use atvprep_manager::worker::process::PrepareMode;
     let original = std::fs::read(high10()).unwrap();
 
-    // Copy-only, as every item without a re-encode decision: refused, the file stays.
-    let (output, code, path, _dir) = run_high10(PrepareMode::default());
-    assert_ne!(code, Some(0), "{output}");
-    assert_eq!(std::fs::read(&path).unwrap(), original, "{output}");
-
-    // Re-encode approved but the original may not be replaced: reported, untouched.
+    // Copy only, as every item without a re-encode decision: refused, the file stays.
     let (output, code, path, _dir) = run_high10(PrepareMode {
-        reencode: true,
+        encode: atvprep_core::encode::EncodeAllowance::Copy,
         delete_original: false,
+        force: false,
+        profile: atvprep_manager::settings::TargetProfile::default(),
     });
     assert_eq!(code, Some(0), "{output}");
     assert!(
-        output.contains("ATVPREP-OUTCOME reencode_needed"),
+        output.contains("ATVPREP-OUTCOME encode_not_allowed"),
+        "{output}"
+    );
+    assert!(
+        output.contains("ATVPREP-ENCODE need=video allowance=copy"),
         "{output}"
     );
     assert_eq!(std::fs::read(&path).unwrap(), original, "{output}");
 
-    // Re-encode approved with delete_original: the file is replaced by the encoded one.
+    // Audio released, the file needs video: refused, the file stays.
     let (output, code, path, _dir) = run_high10(PrepareMode {
-        reencode: true,
+        encode: atvprep_core::encode::EncodeAllowance::Audio,
+        delete_original: false,
+        force: false,
+        profile: atvprep_manager::settings::TargetProfile::default(),
+    });
+    assert_eq!(code, Some(0), "{output}");
+    assert!(
+        output.contains("ATVPREP-ENCODE need=video allowance=audio"),
+        "{output}"
+    );
+    assert_eq!(std::fs::read(&path).unwrap(), original, "{output}");
+
+    // Audio and video released: the file is replaced by the encoded one.
+    let (output, code, path, _dir) = run_high10(PrepareMode {
+        encode: atvprep_core::encode::EncodeAllowance::All,
         delete_original: true,
+        force: false,
+        profile: atvprep_manager::settings::TargetProfile::default(),
     });
     assert_eq!(code, Some(0), "{output}");
     assert!(output.contains("ATVPREP-OUTCOME reencoded"), "{output}");
@@ -534,7 +557,7 @@ fn worker_executes_a_claimed_verification_and_releases_its_permit() {
     let ids = [media.id];
     let mut prepare = NewJob::new("fix", &ids);
     prepare.trigger = "manual";
-    prepare.settings_snapshot = serde_json::json!({"pipeline":"prepare","policy":"copy-only-v2","reencode":false,"manual_approval":true,"approved_by":session.id,"approved_at":ctx.clock.now_micros()/1_000_000,"delete_original":false,"delete_original_confirmed":false});
+    prepare.settings_snapshot = serde_json::json!({"pipeline":"prepare","policy":atvprep_manager::approval::PREPARE_POLICY,"profile":atvprep_manager::settings::TargetProfile::default().to_json(),"encode":"copy","manual_approval":true,"approved_by":session.id,"approved_at":ctx.clock.now_micros()/1_000_000,"delete_original":false,"delete_original_confirmed":false});
     let job = Jobs(ctx).create(&prepare).unwrap();
     let queued = Jobs(ctx).items(job.id).unwrap().remove(0);
     let recorded = atvprep_manager::snapshots::InputSnapshots(ctx)
@@ -555,8 +578,10 @@ fn worker_executes_a_claimed_verification_and_releases_its_permit() {
             media_id: media.id,
             action: "fix",
             identity: &identity,
-            reencode: false,
-            delete_original: false
+            encode: atvprep_core::encode::EncodeAllowance::Copy,
+            delete_original: false,
+            force: false,
+            profile: atvprep_manager::settings::TargetProfile::default(),
         },
         session.id,
         signed["approved_at"].as_i64().unwrap()
@@ -770,8 +795,10 @@ fn cancelling_a_re_encode_removes_the_partial_file() {
         Path::new(env!("CARGO_BIN_EXE_atvprep")),
         &target,
         PrepareMode {
-            reencode: true,
+            encode: atvprep_core::encode::EncodeAllowance::All,
             delete_original: true,
+            force: false,
+            profile: atvprep_manager::settings::TargetProfile::default(),
         },
         &environment,
         Duration::from_secs(60),

@@ -38,7 +38,7 @@ export function waveVerdict(bitrate: number | undefined, limitMbps: number): Wav
     return {
       state: "transcode",
       headline: t("Wave transcodes this file"),
-      detail: t("{shown} is over your {limit} Mbps limit. A fix does not change this: raise the limit in Wave or re-encode the file.", { shown, limit: limitMbps }),
+      detail: t("{shown} is over your {limit} Mbps limit. Prepare does not change this: raise the limit in Wave or re-encode the file.", { shown, limit: limitMbps }),
     };
   }
   return {

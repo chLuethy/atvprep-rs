@@ -36,14 +36,14 @@ test.describe("library journey", () => {
     await openAndUnlock(page, "/files");
     await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
 
-    await page.getByRole("checkbox", { name: /^Needs re-encode/ }).check();
-    await expect(page).toHaveURL(/has=reencode/);
+    await page.getByRole("checkbox", { name: /^Needs video encoding/ }).check();
+    await expect(page).toHaveURL(/has=encode_video/);
     await expect(page.getByRole("link", { name: "Old Codec Movie" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Failed Movie" })).toHaveCount(0);
 
     // A second property narrows further: no file here has both.
     await page.getByRole("checkbox", { name: /^Embed open/ }).check();
-    await expect(page).toHaveURL(/has=reencode%2Cembed/);
+    await expect(page).toHaveURL(/has=encode_video%2Cembed/);
     await expect(page.getByRole("link", { name: "Old Codec Movie" })).toHaveCount(0);
 
     await page.getByRole("button", { name: "Show all files" }).click();
@@ -68,7 +68,7 @@ test.describe("library journey", () => {
     await expect(page.getByRole("region", { name: "Prepare preview" })).toHaveCount(0);
   });
 
-  test("the preview names the files that need a re-encode and offers both ways", async ({ page }) => {
+  test("the preview offers the encoding allowance and holds the video level back until it is confirmed", async ({ page }) => {
     await openAndUnlock(page, "/files");
 
     await page.getByRole("link", { name: "Old Codec Movie" }).click();
@@ -77,12 +77,18 @@ test.describe("library journey", () => {
     const preview = page.getByRole("region", { name: "Prepare preview" });
     await expect(preview).toContainText("Old Codec Movie");
     await expect(preview).toContainText("1 of 1 file needs a re-encode");
-    await expect(preview.getByRole("button", { name: "With re-encode (1)" })).toBeEnabled();
-    // The only file needs a re-encode, so leaving it out would queue nothing.
-    await expect(preview.getByRole("button", { name: "Without re-encode" })).toBeDisabled();
-    await expect(preview.getByRole("button", { name: "Prepare 1 file" })).toHaveCount(0);
+    await expect(preview.getByRole("radio", { name: /^Encode audio(?! and)/ })).toBeChecked();
+    const prepare = preview.getByRole("button", { name: "Prepare 1 file" });
+    await expect(prepare).toBeEnabled();
 
-    await preview.getByRole("button", { name: "Cancel" }).click();
+    await preview.getByRole("radio", { name: /^Encode audio and video/ }).check();
+    await expect(prepare).toBeDisabled();
+    await preview.getByRole("checkbox", { name: /re-encoded/ }).check();
+    await expect(prepare).toBeEnabled();
+
+    // The real server takes the confirmed level; the workers are parked, so the file stays queued.
+    await prepare.click();
+    await expect(page.getByText("Prepare job queued for 1 file. Follow it under Activity.")).toBeVisible();
     await expect(page.getByRole("region", { name: "Prepare preview" })).toHaveCount(0);
   });
 

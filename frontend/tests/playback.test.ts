@@ -4,13 +4,13 @@ import { DEFAULT_LIMIT_MBPS, LIMIT_OPTIONS_MBPS, readWaveLimit, waveVerdict, wri
 afterEach(() => vi.restoreAllMocks());
 
 describe("waveVerdict", () => {
-  it("says Wave will transcode when the bitrate is over the limit, and that a fix will not change it", () => {
+  it("says Wave will transcode when the bitrate is over the limit, and that preparing will not change it", () => {
     const verdict = waveVerdict(12_129_150, 10);
 
     expect(verdict.state).toBe("transcode");
     expect(verdict.headline).toBe("Wave transcodes this file");
     expect(verdict.detail).toContain("12.1 Mbps is over your 10 Mbps limit");
-    expect(verdict.detail).toMatch(/a fix does not change this/i);
+    expect(verdict.detail).toMatch(/prepare does not change this/i);
     expect(verdict.detail).toMatch(/raise the limit in wave or re-encode/i);
   });
 

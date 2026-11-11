@@ -16,7 +16,8 @@ use super::ffmpeg::{FfmpegError, run_ffmpeg_with_progress};
 use super::paths::{output_path, temp_name};
 use super::{ErrorKind, Failed, Outcome, PrepareOptions, PrepareResult, settle_report};
 use crate::compliance::Audit;
-use crate::copy_policy::check_copy_only;
+use crate::copy_policy::{check_copy_only, check_video_copied};
+use crate::encode::{ChangeKind, EncodeAllowance, EncodeNeed, EncodeRefusal, PlannedChange};
 use crate::escalation::{AssessOptions, Assessment, Level, assess};
 use crate::fd_fix_contract::{FdFixTarget, UnsafeFixTarget};
 use crate::ffprobe::ProbeError;
@@ -359,33 +360,57 @@ fn plan_for(
     )?)
 }
 
-/// ffmpeg from `source` into `tmp`, then the moov patch and the post-run verify of `tmp`.
+/// The plan for `tmp` when the run may carry it out, or why it may not. Every route that runs
+/// ffmpeg asks this before it writes anything, so a refused file stays exactly as it was.
+fn allowed_plan(
+    ctx: &RunContext,
+    options: &PrepareOptions,
+    source: &Path,
+    tmp: &Path,
+    analysis: &Analysis,
+) -> Step<Result<Plan, EncodeRefusal>> {
+    let plan = plan_for(ctx, options, source, tmp, analysis)?;
+    let need = EncodeNeed::of_plan(&plan);
+    Ok(if options.encode.permits(need) {
+        Ok(plan)
+    } else {
+        Err(EncodeRefusal {
+            need,
+            allowance: options.encode,
+        })
+    })
+}
+
+/// ffmpeg from `source` into `tmp` as `plan` says, then the moov patch and the post-run verify.
 fn encode(
     ctx: &mut RunContext,
     options: &PrepareOptions,
     source: &Path,
     analysis: &Analysis,
     tmp: &Path,
+    plan: &Plan,
 ) -> Step<VerifyReport> {
-    let plan = plan_for(ctx, options, source, tmp, analysis)?;
     let transcode = |error: &dyn fmt::Display| {
         failed(
             ErrorKind::Transcode,
             format!("this fix would need to re-encode media: {error}"),
         )
     };
-    if options.copy_only {
-        let checked = check_copy_only(&plan.ffmpeg_cmd).and_then(|()| {
-            verify_subtitle_inputs(&plan, &analysis.probe, &analysis.sidecars, &ctx.ffprobe)
-        });
-        if let Err(violation) = checked {
-            return Err(transcode(&violation));
-        }
+    // The plan was allowed already; this looks at the command that will really run.
+    let checked = match options.encode {
+        EncodeAllowance::Copy => check_copy_only(&plan.ffmpeg_cmd).and_then(|()| {
+            verify_subtitle_inputs(plan, &analysis.probe, &analysis.sidecars, &ctx.ffprobe)
+        }),
+        EncodeAllowance::Audio => check_video_copied(&plan.ffmpeg_cmd),
+        EncodeAllowance::All => Ok(()),
+    };
+    if let Err(violation) = checked {
+        return Err(transcode(&violation));
     }
-    lines(ctx, &plan_table(&plan));
+    lines(ctx, &plan_table(plan));
     {
         let _timing = phase("ffmpeg", Some(tmp));
-        run_ffmpeg_with_progress(ctx, &plan)?;
+        run_ffmpeg_with_progress(ctx, plan)?;
     }
     if std::fs::metadata(tmp).map_or(true, |m| !m.is_file() || m.len() == 0) {
         return Err(failed(
@@ -393,10 +418,10 @@ fn encode(
             format!("ffmpeg wrote no output for {}", name_of(source)),
         ));
     }
-    if options.copy_only {
+    if options.encode == EncodeAllowance::Copy {
         // ffmpeg opened the sidecars by name after they were checked. Whatever happened in
         // between, nothing is published unless the file holds exactly the planned streams.
-        if let Err(violation) = verify_output_streams(tmp, &plan, &analysis.probe, &ctx.ffprobe) {
+        if let Err(violation) = verify_output_streams(tmp, plan, &analysis.probe, &ctx.ffprobe) {
             return Err(transcode(&violation));
         }
     }
@@ -406,7 +431,7 @@ fn encode(
         .filter(|t| t.action != SubAction::Skip)
         .map(|t| (t.lang.clone(), t.sdh, t.forced))
         .collect();
-    step_patch_media(ctx, tmp, &infos, Some(&plan), options.verbose, true)?;
+    step_patch_media(ctx, tmp, &infos, Some(plan), options.verbose, true)?;
     let atmos = plan.audio_tracks.iter().filter(|t| t.is_atmos).count();
     for warning in verify_atmos_in_output(tmp, atmos, &ctx.ffprobe) {
         ctx.console.print(&format!("  ! {warning}"));
@@ -563,6 +588,15 @@ fn result_of(
         source_kept: None,
         error: None,
         error_kind: None,
+        encode_refusal: None,
+    }
+}
+
+/// „Kodierung nicht freigegeben“: no output, no report, and the run still counts as fine.
+fn refused_result(source: &Path, assessment: &Assessment, refusal: EncodeRefusal) -> PrepareResult {
+    PrepareResult {
+        encode_refusal: Some(refusal),
+        ..result_of(source, assessment, Outcome::EncodeNotAllowed, None, None)
     }
 }
 
@@ -600,30 +634,24 @@ fn run_level(
     if level == Level::None {
         return Ok(finish(Outcome::Done, None));
     }
-    if level == Level::Reencode && options.copy_only {
-        return Err(failed(
-            ErrorKind::Transcode,
-            "this fix would need to re-encode the video, which is not allowed here",
-        ));
-    }
-    if level == Level::Reencode && !options.delete_original {
-        return Ok(finish(Outcome::ReencodeNeeded, None));
-    }
-    if options.dry_run {
-        if matches!(level, Level::Rebuild | Level::Reencode) {
-            let tmp = temp_path(source, target)?;
-            let plan = plan_for(ctx, options, source, &tmp, analysis)?;
-            lines(ctx, &plan_table(&plan));
-        }
-        return Ok(finish(Outcome::Planned, None));
-    }
     if level == Level::InPlace {
+        if options.dry_run {
+            return Ok(finish(Outcome::Planned, None));
+        }
         let report = patch_in_place(ctx, run, target, &analysis.probe)?;
         return Ok(finish(Outcome::Patched, Some(report)));
     }
     let tmp = temp_path(source, target)?;
+    let plan = match allowed_plan(ctx, options, source, &tmp, analysis)? {
+        Ok(plan) => plan,
+        Err(refusal) => return Ok(refused_result(source, assessment, refusal)),
+    };
+    if options.dry_run {
+        lines(ctx, &plan_table(&plan));
+        return Ok(finish(Outcome::Planned, None));
+    }
     run.temps.push(tmp.clone());
-    let report = encode(ctx, options, source, analysis, &tmp)?;
+    let report = encode(ctx, options, source, analysis, &tmp, &plan)?;
     settle_report(
         ctx,
         &name_of(source),
@@ -648,8 +676,11 @@ fn run_new_sibling(
     let level = assessment.level;
     let final_path = leaf_in(source, target, final_leaf)?;
     let tmp = temp_path(source, target)?;
+    let plan = match allowed_plan(ctx, options, source, &tmp, analysis)? {
+        Ok(plan) => plan,
+        Err(refusal) => return Ok(refused_result(source, assessment, refusal)),
+    };
     if options.dry_run {
-        let plan = plan_for(ctx, options, source, &tmp, analysis)?;
         lines(ctx, &plan_table(&plan));
         return Ok(result_of(source, assessment, Outcome::Planned, None, None));
     }
@@ -660,7 +691,7 @@ fn run_new_sibling(
     )
     .unwrap_or(i128::MAX);
     run.temps.push(tmp.clone());
-    let report = encode(ctx, options, source, analysis, &tmp)?;
+    let report = encode(ctx, options, source, analysis, &tmp, &plan)?;
     settle_report(ctx, final_leaf, options, &tmp, &report, run.quarantine)?;
     target.publish_new(&name_of(&tmp), final_leaf)?;
     let passed = report.passed();
@@ -692,10 +723,17 @@ fn run_to_output(
     let assessment = &analysis.assessment;
     let level = assessment.level;
     let tmp = output.with_file_name(temp_name(&stem_of(output), ""));
+    let plan = if matches!(level, Level::Rebuild | Level::Reencode) {
+        match allowed_plan(ctx, options, source, &tmp, analysis)? {
+            Ok(plan) => Some(plan),
+            Err(refusal) => return Ok(refused_result(source, assessment, refusal)),
+        }
+    } else {
+        None
+    };
     if options.dry_run {
-        if matches!(level, Level::Rebuild | Level::Reencode) {
-            let plan = plan_for(ctx, options, source, &tmp, analysis)?;
-            lines(ctx, &plan_table(&plan));
+        if let Some(plan) = &plan {
+            lines(ctx, &plan_table(plan));
         }
         return Ok(result_of(source, assessment, Outcome::Planned, None, None));
     }
@@ -710,7 +748,10 @@ fn run_to_output(
         })?;
     }
     run.temps.push(tmp.clone());
-    let (report, outcome) = if matches!(level, Level::None | Level::InPlace) {
+    let (report, outcome) = if let Some(plan) = &plan {
+        let report = encode(ctx, options, source, analysis, &tmp, plan)?;
+        (report, rebuilt_or_reencoded(level))
+    } else {
         let report = patch_copy(ctx, source, &tmp, &analysis.probe)?;
         (
             report,
@@ -720,9 +761,6 @@ fn run_to_output(
                 Outcome::Patched
             },
         )
-    } else {
-        let report = encode(ctx, options, source, analysis, &tmp)?;
-        (report, rebuilt_or_reencoded(level))
     };
     settle_report(
         ctx,
@@ -744,6 +782,38 @@ fn run_to_output(
         Some(output.to_path_buf()),
         Some(report),
     ))
+}
+
+/// What the route of a Prepare run would need and change for `source`, without writing anything.
+fn planned(ctx: &mut RunContext, run: &mut Run, target: &FdFixTarget) -> Step<PlannedChange> {
+    let (source, options) = (run.source, run.options);
+    let sibling_leaf = format!("{}.mp4", stem_of(source));
+    // As in `route`: the MP4 next to the source is what Prepare works on, through its own pin.
+    let sibling = if !is_mp4_like(source) && has_sibling(target, &sibling_leaf)? {
+        Some((
+            leaf_in(source, target, &sibling_leaf)?,
+            target.sibling(&sibling_leaf)?,
+        ))
+    } else {
+        None
+    };
+    let (subject, subject_target) = match &sibling {
+        Some((path, pinned)) => (path.clone(), pinned),
+        None => (source.to_path_buf(), target),
+    };
+    run.subject.clone_from(&subject);
+    let analysis = analyse(ctx, run, &subject)?;
+    let need = match analysis.assessment.level {
+        Level::None | Level::InPlace => EncodeNeed::None,
+        Level::Rebuild | Level::Reencode => {
+            let tmp = temp_path(&subject, subject_target)?;
+            EncodeNeed::of_plan(&plan_for(ctx, options, &subject, &tmp, &analysis)?)
+        }
+    };
+    Ok(PlannedChange {
+        need,
+        change: ChangeKind::of(analysis.assessment.level, need),
+    })
 }
 
 /// A caller target without a real root must pin the directory `source` lives in.
@@ -802,6 +872,9 @@ fn route(
         let analysis = analyse(ctx, run, &subject)?;
         let mut result = run_level(ctx, run, &sibling_target, &analysis, &subject)?;
         result.source = source.to_path_buf();
+        if result.encode_refusal.is_some() {
+            return Ok(result);
+        }
         result.output = Some(subject);
         if options.delete_original {
             result.source_kept =
@@ -811,6 +884,27 @@ fn route(
     }
     let analysis = analyse(ctx, run, source)?;
     run_new_sibling(ctx, run, target, &analysis, &sibling_leaf)
+}
+
+/// The Kodierbedarf and the Änderungsart of `source` under `options`: the analysis and planner of
+/// [`prepare_file`], taking the same route, but read-only. `None` when the planner cannot say.
+#[must_use]
+pub fn planned_change(
+    ctx: &mut RunContext,
+    source: &Path,
+    options: &PrepareOptions,
+    target: &FdFixTarget,
+) -> Option<PlannedChange> {
+    let mut run = Run {
+        source,
+        options,
+        level: Level::None,
+        reasons: Vec::new(),
+        subject: source.to_path_buf(),
+        temps: Vec::new(),
+        quarantine: false,
+    };
+    planned(ctx, &mut run, target).ok()
 }
 
 /// Bring `source` to the Apple TV target, going no further than its escalation level requires.
@@ -886,6 +980,7 @@ pub fn prepare_file(
                 error.message
             }),
             error_kind: Some(error.kind),
+            encode_refusal: None,
         }),
         Err(Abort::Propagate(error)) => Err(error),
     }

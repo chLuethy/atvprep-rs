@@ -9,29 +9,56 @@ use crate::{
     jobs::Jobs,
     leases::MediaExecutorLease,
     repo::Ctx,
+    settings::{TargetProfile, target_profile},
     snapshots::{InputSnapshot, InputSnapshots},
     state_machine::{ItemStatus, JobStateMachine, JobStatus},
 };
+use atvprep_core::encode::{EncodeAllowance, EncodeNeed};
 use std::{
     collections::BTreeMap,
     path::PathBuf,
     time::{Duration, Instant},
 };
 
-/// How long an item that may be re-encoded can run. Encoding a film takes hours; the lease keeps
-/// being renewed meanwhile. Every other item keeps the configured, shorter limit.
+/// How long an item that may encode video and needs it (or does not know yet) can run. Encoding a
+/// film takes hours; the lease keeps being renewed meanwhile. Every other item keeps the configured,
+/// shorter limit.
 pub const REENCODE_TIMEOUT: Duration = Duration::from_hours(4);
 
-/// The error code of an item that needed a re-encode which was not run (ADR 0007).
-pub const REENCODE_NOT_RUN: &str = "reencode_not_run";
+/// The code of a successful item whose file needs more than its Kodierfreigabe (ADR 0008).
+pub const ENCODE_NOT_ALLOWED: &str = "encode_not_allowed";
 
-/// The machine line the media CLI prints when a file needs a re-encode it was not told to do.
-const REENCODE_NEEDED_LINE: &str = "ATVPREP-OUTCOME reencode_needed";
+/// The machine line the media CLI prints when a file needs more than its Kodierfreigabe allows.
+const ENCODE_NOT_ALLOWED_LINE: &str = "ATVPREP-OUTCOME encode_not_allowed";
 
-/// The time limit of one changing item: longer only for an item approved to re-encode.
+/// The need and allowance of a refusal, from the CLI's `ATVPREP-ENCODE` line.
+fn encode_refusal(process: &ProcessResult) -> Option<String> {
+    if process.reason != StopReason::Exited || process.exit_code != Some(0) {
+        return None;
+    }
+    // Machine lines come on stdout alone; the merged log may interleave stderr with them.
+    let output = String::from_utf8_lossy(&process.stdout);
+    output
+        .lines()
+        .any(|line| line.trim() == ENCODE_NOT_ALLOWED_LINE)
+        .then(|| {
+            let detail = output
+                .lines()
+                .find_map(|line| line.trim().strip_prefix("ATVPREP-ENCODE "))
+                .unwrap_or("need=unknown allowance=unknown");
+            format!("Encoding not allowed ({detail}): the file stays as it was.")
+        })
+}
+
+/// The time limit of one changing item: longer only for „Audio und Video“ with a video or unknown
+/// Kodierbedarf (`need` is the stored one, `None` is „unbekannt“).
 #[must_use]
-pub fn prepare_timeout(configured: Duration, mode: PrepareMode) -> Duration {
-    if mode.reencode {
+pub fn prepare_timeout(
+    configured: Duration,
+    mode: PrepareMode,
+    need: Option<EncodeNeed>,
+) -> Duration {
+    if mode.encode == EncodeAllowance::All && matches!(need, None | Some(EncodeNeed::Video)) {
         configured.max(REENCODE_TIMEOUT)
     } else {
         configured
@@ -117,8 +144,26 @@ pub fn execute_claimed(
             return Err(Error::Invalid("verification input changed".to_owned()));
         }
         let changing = matches!(item.action.as_str(), "fix" | "convert");
-        let mut mode = PrepareMode::default();
+        let mut mode = PrepareMode {
+            encode: EncodeAllowance::Copy,
+            delete_original: false,
+            force: false,
+            profile: TargetProfile::default(),
+        };
         if changing {
+            // A job from an older policy can never become valid: refused for good, "queue it again".
+            if let Some(reason) = crate::approval::prepare_policy_block(&item.settings_snapshot) {
+                return Err(Error::Invalid(reason.to_owned()));
+            }
+            // Signed for the profile it was queued under: a changed profile is a new decision.
+            if crate::approval::item_profile(&item.settings_snapshot)
+                != Some(crate::db::retry_busy(|| target_profile(ctx.conn))?)
+            {
+                return Err(Error::Invalid(
+                    "The target profile changed after this job was queued. Queue the preparation again."
+                        .to_owned(),
+                ));
+            }
             let verifier = config
                 .approvals
                 .as_ref()
@@ -190,6 +235,10 @@ pub fn execute_claimed(
                     )
                     .is_ok()
             {
+                let _ = ctx.conn.execute(
+                    "UPDATE job_items SET error_detail=?1 WHERE id=?2",
+                    rusqlite::params![error.to_string(), item_id],
+                );
                 let _ = super::recovery::Recovery(ctx).reconcile_idle_jobs();
             }
             return Err(error);
@@ -250,15 +299,20 @@ pub fn execute_claimed(
                 !matches!(status, JobStatus::Queued | JobStatus::Running)
             })
         };
+        // „Prüfen“ runs against the profile of this moment; what it stored is checked again below.
+        let verify_profile = crate::db::retry_busy(|| target_profile(ctx.conn))?;
         let mut output =
             super::execution_output::ClaimedOutput::new(ctx, owner, fence, item_id, item.job_id);
         let process = if changing {
+            let need = crate::media::Media(ctx)
+                .get(item.media_file_id)?
+                .and_then(|media| media.encode_need);
             run_pinned_prepare_observed(
                 &config.executable,
                 &target,
                 mode,
                 &config.environment,
-                prepare_timeout(config.timeout, mode),
+                prepare_timeout(config.timeout, mode, need),
                 config.grace,
                 &mut cancelled,
                 |chunk| output.feed(chunk, false),
@@ -276,6 +330,7 @@ pub fn execute_claimed(
             run_pinned_verify(
                 &config.executable,
                 &target,
+                verify_profile,
                 &config.environment,
                 config.timeout,
                 config.grace,
@@ -342,6 +397,9 @@ pub fn execute_claimed(
                 },
                 None,
             )?;
+            if item.action == "verify" {
+                forget_need_of_a_superseded_profile(write, item.media_file_id, verify_profile)?;
+            }
             tx.commit()?;
         }
         if changing {
@@ -380,17 +438,10 @@ pub fn execute_claimed(
             fresh.status_version
         };
         JobStateMachine(ctx).transition_item(item_id, terminal, version, Some(fence), None)?;
-        // A file that needs a re-encode but was not told to (no `delete_original`) ends as a
-        // success with a visible result, not as a silent one.
-        let reencode_not_run = changing
-            && mode.reencode
-            && process.reason == StopReason::Exited
-            && process.exit_code == Some(0)
-            && String::from_utf8_lossy(&process.output)
-                .lines()
-                .any(|line| line.trim() == REENCODE_NEEDED_LINE);
+        // A file above its Kodierfreigabe stays unchanged: a success with a hint, not a failure.
+        let refusal = changing.then(|| encode_refusal(&process)).flatten();
         let code = match process.reason {
-            StopReason::Exited if reencode_not_run => Some(REENCODE_NOT_RUN),
+            StopReason::Exited if refusal.is_some() => Some(ENCODE_NOT_ALLOWED),
             StopReason::TimedOut => Some("timeout"),
             StopReason::Cancelled => Some("cancelled"),
             StopReason::Exited if process.exit_code != Some(0) && !verified_with_findings => {
@@ -404,13 +455,10 @@ pub fn execute_claimed(
                 "worker lost its completion authority".to_owned(),
             ));
         }
-        if reencode_not_run {
+        if let Some(refusal) = refusal {
             ctx.conn.execute(
                 "UPDATE job_items SET error_detail=?1 WHERE id=?2",
-                rusqlite::params![
-                    "Re-encode needed, not run: the file stays as it was. A re-encode replaces the original and only runs with delete_original turned on.",
-                    item_id
-                ],
+                rusqlite::params![refusal, item_id],
             )?;
         }
         super::recovery::Recovery(ctx).reconcile_idle_jobs()?;
@@ -446,6 +494,62 @@ pub fn execute_claimed(
     }
 }
 
+/// A check that ran against a profile changed in the meantime must not leave its need behind: the
+/// file goes back to „unbekannt“, and the background check asks again under the new profile.
+fn forget_need_of_a_superseded_profile(
+    ctx: Ctx<'_>,
+    media_id: i64,
+    used: TargetProfile,
+) -> Result<()> {
+    if target_profile(ctx.conn)? != used {
+        ctx.conn.execute(
+            "UPDATE media_files SET encode_need='unknown', planned_change='unknown' WHERE id=?1",
+            [media_id],
+        )?;
+    }
+    Ok(())
+}
+
+/// Whether the CLI reported that it removed the old container after a verified MP4.
+fn source_removed(process: &ProcessResult) -> bool {
+    process.reason == StopReason::Exited
+        && process.exit_code == Some(0)
+        && String::from_utf8_lossy(&process.stdout)
+            .lines()
+            .any(|line| line.trim() == "ATVPREP-SOURCE removed")
+}
+
+/// The old container is gone on purpose: its row leaves the library (jobs and inspections are
+/// kept), so it is not offered as a missing file, and a scan picks up the new MP4.
+fn complete_removed_source(
+    ctx: Ctx<'_>,
+    item: &crate::models::JobItem,
+    owner: &str,
+    fence: i64,
+) -> Result<()> {
+    let tx =
+        rusqlite::Transaction::new_unchecked(ctx.conn, rusqlite::TransactionBehavior::Immediate)?;
+    let write = Ctx {
+        conn: &tx,
+        clock: ctx.clock,
+    };
+    if !authority(write, item.id, owner, fence)? {
+        return Err(Error::Conflict(
+            "worker lost its Prepare completion authority".to_owned(),
+        ));
+    }
+    let media = crate::media::Media(write)
+        .get(item.media_file_id)?
+        .ok_or_else(|| Error::Invalid("prepared media not found".to_owned()))?;
+    tx.execute(
+        "UPDATE media_files SET discovery_state='missing',dismissed_at=?1 WHERE id=?2",
+        rusqlite::params![ctx.clock.now(), media.id],
+    )?;
+    crate::scans::Scans(write).request_manual(media.root_id)?;
+    tx.commit()?;
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)] // Completion is bound to the claimed item and its pinned input.
 fn complete_prepare(
     ctx: Ctx<'_>,
@@ -457,6 +561,9 @@ fn complete_prepare(
     fence: i64,
     process: &ProcessResult,
 ) -> Result<()> {
+    if source_removed(process) {
+        return complete_removed_source(ctx, item, owner, fence);
+    }
     let root = std::path::Path::new(root);
     let after = atvprep_core::fd_fix_contract::FdFixTarget::from_library(root, relative)
         .map_err(|_| Error::Invalid("prepared source is no longer accessible".to_owned()))?;
@@ -497,7 +604,7 @@ fn complete_prepare(
     if changed {
         crate::media::Media(write).upsert(media.root_id, relative, &observed.meta, None)?;
         tx.execute(
-            "UPDATE media_files SET compliance_state='unknown',compliance_reasons=?1,needs_reencode=0 WHERE id=?2",
+            "UPDATE media_files SET compliance_state='unknown',compliance_reasons=?1,encode_need='unknown',planned_change='unknown' WHERE id=?2",
             rusqlite::params![
                 "[\"Changed by Prepare; verification is required.\"]",
                 media.id
@@ -515,4 +622,83 @@ fn complete_prepare(
     }
     tx.commit()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{clock::FixedClock, db::Db, schema, settings::Settings};
+    use serde_json::json;
+
+    /// Runs `script` with the system shell, as the worker runs the media CLI.
+    fn shell(script: &str) -> ProcessResult {
+        let executable = std::path::Path::new("/bin/sh").canonicalize().unwrap();
+        super::super::process::run(
+            &executable,
+            &["-c".to_owned(), script.to_owned()],
+            &std::collections::BTreeMap::new(),
+            std::time::Duration::from_secs(5),
+            std::time::Duration::from_millis(20),
+            || false,
+        )
+        .unwrap()
+    }
+
+    /// The CLI writes its machine lines to stdout; stderr is shared with ffmpeg and the tools. A
+    /// stderr chunk read while a line is still open must not break the line.
+    #[test]
+    fn machine_lines_are_read_from_stdout_even_when_stderr_lands_inside_them() {
+        let removed = shell(
+            "printf 'ATVPREP-SOURCE removed'; sleep 0.2; printf 'ffmpeg warning\\n' >&2; sleep 0.2; printf '\\n'",
+        );
+        assert!(source_removed(&removed));
+        let refused = shell(
+            "printf 'ATVPREP-ENCODE need=video allowance=audio\\nATVPREP-OUTCOME encode_not_allowed'; sleep 0.2; printf 'warning\\n' >&2; sleep 0.2; printf '\\n'",
+        );
+        assert_eq!(
+            encode_refusal(&refused).as_deref(),
+            Some("Encoding not allowed (need=video allowance=audio): the file stays as it was.")
+        );
+    }
+
+    #[test]
+    fn a_check_against_a_superseded_profile_leaves_the_file_unknown() {
+        let db = Db::memory().unwrap();
+        let mut conn = db.conn().unwrap();
+        schema::migrate(&mut conn).unwrap();
+        let clock = FixedClock(1_700_000_000_000_000);
+        let ctx = Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        };
+        conn.raw().execute_batch(
+            "INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'r','/r');
+             INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,
+               discovery_state,compliance_state,workflow_state,desired_action,encode_need,planned_change)
+             VALUES (1,1,'a.mp4','movie','.mp4',1,1,'a','present','clean','idle','none','video','reencode');",
+        ).unwrap();
+        let need = || {
+            conn.raw()
+                .query_row("SELECT encode_need FROM media_files WHERE id=1", [], |r| {
+                    r.get::<_, String>(0)
+                })
+                .unwrap()
+        };
+
+        forget_need_of_a_superseded_profile(ctx, 1, TargetProfile::default()).unwrap();
+        assert_eq!(
+            need(),
+            "video",
+            "the profile the check ran against still holds"
+        );
+
+        Settings(ctx)
+            .set("target_crf", &json!(24), "o", None)
+            .unwrap();
+        conn.raw()
+            .execute("UPDATE media_files SET encode_need='video'", [])
+            .unwrap();
+        forget_need_of_a_superseded_profile(ctx, 1, TargetProfile::default()).unwrap();
+        assert_eq!(need(), "unknown");
+    }
 }

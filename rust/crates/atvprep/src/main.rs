@@ -30,7 +30,7 @@ fn enter_manager_directory(
     let Ok(matches) = atvprep::args::command().try_get_matches_from(arguments) else {
         return Ok(());
     };
-    let Some(("prepare" | "fix" | "convert", options)) = matches.subcommand() else {
+    let Some(("prepare" | "fix" | "convert" | "verify", options)) = matches.subcommand() else {
         return Ok(());
     };
     let Some(fd) = options.get_one::<i128>("manager-parent-fd") else {

@@ -77,6 +77,19 @@ describe("loadCounts", () => {
 });
 
 describe("queueJob", () => {
+  it("asks for a forced rebuild only when told to, and only for a prepare", async () => {
+    const api = apiFor(() => json({ id: "j_1" }, 201));
+
+    await queueJob(api, "prepare", ["m_f1"], "key-a", { encode: "copy", force: true });
+    await queueJob(api, "prepare", ["m_f1"], "key-b", { encode: "copy", force: false });
+    await queueJob(api, "verify", ["m_f1"], "key-c", { force: true });
+
+    const calls = (api.request as ReturnType<typeof vi.fn>).mock.calls as Array<[string, RequestInit]>;
+    expect(JSON.parse(String(calls[0]![1].body))).toEqual({ action: "prepare", media_ids: ["m_f1"], manual_approval: true, encode: "copy", force: true });
+    expect(JSON.parse(String(calls[1]![1].body))).toEqual({ action: "prepare", media_ids: ["m_f1"], manual_approval: true, encode: "copy" });
+    expect(JSON.parse(String(calls[2]![1].body))).toEqual({ action: "verify", media_ids: ["m_f1"], manual_approval: false });
+  });
+
   it("sends the documented body for a prepare and for a verification, never a fix or convert", async () => {
     const api = apiFor(() => json({ id: "j_1" }, 201));
 
@@ -85,22 +98,22 @@ describe("queueJob", () => {
 
     const calls = (api.request as ReturnType<typeof vi.fn>).mock.calls as Array<[string, RequestInit]>;
     expect(calls[0]![0]).toBe("/jobs");
-    expect(JSON.parse(String(calls[0]![1].body))).toEqual({ action: "prepare", media_ids: ["m_f1", "m_f2"], manual_approval: true });
+    expect(JSON.parse(String(calls[0]![1].body))).toEqual({ action: "prepare", media_ids: ["m_f1", "m_f2"], manual_approval: true, encode: "audio" });
     expect(JSON.parse(String(calls[1]![1].body))).toEqual({ action: "verify", media_ids: ["m_f1"], manual_approval: false });
     expect(new Headers(calls[0]![1].headers).get("Idempotency-Key")).toBe("key-1");
     expect(JSON.stringify(calls)).not.toContain("convert");
     expect(JSON.stringify(calls)).not.toContain('"fix"');
   });
 
-  it("sends confirm_reencode only when the caller releases a re-encode", async () => {
+  it("sends the chosen allowance, and the confirmation only with the video level", async () => {
     const api = apiFor(() => json({ id: "j_1" }, 201));
 
-    await queueJob(api, "prepare", ["m_f1"], "key-4", { confirmReencode: true });
-    await queueJob(api, "prepare", ["m_f1"], "key-5", { confirmReencode: false });
+    await queueJob(api, "prepare", ["m_f1"], "key-4", { encode: "all", confirmVideoEncode: true });
+    await queueJob(api, "prepare", ["m_f1"], "key-5", { encode: "copy", confirmVideoEncode: true });
 
     const calls = (api.request as ReturnType<typeof vi.fn>).mock.calls as Array<[string, RequestInit]>;
-    expect(JSON.parse(String(calls[0]![1].body))).toEqual({ action: "prepare", media_ids: ["m_f1"], manual_approval: true, confirm_reencode: true });
-    expect(JSON.parse(String(calls[1]![1].body))).toEqual({ action: "prepare", media_ids: ["m_f1"], manual_approval: true });
+    expect(JSON.parse(String(calls[0]![1].body))).toEqual({ action: "prepare", media_ids: ["m_f1"], manual_approval: true, encode: "all", confirm_video_encode: true });
+    expect(JSON.parse(String(calls[1]![1].body))).toEqual({ action: "prepare", media_ids: ["m_f1"], manual_approval: true, encode: "copy" });
   });
 
   it("never asks to delete an original, whatever the caller passes", async () => {
@@ -110,7 +123,7 @@ describe("queueJob", () => {
 
     const calls = (api.request as ReturnType<typeof vi.fn>).mock.calls as Array<[string, RequestInit]>;
     const body = JSON.parse(String(calls[0]![1].body));
-    expect(body).toEqual({ action: "prepare", media_ids: ["m_f1"], manual_approval: true });
+    expect(body).toEqual({ action: "prepare", media_ids: ["m_f1"], manual_approval: true, encode: "audio" });
     expect(JSON.stringify(body)).not.toContain("delete");
   });
 

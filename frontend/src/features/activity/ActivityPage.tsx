@@ -242,7 +242,7 @@ export const ActivityPage: Component<{ api: Api; activeId?: string | undefined; 
                 <Show when={phase() === "error"}><Button onClick={() => void load(true)}>{t("Retry")}</Button></Show>
               </div>
             }>
-              <Show when={rows().length > 0} fallback={<div class="empty"><b>{t("No jobs yet")}</b>{t("Select a file in the Library and press V to verify it, or F to preview a fix. The job shows up here.")}</div>}>
+              <Show when={rows().length > 0} fallback={<div class="empty"><b>{t("No jobs yet")}</b>{t("Select a file in the Library and press V to verify it, or F to preview preparing it. The job shows up here.")}</div>}>
                 {group(t("Active"), () => grouped().active)}
                 {group(t("History"), () => grouped().history)}
               </Show>
@@ -256,7 +256,7 @@ export const ActivityPage: Component<{ api: Api; activeId?: string | undefined; 
       <aside class="lib-side" aria-label={t("Job details")}>
         <Button variant="quiet" class="back-to-list" onClick={() => props.onOpen(undefined)}>{t("Back to list")}</Button>
         <Show when={props.activeId} fallback={<div class="empty"><b>{t("Select a job to see what it did")}</b>{t("Use the arrow keys to move through the list.")}</div>}>
-          {(id) => <JobDetail api={props.api} jobId={id()} onChanged={() => void refresh()} onRetried={(newId) => { void refresh(); setNotice(t("Retry queued. Showing the new job.")); props.onOpen(newId); }} />}
+          {(id) => <JobDetail api={props.api} jobId={id()} onChanged={() => void refresh()} onRetried={(newId) => { void refresh(); setNotice(t("Retry queued. Showing the new job.")); props.onOpen(newId); }} onRaised={(newId) => { void refresh(); setNotice(t("Preparation queued. Showing the new job.")); props.onOpen(newId); }} />}
         </Show>
       </aside>
     </div>

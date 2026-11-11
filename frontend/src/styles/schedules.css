@@ -28,6 +28,8 @@
 .sched-field .seg { width: fit-content; max-width: 100%; }
 .sched-field .seg button { padding: 5px 14px; white-space: nowrap; }
 .sched-field .seg button:disabled { opacity: 0.6; cursor: not-allowed; }
+.sched-encode { display: flex; flex-direction: column; gap: 2px; }
+.sched-encode > span { font-size: var(--text-sm); padding-left: 22px; }
 @media (max-width: 560px) { .sched-field.action { grid-column: 1 / -1; } }
 @media (max-width: 880px) {
   .sched-line { grid-template-columns: 24px minmax(0, 1fr); }

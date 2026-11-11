@@ -7,6 +7,8 @@
 
 use chrono::{DateTime, Datelike, Local, LocalResult, NaiveDate, Offset, TimeZone, Timelike, Utc};
 
+use atvprep_core::encode::EncodeAllowance;
+
 use crate::approval::ScheduleParams;
 use crate::clock::format_micros;
 use crate::cron::CronExpr;
@@ -15,6 +17,7 @@ use crate::jobs::{Jobs, NewJob};
 use crate::limits;
 use crate::repo::Ctx;
 use crate::scans::Scans;
+use crate::settings::TargetProfile;
 use crate::state_machine::ItemStatus;
 use crate::{Error, Result};
 
@@ -428,8 +431,8 @@ fn run_recorded(ctx: Ctx<'_>, schedule_id: i64, slot: Option<&str>) -> Result<St
     if action == "scan" {
         return run_scan_schedule(ctx, schedule_id, root_id, &now, slot);
     }
-    if matches!(action.as_str(), "fix" | "convert") {
-        return run_change_schedule(ctx, schedule_id, &action, &now, slot);
+    if limits::changes_files(&action) {
+        return run_change_schedule(ctx, schedule_id, &now, slot);
     }
     let mut statement = ctx.conn.prepare(&format!(
         "SELECT media_files.id FROM media_files
@@ -504,7 +507,8 @@ pub struct ScheduleApproval {
     pub root_id: Option<i64>,
     pub compliance_state: Option<String>,
     pub max_files: i64,
-    pub allow_reencode: bool,
+    /// The schedule's Kodierfreigabe as stored; an unknown name never matches a signature.
+    pub encode: EncodeAllowance,
     pub enabled: bool,
     pub approved_by: Option<i64>,
     pub approved_at: Option<i64>,
@@ -519,7 +523,7 @@ impl ScheduleApproval {
     /// SQLite rejects the read.
     pub fn load(conn: &rusqlite::Connection, id: i64) -> Result<Option<Self>> {
         Ok(rusqlite::OptionalExtension::optional(conn.query_row(
-            "SELECT id, action, root_id, compliance_state, max_files, enabled, approved_by, approved_at, approval_mac, allow_reencode
+            "SELECT id, action, root_id, compliance_state, max_files, enabled, approved_by, approved_at, approval_mac, encode
              FROM schedules WHERE id=?1",
             [id],
             |row| {
@@ -533,15 +537,17 @@ impl ScheduleApproval {
                     approved_by: row.get(6)?,
                     approved_at: row.get(7)?,
                     approval_mac: row.get(8)?,
-                    allow_reencode: row.get(9)?,
+                    encode: EncodeAllowance::parse(&row.get::<_, String>(9)?)
+                        .unwrap_or(EncodeAllowance::Copy),
                 })
             },
         ))?)
     }
 
-    /// The parameters an approval must match, with the given `delete_original` setting.
+    /// The parameters an approval must match, with the given `delete_original` setting and
+    /// Zielprofil.
     #[must_use]
-    pub fn params(&self, delete_original: bool) -> ScheduleParams<'_> {
+    pub fn params(&self, delete_original: bool, profile: TargetProfile) -> ScheduleParams<'_> {
         ScheduleParams {
             schedule_id: self.id,
             action: &self.action,
@@ -549,19 +555,21 @@ impl ScheduleApproval {
             compliance_state: self.compliance_state.as_deref(),
             max_files: self.max_files,
             delete_original,
-            allow_reencode: self.allow_reencode,
+            encode: self.encode,
+            profile,
         }
     }
 }
 
-/// Queue the files a repair or conversion schedule selects, if the operator approved it.
+/// Queue the files a schedule that prepares selects, if the operator approved it.
 ///
-/// The signature itself is verified by the worker right before a file is touched (it needs the
-/// secret); here an approval merely has to exist, so an unapproved schedule queues nothing.
+/// Only files whose Kodierbedarf lies within the schedule's Kodierfreigabe are taken, and every
+/// item carries that Kodierfreigabe. The signature itself is verified by the worker right before a
+/// file is touched (it needs the secret); here an approval merely has to exist, so an unapproved
+/// schedule queues nothing.
 fn run_change_schedule(
     ctx: Ctx<'_>,
     schedule_id: i64,
-    action: &str,
     now: &str,
     slot: Option<&str>,
 ) -> Result<String> {
@@ -579,8 +587,9 @@ fn run_change_schedule(
         );
     }
     let delete_original = delete_original_setting(ctx.conn)?;
+    let profile = crate::settings::target_profile(ctx.conn)?;
     let mut statement = ctx.conn.prepare(&format!(
-        "SELECT m.id, m.needs_reencode FROM media_files m
+        "SELECT m.id FROM media_files m
          WHERE m.discovery_state='present'
            AND (?1 IS NULL OR m.root_id=?1)
            AND (?2 IS NULL OR m.compliance_state=?2)
@@ -593,42 +602,32 @@ fn run_change_schedule(
         crate::media_sql::change_candidate("?3", "?5")
     ))?;
     let embed_open = crate::embed::open_media_ids_json(ctx.conn)?;
-    let selected = statement
+    let media_ids = statement
         .query_map(
             rusqlite::params![
                 row.root_id,
                 row.compliance_state,
-                row.allow_reencode,
+                row.encode.as_str(),
                 row.max_files,
                 embed_open
             ],
-            |r| Ok((r.get::<_, i64>(0)?, r.get::<_, bool>(1)?)),
+            |r| r.get::<_, i64>(0),
         )?
         .collect::<std::result::Result<Vec<_>, _>>()?;
     drop(statement);
-    let media_ids: Vec<i64> = selected.iter().map(|(id, _)| *id).collect();
     if media_ids.is_empty() {
         return finish("No matching files".to_owned(), None);
     }
-    let params = row.params(delete_original);
-    let mut job = NewJob::new(
-        if action == "convert" {
-            "convert"
-        } else {
-            "fix"
-        },
-        &media_ids,
-    );
+    let params = row.params(delete_original, profile);
+    let mut job = NewJob::new("fix", &media_ids);
     job.trigger = "manual";
-    // Only a file that needs it, under a schedule the operator signed for it (ADR 0007).
-    job.reencode_media = selected
-        .iter()
-        .filter(|(_, needs)| *needs && row.allow_reencode)
-        .map(|(id, _)| *id)
-        .collect();
+    // Every item carries the signed Kodierfreigabe; the worker refuses one that differs.
+    job.encode_media = media_ids.iter().map(|id| (*id, row.encode)).collect();
     job.settings_snapshot = serde_json::json!({
         "pipeline": "prepare",
         "policy": crate::approval::PREPARE_POLICY,
+        "profile": profile.to_json(),
+
         "delete_original": delete_original,
         "delete_original_confirmed": false,
         "manual_approval": false,
@@ -789,7 +788,7 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
         u8::try_from(local_now.minute()).unwrap_or(0),
     )?;
     let mut statement = ctx.conn.prepare(
-        "SELECT id, days_mask, time_of_day, armed_at, cron, action, max_files FROM schedules WHERE enabled=1 ORDER BY id",
+        "SELECT id, days_mask, time_of_day, armed_at, cron, action, max_files, encode FROM schedules WHERE enabled=1 ORDER BY id",
     )?;
     let schedules = statement
         .query_map([], |row| {
@@ -801,18 +800,20 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
                 row.get::<_, Option<String>>(4)?,
                 row.get::<_, String>(5)?,
                 row.get::<_, i64>(6)?,
+                row.get::<_, String>(7)?,
             ))
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
     drop(statement);
     let mut ran = 0;
-    for (id, mask, time, armed_at, cron, action, max_files) in schedules {
+    for (id, mask, time, armed_at, cron, action, max_files, encode) in schedules {
+        let encode = EncodeAllowance::parse(&encode).unwrap_or(EncodeAllowance::All);
         // One corrupt row must not stop every schedule after it.
         let Ok(cron) = effective_cron(cron.as_deref(), mask, &time) else {
             continue;
         };
         // A schedule saved before a limit existed does not run on unnoticed: it is paused and says why.
-        if let Err(violation) = limits::check(&action, &cron, max_files)
+        if let Err(violation) = limits::check(&action, encode, &cron, max_files)
             && gate_open
         {
             pause_over_limit(ctx, id, &violation)?;
@@ -973,7 +974,7 @@ mod tests {
         assert_eq!(queued, ("verify".to_owned(), "manual".to_owned()));
         conn.raw()
             .execute(
-                "UPDATE schedules SET action='fix' WHERE id=?1",
+                "UPDATE schedules SET action='prepare' WHERE id=?1",
                 [schedule_id],
             )
             .unwrap();
@@ -1015,7 +1016,7 @@ mod tests {
             .unwrap();
         run_schedule(ctx, schedule_id).unwrap();
         conn.raw()
-            .execute("UPDATE schedules SET action='fix'", [])
+            .execute("UPDATE schedules SET action='prepare'", [])
             .unwrap();
         run_schedule(ctx, schedule_id).unwrap();
         conn.raw()

@@ -26,22 +26,32 @@ const DEFINITIONS: Record<string, Definition> = {
   scan_interval_seconds: { label: N("Scan interval (seconds)"), hint: N("How often the library is scanned for new and changed files."), kind: "number", min: 5, max: 86400 },
   settle_seconds: { label: N("Wait after last change (seconds)"), hint: N("A new or changed file is left alone for this long, so files still being copied or imported are not touched."), kind: "number", min: 0, max: 86400 },
   scan_exclude_dirs: { label: N("Folders the scan skips"), kind: "lines" },
-  max_ffmpeg_workers: { label: N("Parallel conversions"), hint: N("How many fixes and conversions run at once. More is faster but loads the server. Verify jobs are not counted."), kind: "number", min: 1, max: 32 },
-  max_probe_workers: { label: N("Parallel checks"), hint: N("How many files are read at once by the scan and by Verify jobs. Fixes and conversions have their own limit."), kind: "number", min: 1, max: 32 },
+  max_ffmpeg_workers: { label: N("Parallel preparations"), hint: N("How many files are prepared at once. More is faster but loads the server. Verify jobs are not counted."), kind: "number", min: 1, max: 32 },
+  max_probe_workers: { label: N("Parallel checks"), hint: N("How many files are read at once by the scan and by Verify jobs. Preparing has its own limit."), kind: "number", min: 1, max: 32 },
   event_retention_days: { label: N("Keep events for (days)"), hint: N("How long events in the activity feed are kept."), kind: "number", min: 1, max: 365 },
   log_retention_days: { label: N("Keep logs for (days)"), hint: N("How long job logs are kept."), kind: "number", min: 1, max: 365 },
   job_retention_days: { label: N("Keep jobs for (days)"), hint: N("How long finished jobs are kept."), kind: "number", min: 1, max: 365 },
+  target_crf: { label: N("CRF"), hint: N("Quality of a re-encode. Lower values keep more detail and need more space."), kind: "number", min: 0, max: 51 },
+  target_prefer_hevc10: { label: N("Prefer HEVC 10-bit"), hint: N("Re-encodes H.264 to HEVC 10-bit even for SDR and 1080p video."), kind: "boolean" },
+  target_keep_av1: { label: N("Keep AV1"), hint: N("Copies AV1 video instead of re-encoding it. Needs an Apple TV 4K of the 3rd generation."), kind: "boolean" },
+  target_fix_dts: { label: N("Fix negative start times (DTS)"), hint: N("Corrects a negative first video timestamp, for files whose playback stumbles on it."), kind: "boolean" },
 };
 
 /** How settings are grouped on the page; anything not listed lands in "Other", read-only. */
 const GROUPS: ReadonlyArray<{ id: string; title: string; keys: readonly string[] }> = [
   { id: "scanning", title: N("Library scan"), keys: ["scan_interval_seconds", "settle_seconds", "max_probe_workers", "scan_exclude_dirs"] },
+  { id: "target", title: N("Target profile"), keys: ["target_crf", "target_prefer_hevc10", "target_keep_av1", "target_fix_dts"] },
   { id: "automation", title: N("Automation"), keys: ["max_ffmpeg_workers"] },
   { id: "retention", title: N("Retention"), keys: ["event_retention_days", "log_retention_days", "job_retention_days"] },
 ];
 
 const labelOf = (definition: Definition | undefined) => (definition ? t(definition.label) : undefined);
-const labelFor = (key: string) => labelOf(DEFINITIONS[key]) ?? key.replaceAll("_", " ").replace(/^\w/, (character) => character.toUpperCase());
+/** Settings shown without a control, with the sentence that says what they do. */
+const SHOWN_ONLY: Record<string, { label: string; hint: string }> = {
+  delete_original: { label: N("Delete original"), hint: N("Removes the old non-MP4 container once its new MP4 passes verification. It does not decide whether a file may be encoded.") },
+};
+
+const labelFor = (key: string) => labelOf(DEFINITIONS[key]) ?? (SHOWN_ONLY[key] ? t(SHOWN_ONLY[key].label) : undefined) ?? key.replaceAll("_", " ").replace(/^\w/, (character) => character.toUpperCase());
 const safeValue = (value: unknown) => typeof value === "string" ? value : JSON.stringify(value);
 const linesOf = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : []);
 /** What is worth knowing about a value besides what it does: its limits, its default and whether it was changed. */
@@ -202,6 +212,7 @@ export const SettingsPage: Component<{ api: SettingsApi }> = (props) => {
             <div>
               <label for={inputId}>{labelFor(setting.key)}</label>
               <input id={inputId} class="input" aria-label={labelFor(setting.key)} value={safeValue(setting.value)} disabled />
+              <Show when={SHOWN_ONLY[setting.key]}>{(shown) => <small class="help">{t(shown().hint)}</small>}</Show>
               <small class="help">{setting.guidance ?? t("Set in the configuration file. Change it there and restart the manager.")}</small>
             </div>
           }
@@ -268,6 +279,9 @@ export const SettingsPage: Component<{ api: SettingsApi }> = (props) => {
             <h3>{t(group.title)}</h3>
             <Show when={group.id === "other"}>
               <p class="muted">{t("Read-only. These come from the configuration file; change them there and restart the manager.")}</p>
+            </Show>
+            <Show when={group.id === "target"}>
+              <p class="muted">{t("Verify and Prepare in the manager calculate against these values. Changing a value sets the encoding need of every file to unknown and checks the files again. Jobs already queued have to be queued again. The command line and the import hook do not read it.")}</p>
             </Show>
             <For each={group.items}>{renderSetting}</For>
           </section>

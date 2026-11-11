@@ -62,7 +62,7 @@ fn dispatch(conn: &Conn) -> usize {
 #[test]
 fn an_over_limit_max_files_pauses_the_schedule_and_is_recorded_once() {
     let db = Db::memory().unwrap();
-    let conn = seed(&db, "fix", 13, None);
+    let conn = seed(&db, "prepare", 13, None);
     assert_eq!(dispatch(&conn), 0);
     let (enabled, mac, results, jobs) = state(&conn);
     assert!(!enabled);
@@ -79,7 +79,7 @@ fn an_over_limit_max_files_pauses_the_schedule_and_is_recorded_once() {
 #[test]
 fn a_too_frequent_cron_pauses_a_schedule_that_changes_files() {
     let db = Db::memory().unwrap();
-    let conn = seed(&db, "convert", 3, Some("0,10 * * * *"));
+    let conn = seed(&db, "prepare", 3, Some("0,10 * * * *"));
     assert_eq!(dispatch(&conn), 0);
     let (enabled, _, results, jobs) = state(&conn);
     assert!(!enabled);
@@ -89,9 +89,27 @@ fn a_too_frequent_cron_pauses_a_schedule_that_changes_files() {
 }
 
 #[test]
+fn with_the_video_in_its_allowance_a_schedule_over_six_files_is_paused() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db, "prepare", 7, None);
+    conn.raw()
+        .execute("UPDATE schedules SET encode='all'", [])
+        .unwrap();
+    assert_eq!(dispatch(&conn), 0);
+    let (enabled, _, results, jobs) = state(&conn);
+    assert!(!enabled);
+    assert_eq!(jobs, 0);
+    assert!(results[0].contains('6'), "{results:?}");
+}
+
+#[test]
 fn schedules_within_the_limits_and_verify_at_any_interval_keep_running() {
     let db = Db::memory().unwrap();
-    let conn = seed(&db, "fix", 12, None);
+    let conn = seed(&db, "prepare", 12, None);
+    conn.raw()
+        .execute("UPDATE media_files SET encode_need='none'", [])
+        .unwrap();
+
     assert_eq!(dispatch(&conn), 1);
     assert!(state(&conn).0);
     let db = Db::memory().unwrap();

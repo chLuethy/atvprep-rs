@@ -136,10 +136,20 @@ pub fn verify_tree(
     tools: &dyn Tools,
     extensions: Option<&[&str]>,
 ) -> Vec<VerifyReport> {
+    verify_tree_with(root, tools, extensions, None)
+}
+
+/// [`verify_tree`] with `rules` instead of the built-in rule set.
+pub fn verify_tree_with(
+    root: &Path,
+    tools: &dyn Tools,
+    extensions: Option<&[&str]>,
+    rules: Option<&[Box<dyn Rule>]>,
+) -> Vec<VerifyReport> {
     let extensions = extensions.unwrap_or(&[".mp4", ".mov", ".m4v"]);
     iter_media_files(root, extensions)
         .iter()
-        .map(|file| verify_file(file, tools, None, None))
+        .map(|file| verify_file(file, tools, rules, None))
         .collect()
 }
 

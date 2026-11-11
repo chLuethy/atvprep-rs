@@ -1,5 +1,7 @@
-//! Schedules that change files (fix, convert): queueing needs an approval, and missed runs are never caught up.
+//! Schedules that prepare files: queueing needs an approval, the Kodierfreigabe bounds which files
+//! are taken, and missed runs are never caught up.
 use atvprep_manager::{
+    approval::PREPARE_POLICY,
     clock::{Clock, FixedClock},
     db::{Conn, Db},
     repo::Ctx,
@@ -19,7 +21,8 @@ fn seed(db: &Db, action: &str, minutes_ago: i64, approved: bool) -> Conn {
     INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES
     (1,1,'one.mp4','video','.mp4',1,1,'one','present','clean','idle','none'),
     (2,1,'two.mp4','video','.mp4',1,1,'two','present','warning','idle','none'),
-    (3,1,'three.mkv','video','.mkv',1,1,'three','present','warning','idle','none');").unwrap();
+    (3,1,'three.mkv','video','.mkv',1,1,'three','present','warning','idle','none');
+    UPDATE media_files SET encode_need='none';").unwrap();
     let time = (DateTime::<Utc>::from_timestamp_micros(NOW)
         .unwrap()
         .with_timezone(&Local)
@@ -53,7 +56,7 @@ fn jobs(conn: &Conn) -> Vec<(String, String)> {
 #[test]
 fn an_unapproved_schedule_queues_nothing_even_when_run_by_hand() {
     let db = Db::memory().unwrap();
-    let conn = seed(&db, "fix", 0, false);
+    let conn = seed(&db, "prepare", 0, false);
     let clock = FixedClock(NOW);
     let ctx = Ctx {
         conn: conn.raw(),
@@ -67,15 +70,15 @@ fn an_unapproved_schedule_queues_nothing_even_when_run_by_hand() {
 }
 
 #[test]
-fn an_approved_fix_schedule_queues_a_job_bound_to_its_parameters() {
+fn an_approved_schedule_queues_a_job_bound_to_its_parameters() {
     let db = Db::memory().unwrap();
-    let conn = seed(&db, "fix", 0, true);
+    let conn = seed(&db, "prepare", 0, true);
     let clock = FixedClock(NOW);
     let ctx = Ctx {
         conn: conn.raw(),
         clock: &clock,
     };
-    // Repair takes the files that need it: the warning mp4 and the mkv, not the clean mp4.
+    // Preparing takes the files that need it: the warning mp4 and the mkv, not the clean mp4.
     assert_eq!(run_schedule(ctx, 1).unwrap(), "Queued 2 files");
     let queued = jobs(&conn);
     assert_eq!(queued.len(), 1);
@@ -83,17 +86,13 @@ fn an_approved_fix_schedule_queues_a_job_bound_to_its_parameters() {
     let snapshot: serde_json::Value = serde_json::from_str(&queued[0].1).unwrap();
     assert_eq!(snapshot["schedule_id"], 1);
     assert_eq!(snapshot["pipeline"], "prepare");
-    assert_eq!(snapshot["policy"], "copy-only-v2");
+    assert_eq!(snapshot["policy"], PREPARE_POLICY);
+    assert_eq!(snapshot["profile"]["crf"], 18);
     assert_eq!(snapshot["schedule_params"]["max_files"], 5);
     assert_eq!(snapshot["schedule_params"]["delete_original"], false);
-    assert_eq!(snapshot["schedule_params"]["action"], "fix");
-}
-
-/// Mark file 3 (the mkv) as needing a re-encode; files 1 and 2 stay as they are.
-fn mark_mkv_needing_reencode(conn: &Conn) {
-    conn.raw()
-        .execute("UPDATE media_files SET needs_reencode=1 WHERE id=3", [])
-        .unwrap();
+    assert_eq!(snapshot["schedule_params"]["action"], "prepare");
+    assert_eq!(snapshot["schedule_params"]["encode"], "copy");
+    assert_eq!(snapshot["schedule_params"]["profile"], snapshot["profile"]);
 }
 
 fn set_delete_original(conn: &Conn, value: bool) {
@@ -105,72 +104,90 @@ fn set_delete_original(conn: &Conn, value: bool) {
         .unwrap();
 }
 
+/// Four warning mp4s (ids 11 to 14) needing none, audio, video and an unknown encoding.
+fn add_files_by_need(conn: &Conn) {
+    conn.raw()
+        .execute_batch(
+            "UPDATE media_files SET compliance_state='clean', suffix='.mp4', relative_path='other' || id || '.mp4';
+             INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action,encode_need) VALUES
+             (11,1,'none.mp4','video','.mp4',1,1,'n','present','warning','idle','none','none'),
+             (12,1,'audio.mp4','video','.mp4',1,1,'a','present','warning','idle','none','audio'),
+             (13,1,'video.mp4','video','.mp4',1,1,'v','present','warning','idle','none','video'),
+             (14,1,'unknown.mp4','video','.mp4',1,1,'u','present','warning','idle','none','unknown');",
+        )
+        .unwrap();
+}
+
 #[test]
-fn a_schedule_without_the_re_encode_permission_leaves_out_files_that_need_one() {
-    for delete_original in [false, true] {
-        let db = Db::memory().unwrap();
-        let conn = seed(&db, "fix", 0, true);
-        mark_mkv_needing_reencode(&conn);
-        set_delete_original(&conn, delete_original);
-        let clock = FixedClock(NOW);
-        let ctx = Ctx {
-            conn: conn.raw(),
-            clock: &clock,
-        };
-        // delete_original no longer decides: only the warning mp4 is taken.
-        assert_eq!(
-            run_schedule(ctx, 1).unwrap(),
-            "Queued 1 file",
-            "delete_original={delete_original}"
-        );
-        let snapshot: serde_json::Value = serde_json::from_str(&jobs(&conn)[0].1).unwrap();
-        assert_eq!(snapshot["schedule_params"]["allow_reencode"], false);
+fn a_schedule_takes_only_files_whose_need_lies_within_its_allowance() {
+    for (encode, taken) in [
+        ("copy", vec![11]),
+        ("audio", vec![11, 12]),
+        // Only the top level takes a file whose need is not known yet.
+        ("all", vec![11, 12, 13, 14]),
+    ] {
+        for delete_original in [false, true] {
+            let db = Db::memory().unwrap();
+            let conn = seed(&db, "prepare", 0, true);
+            add_files_by_need(&conn);
+            set_delete_original(&conn, delete_original);
+            conn.raw()
+                .execute("UPDATE schedules SET encode=?1", [encode])
+                .unwrap();
+            let clock = FixedClock(NOW);
+            let ctx = Ctx {
+                conn: conn.raw(),
+                clock: &clock,
+            };
+            run_schedule(ctx, 1).unwrap();
+            let decisions = item_decisions(&conn);
+            assert_eq!(
+                decisions.iter().map(|(id, _)| *id).collect::<Vec<_>>(),
+                taken,
+                "{encode}, delete_original={delete_original}"
+            );
+            // Every item carries the schedule's own level, whatever the file needs.
+            assert!(
+                decisions.iter().all(|(_, level)| level == encode),
+                "{encode}: {decisions:?}"
+            );
+        }
     }
 }
 
 #[test]
-fn a_schedule_with_the_re_encode_permission_takes_those_files_too() {
+fn the_items_record_the_profile_the_schedule_runs_under() {
     let db = Db::memory().unwrap();
-    let conn = seed(&db, "fix", 0, true);
-    mark_mkv_needing_reencode(&conn);
+    let conn = seed(&db, "prepare", 0, true);
     conn.raw()
-        .execute("UPDATE schedules SET allow_reencode=1", [])
+        .execute(
+            "INSERT INTO runtime_settings(key,value_json,value_type,revision) VALUES('target_crf','24','int',1)",
+            [],
+        )
         .unwrap();
     let clock = FixedClock(NOW);
     let ctx = Ctx {
         conn: conn.raw(),
         clock: &clock,
     };
-    assert_eq!(run_schedule(ctx, 1).unwrap(), "Queued 2 files");
+    run_schedule(ctx, 1).unwrap();
     let snapshot: serde_json::Value = serde_json::from_str(&jobs(&conn)[0].1).unwrap();
-    assert_eq!(snapshot["schedule_params"]["allow_reencode"], true);
-    // Only the file that needs it is queued to re-encode; the other one is merely repaired.
-    assert_eq!(
-        item_decisions(&conn),
-        [(2, serde_json::json!(false)), (3, serde_json::json!(true))]
-    );
+    assert_eq!(snapshot["schedule_params"]["profile"]["crf"], 24);
+    let crf: Vec<serde_json::Value> = conn
+        .raw()
+        .prepare("SELECT settings_snapshot_json FROM job_items ORDER BY id")
+        .unwrap()
+        .query_map([], |row| row.get::<_, String>(0))
+        .unwrap()
+        .map(|text| {
+            serde_json::from_str::<serde_json::Value>(&text.unwrap()).unwrap()["profile"]["crf"]
+                .clone()
+        })
+        .collect();
+    assert_eq!(crf, [serde_json::json!(24), serde_json::json!(24)]);
 }
 
-#[test]
-fn a_schedule_with_the_permission_does_not_re_encode_a_file_that_does_not_need_it() {
-    let db = Db::memory().unwrap();
-    let conn = seed(&db, "fix", 0, true);
-    conn.raw()
-        .execute("UPDATE schedules SET allow_reencode=1", [])
-        .unwrap();
-    let clock = FixedClock(NOW);
-    let ctx = Ctx {
-        conn: conn.raw(),
-        clock: &clock,
-    };
-    assert_eq!(run_schedule(ctx, 1).unwrap(), "Queued 2 files");
-    assert_eq!(
-        item_decisions(&conn),
-        [(2, serde_json::json!(false)), (3, serde_json::json!(false))]
-    );
-}
-
-/// The re-encode decision recorded on each queued item, by media id.
+/// The Kodierfreigabe recorded on each queued item, by media id.
 fn item_decisions(conn: &Conn) -> Vec<(i64, serde_json::Value)> {
     let mut statement = conn
         .raw()
@@ -182,7 +199,7 @@ fn item_decisions(conn: &Conn) -> Vec<(i64, serde_json::Value)> {
         .query_map([], |row| {
             let snapshot: serde_json::Value =
                 serde_json::from_str(&row.get::<_, String>(1)?).unwrap();
-            Ok((row.get(0)?, snapshot["reencode"].clone()))
+            Ok((row.get(0)?, snapshot["encode"].clone()))
         })
         .unwrap()
         .collect::<Result<_, _>>()
@@ -190,9 +207,9 @@ fn item_decisions(conn: &Conn) -> Vec<(i64, serde_json::Value)> {
 }
 
 #[test]
-fn a_fix_schedule_takes_a_clean_mp4_with_an_open_embed() {
+fn a_schedule_takes_a_clean_mp4_with_an_open_embed() {
     let db = Db::memory().unwrap();
-    let conn = seed(&db, "fix", 0, true);
+    let conn = seed(&db, "prepare", 0, true);
     // one.mp4 is clean but has a German .srt beside it that is not embedded yet.
     conn.raw()
         .execute_batch(
@@ -210,9 +227,9 @@ fn a_fix_schedule_takes_a_clean_mp4_with_an_open_embed() {
 }
 
 #[test]
-fn a_fix_schedule_leaves_a_clean_mp4_whose_sidecar_is_already_embedded() {
+fn a_schedule_leaves_a_clean_mp4_whose_sidecar_is_already_embedded() {
     let db = Db::memory().unwrap();
-    let conn = seed(&db, "fix", 0, true);
+    let conn = seed(&db, "prepare", 0, true);
     conn.raw()
         .execute_batch(
             "INSERT INTO sidecars(media_file_id,relative_path,fingerprint) VALUES(1,'one.de.srt','x');
@@ -229,9 +246,9 @@ fn a_fix_schedule_leaves_a_clean_mp4_whose_sidecar_is_already_embedded() {
 }
 
 #[test]
-fn a_convert_schedule_honours_max_files() {
+fn a_schedule_honours_max_files() {
     let db = Db::memory().unwrap();
-    let conn = seed(&db, "convert", 0, true);
+    let conn = seed(&db, "prepare", 0, true);
     conn.raw()
         .execute("UPDATE schedules SET max_files=1", [])
         .unwrap();
@@ -241,13 +258,13 @@ fn a_convert_schedule_honours_max_files() {
         clock: &clock,
     };
     assert_eq!(run_schedule(ctx, 1).unwrap(), "Queued 1 file");
-    assert_eq!(jobs(&conn)[0].0, "convert");
+    assert_eq!(jobs(&conn)[0].0, "fix");
 }
 
 #[test]
 fn a_closed_gate_runs_no_schedule_that_changes_files() {
     let db = Db::memory().unwrap();
-    let conn = seed(&db, "fix", 0, true);
+    let conn = seed(&db, "prepare", 0, true);
     conn.raw()
         .execute("UPDATE deployment_gate SET mode='maintenance'", [])
         .unwrap();
@@ -263,7 +280,8 @@ fn a_closed_gate_runs_no_schedule_that_changes_files() {
 
 #[test]
 fn a_slot_on_time_runs_but_a_missed_one_is_never_caught_up() {
-    for action in ["fix", "convert"] {
+    {
+        let action = "prepare";
         let db = Db::memory().unwrap();
         let conn = seed(&db, action, 0, true);
         let clock = FixedClock(NOW);

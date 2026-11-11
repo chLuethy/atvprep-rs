@@ -468,7 +468,7 @@ fn a_prepare_retry_needs_the_same_files_and_drops_the_old_approval() {
     let media = f.media(&["a.mp4"]);
     let jobs = Jobs(f.ctx());
     let mut new = NewJob::new("fix", &media);
-    new.settings_snapshot = json!({"pipeline": "prepare", "approval_mac": "abc", "approved_by": 1});
+    new.settings_snapshot = json!({"pipeline": "prepare", "approval_mac": "abc", "approved_by": 1, "profile": atvprep_manager::settings::TargetProfile::default().to_json()});
     let job = jobs.create(&new).unwrap();
     f.sql("UPDATE job_items SET status='failed'");
     let retry = jobs.retry(job.id, Some(42)).unwrap();
@@ -624,37 +624,38 @@ fn a_stored_status_that_is_not_known_is_an_error_naming_the_value() {
 }
 
 #[test]
-fn a_prepare_item_carries_its_own_re_encode_decision_through_a_retry() {
+fn a_prepare_item_carries_its_own_allowance_through_a_retry() {
     let f = Fixture::new();
     let media = f.media(&["copy.mp4", "encode.mp4"]);
     let jobs = Jobs(f.ctx());
     let mut new = NewJob::new("fix", &media);
     new.trigger = "manual";
-    new.settings_snapshot = json!({"pipeline":"prepare","policy":"copy-only-v2","manual_approval":true,"approved_by":1,"approved_at":1});
-    new.reencode_media.insert(media[1]);
+    new.settings_snapshot = json!({"pipeline":"prepare","policy":atvprep_manager::approval::PREPARE_POLICY,"profile":atvprep_manager::settings::TargetProfile::default().to_json(),"manual_approval":true,"approved_by":1,"approved_at":1});
+    new.encode_media
+        .insert(media[1], atvprep_core::encode::EncodeAllowance::All);
     let job = jobs.create(&new).unwrap();
     let decisions = |job: i64| -> Vec<(i64, serde_json::Value)> {
         jobs.items(job)
             .unwrap()
             .iter()
-            .map(|i| (i.media_file_id, i.settings_snapshot["reencode"].clone()))
+            .map(|i| (i.media_file_id, i.settings_snapshot["encode"].clone()))
             .collect()
     };
     assert_eq!(
         decisions(job.id),
-        [(media[0], json!(false)), (media[1], json!(true))]
+        [(media[0], json!("copy")), (media[1], json!("all"))]
     );
     f.sql("UPDATE job_items SET status='failed'");
     let retry = jobs.retry(job.id, Some(1)).unwrap();
     assert_eq!(
         decisions(retry.id),
-        [(media[0], json!(false)), (media[1], json!(true))],
+        [(media[0], json!("copy")), (media[1], json!("all"))],
         "a retry keeps what each file was approved for"
     );
 }
 
 #[test]
-fn a_job_without_the_prepare_policy_gets_no_re_encode_decision() {
+fn a_job_without_the_prepare_policy_gets_no_allowance() {
     let f = Fixture::new();
     let media = f.media(&["a.mp4"]);
     let jobs = Jobs(f.ctx());
@@ -662,7 +663,7 @@ fn a_job_without_the_prepare_policy_gets_no_re_encode_decision() {
     assert!(
         jobs.items(job.id).unwrap()[0]
             .settings_snapshot
-            .get("reencode")
+            .get("encode")
             .is_none()
     );
 }

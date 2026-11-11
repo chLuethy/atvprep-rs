@@ -36,12 +36,13 @@ pub async fn dashboard(State(state): State<AppState>, _session: AuthenticatedSes
         let embed = i64::try_from(open.len()).map_err(|_| ())?;
         let scans = counts("SELECT status,count(*) FROM scan_runs GROUP BY status ORDER BY status")?;
         let jobs = counts("SELECT status,count(*) FROM jobs GROUP BY status ORDER BY status")?;
-        let (missing, convert, reencode, converted): (i64,i64,i64,i64) = conn.raw().query_row(
+        let (missing, convert, encode_audio, encode_video, converted): (i64,i64,i64,i64,i64) = conn.raw().query_row(
             &format!("SELECT COALESCE(SUM(CASE WHEN m.discovery_state='missing' AND m.dismissed_at IS NULL THEN 1 ELSE 0 END),0),
              COALESCE(SUM(CASE WHEN m.discovery_state='present' AND {} THEN 1 ELSE 0 END),0),
              COALESCE(SUM(CASE WHEN m.discovery_state='present' AND {} THEN 1 ELSE 0 END),0),
-             COALESCE(SUM(CASE WHEN m.discovery_state='present' AND {} THEN 1 ELSE 0 END),0) FROM media_files m", media_sql::TO_CONVERT, media_sql::NEEDS_REENCODE, media_sql::CONVERTED), [],
-            |row| Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?))).map_err(|_| ())?;
+             COALESCE(SUM(CASE WHEN m.discovery_state='present' AND {} THEN 1 ELSE 0 END),0),
+             COALESCE(SUM(CASE WHEN m.discovery_state='present' AND {} THEN 1 ELSE 0 END),0) FROM media_files m", media_sql::TO_CONVERT, media_sql::NEEDS_AUDIO, media_sql::NEEDS_VIDEO, media_sql::CONVERTED), [],
+            |row| Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?,row.get(4)?))).map_err(|_| ())?;
         let setting: Option<String> = conn.raw().query_row("SELECT value_json FROM runtime_settings WHERE key='delete_original'", [], |row| row.get(0)).optional().map_err(|_| ())?;
         let delete_original = setting.and_then(|value| serde_json::from_str::<bool>(&value).ok()).unwrap_or(false);
         // Leftovers per library from its latest successful scan; only libraries with hits appear.
@@ -64,7 +65,7 @@ pub async fn dashboard(State(state): State<AppState>, _session: AuthenticatedSes
             }
             hits
         };
-        let mut summary = json!({"files":files,"missing":missing,"convert":convert,"reencode":reencode,"embed":embed,"converted":converted,"delete_original":delete_original,"scans":scans,"jobs":jobs});
+        let mut summary = json!({"files":files,"missing":missing,"convert":convert,"encode_audio":encode_audio,"encode_video":encode_video,"embed":embed,"converted":converted,"delete_original":delete_original,"scans":scans,"jobs":jobs});
         if !orphans.is_empty() {
             summary["orphans"] = Value::Array(orphans);
         }

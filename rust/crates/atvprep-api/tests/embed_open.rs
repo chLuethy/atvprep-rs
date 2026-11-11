@@ -67,12 +67,13 @@ fn api() -> Api {
              INSERT INTO sidecars(media_file_id,relative_path,fingerprint) VALUES
                (2,'open.de.srt','x'),(3,'warn.de.srt','x'),(4,'done.de.srt','x');
              INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,max_files,enabled,armed_at)
-               VALUES(1,'Fix','fix',1,127,'12:00',5,0,'2000-01-01');
+               VALUES(1,'Fix','prepare',1,127,'12:00',5,0,'2000-01-01');
              INSERT INTO inspections(media_file_id,source_fingerprint,input_fingerprint,tool_name,tool_version,result) VALUES
                (2,'s','f2','ffprobe','1','{\"streams\":[]}'),
                (3,'s','f3','ffprobe','1','{\"streams\":[]}'),
                (4,'s','f4','ffprobe','1','{\"streams\":[{\"codec_type\":\"subtitle\",\"codec_name\":\"mov_text\",\"tags\":{\"language\":\"deu\"}}]}');
-             UPDATE media_files SET needs_reencode=1 WHERE id IN (3,4);",
+             UPDATE media_files SET encode_need='video' WHERE id IN (3,4);
+             UPDATE media_files SET encode_need='none' WHERE id IN (1,2);",
         )
         .unwrap();
     let state = AppState::new(
@@ -159,13 +160,16 @@ async fn properties_show_only_files_that_have_all_of_them() {
     );
     // One trait shows only files that have it.
     assert_eq!(api.names("has=embed").await, ["open.mp4", "warn.mp4"]);
-    assert_eq!(api.names("has=reencode").await, ["done.mp4", "warn.mp4"]);
+    assert_eq!(
+        api.names("has=encode_video").await,
+        ["done.mp4", "warn.mp4"]
+    );
     // Two traits show the intersection (AND).
-    assert_eq!(api.names("has=embed,reencode").await, ["warn.mp4"]);
+    assert_eq!(api.names("has=embed,encode_video").await, ["warn.mp4"]);
     // Combined with hiding states.
     assert_eq!(api.names("has=embed&hide=warning").await, ["open.mp4"]);
     assert_eq!(
-        api.names("has=embed,reencode&hide=warning").await,
+        api.names("has=embed,encode_video&hide=warning").await,
         Vec::<String>::new()
     );
 }
@@ -174,7 +178,7 @@ async fn properties_show_only_files_that_have_all_of_them() {
 async fn hide_takes_states_only_and_has_takes_properties_only() {
     let api = api();
     assert_eq!(api.status("/api/v1/files?hide=embed").await, 422);
-    assert_eq!(api.status("/api/v1/files?hide=reencode").await, 422);
+    assert_eq!(api.status("/api/v1/files?hide=encode_video").await, 422);
     assert_eq!(api.status("/api/v1/files?has=clean").await, 422);
     assert_eq!(api.status("/api/v1/files?has=nonsense").await, 422);
     assert_eq!(api.status("/api/v1/browse?hide=embed").await, 422);
@@ -187,7 +191,7 @@ async fn property_counts_follow_the_current_selection() {
     let api = api();
     let counts = |body: Value| {
         let data = &body["data"];
-        ["convert", "reencode", "embed", "converted"].map(|key| data[key].as_u64().unwrap())
+        ["convert", "encode_video", "embed", "converted"].map(|key| data[key].as_u64().unwrap())
     };
     // No selection: each trait on its own.
     assert_eq!(counts(api.get("/api/v1/files/counts").await), [0, 2, 2, 0]);

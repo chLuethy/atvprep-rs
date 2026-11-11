@@ -3,16 +3,18 @@
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
 
+use atvprep_core::compliance::{VideoReencodeRule, rules_for};
 use atvprep_core::constants::VIDEO_EXTS;
+use atvprep_core::encode::{EncodeAllowance, PlannedChange, UNKNOWN, need_name};
 use atvprep_core::fd_fix_contract::{FdFixTarget, UnsafeFixTarget};
 use atvprep_core::pipeline_postfix::RunContext;
 use atvprep_core::prepare::paths::resolve;
-use atvprep_core::prepare::pipeline::{patch_media, prepare_file};
+use atvprep_core::prepare::pipeline::{patch_media, planned_change, prepare_file};
 use atvprep_core::prepare::{PrepareOptions, PrepareResult};
 use atvprep_core::probe_helpers::subtitle_infos;
 use atvprep_core::pyjson::dumps_indent2;
 use atvprep_core::stages::Outcome;
-use atvprep_core::verify::{VerifyReport, verify_tree};
+use atvprep_core::verify::{VerifyReport, verify_tree_with};
 use clap::ArgMatches;
 use serde::Serialize;
 
@@ -268,7 +270,10 @@ fn prepare_options(
         quarantine_dir,
         verbose: flag(matches, "verbose"),
         extra_sidecars: Vec::new(),
-        copy_only: flag(matches, "copy-only"),
+        encode: matches
+            .get_one::<String>("encode")
+            .and_then(|name| EncodeAllowance::parse(name))
+            .unwrap_or_default(),
     }
 }
 
@@ -402,9 +407,12 @@ fn bullets(ctx: &mut RunContext, reasons: &[String]) {
 pub(crate) fn report(ctx: &mut RunContext, result: &PrepareResult) {
     use atvprep_core::escalation::Level;
     let name = name_of(&result.source);
-    if result.outcome == Outcome::ReencodeNeeded {
+    if let Some(refusal) = result.encode_refusal {
         ctx.console.print(&format!(
-            "re-encode needed: {name} (left untouched; run with --delete-original to replace it)"
+            "encode not allowed: {name} (needs {need}, allowed {allowance}; left untouched; run with --encode {required} to go ahead)",
+            need = refusal.need.as_str(),
+            allowance = refusal.allowance.as_str(),
+            required = refusal.need.required().as_str(),
         ));
         bullets(ctx, &result.reasons);
     } else if result.level == Level::None {
@@ -442,6 +450,9 @@ pub(crate) fn report(ctx: &mut RunContext, result: &PrepareResult) {
         ctx.console.print(&format!("  ! {kept}"));
     }
     ctx.reporter.outcome(result.outcome);
+    if let Some(refusal) = result.encode_refusal {
+        ctx.reporter.encode_refused(refusal);
+    }
     if result.source_removed || result.source_kept.is_some() {
         ctx.reporter
             .source(result.source_removed, result.source_kept.as_deref());
@@ -453,6 +464,12 @@ struct JsonReport<'a> {
     path: String,
     passed: bool,
     violations: &'a [atvprep_core::compliance::Violation],
+    /// The Kodierbedarf from the planner; only in a report that ran it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    encode_need: Option<&'static str>,
+    /// The Änderungsart, alongside the need.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    planned_change: Option<&'static str>,
 }
 
 #[derive(Serialize)]
@@ -468,6 +485,11 @@ struct JsonDocument<'a> {
 /// The `--json` text for `reports`, as Python's `json.dumps(..., indent=2)` prints it.
 #[must_use]
 pub fn reports_to_json(reports: &[VerifyReport]) -> String {
+    json_document(reports, None)
+}
+
+/// `planned` holds one entry per report, `None` where the planner could not say („unbekannt“).
+fn json_document(reports: &[VerifyReport], planned: Option<&[Option<PlannedChange>]>) -> String {
     let passed = reports.iter().filter(|r| r.passed()).count();
     let document = JsonDocument {
         files_checked: reports.len(),
@@ -477,10 +499,16 @@ pub fn reports_to_json(reports: &[VerifyReport]) -> String {
         total_warnings: reports.iter().map(|r| r.warnings().len()).sum(),
         reports: reports
             .iter()
-            .map(|r| JsonReport {
-                path: r.path.to_string_lossy().into_owned(),
-                passed: r.passed(),
-                violations: &r.violations,
+            .enumerate()
+            .map(|(index, r)| {
+                let plan = planned.map(|all| all.get(index).copied().flatten());
+                JsonReport {
+                    path: r.path.to_string_lossy().into_owned(),
+                    passed: r.passed(),
+                    violations: &r.violations,
+                    encode_need: plan.map(|p| need_name(p.map(|p| p.need))),
+                    planned_change: plan.map(|p| p.map_or(UNKNOWN, |p| p.change.as_str())),
+                }
             })
             .collect(),
     };
@@ -520,6 +548,38 @@ fn print_verify_human(ctx: &mut RunContext, reports: &[VerifyReport], verbose: b
     ));
 }
 
+/// The Kodierbedarf of every reported file, from the planner `prepare` would use. A pinned file is
+/// planned through its pin: its report only has a `/dev/fd` path, without a name or siblings.
+fn planned_changes(
+    ctx: &mut RunContext,
+    matches: &ArgMatches,
+    pinned: Option<&FdFixTarget>,
+    reports: &[VerifyReport],
+) -> Vec<Option<PlannedChange>> {
+    let options = verify_profile(matches);
+    if let Some(target) = pinned {
+        return vec![planned_change(ctx, &target.path(), &options, target)];
+    }
+    reports
+        .iter()
+        .map(|report| {
+            let target = FdFixTarget::for_path(&report.path).ok()?;
+            planned_change(ctx, &report.path, &options, &target)
+        })
+        .collect()
+}
+
+/// The Zielprofil flags of `verify`, as `prepare` reads them.
+fn verify_profile(matches: &ArgMatches) -> PrepareOptions {
+    PrepareOptions {
+        prefer_hevc10: flag(matches, "prefer-hevc10"),
+        crf: matches.get_one::<u32>("crf").copied().unwrap_or(18),
+        keep_av1: flag(matches, "keep-av1"),
+        fix_dts: flag(matches, "fix-dts"),
+        ..PrepareOptions::default()
+    }
+}
+
 /// `atvprep verify`: exit 0 on a clean pass, 1 on a blocker (or a warning with
 /// `--fail-on warning`), 2 for a missing or unknown path.
 pub fn run_verify(ctx: &mut RunContext, sink: &SharedSink, matches: &ArgMatches) -> i32 {
@@ -557,15 +617,26 @@ pub fn run_verify(ctx: &mut RunContext, sink: &SharedSink, matches: &ArgMatches)
             .print(&format!("Error: path not found: {}", target.display()));
         return 2;
     }
+    // The re-encode warning reads the same profile options as the Kodierbedarf.
+    let profile = verify_profile(matches);
+    let rules = rules_for(VideoReencodeRule {
+        prefer_hevc10: profile.prefer_hevc10,
+        keep_av1: profile.keep_av1,
+    });
     let reports = if pinned.is_some() {
         vec![atvprep_core::verify::verify_file(
             &target,
             ctx.tools.as_ref(),
-            None,
+            Some(&rules),
             None,
         )]
     } else {
-        verify_tree(&target, ctx.tools.as_ref(), Some(&VERIFY_EXTS))
+        verify_tree_with(
+            &target,
+            ctx.tools.as_ref(),
+            Some(&VERIFY_EXTS),
+            Some(&rules),
+        )
     };
     let json = flag(matches, "json");
     if reports.is_empty() {
@@ -578,7 +649,8 @@ pub fn run_verify(ctx: &mut RunContext, sink: &SharedSink, matches: &ArgMatches)
         return 0;
     }
     if json {
-        let _ = writeln!(sink.clone(), "{}", reports_to_json(&reports));
+        let planned = planned_changes(ctx, matches, pinned.as_ref(), &reports);
+        let _ = writeln!(sink.clone(), "{}", json_document(&reports, Some(&planned)));
     } else {
         print_verify_human(ctx, &reports, flag(matches, "verbose"));
     }

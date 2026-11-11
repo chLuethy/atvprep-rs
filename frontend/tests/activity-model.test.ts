@@ -15,7 +15,7 @@ import {
 } from "../src/features/activity/model";
 
 const job = (over: Partial<Parameters<typeof jobTitle>[0]> = {}) => ({
-  id: "j_1", action: "fix", status: "succeeded", trigger: "manual", origin_job_id: null,
+  id: "j_1", action: "prepare", status: "succeeded", trigger: "manual", origin_job_id: null,
   requested_at: null, started_at: null, finished_at: null,
   total_count: 1, succeeded_count: 1, failed_count: 0, cancelled_count: 0, subject: "Film/Heat (1995)/Heat.mp4", ...over,
 });
@@ -69,18 +69,16 @@ describe("actions the server accepts", () => {
 describe("labels and progress", () => {
   it("names the action in words", () => {
     expect(actionLabel("prepare")).toBe("Prepare");
-    expect(actionLabel("fix")).toBe("Fix");
     expect(actionLabel("verify")).toBe("Verify");
     expect(actionLabel("inspect")).toBe("Inspect");
-    expect(actionLabel("convert")).toBe("Convert");
     expect(actionLabel("odd_one")).toBe("Odd one");
   });
 
   it("titles a job by its file, and by the count when it covers several", () => {
     expect(jobTitle(job())).toBe("Heat");
     expect(jobTitle(job({ total_count: 3 }))).toBe("Heat and 2 more");
-    expect(jobTitle(job({ subject: null }))).toBe("Fix job");
-    expect(jobTitle(job({ subject: null, total_count: 4 }))).toBe("Fix job for 4 files");
+    expect(jobTitle(job({ subject: null }))).toBe("Prepare job");
+    expect(jobTitle(job({ subject: null, total_count: 4 }))).toBe("Prepare job for 4 files");
   });
 
   it("summarises progress in plain words", () => {

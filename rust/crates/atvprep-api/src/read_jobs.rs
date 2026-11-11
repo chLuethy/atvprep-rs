@@ -60,28 +60,34 @@ pub(crate) fn safe_diagnostic(value: &str, limit: usize) -> String {
     crate::redact::redact_log_tail(value, limit)
 }
 
+/// The action as the API names it: every job that changes files is Vorbereiten (`prepare`), also the
+/// history entries stored under the former names `fix` and `convert` (ADR 0008).
+fn public_action(stored: &str) -> &str {
+    if matches!(stored, "fix" | "convert") {
+        "prepare"
+    } else {
+        stored
+    }
+}
+
 fn view(row: &rusqlite::Row<'_>, opaque: &Opaque) -> rusqlite::Result<(i64, Value)> {
     let id: i64 = row.get(0)?;
     let action: String = row.get(1)?;
     let snapshot: String = row.get(12)?;
     let snapshot: Value = serde_json::from_str(&snapshot).unwrap_or(Value::Null);
-    let public_action = if matches!(action.as_str(), "fix" | "convert")
-        && snapshot.get("pipeline").and_then(Value::as_str) == Some("prepare")
-    {
-        "prepare"
-    } else {
-        &action
-    };
+    let public_action = public_action(&action);
     let origin: Option<i64> = row.get(4)?;
-    Ok((
-        id,
-        json!({"id":opaque.encode("j",id),"action":public_action,"status":row.get::<_,JobStatus>(2)?,"trigger":row.get::<_,String>(3)?,
+    let mut job = json!({"id":opaque.encode("j",id),"action":public_action,"status":row.get::<_,JobStatus>(2)?,"trigger":row.get::<_,String>(3)?,
         "origin_job_id":origin.map(|v|opaque.encode("j",v)),"requested_at":row.get::<_,Option<String>>(5)?.map(|v|timestamp(&v)),
         "started_at":row.get::<_,Option<String>>(6)?.map(|v|timestamp(&v)),"finished_at":row.get::<_,Option<String>>(7)?.map(|v|timestamp(&v)),
         "total_count":row.get::<_,i64>(8)?,"succeeded_count":row.get::<_,i64>(9)?,"failed_count":row.get::<_,i64>(10)?,"cancelled_count":row.get::<_,i64>(11)?,
         "delete_confirmed":snapshot.get("delete_original_confirmed").and_then(Value::as_bool).unwrap_or(false),
-        "subject":row.get::<_,Option<String>>(13)?.map(|value| subject(&value)),"progress":row.get::<_,Option<i64>>(14)?}),
-    ))
+        "subject":row.get::<_,Option<String>>(13)?.map(|value| subject(&value)),"progress":row.get::<_,Option<i64>>(14)?});
+    // Only a job that may remove originals carries the field; every other job reads as before.
+    if snapshot.get("delete_original").and_then(Value::as_bool) == Some(true) {
+        job["delete_original"] = json!(true);
+    }
+    Ok((id, job))
 }
 
 /// Parse an optional job-status query filter; an empty value means "no filter".
@@ -211,25 +217,25 @@ fn item_view(row: &rusqlite::Row<'_>, opaque: &Opaque) -> rusqlite::Result<((i64
     let position: i64 = row.get(4)?;
     let snapshot: String = row.get(7)?;
     let snapshot: Value = serde_json::from_str(&snapshot).unwrap_or(Value::Null);
-    let action = if matches!(action.as_str(), "fix" | "convert")
-        && snapshot.get("pipeline").and_then(Value::as_str) == Some("prepare")
-    {
-        "prepare"
-    } else {
-        &action
-    };
+    let action = public_action(&action);
     let output: Option<i64> = row.get(8)?;
     let detail: Option<String> = row.get(10)?;
     let detail = detail.map(|value| safe_diagnostic(&value, 1024));
-    Ok((
-        (position, id),
-        json!({"id":opaque.encode("i",id),"job_id":opaque.encode("j",job_id),"media_id":opaque.encode("m",media_id),
+    let mut row_json = json!({"id":opaque.encode("i",id),"job_id":opaque.encode("j",job_id),"media_id":opaque.encode("m",media_id),
         "action":action,"position":position,"status":row.get::<_,ItemStatus>(5)?,"attempt":row.get::<_,i64>(6)?,
         "delete_confirmed":snapshot.get("delete_original_confirmed").and_then(Value::as_bool).unwrap_or(false),
         "output_media_id":output.map(|id|opaque.encode("m",id)),"error_code":row.get::<_,Option<String>>(9)?.map(|v| safe_head(&v,128)),
         "error_detail":detail,"progress":row.get::<_,Option<i64>>(11)?,"started_at":row.get::<_,Option<String>>(12)?.map(|v|timestamp(&v)),
-        "finished_at":row.get::<_,Option<String>>(13)?.map(|v|timestamp(&v)),"display_path":row.get::<_,Option<String>>(14)?.map(|v|subject(&v))}),
-    ))
+        "finished_at":row.get::<_,Option<String>>(13)?.map(|v|timestamp(&v)),"display_path":row.get::<_,Option<String>>(14)?.map(|v|subject(&v))});
+    // Only an item under the prepare policy has a Kodierfreigabe; every other item keeps its shape.
+    // Next to it the file's stored Kodierbedarf, so a higher allowance can be offered to fit it.
+    if let Some(level) = atvprep_manager::approval::item_encode(&snapshot) {
+        row_json["encode"] = json!(level.as_str());
+        if let Some(need) = row.get::<_, Option<String>>(15)? {
+            row_json["encode_need"] = json!(need);
+        }
+    }
+    Ok(((position, id), row_json))
 }
 
 /// List a job's items in position order with an authenticated composite cursor.
@@ -260,7 +266,7 @@ pub async fn items(
         let conn=state.db.conn().map_err(|_|())?;
         let exists:bool=conn.raw().query_row("SELECT EXISTS(SELECT 1 FROM jobs WHERE id=?1)",[job_id],|row|row.get(0)).map_err(|_|())?;
         if !exists { return Ok(None); }
-        let mut stmt=conn.raw().prepare("SELECT i.id,i.job_id,i.media_file_id,i.action,i.position,i.status,i.attempt,i.settings_snapshot_json,i.output_media_file_id,i.error_code,i.error_detail,i.progress,i.started_at,i.finished_at,m.relative_path FROM job_items i LEFT JOIN media_files m ON m.id=i.media_file_id WHERE i.job_id=?1 AND (?2 IS NULL OR i.position>?2 OR (i.position=?2 AND i.id>?3)) ORDER BY i.position,i.id LIMIT ?4").map_err(|_|())?;
+        let mut stmt=conn.raw().prepare("SELECT i.id,i.job_id,i.media_file_id,i.action,i.position,i.status,i.attempt,i.settings_snapshot_json,i.output_media_file_id,i.error_code,i.error_detail,i.progress,i.started_at,i.finished_at,m.relative_path,m.encode_need FROM job_items i LEFT JOIN media_files m ON m.id=i.media_file_id WHERE i.job_id=?1 AND (?2 IS NULL OR i.position>?2 OR (i.position=?2 AND i.id>?3)) ORDER BY i.position,i.id LIMIT ?4").map_err(|_|())?;
         let rows=stmt.query_map(params![job_id,cursor.map(|c|c.0),cursor.map(|c|c.1),i64::try_from(limit+1).map_err(|_|())?],|row|item_view(row,&opaque)).map_err(|_|())?;
         let mut data=Vec::new();let mut last=None;let mut used=0usize;let mut more=false;let mut truncated=false;
         for row in rows {let (key,value)=row.map_err(|_|())?;if data.len()==limit {more=true;break;} let size=serde_json::to_vec(&value).map_err(|_|())?.len();if size>crate::bounds::MAX_ELEMENT_BYTES || used.saturating_add(size).saturating_add(data.len()+256)>crate::bounds::MAX_RESPONSE_BYTES {more=true;truncated=true;break;}used+=size;last=Some(key);data.push(value);}
@@ -351,7 +357,7 @@ pub async fn jobs(
     let descending = query.order.as_deref() == Some("desc");
     let result = tokio::task::spawn_blocking(move || {
         let conn=state.db.conn().map_err(|_|())?;
-        let sql=format!("{job_select} WHERE j.cleared_at IS NULL AND (?1 IS NULL OR j.status=?1) AND (?2 IS NULL OR j.status!=?2) AND (?3 IS NULL OR j.action=?3 OR (?3='prepare' AND j.action IN ('fix','convert'))) AND (?4 IS NULL OR (CASE WHEN ?5 THEN j.id<?4 ELSE j.id>?4 END)) ORDER BY j.id {} LIMIT ?6", if descending {"DESC"} else {"ASC"},job_select=job_select());
+        let sql=format!("{job_select} WHERE j.cleared_at IS NULL AND (?1 IS NULL OR j.status=?1) AND (?2 IS NULL OR j.status!=?2) AND (?3 IS NULL OR (j.action=?3 AND ?3 NOT IN ('fix','convert')) OR (?3='prepare' AND j.action IN ('fix','convert'))) AND (?4 IS NULL OR (CASE WHEN ?5 THEN j.id<?4 ELSE j.id>?4 END)) ORDER BY j.id {} LIMIT ?6", if descending {"DESC"} else {"ASC"},job_select=job_select());
         let mut stmt=conn.raw().prepare(&sql).map_err(|_|())?;
         let rows=stmt.query_map(params![status,exclude_status,query.action.filter(|v|!v.is_empty()),after,descending,i64::try_from(limit+1).map_err(|_|())?],|row|view(row,&opaque)).map_err(|_|())?;
         let mut data=Vec::new(); let mut last=None; let mut used=0usize; let mut more=false; let mut truncated=false;

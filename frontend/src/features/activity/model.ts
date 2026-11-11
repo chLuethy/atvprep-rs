@@ -36,7 +36,7 @@ export const canCancel = (job: Pick<JobRow, "status">) => job.status === "queued
 /** A retry needs failed items and nothing still in flight, which only these two end states guarantee. */
 export const canRetry = (job: Pick<JobRow, "status">) => job.status === "failed" || job.status === "partial_success";
 
-const ACTIONS: Record<string, string> = { prepare: N("Prepare"), verify: N("Verify"), fix: N("Fix"), convert: N("Convert"), inspect: N("Inspect") };
+const ACTIONS: Record<string, string> = { prepare: N("Prepare"), verify: N("Verify"), inspect: N("Inspect") };
 export const actionLabel = (action: string) => (ACTIONS[action] ? t(ACTIONS[action]) : humanize(action));
 
 export function jobTitle(job: JobRow): string {
@@ -79,4 +79,27 @@ export function runningFor(start: string | null | undefined, now: Date = new Dat
 /** Active jobs first; each group keeps the order the server sent (newest first). */
 export function partitionJobs(rows: JobRow[]): { active: JobRow[]; history: JobRow[] } {
   return { active: rows.filter(isActive), history: rows.filter((row) => !isActive(row)) };
+}
+
+/** Why the worker refused a job for good; it writes these itself, so they are put into the chosen language. */
+const REFUSALS: ReadonlyArray<string> = [
+  N("The target profile changed after this job was queued."),
+  N("The approval is not signed."),
+  N("The approval does not belong to this job."),
+  N("The approval has expired."),
+  N("The job has no recorded file identity."),
+  N("This job predates the current policy."),
+  N("This job carries no encoding allowance."),
+  N("This job carries no target profile."),
+  N("The recorded file identity is incomplete."),
+  N("The approved file changed."),
+  N("The approving session is no longer active."),
+];
+
+/** An item's recorded reason, in the chosen language where the worker wrote a known one. */
+export function describeDetail(detail: string): string {
+  const refused = /^([\s\S]*) Queue the preparation again\.$/.exec(detail);
+  const reason = refused?.[1];
+  if (reason === undefined || !REFUSALS.includes(reason)) return detail;
+  return t("{reason} Queue the preparation again.", { reason: t(reason) });
 }

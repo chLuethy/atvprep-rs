@@ -1,6 +1,6 @@
 import { N, t, tn } from "../../lib/i18n";
 import { formatDateTime } from "../../lib/time";
-import type { Action, Schedule } from "./loaders";
+import type { Action, EncodeLevel, Schedule, TargetProfile } from "./loaders";
 
 export const DAYS: ReadonlyArray<{ index: number; short: string; long: string }> = [
   { index: 0, short: N("Mon"), long: N("Monday") },
@@ -66,8 +66,25 @@ export const CRON_EXAMPLES: ReadonlyArray<{ cron: string; meaning: string }> = [
   { cron: "0 */6 * * *", meaning: N("Every 6 hours, on the hour") },
 ];
 
-const ACTION_LABEL: Record<Action, string> = { verify: N("Verify"), fix: N("Fix"), convert: N("Convert"), scan: N("Scan") };
+const ACTION_LABEL: Record<Action, string> = { verify: N("Verify"), prepare: N("Prepare"), scan: N("Scan") };
 export const actionName = (action: Action): string => t(ACTION_LABEL[action]);
+
+/** Each level of the Kodierfreigabe of a schedule, with one sentence on what it takes. */
+const ENCODE_LABEL: Record<EncodeLevel, { label: string; hint: string }> = {
+  copy: { label: N("Copy only"), hint: N("Takes only files that need no encoding. Streams are only copied.") },
+  audio: { label: N("Encode audio"), hint: N("Also takes files whose audio has to be encoded; the video is only copied.") },
+  all: { label: N("Encode audio and video"), hint: N("Also takes files that need a re-encode or are not checked yet. A re-encode can take hours and cannot be undone on an MP4.") },
+};
+export const encodeName = (level: EncodeLevel): string => t(ENCODE_LABEL[level].label);
+export const encodeHint = (level: EncodeLevel): string => t(ENCODE_LABEL[level].hint);
+
+/** A Zielprofil in one line, the way the settings name its values. */
+export function describeProfile(profile: TargetProfile): string {
+  const flag = (on: boolean) => (on ? t("on") : t("off"));
+  return t("CRF {crf}, HEVC10 {hevc10}, keep AV1 {av1}, DTS fix {dts}", {
+    crf: profile.crf, hevc10: flag(profile.prefer_hevc10), av1: flag(profile.keep_av1), dts: flag(profile.fix_dts),
+  });
+}
 
 const STATE_LABEL: Record<string, string> = {
   unknown: N("Not verified"),
@@ -81,7 +98,7 @@ export const stateName = (state: string): string => (STATE_LABEL[state] ? t(STAT
 /** The states a filter can name for an action. */
 export function stateChoices(action: Action): ReadonlyArray<{ value: string | null; label: string }> {
   if (action === "scan") return [];
-  if (action === "fix" || action === "convert") {
+  if (action === "prepare") {
     return [{ value: null, label: t("Any file that needs work") }, { value: "warning", label: t("Warning") }, { value: "blocker", label: t("Blocker") }];
   }
   return [
@@ -97,11 +114,12 @@ export function stateChoices(action: Action): ReadonlyArray<{ value: string | nu
 /** The sensible starting filter for an action. */
 export const defaultState = (action: Action): string | null => (action === "verify" ? "unknown" : null);
 
-/** What a schedule acts on, in one line. */
-export function describeTarget(schedule: Pick<Schedule, "action" | "root_name" | "compliance_state" | "max_files">): string {
+/** What a schedule acts on, in one line; a schedule that prepares also names its Kodierfreigabe. */
+export function describeTarget(schedule: Pick<Schedule, "action" | "root_name" | "compliance_state" | "max_files" | "encode">): string {
   const parts = [actionName(schedule.action), schedule.root_name ?? t("All libraries")];
   if (schedule.compliance_state) parts.push(stateName(schedule.compliance_state));
   if (schedule.max_files !== null) parts.push(tn("up to {count} file", "up to {count} files", schedule.max_files));
+  if (schedule.action === "prepare" && schedule.encode) parts.push(encodeName(schedule.encode));
   return parts.join(" · ");
 }
 
@@ -117,6 +135,8 @@ export function describeLast(schedule: Pick<Schedule, "last_run_at" | "last_resu
 
 const NOT_APPROVED = "not approved to change files. Turn the schedule on again.";
 N("Not approved to change files. Turn the schedule on again.");
+/** The reason the switch to a Kodierfreigabe (migration 0011) paused a schedule with. */
+const ALLOWANCE_PAUSE = "the approval now covers the encoding allowance and the target profile. Turn the schedule on again to approve it.";
 
 export type SortKey = "next" | "name" | "last";
 export type StatusFilter = "on" | "paused";
@@ -127,7 +147,7 @@ export const SORT_KEYS: ReadonlyArray<{ key: SortKey; label: string }> = [
   { key: "name", label: N("Name") },
   { key: "last", label: N("Last run") },
 ];
-export const LIST_ACTIONS: ReadonlyArray<Action> = ["verify", "fix", "convert", "scan"];
+export const LIST_ACTIONS: ReadonlyArray<Action> = ["verify", "prepare", "scan"];
 export const LIST_STATUSES: ReadonlyArray<{ status: StatusFilter; label: string }> = [
   { status: "on", label: N("On") },
   { status: "paused", label: N("Paused") },
@@ -186,7 +206,10 @@ export function describeResult(result: string | null): string {
       ? t("it runs more often than every {minutes} minutes (every {found}). Adjust the schedule.", { minutes: interval[1] ?? "", found: interval[2] ?? "" })
       : files
         ? t("it takes more than {max} files per run. Adjust the schedule.", { max: files[1] ?? "" })
-        : reason;
+        : reason === ALLOWANCE_PAUSE
+          ? t("the approval now covers the encoding allowance and the target profile. Turn the schedule on again to approve it.")
+          : reason;
+
     return t("Paused: {reason}", { reason: known });
   }
   return result;

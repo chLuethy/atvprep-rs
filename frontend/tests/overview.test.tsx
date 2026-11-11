@@ -93,11 +93,12 @@ describe("OverviewPage: when everything is ready", () => {
   });
 });
 
-describe("OverviewPage: the re-encode count", () => {
-  it("shows how many files need a video re-encode and links to them", async () => {
-    const view = render(() => <OverviewPage api={api(base({ "/dashboard": { data: { files: { clean: 3, blocker: 2 }, scans: {}, jobs: {}, reencode: 2 } } })) as never} />);
+describe("OverviewPage: the encoding counters", () => {
+  it("shows how many files need video and audio encoding and links to them", async () => {
+    const view = render(() => <OverviewPage api={api(base({ "/dashboard": { data: { files: { clean: 3, blocker: 2 }, scans: {}, jobs: {}, encode_video: 2, encode_audio: 3 } } })) as never} />);
 
-    expect(await view.findByRole("link", { name: "2 Need a video re-encode" })).toHaveAttribute("href", "/files?status=reencode");
+    expect(await view.findByRole("link", { name: "2 Need video encoding" })).toHaveAttribute("href", "/files?status=encode_video");
+    expect(await view.findByRole("link", { name: "3 Need audio encoding" })).toHaveAttribute("href", "/files?status=encode_audio");
   });
 });
 
@@ -148,11 +149,11 @@ describe("OverviewPage: running and recent", () => {
 
   it("names the file a running job is about when the server says which", async () => {
     const view = render(() => <OverviewPage api={api(base({
-      "/dashboard/queue?limit=5": { data: { total: 1, jobs: [{ id: "j2", action: "fix", status: "queued", total_count: 2, succeeded_count: 0, failed_count: 0, cancelled_count: 0, subject: "Film/Heat (1995)/Heat.mp4" }] } },
+      "/dashboard/queue?limit=5": { data: { total: 1, jobs: [{ id: "j2", action: "prepare", status: "queued", total_count: 2, succeeded_count: 0, failed_count: 0, cancelled_count: 0, subject: "Film/Heat (1995)/Heat.mp4" }] } },
     })) as never} />);
 
     const now = await view.findByRole("region", { name: "Running now" });
-    expect(within(now).getByRole("link", { name: "Fix: Heat and 1 more · 0 of 2 succeeded" })).toHaveAttribute("href", "/jobs/j2");
+    expect(within(now).getByRole("link", { name: "Prepare: Heat and 1 more · 0 of 2 succeeded" })).toHaveAttribute("href", "/jobs/j2");
     expect(within(now).getByText("1 active job")).toBeInTheDocument();
   });
 

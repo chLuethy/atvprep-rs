@@ -3,8 +3,6 @@ export const deCommon: Record<string, string | readonly [string, string]> = {
   "Language": "Sprache",
   "Version {version}": "Version {version}",
   "Verify": "Prüfen",
-  "Fix": "Reparieren",
-  "Convert": "Konvertieren",
   "Inspect": "Analysieren",
   "Session expired. Lock and unlock again.": "Sitzung abgelaufen. Sperren und erneut entsperren.",
   "{fallback} The server said: {detail}.": "{fallback} Der Server meldet: {detail}.",
@@ -18,5 +16,5 @@ export const deCommon: Record<string, string | readonly [string, string]> = {
   "Open job": "Auftrag öffnen",
   "Run now": "Jetzt ausführen",
   "Schedules": "Zeitpläne",
-  "Prepare": "Überarbeiten",
+  "Prepare": "Vorbereiten",
 };

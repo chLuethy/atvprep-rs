@@ -1,4 +1,5 @@
 import { SessionError } from "../../lib/api";
+import type { EncodeNeed } from "../../lib/encode";
 
 /** Data loading for the activity view. UI-free; every loader normalises SessionError. */
 
@@ -21,8 +22,8 @@ export type JobRow = {
   subject?: string | null;
   /** Whole percent across the job's items, as far as the server can tell. */
   progress?: number | null;
-  /** The job carries a one-off confirmation that originals may be deleted. */
-  delete_confirmed?: boolean;
+  /** The setting „Delete original“ was on when the job was queued. */
+  delete_original?: boolean;
 };
 
 export type ItemRow = {
@@ -34,6 +35,10 @@ export type ItemRow = {
   status: string;
   attempt: number;
   output_media_id: string | null;
+  /** The Kodierfreigabe this item ran with. */
+  encode?: string | null;
+  /** The Kodierbedarf the server stores for the item's file. */
+  encode_need?: EncodeNeed | null;
   display_path?: string | null;
   error_code?: string | null;
   error_detail?: string | null;
@@ -102,6 +107,22 @@ export type MutationResult = { ok: true; id: string | undefined } | { ok: false;
 export async function mutateJob(api: Api, id: string, operation: "cancel" | "retry", idempotencyKey: string): Promise<MutationResult> {
   try {
     const response = await api.request(`/jobs/${apiJobId(id)}/${operation}`, { method: "POST", headers: { "Idempotency-Key": idempotencyKey } });
+    if (!response.ok) return { ok: false, session: false };
+    const body = (await response.json().catch(() => ({}))) as { data?: { id?: string } };
+    return { ok: true, id: body.data?.id };
+  } catch (error) {
+    return { ok: false, session: error instanceof SessionError };
+  }
+}
+
+/** Queue a new job for one item whose encoding was not allowed, at a higher level. The caller owns the idempotency key. */
+export async function raiseEncode(api: Api, itemId: string, encode: string, idempotencyKey: string): Promise<MutationResult> {
+  try {
+    const response = await api.request(`/job-items/${apiJobId(itemId)}/raise-encode`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify({ encode, ...(encode === "all" ? { confirm_video_encode: true } : {}) }),
+    });
     if (!response.ok) return { ok: false, session: false };
     const body = (await response.json().catch(() => ({}))) as { data?: { id?: string } };
     return { ok: true, id: body.data?.id };

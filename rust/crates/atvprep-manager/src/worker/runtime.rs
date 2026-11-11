@@ -208,6 +208,7 @@ fn execute_pass(ctx: Ctx<'_>, config: &RuntimeConfig) -> Result<()> {
     }
     let (_, scan) = live_scan_policy(ctx, config.scan_interval_seconds, &config.scan)?;
     queue_probes(ctx, scan.settle_seconds)?;
+    queue_need_checks(ctx, scan.settle_seconds)?;
     let mut lease = MediaExecutorLease::new(ctx);
     if !lease.acquire(&config.owner, config.execution.lease_seconds)? {
         return Ok(());
@@ -248,6 +249,66 @@ fn execute_pass(ctx: Ctx<'_>, config: &RuntimeConfig) -> Result<()> {
     }
 }
 
+/// How many background checks of an unknown Kodierbedarf may wait at a time.
+const NEED_CHECK_BATCH: i64 = 32;
+
+/// Queue „Prüfen“ for files whose Kodierbedarf is unknown. Each file, state of its bytes and
+/// revision of the Zielprofil is tried once: a check that ends without a need is not repeated on
+/// its own, a changed file or a changed profile is checked anew.
+fn queue_need_checks(ctx: Ctx<'_>, settle_seconds: i64) -> Result<()> {
+    let tx =
+        rusqlite::Transaction::new_unchecked(ctx.conn, rusqlite::TransactionBehavior::Immediate)?;
+    let write = Ctx {
+        conn: &tx,
+        clock: ctx.clock,
+    };
+    let gate = DeploymentGate(write).status()?;
+    if gate.healthy && gate.mode == "open" && gate.phase == "steady" {
+        let active: i64 = tx.query_row(
+            "SELECT count(*) FROM job_items WHERE action='verify' AND status IN ('queued','claimed','running')
+               AND json_extract(settings_snapshot_json,'$.need_check')=1",
+            [],
+            |row| row.get(0),
+        )?;
+        let available = NEED_CHECK_BATCH.saturating_sub(active).max(0);
+        let cutoff = ctx
+            .clock
+            .now_micros()
+            .saturating_mul(1000)
+            .saturating_sub(settle_seconds.max(0).saturating_mul(1_000_000_000));
+        let mut statement = tx.prepare(&format!(
+            "SELECT m.id FROM media_files m
+             WHERE m.discovery_state='present' AND m.encode_need='unknown' AND m.mtime_ns<=?1
+               AND NOT EXISTS(SELECT 1 FROM job_items i WHERE i.media_file_id=m.id
+                              AND i.status NOT IN {})
+               AND NOT EXISTS(SELECT 1 FROM job_items i JOIN input_snapshots s ON s.job_item_id=i.id
+                              WHERE i.media_file_id=m.id AND i.action='verify'
+                                AND i.status NOT IN ('cancelled','stale_input')
+                                AND json_extract(i.settings_snapshot_json,'$.need_check')=1
+                                AND COALESCE(json_extract(i.settings_snapshot_json,'$.profile_revision'),0)=?3
+                                AND json_extract(s.snapshot_json,'$.file_fingerprint')=m.fingerprint)
+             ORDER BY m.id LIMIT ?2",
+            crate::state_machine::ItemStatus::terminal_sql_list()
+        ))?;
+        let profile_revision = crate::settings::target_profile_revision(&tx)?;
+        let ids = statement
+            .query_map(
+                rusqlite::params![cutoff, available, profile_revision],
+                |row| row.get::<_, i64>(0),
+            )?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        drop(statement);
+        if !ids.is_empty() {
+            let mut job = crate::jobs::NewJob::new("verify", &ids);
+            job.settings_snapshot =
+                serde_json::json!({"need_check": true, "profile_revision": profile_revision});
+            Jobs(write).create(&job)?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
 fn queue_probes(ctx: Ctx<'_>, settle_seconds: i64) -> Result<()> {
     let tx =
         rusqlite::Transaction::new_unchecked(ctx.conn, rusqlite::TransactionBehavior::Immediate)?;
@@ -283,6 +344,160 @@ fn queue_probes(ctx: Ctx<'_>, settle_seconds: i64) -> Result<()> {
 mod tests {
     use super::*;
     use crate::{clock::FixedClock, schema};
+
+    /// A database with four present files (ids 1-4), of bytes that have long settled.
+    fn library() -> (crate::db::Conn, FixedClock) {
+        let db = Db::memory().unwrap();
+        let mut conn = db.conn().unwrap();
+        schema::migrate(&mut conn).unwrap();
+        conn.raw()
+            .execute_batch(
+                "INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'r','/r');
+                 INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,
+                   discovery_state,compliance_state,workflow_state,desired_action,encode_need)
+                 VALUES (1,1,'unknown.mp4','movie','.mp4',1,1,'a','present','unknown','idle','none','unknown'),
+                        (2,1,'known.mp4','movie','.mp4',1,1,'b','present','unknown','idle','none','audio'),
+                        (3,1,'gone.mp4','movie','.mp4',1,1,'c','missing','unknown','idle','none','unknown'),
+                        (4,1,'other.mkv','movie','.mkv',1,1,'d','present','unknown','idle','none','unknown');",
+            )
+            .unwrap();
+        (conn, FixedClock(1_700_000_000_000_000))
+    }
+
+    /// The media of every background check queued so far, in order.
+    fn checked(conn: &crate::db::Conn) -> Vec<i64> {
+        let mut statement = conn
+            .raw()
+            .prepare("SELECT media_file_id FROM job_items WHERE action='verify' ORDER BY id")
+            .unwrap();
+        let rows = statement.query_map([], |row| row.get(0)).unwrap();
+        rows.collect::<std::result::Result<_, _>>().unwrap()
+    }
+
+    #[test]
+    fn an_unknown_need_is_queued_for_a_check_and_a_known_one_is_not() {
+        let (conn, clock) = library();
+        let ctx = Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        };
+        queue_need_checks(ctx, 0).unwrap();
+        assert_eq!(checked(&conn), [1, 4]);
+    }
+
+    #[test]
+    fn a_check_is_queued_once_and_not_repeated_after_it_ended_without_a_need() {
+        let (conn, clock) = library();
+        let ctx = Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        };
+        queue_need_checks(ctx, 0).unwrap();
+        queue_need_checks(ctx, 0).unwrap();
+        assert_eq!(checked(&conn), [1, 4], "nothing is queued twice");
+        conn.raw()
+            .execute("UPDATE job_items SET status='failed'", [])
+            .unwrap();
+        queue_need_checks(ctx, 0).unwrap();
+        assert_eq!(checked(&conn), [1, 4], "a failed check is not retried");
+    }
+
+    #[test]
+    fn a_changed_file_is_checked_again() {
+        let (conn, clock) = library();
+        let ctx = Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        };
+        queue_need_checks(ctx, 0).unwrap();
+        conn.raw()
+            .execute("UPDATE job_items SET status='succeeded'", [])
+            .unwrap();
+        conn.raw()
+            .execute("UPDATE media_files SET fingerprint='a2' WHERE id=1", [])
+            .unwrap();
+        queue_need_checks(ctx, 0).unwrap();
+        assert_eq!(checked(&conn), [1, 4, 1]);
+    }
+
+    /// Change the Zielprofil through the settings and let the queued checks finish.
+    fn change_profile(conn: &crate::db::Conn, clock: FixedClock, keep_av1: bool) {
+        conn.raw()
+            .execute("UPDATE job_items SET status='succeeded'", [])
+            .unwrap();
+        crate::settings::Settings(Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        })
+        .set("target_keep_av1", &serde_json::json!(keep_av1), "o", None)
+        .unwrap();
+    }
+
+    #[test]
+    fn a_changed_target_profile_checks_every_file_again_with_the_same_bytes() {
+        let (conn, clock) = library();
+        let ctx = Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        };
+        queue_need_checks(ctx, 0).unwrap();
+        assert_eq!(checked(&conn), [1, 4]);
+
+        change_profile(&conn, clock, true);
+        queue_need_checks(ctx, 0).unwrap();
+        assert_eq!(
+            checked(&conn),
+            [1, 4, 1, 2, 4],
+            "every present file, the one with a known need as well"
+        );
+        queue_need_checks(ctx, 0).unwrap();
+        assert_eq!(checked(&conn), [1, 4, 1, 2, 4], "once per change");
+    }
+
+    #[test]
+    fn a_target_profile_changed_back_checks_again_as_well() {
+        let (conn, clock) = library();
+        let ctx = Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        };
+        change_profile(&conn, clock, true);
+        queue_need_checks(ctx, 0).unwrap();
+        change_profile(&conn, clock, false);
+        queue_need_checks(ctx, 0).unwrap();
+        assert_eq!(checked(&conn).len(), 6, "{:?}", checked(&conn));
+    }
+
+    #[test]
+    fn a_file_with_a_job_running_is_left_alone() {
+        let (conn, clock) = library();
+        let ctx = Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        };
+        Jobs(ctx)
+            .create(&crate::jobs::NewJob::new("inspect", &[1]))
+            .unwrap();
+        queue_need_checks(ctx, 0).unwrap();
+        assert_eq!(checked(&conn), [4]);
+    }
+
+    #[test]
+    fn a_file_still_settling_waits_for_a_later_tick() {
+        let (conn, clock) = library();
+        let ctx = Ctx {
+            conn: conn.raw(),
+            clock: &clock,
+        };
+        conn.raw()
+            .execute(
+                "UPDATE media_files SET mtime_ns=?1",
+                [1_700_000_000_000_000_000_i64],
+            )
+            .unwrap();
+        queue_need_checks(ctx, 120).unwrap();
+        assert!(checked(&conn).is_empty());
+    }
     #[test]
     fn scan_policy_reads_runtime_overrides_again_without_restarting_workers() {
         let db = Db::memory().unwrap();

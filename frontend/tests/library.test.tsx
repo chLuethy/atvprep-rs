@@ -36,7 +36,7 @@ function makeApi(options: { rows?: unknown[]; next?: string | null; more?: unkno
     request: vi.fn(async (path: string, init?: RequestInit) => {
       calls.push({ path, init });
       if (path === "/jobs") return json({ id: "j_1" }, 201);
-      if (path === "/dashboard") return json({ files: { clean: 1, warning: 1, blocker: 1, unknown: 1 }, scans: {}, jobs: {} });
+      if (path === "/dashboard") return json({ files: { clean: 1, warning: 1, blocker: 1, unknown: 1 }, scans: {}, jobs: {}, delete_original: false });
       if (path.startsWith("/files?")) {
         if (options.fail) return json({}, 503);
         if (path.includes("cursor=c2")) return json(options.more ?? [], 200, { next_cursor: null });
@@ -148,7 +148,7 @@ describe("LibraryPage: filtering and paging", () => {
     for (const name of [/^Ready/, /^Warning/, /^Not verified/, /^Inspection failed/, /^Missing/]) {
       expect(view.getByRole("checkbox", { name })).toBeChecked();
     }
-    for (const name of [/^To convert/, /^Needs re-encode/, /^Embed open/, /^Converted/]) {
+    for (const name of [/^To convert/, /^Needs video encoding/, /^Embed open/, /^Converted/]) {
       expect(view.getByRole("checkbox", { name })).not.toBeChecked();
     }
     expect(view.queryByRole("button", { name: "Show all files" })).not.toBeInTheDocument();
@@ -188,16 +188,16 @@ describe("LibraryPage: filtering and paging", () => {
   it("None hides every state at once, All shows them again, and the chosen properties stay as they were", async () => {
     const { api } = makeApi();
     const view = renderLibrary(api);
-    await fireEvent.click(await view.findByRole("checkbox", { name: /^Needs re-encode/ }));
+    await fireEvent.click(await view.findByRole("checkbox", { name: /^Needs video encoding/ }));
 
     const states = within(view.getByRole("group", { name: "Status" }));
     await fireEvent.click(states.getByRole("button", { name: "None" }));
     await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("hide=clean%2Cwarning%2Cblocker%2Cunknown%2Cprobe_failed%2Cmissing")));
-    expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=reencode"));
+    expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=encode_video"));
 
     await fireEvent.click(states.getByRole("button", { name: "All" }));
     await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.not.stringContaining("hide=")));
-    expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=reencode"));
+    expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=encode_video"));
   });
 
   it("shows only files with all chosen properties: two ticked boxes go to the server as has, one list", async () => {
@@ -206,13 +206,13 @@ describe("LibraryPage: filtering and paging", () => {
 
     await fireEvent.click(await view.findByRole("checkbox", { name: /^Embed open/ }));
     await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=embed")));
-    await fireEvent.click(view.getByRole("checkbox", { name: /^Needs re-encode/ }));
-    await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=reencode%2Cembed")));
+    await fireEvent.click(view.getByRole("checkbox", { name: /^Needs video encoding/ }));
+    await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=encode_video%2Cembed")));
     expect(api.request).toHaveBeenLastCalledWith(expect.not.stringContaining("hide="));
 
     await fireEvent.click(view.getByRole("checkbox", { name: /^Embed open/ }));
-    await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=reencode")));
-    await fireEvent.click(view.getByRole("checkbox", { name: /^Needs re-encode/ }));
+    await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=encode_video")));
+    await fireEvent.click(view.getByRole("checkbox", { name: /^Needs video encoding/ }));
     await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.not.stringContaining("has=")));
   });
 
@@ -230,19 +230,19 @@ describe("LibraryPage: filtering and paging", () => {
   it("shows next to each property how many files are left with the current selection", async () => {
     const { api } = makeApi();
     (api.request as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
-      if (path === "/dashboard") return json({ files: { clean: 1 }, reencode: 9, embed: 9, scans: {}, jobs: {} });
+      if (path === "/dashboard") return json({ files: { clean: 1 }, encode_video: 9, embed: 9, scans: {}, jobs: {} });
       if (path.startsWith("/files/counts")) {
         const has = new URL(path, "http://x").searchParams.get("has");
-        return json(has === "embed" ? { convert: 0, reencode: 2, embed: 4, converted: 0 } : { convert: 1, reencode: 5, embed: 6, converted: 0 });
+        return json(has === "embed" ? { convert: 0, encode_video: 2, embed: 4, converted: 0 } : { convert: 1, encode_video: 5, embed: 6, converted: 0 });
       }
       if (path.startsWith("/files?")) return json(ROWS, 200, { next_cursor: null });
       return json([]);
     });
     const view = renderLibrary(api);
-    expect(await view.findByRole("checkbox", { name: "Needs re-encode 5" })).toBeInTheDocument();
+    expect(await view.findByRole("checkbox", { name: "Needs video encoding 5" })).toBeInTheDocument();
 
     await fireEvent.click(view.getByRole("checkbox", { name: /^Embed open/ }));
-    expect(await view.findByRole("checkbox", { name: "Needs re-encode 2" })).toBeInTheDocument();
+    expect(await view.findByRole("checkbox", { name: "Needs video encoding 2" })).toBeInTheDocument();
     expect(view.getByRole("checkbox", { name: "Embed open 4" })).toBeChecked();
   });
 
@@ -314,7 +314,7 @@ describe("LibraryPage: the status filter lives in the address", () => {
 
     await view.findByRole("link", { name: "Heat" });
     expect(view.getByRole("checkbox", { name: /^Embed open/ })).toBeChecked();
-    expect(view.getByRole("checkbox", { name: /^Needs re-encode/ })).not.toBeChecked();
+    expect(view.getByRole("checkbox", { name: /^Needs video encoding/ })).not.toBeChecked();
     expect(view.getByRole("checkbox", { name: /^Ready/ })).not.toBeChecked();
     const path = calls(api).find((call) => call.path.startsWith("/files?"))?.path ?? "";
     expect(path).toContain("has=embed");
@@ -388,15 +388,15 @@ describe("LibraryPage: the re-encode state", () => {
     const view = renderLibrary(api);
     await view.findByRole("link", { name: "Heat" });
 
-    await fireEvent.click(view.getByRole("checkbox", { name: /Needs re-encode/ }));
+    await fireEvent.click(view.getByRole("checkbox", { name: /Needs video encoding/ }));
 
-    await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=reencode")));
-    expect(view.getByRole("checkbox", { name: /Needs re-encode/ })).toBeChecked();
+    await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=encode_video")));
+    expect(view.getByRole("checkbox", { name: /Needs video encoding/ })).toBeChecked();
     expect(view.getByRole("checkbox", { name: /Converted, original kept/ })).not.toBeChecked();
   });
 
-  it("previews a video that needs a re-encode and queues it only with the explicit confirmation", async () => {
-    const reencode = file({ id: "m_r1", display_path: "Film/Big (2020)/Big (2020).mp4", size: GB, compliance_state: "blocker", desired_action: "fix", needs_reencode: true,
+  it("previews a video that needs a re-encode and releases it only with the confirmed video level", async () => {
+    const reencode = file({ id: "m_r1", display_path: "Film/Big (2020)/Big (2020).mp4", size: GB, compliance_state: "blocker", desired_action: "fix", encode_need: "video",
       compliance_reasons: ["[blocker] video-reencode: the video needs a re-encode"] });
     const { api, posts } = makeApi({ rows: [reencode] });
     const view = renderLibrary(api);
@@ -404,22 +404,22 @@ describe("LibraryPage: the re-encode state", () => {
 
     await fireEvent.click(view.getByRole("button", { name: /preview and prepare/i }));
     const preview = view.getByRole("region", { name: "Prepare preview" });
-    expect(within(preview).queryByRole("button", { name: "Prepare 1 file" })).not.toBeInTheDocument();
-    expect(within(preview).getByRole("button", { name: "Without re-encode" })).toBeDisabled();
     expect(posts()).toHaveLength(0);
 
-    await fireEvent.click(within(preview).getByRole("button", { name: "With re-encode (1)" }));
+    await fireEvent.click(within(preview).getByRole("radio", { name: /^Encode audio and video/ }));
+    await fireEvent.click(within(preview).getByRole("checkbox", { name: /re-encoded/ }));
+    await fireEvent.click(within(preview).getByRole("button", { name: "Prepare 1 file" }));
     await waitFor(() => expect(posts()).toHaveLength(1));
-    expect(JSON.parse(String(posts()[0]!.init?.body))).toEqual({ action: "prepare", media_ids: ["m_r1"], manual_approval: true, confirm_reencode: true });
+    expect(JSON.parse(String(posts()[0]!.init?.body))).toEqual({ action: "prepare", media_ids: ["m_r1"], manual_approval: true, encode: "all", confirm_video_encode: true });
   });
 });
 
 describe("LibraryPage: a mixed selection with a re-encode", () => {
-  const reencode = file({ id: "m_r1", display_path: "Film/Big (2020)/Big (2020).mp4", size: GB, compliance_state: "blocker", desired_action: "fix", needs_reencode: true,
+  const reencode = file({ id: "m_r1", display_path: "Film/Big (2020)/Big (2020).mp4", size: GB, compliance_state: "blocker", desired_action: "fix", encode_need: "video",
     compliance_reasons: ["[blocker] video-reencode: the video needs a re-encode"] });
   const mkv = file({ id: "m_k1", display_path: "Film/Lynley (2001)/Lynley (2001).mkv", suffix: ".mkv", size: GB, compliance_state: "unknown", desired_action: "convert" });
 
-  it("without re-encode queues only the other files, in one job, without a confirmation", async () => {
+  it("with Encode audio queues every file in one job, without a confirmation", async () => {
     const { api, posts } = makeApi({ rows: [reencode, mkv] });
     const view = renderLibrary(api);
     await pickRow(view, "Big (2020)");
@@ -429,23 +429,26 @@ describe("LibraryPage: a mixed selection with a re-encode", () => {
     const preview = view.getByRole("region", { name: "Prepare preview" });
     expect(preview).toHaveTextContent("The original is kept.");
     expect(preview).toHaveTextContent("1 of 2 files need a re-encode");
-    await fireEvent.click(within(preview).getByRole("button", { name: "Without re-encode" }));
+    await fireEvent.click(within(preview).getByRole("button", { name: "Prepare 2 files" }));
 
     await waitFor(() => expect(posts()).toHaveLength(1));
-    expect(JSON.parse(String(posts()[0]!.init?.body))).toEqual({ action: "prepare", media_ids: ["m_k1"], manual_approval: true });
+    expect(JSON.parse(String(posts()[0]!.init?.body))).toEqual({ action: "prepare", media_ids: ["m_r1", "m_k1"], manual_approval: true, encode: "audio" });
   });
 
-  it("with re-encode queues every selected file in one confirmed job", async () => {
+  it("with the confirmed video level queues every selected file in one job", async () => {
     const { api, posts } = makeApi({ rows: [reencode, mkv] });
     const view = renderLibrary(api);
     await pickRow(view, "Big (2020)");
     await pickRow(view, "Lynley (2001)");
 
     await fireEvent.click(view.getByRole("button", { name: /preview and prepare/i }));
-    await fireEvent.click(within(view.getByRole("region", { name: "Prepare preview" })).getByRole("button", { name: "With re-encode (1)" }));
+    const preview = view.getByRole("region", { name: "Prepare preview" });
+    await fireEvent.click(within(preview).getByRole("radio", { name: /^Encode audio and video/ }));
+    await fireEvent.click(within(preview).getByRole("checkbox", { name: /re-encoded/ }));
+    await fireEvent.click(within(preview).getByRole("button", { name: "Prepare 2 files" }));
 
     await waitFor(() => expect(posts()).toHaveLength(1));
-    expect(JSON.parse(String(posts()[0]!.init?.body))).toEqual({ action: "prepare", media_ids: ["m_r1", "m_k1"], manual_approval: true, confirm_reencode: true });
+    expect(JSON.parse(String(posts()[0]!.init?.body))).toEqual({ action: "prepare", media_ids: ["m_r1", "m_k1"], manual_approval: true, encode: "all", confirm_video_encode: true });
   });
 
   it("keeps the files in the preview when the queue is refused, and queues them once on a retry", async () => {
@@ -522,7 +525,7 @@ describe("LibraryPage: selection and the fix flow", () => {
     expect(posts()).toHaveLength(1);
     const call = posts()[0]!;
     expect(call.init?.method).toBe("POST");
-    expect(JSON.parse(String(call.init?.body))).toEqual({ action: "prepare", media_ids: ["m_f1", "m_f2"], manual_approval: true });
+    expect(JSON.parse(String(call.init?.body))).toEqual({ action: "prepare", media_ids: ["m_f1", "m_f2"], manual_approval: true, encode: "audio" });
     expect(new Headers(call.init?.headers).get("Idempotency-Key")).toBeTruthy();
     expect(JSON.stringify((api.request as unknown as ReturnType<typeof vi.fn>).mock.calls)).not.toContain("convert");
     expect(view.queryByRole("region", { name: "Selection" })).not.toBeInTheDocument();
@@ -564,7 +567,7 @@ describe("LibraryPage: selection and the fix flow", () => {
     await fireEvent.click(view.getByRole("button", { name: "Prepare 1 file" }));
     await view.findByText(/prepare job queued for 1 file/i);
 
-    expect(JSON.parse(String(posts()[0]!.init?.body))).toEqual({ action: "prepare", media_ids: ["m_f2"], manual_approval: true });
+    expect(JSON.parse(String(posts()[0]!.init?.body))).toEqual({ action: "prepare", media_ids: ["m_f2"], manual_approval: true, encode: "audio" });
   });
 
   it("disables the preview when nothing selected can be fixed", async () => {
@@ -742,7 +745,7 @@ describe("LibraryPage: acting on the open file when every response has its own i
     await fireEvent.click(within(preview).getByRole("button", { name: /^(prepare|confirm)/i }));
 
     await waitFor(() => expect(posts()).toHaveLength(1));
-    expect(JSON.parse(String(posts()[0]!.init?.body))).toEqual({ action: "prepare", media_ids: ["m_from_detail"], manual_approval: true });
+    expect(JSON.parse(String(posts()[0]!.init?.body))).toEqual({ action: "prepare", media_ids: ["m_from_detail"], manual_approval: true, encode: "audio" });
   });
 });
 

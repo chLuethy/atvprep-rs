@@ -171,6 +171,44 @@ fn reencode_needed_is_not_success() {
 }
 
 #[test]
+fn a_video_encode_in_another_container_is_refused_too() {
+    let dir = tempfile::tempdir().unwrap();
+    let src = dir.path().join("Film.mkv");
+    atvprep_testkit::remux(&source("high10.mp4"), &src);
+    let before = std::fs::read(&src).unwrap();
+    let dest = dir.path().join("lib").join("Film.mkv");
+    let run = hook(&[&src, &dest], None);
+    assert_eq!((run.code, run.stdout.as_str()), (6, ""), "{}", run.stderr);
+    assert!(run.stderr.contains("Re-encode it from the manager."));
+    assert_eq!(std::fs::read(&src).unwrap(), before);
+    assert!(!dir.path().join("lib").exists(), "{}", run.stderr);
+}
+
+#[test]
+fn an_audio_encode_runs_and_the_original_stays() {
+    let dir = tempfile::tempdir().unwrap();
+    let src = dir.path().join("Film.mp4");
+    atvprep_testkit::write_surround_only_mp4(&src);
+    let before = std::fs::read(&src).unwrap();
+    let dest = dir.path().join("lib").join("Film.mp4");
+    let run = hook(&[&src, &dest], None);
+    assert_eq!(run.code, 0, "{}", run.stderr);
+    assert!(run.stdout.starts_with("[MediaFile] "), "{}", run.stdout);
+    let probe = std::process::Command::new("ffprobe")
+        .args(["-v", "error", "-select_streams", "a"])
+        .args(["-show_entries", "stream=codec_name", "-of", "csv=p=0"])
+        .arg(dest.with_extension("mp4"))
+        .output()
+        .expect("ffprobe must be on PATH");
+    assert!(String::from_utf8_lossy(&probe.stdout).contains("aac"));
+    assert_eq!(
+        std::fs::read(&src).unwrap(),
+        before,
+        "the hook never deletes"
+    );
+}
+
+#[test]
 fn success_prints_only_the_media_file_line_on_stdout() {
     let (dir, src) = staged("clean.mp4", "incoming file.mp4");
     let dest = dir.path().join("library with spaces").join("Film name.mkv");

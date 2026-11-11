@@ -9,6 +9,7 @@ use std::ffi::OsString;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+use crate::encode::EncodeAllowance;
 use crate::pipeline_postfix::RunContext;
 use crate::prepare::paths::resolve;
 use crate::prepare::pipeline::{PrepareError, prepare_file};
@@ -82,10 +83,13 @@ pub fn run_hook(args: &[OsString], ctx: &mut RunContext, stdout: &mut dyn Write)
         return 3;
     }
 
-    // The original is never deleted: Sonarr/Radarr own it.
+    // The original is never deleted: Sonarr/Radarr own it. An import never starts a video encode,
+    // and the Zielprofil lives in the manager's database, which the hook does not read.
     let options = PrepareOptions {
         output: Some(final_mp4.clone()),
         extra_sidecars: destination_sidecars(&dest),
+        encode: EncodeAllowance::Audio,
+        delete_original: false,
         ..PrepareOptions::default()
     };
     let result = match prepare_file(ctx, &source, &options, None) {
@@ -101,9 +105,8 @@ pub fn run_hook(args: &[OsString], ctx: &mut RunContext, stdout: &mut dyn Write)
         }
     };
 
-    if result.outcome == Outcome::ReencodeNeeded {
-        // Re-encoding an MP4 in place needs the user's decision; the hook neither does it nor
-        // reports success.
+    if result.outcome == Outcome::EncodeNotAllowed {
+        // A video encode needs the user's decision; the hook neither does it nor reports success.
         ctx.console.print(&format!(
             "{}: the video needs a re-encode; the file was left unchanged. Re-encode it from the manager.",
             name_of(&source)

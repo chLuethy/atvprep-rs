@@ -70,11 +70,14 @@ fn world() -> World {
         )
         .unwrap();
     conn.raw()
-        .execute("UPDATE media_files SET compliance_state='warning'", [])
+        .execute(
+            "UPDATE media_files SET compliance_state='warning', encode_need='none'",
+            [],
+        )
         .unwrap();
     conn.raw()
         .execute(
-            "INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,max_files,enabled,armed_at) VALUES(1,'s','fix',1,127,'03:00',5,1,'2000-01-01')",
+            "INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,max_files,enabled,armed_at) VALUES(1,'s','prepare',1,127,'03:00',5,1,'2000-01-01')",
             [],
         )
         .unwrap();
@@ -96,12 +99,13 @@ fn refused_after(change: &str) {
     let verifier = ApprovalVerifier::new(b"secret").unwrap();
     let params = ScheduleParams {
         schedule_id: 1,
-        action: "fix",
+        action: "prepare",
         root_id: Some(1),
         compliance_state: None,
         max_files: 5,
         delete_original: false,
-        allow_reencode: false,
+        encode: atvprep_core::encode::EncodeAllowance::Copy,
+        profile: atvprep_manager::settings::TargetProfile::default(),
     };
     ctx.conn
         .execute(
@@ -154,8 +158,22 @@ fn editing_max_files_ends_its_queued_item() {
 }
 
 #[test]
-fn granting_the_re_encode_permission_ends_its_queued_item() {
-    refused_after("UPDATE schedules SET allow_reencode=1 WHERE id=1");
+fn raising_the_allowance_ends_its_queued_item() {
+    refused_after("UPDATE schedules SET encode='audio' WHERE id=1");
+}
+
+#[test]
+fn changing_the_target_profile_ends_its_queued_item() {
+    refused_after(
+        "INSERT INTO runtime_settings(key,value_json,value_type,revision) VALUES('target_keep_av1','true','bool',1)",
+    );
+}
+
+#[test]
+fn raising_the_allowance_on_the_queued_item_ends_it() {
+    refused_after(
+        "UPDATE job_items SET settings_snapshot_json=json_set(settings_snapshot_json,'$.encode','all')",
+    );
 }
 
 #[test]
