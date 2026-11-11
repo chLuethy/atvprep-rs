@@ -330,7 +330,8 @@ impl ApprovalVerifier {
 #[cfg(test)]
 mod tests {
     use super::{
-        ApprovalItem, ApprovalVerifier, EncodeAllowance, ScheduleParams, prepare_policy_block,
+        ApprovalItem, ApprovalVerifier, EncodeAllowance, PREPARE_POLICY, ScheduleParams,
+        prepare_policy_block,
     };
     use serde_json::{Value, json};
 
@@ -468,7 +469,7 @@ mod tests {
 
     #[test]
     fn a_schedule_snapshot_passes_the_policy_only_with_its_parameters() {
-        let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","profile":crate::settings::TargetProfile::default().to_json(),"encode":"copy","manual_approval":false,
+        let snapshot = json!({"pipeline":"prepare","policy":PREPARE_POLICY,"profile":crate::settings::TargetProfile::default().to_json(),"encode":"copy","manual_approval":false,
             "schedule_id":3,"schedule_params":{"action":"fix"}});
         assert_eq!(prepare_policy_block(&snapshot), None);
         let mut bare = snapshot.clone();
@@ -521,7 +522,7 @@ mod tests {
 
     #[test]
     fn policy_requires_an_explicit_bound_manual_approval() {
-        let mut snapshot = json!({"pipeline":"prepare","policy":"encode-v3","profile":crate::settings::TargetProfile::default().to_json(),"encode":"copy","manual_approval":true,"approved_by":5});
+        let mut snapshot = json!({"pipeline":"prepare","policy":PREPARE_POLICY,"profile":crate::settings::TargetProfile::default().to_json(),"encode":"copy","manual_approval":true,"approved_by":5});
         assert_eq!(prepare_policy_block(&snapshot), None);
         snapshot["schedule_id"] = Value::Null;
         snapshot["approved_by"] = json!(true);
@@ -606,7 +607,7 @@ mod tests {
 
     #[test]
     fn only_the_current_policy_with_a_known_allowance_passes() {
-        let current = json!({"pipeline":"prepare","policy":"encode-v3","profile":crate::settings::TargetProfile::default().to_json(),"encode":"audio","manual_approval":true,"approved_by":5});
+        let current = json!({"pipeline":"prepare","policy":PREPARE_POLICY,"profile":crate::settings::TargetProfile::default().to_json(),"encode":"audio","manual_approval":true,"approved_by":5});
         assert_eq!(prepare_policy_block(&current), None);
         let mut old = current.clone();
         old["policy"] = json!("copy-only-v2");

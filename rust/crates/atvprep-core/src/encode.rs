@@ -139,6 +139,19 @@ impl ChangeKind {
         }
     }
 
+    /// The change stored under `text`; `None` for „unbekannt“.
+    #[must_use]
+    pub fn parse(text: &str) -> Option<Self> {
+        match text {
+            "none" => Some(Self::None),
+            "patch" => Some(Self::Patch),
+            "remux" => Some(Self::Remux),
+            "audio" => Some(Self::Audio),
+            "reencode" => Some(Self::Reencode),
+            _ => None,
+        }
+    }
+
     /// The change of a run at `level` whose plan needs `need`; encoding outranks the route.
     #[must_use]
     pub const fn of(level: Level, need: EncodeNeed) -> Self {
@@ -202,6 +215,21 @@ mod tests {
                 "{level:?} {need:?}"
             );
         }
+    }
+
+    #[test]
+    fn a_stored_change_round_trips_and_anything_else_is_unknown() {
+        for change in [
+            ChangeKind::None,
+            ChangeKind::Patch,
+            ChangeKind::Remux,
+            ChangeKind::Audio,
+            ChangeKind::Reencode,
+        ] {
+            assert_eq!(ChangeKind::parse(change.as_str()), Some(change));
+        }
+        assert_eq!(ChangeKind::parse(UNKNOWN), None);
+        assert_eq!(ChangeKind::parse("fix"), None);
     }
 
     #[test]

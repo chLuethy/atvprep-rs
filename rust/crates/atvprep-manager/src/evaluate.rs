@@ -4,7 +4,7 @@
 //! Only a completed `verify` report can establish clean/warning/blocker. An ffprobe payload is
 //! provenance; it can only say "unknown".
 
-use atvprep_core::encode::{EncodeNeed, need_name};
+use atvprep_core::encode::{ChangeKind, EncodeNeed};
 use atvprep_core::escalation::video_reencode_reason;
 use serde_json::Value;
 
@@ -50,17 +50,12 @@ fn reported_need(result: &Value) -> NeedUpdate {
     let Some(need) = field("encode_need") else {
         return NeedUpdate::Keep;
     };
-    let need = EncodeNeed::parse(need).map(|need| need_name(Some(need)));
-    let change = match field("planned_change") {
-        Some("none") => Some("none"),
-        Some("patch") => Some("patch"),
-        Some("remux") => Some("remux"),
-        Some("audio") => Some("audio"),
-        Some("reencode") => Some("reencode"),
-        _ => None,
-    };
-    match (need, change) {
-        (Some(need), Some(change)) => NeedUpdate::Set { need, change },
+    let change = field("planned_change").and_then(ChangeKind::parse);
+    match (EncodeNeed::parse(need), change) {
+        (Some(need), Some(change)) => NeedUpdate::Set {
+            need: need.as_str(),
+            change: change.as_str(),
+        },
         _ => NeedUpdate::Unknown,
     }
 }

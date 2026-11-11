@@ -4,7 +4,7 @@ use atvprep_api::{
     auth::AuthService, config::ManagerConfig, opaque::Opaque, router, state::AppState,
 };
 use atvprep_core::encode::EncodeAllowance::{self, All, Audio, Copy};
-use atvprep_manager::{db::Db, repo::Ctx, schema};
+use atvprep_manager::{approval::PREPARE_POLICY, db::Db, repo::Ctx, schema};
 use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
@@ -194,7 +194,7 @@ async fn audio_and_video_with_the_confirmation_is_recorded_on_every_item() {
     assert_eq!(status, StatusCode::CREATED, "{body}");
     let snapshot: Value =
         serde_json::from_str(&h.sql::<String>("SELECT settings_snapshot_json FROM jobs")).unwrap();
-    assert_eq!(snapshot["policy"], "encode-v3");
+    assert_eq!(snapshot["policy"], PREPARE_POLICY);
     assert_eq!(snapshot["video_encode_confirmed"], true);
     assert_eq!(
         item_decisions(&h),

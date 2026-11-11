@@ -164,6 +164,7 @@ fn authorize_schedule_job(
 mod tests {
     use super::*;
     use crate::{
+        approval::PREPARE_POLICY,
         clock::{Clock, FixedClock},
         db::Db,
         schema,
@@ -203,7 +204,7 @@ mod tests {
             1,
             clock.now_micros() / 1_000_000,
         );
-        let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","profile":crate::settings::TargetProfile::default().to_json(),"encode":"copy","manual_approval":true,"approved_by":1,"approved_at":clock.now_micros()/1_000_000,"approval_mac":signature});
+        let snapshot = json!({"pipeline":"prepare","policy":PREPARE_POLICY,"profile":crate::settings::TargetProfile::default().to_json(),"encode":"copy","manual_approval":true,"approved_by":1,"approved_at":clock.now_micros()/1_000_000,"approval_mac":signature});
         conn.raw()
             .execute(
                 "UPDATE job_items SET settings_snapshot_json=?1 WHERE id=1",
@@ -263,7 +264,7 @@ mod tests {
                 .unwrap();
         };
         let queue = |params: &ScheduleParams<'_>| {
-            let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","profile":crate::settings::TargetProfile::default().to_json(),"encode":"copy","manual_approval":false,
+            let snapshot = json!({"pipeline":"prepare","policy":PREPARE_POLICY,"profile":crate::settings::TargetProfile::default().to_json(),"encode":"copy","manual_approval":false,
                 "schedule_id":1,"schedule_params":params.to_json()});
             conn.raw()
                 .execute(
@@ -364,7 +365,7 @@ mod tests {
             1,
             clock.now_micros() / 1_000_000,
         );
-        let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","profile":crate::settings::TargetProfile::default().to_json(),"encode":encode.as_str(),"delete_original":delete_original,"manual_approval":true,"approved_by":1,"approved_at":clock.now_micros()/1_000_000,"approval_mac":signature});
+        let snapshot = json!({"pipeline":"prepare","policy":PREPARE_POLICY,"profile":crate::settings::TargetProfile::default().to_json(),"encode":encode.as_str(),"delete_original":delete_original,"manual_approval":true,"approved_by":1,"approved_at":clock.now_micros()/1_000_000,"approval_mac":signature});
         conn.raw()
             .execute(
                 "UPDATE job_items SET settings_snapshot_json=?1 WHERE id=1",
@@ -469,7 +470,7 @@ mod tests {
         let queue_with = |signed: EncodeAllowance,
                           item: EncodeAllowance,
                           profile: TargetProfile| {
-            let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","profile":profile.to_json(),"encode":item.as_str(),"manual_approval":false,
+            let snapshot = json!({"pipeline":"prepare","policy":PREPARE_POLICY,"profile":profile.to_json(),"encode":item.as_str(),"manual_approval":false,
                 "schedule_id":1,"schedule_params":params(signed).to_json()});
             conn.raw()
                 .execute(
@@ -550,7 +551,7 @@ mod tests {
         conn.raw()
             .execute(
                 "UPDATE job_items SET settings_snapshot_json=json_set(?1,'$.force',json('true')) WHERE id=1",
-                [json!({"pipeline":"prepare","policy":"encode-v3","profile":TargetProfile::default().to_json(),"encode":"copy","manual_approval":false,
+                [json!({"pipeline":"prepare","policy":PREPARE_POLICY,"profile":TargetProfile::default().to_json(),"encode":"copy","manual_approval":false,
                     "schedule_id":1,"schedule_params":params(EncodeAllowance::Copy).to_json()}).to_string()],
             )
             .unwrap();

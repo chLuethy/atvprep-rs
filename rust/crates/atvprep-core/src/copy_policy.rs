@@ -256,7 +256,7 @@ pub fn check_video_copied(cmd: &[String]) -> Check {
             }
             "-c:v" | "-c:v:0" => {
                 if tokens.next() != Some("copy") {
-                    return fail("a video or audio stream would be encoded");
+                    return fail("the video stream would be encoded");
                 }
                 copied = true;
             }
@@ -316,6 +316,17 @@ mod tests {
             assert!(check_video_copied(&argv(line)).is_err(), "{line}");
         }
         assert!(check_video_copied(&[]).is_err());
+    }
+
+    #[test]
+    fn video_check_names_only_the_video() {
+        let plan = argv("ffmpeg -i in.mkv -map 0:v:0 -c:v libx265 -c:a:0 aac out.mp4");
+        assert_eq!(
+            check_video_copied(&plan),
+            Err(CopyOnlyViolation(
+                "the video stream would be encoded".to_owned()
+            ))
+        );
     }
 
     #[test]

@@ -1,6 +1,7 @@
 //! Schedules that prepare files: queueing needs an approval, the Kodierfreigabe bounds which files
 //! are taken, and missed runs are never caught up.
 use atvprep_manager::{
+    approval::PREPARE_POLICY,
     clock::{Clock, FixedClock},
     db::{Conn, Db},
     repo::Ctx,
@@ -85,7 +86,7 @@ fn an_approved_schedule_queues_a_job_bound_to_its_parameters() {
     let snapshot: serde_json::Value = serde_json::from_str(&queued[0].1).unwrap();
     assert_eq!(snapshot["schedule_id"], 1);
     assert_eq!(snapshot["pipeline"], "prepare");
-    assert_eq!(snapshot["policy"], "encode-v3");
+    assert_eq!(snapshot["policy"], PREPARE_POLICY);
     assert_eq!(snapshot["profile"]["crf"], 18);
     assert_eq!(snapshot["schedule_params"]["max_files"], 5);
     assert_eq!(snapshot["schedule_params"]["delete_original"], false);
