@@ -8,7 +8,7 @@ import { baseName } from "../files/model";
 import { loadItems, loadJob, mutateJob, type Api, type ItemRow, type JobRow, type OneJob } from "./loaders";
 import { LogViewer } from "./LogViewer";
 import { RaiseEncode } from "./RaiseEncode";
-import { actionLabel, canCancel, canRetry, formatElapsed, isActive, itemTone, jobPercent, jobProgress, jobTitle, jobTone, runningFor } from "./model";
+import { actionLabel, canCancel, canRetry, describeDetail, formatElapsed, isActive, itemTone, jobPercent, jobProgress, jobTitle, jobTone, runningFor } from "./model";
 
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
 const FAILED_ITEM = new Set(["failed", "stale_input", "interrupted"]);
@@ -266,7 +266,7 @@ export const JobDetail: Component<{
                       <div>
                         <b>{itemName(item)}</b>
                         <Show when={item.error_code}><span class="mono rule">{item.error_code}</span></Show>
-                        <p>{item.error_detail || t("No detail was recorded.")}</p>
+                        <p>{item.error_detail ? describeDetail(item.error_detail) : t("No detail was recorded.")}</p>
                       </div>
                     </li>
                   );

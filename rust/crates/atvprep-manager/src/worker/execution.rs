@@ -159,7 +159,7 @@ pub fn execute_claimed(
                 != Some(crate::db::retry_busy(|| target_profile(ctx.conn))?)
             {
                 return Err(Error::Invalid(
-                    "The target profile changed after this job was queued. Queue the fix again."
+                    "The target profile changed after this job was queued. Queue the preparation again."
                         .to_owned(),
                 ));
             }

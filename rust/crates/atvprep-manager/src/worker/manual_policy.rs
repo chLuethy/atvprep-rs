@@ -33,7 +33,9 @@ pub fn authorize_prepare(
         return Err(Error::Invalid(reason.to_owned()));
     }
     let recorded = InputSnapshots(ctx).get_for_item(item_id)?.ok_or_else(|| {
-        Error::Invalid("The job has no recorded file identity. Queue the fix again.".to_owned())
+        Error::Invalid(
+            "The job has no recorded file identity. Queue the preparation again.".to_owned(),
+        )
     })?;
     let identity = [
         recorded["file_device"].clone(),
@@ -47,12 +49,12 @@ pub fn authorize_prepare(
         || !identity[3].is_string()
     {
         return Err(Error::Invalid(
-            "The recorded file identity is incomplete. Queue the fix again.".to_owned(),
+            "The recorded file identity is incomplete. Queue the preparation again.".to_owned(),
         ));
     }
     if &identity != current_identity {
         return Err(Error::Invalid(
-            "The approved file changed. Queue the fix again.".to_owned(),
+            "The approved file changed. Queue the preparation again.".to_owned(),
         ));
     }
     if snapshot.get("schedule_id").is_some_and(|id| !id.is_null()) {
@@ -93,7 +95,7 @@ pub fn authorize_prepare(
     let active:bool=ctx.conn.query_row("SELECT EXISTS(SELECT 1 FROM auth_sessions WHERE id=?1 AND revoked_at IS NULL AND expires_at>?2 AND last_seen_at>?3)",rusqlite::params![person,format_micros(now),format_micros(now.saturating_sub(idle_seconds.max(0).saturating_mul(1_000_000)))],|row|row.get(0))?;
     if !active {
         return Err(Error::Invalid(
-            "The approving session is no longer active. Queue the fix again.".to_owned(),
+            "The approving session is no longer active. Queue the preparation again.".to_owned(),
         ));
     }
     Ok(mode)

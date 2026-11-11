@@ -21,5 +21,18 @@ export const deActivity: Record<string, string | readonly [string, string]> = {
   "Confirm": "Bestätigen",
   "Preparation queued. Showing the new job.": "Vorbereiten eingereiht. Der neue Auftrag wird angezeigt.",
   "Encoding not allowed: the file stays as it was. Prepare it again with a higher encoding allowance.": "Kodierung nicht freigegeben: Die Datei bleibt unverändert. Bereite sie mit einer höheren Kodierfreigabe erneut vor.",
+  // Why the worker refused a job for good (rust/crates/atvprep-manager), see describeDetail.
+  "{reason} Queue the preparation again.": "{reason} Reihe das Vorbereiten erneut ein.",
+  "The target profile changed after this job was queued.": "Das Zielprofil hat sich geändert, nachdem dieser Auftrag eingereiht wurde.",
+  "The approval is not signed.": "Die Freigabe ist nicht signiert.",
+  "The approval does not belong to this job.": "Die Freigabe gehört nicht zu diesem Auftrag.",
+  "The approval has expired.": "Die Freigabe ist abgelaufen.",
+  "The job has no recorded file identity.": "Für den Auftrag ist keine Dateiidentität festgehalten.",
+  "This job predates the current policy.": "Dieser Auftrag stammt aus einer älteren Policy-Version.",
+  "This job carries no encoding allowance.": "Dieser Auftrag trägt keine Kodierfreigabe.",
+  "This job carries no target profile.": "Dieser Auftrag trägt kein Zielprofil.",
+  "The recorded file identity is incomplete.": "Die festgehaltene Dateiidentität ist unvollständig.",
+  "The approved file changed.": "Die freigegebene Datei hat sich geändert.",
+  "The approving session is no longer active.": "Die freigebende Sitzung ist nicht mehr aktiv.",
   "The original of another container is removed once its new MP4 passes verification.": "Bei anderen Containern wird das Original entfernt, sobald die neue MP4 die Prüfung bestanden hat.",
 };

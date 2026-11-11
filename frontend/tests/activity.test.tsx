@@ -4,6 +4,7 @@ import { ActivityPage } from "../src/features/activity/ActivityPage";
 import { JobDetail } from "../src/features/activity/JobDetail";
 import { LogViewer } from "../src/features/activity/LogViewer";
 import { SessionError } from "../src/lib/api";
+import { setLanguage } from "../src/lib/i18n";
 
 type Api = { request: (path: string, init?: RequestInit) => Promise<Response> };
 const json = (data: unknown, status = 200, meta: unknown = {}) => new Response(JSON.stringify({ data, meta }), { status });
@@ -312,6 +313,18 @@ describe("JobDetail: what happened", () => {
     expect(why).toHaveTextContent("Heat");
     expect(why).toHaveTextContent("synthetic_failure");
     expect(why).toHaveTextContent("the file changed while it was being rewritten");
+  });
+
+  it("tells in German to prepare again when the worker refused a job for good", async () => {
+    const stale = item({ status: "stale_input", error_detail: "The target profile changed after this job was queued. Queue the preparation again." });
+    setLanguage("de");
+    try {
+      const view = render(() => <JobDetail api={detailApi({ status: "failed", succeeded_count: 0, failed_count: 1 }, [stale])} jobId="j_1" />);
+      const why = await view.findByRole("region", { name: "Warum es fehlschlug" });
+      expect(why).toHaveTextContent("Das Zielprofil hat sich geändert, nachdem dieser Auftrag eingereiht wurde. Reihe das Vorbereiten erneut ein.");
+    } finally {
+      setLanguage("en");
+    }
   });
 
   it("says on the item that encoding was not allowed, as a hint and not as a failure", async () => {

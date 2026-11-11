@@ -694,8 +694,11 @@ fn a_job_queued_under_an_older_policy_is_refused_for_good_and_says_to_queue_it_a
     assert!(result.is_err());
     let ended = world.ended(item);
     assert_eq!(ended.status, ItemStatus::StaleInput);
-    let detail = ended.detail.unwrap();
-    assert!(detail.contains("Queue"), "{detail}");
+    // Word for word: the job detail translates exactly this text.
+    assert_eq!(
+        ended.detail.as_deref(),
+        Some("This job predates the current policy. Queue the preparation again.")
+    );
     assert_eq!(std::fs::read(world.path("file.mp4")).unwrap(), before);
 }
 
@@ -964,9 +967,10 @@ fn a_profile_changed_after_queueing_refuses_the_item_for_good() {
     assert!(result.is_err());
     let ended = world.ended(item);
     assert_eq!(ended.status, ItemStatus::StaleInput);
-    let detail = ended.detail.unwrap();
-    assert!(detail.contains("target profile"), "{detail}");
-    assert!(detail.contains("Queue"), "{detail}");
+    assert_eq!(
+        ended.detail.as_deref(),
+        Some("The target profile changed after this job was queued. Queue the preparation again.")
+    );
     assert_eq!(std::fs::read(world.path("file.mp4")).unwrap(), before);
 }
 

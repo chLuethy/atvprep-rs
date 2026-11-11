@@ -40,13 +40,13 @@ pub fn prepare_policy_block(snapshot: &Value) -> Option<&'static str> {
     if snapshot.get("pipeline").and_then(Value::as_str) != Some("prepare")
         || snapshot.get("policy").and_then(Value::as_str) != Some(PREPARE_POLICY)
     {
-        return Some("This job predates the current policy. Queue the fix again.");
+        return Some("This job predates the current policy. Queue the preparation again.");
     }
     if item_encode(snapshot).is_none() {
-        return Some("This job carries no encoding allowance. Queue the fix again.");
+        return Some("This job carries no encoding allowance. Queue the preparation again.");
     }
     if item_profile(snapshot).is_none() {
-        return Some("This job carries no target profile. Queue the fix again.");
+        return Some("This job carries no target profile. Queue the preparation again.");
     }
     if let Some(schedule) = snapshot.get("schedule_id").filter(|v| !v.is_null()) {
         // A job from a schedule carries no session approval; the schedule's own signature,
@@ -300,10 +300,10 @@ impl ApprovalVerifier {
         now: i64,
     ) -> Option<&'static str> {
         let Some(approved_at) = snapshot.get("approved_at").and_then(Value::as_i64) else {
-            return Some("The approval is not signed. Queue the fix again.");
+            return Some("The approval is not signed. Queue the preparation again.");
         };
         let Some(signature) = snapshot.get("approval_mac").and_then(Value::as_str) else {
-            return Some("The approval is not signed. Queue the fix again.");
+            return Some("The approval is not signed. Queue the preparation again.");
         };
         let Some(approved_by) = snapshot.get("approved_by").and_then(Value::as_i64) else {
             return Some("The approval is not bound to a signed-in session.");
@@ -314,11 +314,11 @@ impl ApprovalVerifier {
                 .verify_slice(value)
                 .is_err()
         }) {
-            return Some("The approval does not belong to this job. Queue the fix again.");
+            return Some("The approval does not belong to this job. Queue the preparation again.");
         }
         let age = now.saturating_sub(approved_at);
         if age > MAX_AGE {
-            return Some("The approval has expired. Queue the fix again.");
+            return Some("The approval has expired. Queue the preparation again.");
         }
         if age < -300 {
             return Some("The approval is dated in the future.");
