@@ -788,19 +788,26 @@ fn run_to_output(
 fn planned(ctx: &mut RunContext, run: &mut Run, target: &FdFixTarget) -> Step<PlannedChange> {
     let (source, options) = (run.source, run.options);
     let sibling_leaf = format!("{}.mp4", stem_of(source));
-    let subject = if !is_mp4_like(source) && has_sibling(target, &sibling_leaf)? {
-        // As in `route`: the MP4 next to the source is what Prepare works on.
-        leaf_in(source, target, &sibling_leaf)?
+    // As in `route`: the MP4 next to the source is what Prepare works on, through its own pin.
+    let sibling = if !is_mp4_like(source) && has_sibling(target, &sibling_leaf)? {
+        Some((
+            leaf_in(source, target, &sibling_leaf)?,
+            target.sibling(&sibling_leaf)?,
+        ))
     } else {
-        source.to_path_buf()
+        None
+    };
+    let (subject, subject_target) = match &sibling {
+        Some((path, pinned)) => (path.clone(), pinned),
+        None => (source.to_path_buf(), target),
     };
     run.subject.clone_from(&subject);
     let analysis = analyse(ctx, run, &subject)?;
     let need = match analysis.assessment.level {
         Level::None | Level::InPlace => EncodeNeed::None,
         Level::Rebuild | Level::Reencode => {
-            let tmp = temp_path(source, target)?;
-            EncodeNeed::of_plan(&plan_for(ctx, options, source, &tmp, &analysis)?)
+            let tmp = temp_path(&subject, subject_target)?;
+            EncodeNeed::of_plan(&plan_for(ctx, options, &subject, &tmp, &analysis)?)
         }
     };
     Ok(PlannedChange {

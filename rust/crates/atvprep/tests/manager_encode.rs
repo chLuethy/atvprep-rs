@@ -483,6 +483,46 @@ fn another_container_is_stored_as_the_planner_sees_it_and_runs_at_that_level() {
     assert_eq!(world.ended(item).code, None);
 }
 
+/// A FLAC Matroska file, next to it the MP4 it was converted to, which still lacks a stereo track.
+fn flac_mkv_beside_surround_mp4(path: &Path) {
+    flac_mkv(path);
+    surround_only(&path.with_extension("mp4"));
+}
+
+#[test]
+fn a_container_with_an_mp4_next_to_it_is_stored_and_run_as_that_mp4() {
+    // Prepare works on the MP4; the container alone would need an audio transcode, not a downmix.
+    let world_at = |allowance| world(&[("file.mkv", flac_mkv_beside_surround_mp4, allowance)], false);
+    let running = world_at(Audio);
+    assert_eq!(
+        running.verified(),
+        (Some(EncodeNeed::Audio), "audio".to_owned())
+    );
+    let container = std::fs::read(running.path("file.mkv")).unwrap();
+    let (item, result) = running.run_next();
+    result.unwrap();
+    assert_ran(&running.ended(item));
+    assert_eq!(running.names(), ["file.mkv", "file.mp4"]);
+    assert_eq!(std::fs::read(running.path("file.mkv")).unwrap(), container);
+    let audio = codecs(&running.path("file.mp4"), "a");
+    assert!(audio.contains(&"aac".to_owned()), "{audio:?}");
+    assert!(audio.contains(&"eac3".to_owned()), "{audio:?}");
+
+    let refused = world_at(Copy);
+    assert_eq!(
+        refused.verified(),
+        (Some(EncodeNeed::Audio), "audio".to_owned())
+    );
+    let sibling = std::fs::read(refused.path("file.mp4")).unwrap();
+    let (item, result) = refused.run_next();
+    result.unwrap();
+    assert_eq!(
+        refused.ended(item).code.as_deref(),
+        Some(ENCODE_NOT_ALLOWED)
+    );
+    assert_eq!(std::fs::read(refused.path("file.mp4")).unwrap(), sibling);
+}
+
 #[test]
 fn gringa_eac3_surround_without_stereo_gets_its_aac_track_with_audio() {
     let (world, ended) = run_single(surround_only, Audio);
