@@ -608,8 +608,14 @@ impl Rule for DuplicateAudioRule {
     }
 }
 
-/// A video stream the `AVPlayer` cannot play and that therefore needs a re-encode.
-pub struct VideoReencodeRule;
+/// A video stream that needs a re-encode under the Zielprofil, as the planner decides it.
+///
+/// The default is the CLI's default profile; [`rules_for`] sets the profile options.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct VideoReencodeRule {
+    pub prefer_hevc10: bool,
+    pub keep_av1: bool,
+}
 
 impl Rule for VideoReencodeRule {
     fn name(&self) -> &'static str {
@@ -624,16 +630,24 @@ impl Rule for VideoReencodeRule {
         let Ok(probe) = audit.probe(path) else {
             return Ok(Vec::new());
         };
-        Ok(video_reencode_reason(&probe, false, false)
-            .into_iter()
-            .map(|reason| violation(self, reason, None))
-            .collect())
+        Ok(
+            video_reencode_reason(&probe, self.prefer_hevc10, self.keep_av1)
+                .into_iter()
+                .map(|reason| violation(self, reason, None))
+                .collect(),
+        )
     }
 }
 
 /// The built-in rule set: blockers first, then the warning rules.
 #[must_use]
 pub fn all_rules() -> Vec<Box<dyn Rule>> {
+    rules_for(VideoReencodeRule::default())
+}
+
+/// The built-in rule set, its re-encode warning judged under the given profile options.
+#[must_use]
+pub fn rules_for(video_reencode: VideoReencodeRule) -> Vec<Box<dyn Rule>> {
     vec![
         Box::new(FtypBrandsRule),
         Box::new(SingleEnabledPerTypeRule),
@@ -647,7 +661,7 @@ pub fn all_rules() -> Vec<Box<dyn Rule>> {
         Box::new(DefaultSelectionRule),
         Box::new(StereoTwinRule),
         Box::new(DuplicateAudioRule),
-        Box::new(VideoReencodeRule),
+        Box::new(video_reencode),
     ]
 }
 
@@ -842,7 +856,7 @@ mod tests {
         for rule in [
             &StereoTwinRule as &dyn Rule,
             &DuplicateAudioRule,
-            &VideoReencodeRule,
+            &VideoReencodeRule::default(),
             &DefaultSelectionRule,
         ] {
             assert_eq!(

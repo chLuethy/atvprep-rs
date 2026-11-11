@@ -3,6 +3,7 @@
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
 
+use atvprep_core::compliance::{VideoReencodeRule, rules_for};
 use atvprep_core::constants::VIDEO_EXTS;
 use atvprep_core::encode::{EncodeAllowance, PlannedChange, UNKNOWN, need_name};
 use atvprep_core::fd_fix_contract::{FdFixTarget, UnsafeFixTarget};
@@ -13,7 +14,7 @@ use atvprep_core::prepare::{PrepareOptions, PrepareResult};
 use atvprep_core::probe_helpers::subtitle_infos;
 use atvprep_core::pyjson::dumps_indent2;
 use atvprep_core::stages::Outcome;
-use atvprep_core::verify::{VerifyReport, verify_tree};
+use atvprep_core::verify::{VerifyReport, verify_tree_with};
 use clap::ArgMatches;
 use serde::Serialize;
 
@@ -616,15 +617,26 @@ pub fn run_verify(ctx: &mut RunContext, sink: &SharedSink, matches: &ArgMatches)
             .print(&format!("Error: path not found: {}", target.display()));
         return 2;
     }
+    // The re-encode warning reads the same profile options as the Kodierbedarf.
+    let profile = verify_profile(matches);
+    let rules = rules_for(VideoReencodeRule {
+        prefer_hevc10: profile.prefer_hevc10,
+        keep_av1: profile.keep_av1,
+    });
     let reports = if pinned.is_some() {
         vec![atvprep_core::verify::verify_file(
             &target,
             ctx.tools.as_ref(),
-            None,
+            Some(&rules),
             None,
         )]
     } else {
-        verify_tree(&target, ctx.tools.as_ref(), Some(&VERIFY_EXTS))
+        verify_tree_with(
+            &target,
+            ctx.tools.as_ref(),
+            Some(&VERIFY_EXTS),
+            Some(&rules),
+        )
     };
     let json = flag(matches, "json");
     if reports.is_empty() {

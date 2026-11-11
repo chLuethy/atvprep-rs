@@ -58,12 +58,14 @@ impl Inspections<'_> {
         };
         let newest =
             |tool: &str| self.newest_for(inspection.media_file_id, tool, &media_fingerprint);
+        let profile = crate::settings::target_profile(self.0.conn)?;
         let evaluate = |source: &Inspection| -> Evaluation {
             evaluate_inspection(
                 &source.tool_name,
                 &source.result,
                 &source.input_fingerprint,
                 &media_fingerprint,
+                &profile,
             )
         };
         let verified = if inspection.tool_name == "verify" {

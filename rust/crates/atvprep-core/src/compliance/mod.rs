@@ -9,7 +9,9 @@ pub mod parse;
 pub mod rules;
 pub mod tools;
 
-pub use rules::{Rule, RuleError, RuleResult, all_rules, tag_findings};
+pub use rules::{
+    Rule, RuleError, RuleResult, VideoReencodeRule, all_rules, rules_for, tag_findings,
+};
 pub use tools::{Audit, SystemTools, ToolError, Tools};
 
 /// How serious a finding is.

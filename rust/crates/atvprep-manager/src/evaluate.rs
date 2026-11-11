@@ -8,6 +8,8 @@ use atvprep_core::encode::{EncodeNeed, need_name};
 use atvprep_core::escalation::video_reencode_reason;
 use serde_json::Value;
 
+use crate::settings::TargetProfile;
+
 /// What an inspection says about the stored Kodierbedarf and Änderungsart of the file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NeedUpdate {
@@ -64,13 +66,15 @@ fn reported_need(result: &Value) -> NeedUpdate {
 }
 
 /// Project one inspection into a stable media compliance status. The fingerprint fence stops an
-/// older inspection from claiming a result for changed bytes.
+/// older inspection from claiming a result for changed bytes. The re-encode hint of a media
+/// analysis is judged under `profile`, like the Kodierbedarf.
 #[must_use]
 pub fn evaluate_inspection(
     tool_name: &str,
     result: &Value,
     inspection_fingerprint: &str,
     media_fingerprint: &str,
+    profile: &TargetProfile,
 ) -> Evaluation {
     if inspection_fingerprint != media_fingerprint {
         return unknown(
@@ -81,7 +85,9 @@ pub fn evaluate_inspection(
     match tool_name {
         "ffprobe" => {
             let mut reasons = vec![CURRENT_FFPROBE.to_owned()];
-            if let Some(reason) = video_reencode_reason(result, false, false) {
+            if let Some(reason) =
+                video_reencode_reason(result, profile.prefer_hevc10, profile.keep_av1)
+            {
                 reasons.push(format!("[warning] video-reencode: {reason}"));
             }
             // A media analysis is no check against the planner.
@@ -146,7 +152,8 @@ mod tests {
 
     #[test]
     fn a_media_analysis_is_unknown_and_says_nothing_about_the_need() {
-        let needing = evaluate_inspection("ffprobe", &vc1_video(), "f", "f");
+        let needing =
+            evaluate_inspection("ffprobe", &vc1_video(), "f", "f", &TargetProfile::default());
         assert_eq!(needing.state, "unknown");
         assert_eq!(needing.need, NeedUpdate::Keep);
         // The hint for the operator stays.
@@ -154,10 +161,29 @@ mod tests {
     }
 
     #[test]
+    fn the_reencode_hint_of_a_media_analysis_follows_the_profile() {
+        let av1 = json!({"streams": [{"codec_type": "video", "codec_name": "av1",
+            "pix_fmt": "yuv420p", "width": 1920, "height": 1080}]});
+        let hints = |profile: &TargetProfile| {
+            evaluate_inspection("ffprobe", &av1, "f", "f", profile)
+                .reasons
+                .iter()
+                .any(|r| r.contains("video-reencode"))
+        };
+        assert!(hints(&TargetProfile::default()));
+        let keep_av1 = TargetProfile {
+            keep_av1: true,
+            ..TargetProfile::default()
+        };
+        assert!(!hints(&keep_av1));
+    }
+
+    #[test]
     fn a_verify_report_yields_the_state_and_the_need_it_carries() {
         let report = json!({"violations": [warning("no-fragments")],
             "encode_need": "audio", "planned_change": "audio"});
-        let evaluation = evaluate_inspection("verify", &report, "f", "f");
+        let evaluation =
+            evaluate_inspection("verify", &report, "f", "f", &TargetProfile::default());
         assert_eq!(evaluation.state, "warning");
         assert_eq!(
             evaluation.need,
@@ -168,7 +194,7 @@ mod tests {
         );
         let clean = json!({"violations": [], "encode_need": "none", "planned_change": "none"});
         assert_eq!(
-            evaluate_inspection("verify", &clean, "f", "f").need,
+            evaluate_inspection("verify", &clean, "f", "f", &TargetProfile::default()).need,
             NeedUpdate::Set {
                 need: "none",
                 change: "none"
@@ -180,7 +206,7 @@ mod tests {
     fn the_need_comes_from_the_report_and_never_from_a_rule_name() {
         let report = json!({"violations": [warning("video-reencode")]});
         assert_eq!(
-            evaluate_inspection("verify", &report, "f", "f").need,
+            evaluate_inspection("verify", &report, "f", "f", &TargetProfile::default()).need,
             NeedUpdate::Keep
         );
     }
@@ -190,7 +216,7 @@ mod tests {
         let report =
             json!({"violations": [], "encode_need": "unknown", "planned_change": "unknown"});
         assert_eq!(
-            evaluate_inspection("verify", &report, "f", "f").need,
+            evaluate_inspection("verify", &report, "f", "f", &TargetProfile::default()).need,
             NeedUpdate::Unknown
         );
     }
@@ -200,11 +226,11 @@ mod tests {
         let report =
             json!({"violations": [], "encode_need": "video", "planned_change": "reencode"});
         assert_eq!(
-            evaluate_inspection("verify", &report, "old", "new").need,
+            evaluate_inspection("verify", &report, "old", "new", &TargetProfile::default()).need,
             NeedUpdate::Unknown
         );
         assert_eq!(
-            evaluate_inspection("other", &report, "f", "f").need,
+            evaluate_inspection("other", &report, "f", "f", &TargetProfile::default()).need,
             NeedUpdate::Unknown
         );
     }

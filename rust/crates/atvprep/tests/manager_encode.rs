@@ -492,7 +492,12 @@ fn flac_mkv_beside_surround_mp4(path: &Path) {
 #[test]
 fn a_container_with_an_mp4_next_to_it_is_stored_and_run_as_that_mp4() {
     // Prepare works on the MP4; the container alone would need an audio transcode, not a downmix.
-    let world_at = |allowance| world(&[("file.mkv", flac_mkv_beside_surround_mp4, allowance)], false);
+    let world_at = |allowance| {
+        world(
+            &[("file.mkv", flac_mkv_beside_surround_mp4, allowance)],
+            false,
+        )
+    };
     let running = world_at(Audio);
     assert_eq!(
         running.verified(),
@@ -886,6 +891,35 @@ fn with_keep_av1_a_fitting_av1_file_needs_nothing_and_stays_av1() {
     result.unwrap();
     assert_ran(&world.ended(item));
     assert_eq!(codecs(&world.path("file.mp4"), "v"), ["av1"]);
+}
+
+/// Whether the stored check of the first file still warns that its video needs a re-encode.
+fn warns_of_a_reencode(world: &World) -> bool {
+    let clock = SystemClock;
+    let row = Media(world.ctx(&clock))
+        .get(world.media[0].1)
+        .unwrap()
+        .unwrap();
+    row.compliance_reasons
+        .iter()
+        .any(|reason| reason.contains("video-reencode"))
+}
+
+#[test]
+fn the_reencode_warning_follows_the_profile_like_the_need() {
+    let (world, need) = checked_under(av1, Copy, TargetProfile::default());
+    assert_eq!(need, Some(EncodeNeed::Video));
+    assert!(warns_of_a_reencode(&world));
+    let (world, need) = checked_under(av1, Copy, KEEP_AV1);
+    assert_eq!(need, Some(EncodeNeed::None));
+    assert!(!warns_of_a_reencode(&world));
+    let hevc10 = TargetProfile {
+        prefer_hevc10: true,
+        ..TargetProfile::default()
+    };
+    let (world, need) = checked_under(clean, Copy, hevc10);
+    assert_eq!(need, Some(EncodeNeed::Video));
+    assert!(warns_of_a_reencode(&world));
 }
 
 #[test]
