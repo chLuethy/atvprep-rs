@@ -36,7 +36,8 @@ fn encode_refusal(process: &ProcessResult) -> Option<String> {
     if process.reason != StopReason::Exited || process.exit_code != Some(0) {
         return None;
     }
-    let output = String::from_utf8_lossy(&process.output);
+    // Machine lines come on stdout alone; the merged log may interleave stderr with them.
+    let output = String::from_utf8_lossy(&process.stdout);
     output
         .lines()
         .any(|line| line.trim() == ENCODE_NOT_ALLOWED_LINE)
@@ -513,7 +514,7 @@ fn forget_need_of_a_superseded_profile(
 fn source_removed(process: &ProcessResult) -> bool {
     process.reason == StopReason::Exited
         && process.exit_code == Some(0)
-        && String::from_utf8_lossy(&process.output)
+        && String::from_utf8_lossy(&process.stdout)
             .lines()
             .any(|line| line.trim() == "ATVPREP-SOURCE removed")
 }
@@ -628,6 +629,37 @@ mod tests {
     use super::*;
     use crate::{clock::FixedClock, db::Db, schema, settings::Settings};
     use serde_json::json;
+
+    /// Runs `script` with the system shell, as the worker runs the media CLI.
+    fn shell(script: &str) -> ProcessResult {
+        let executable = std::path::Path::new("/bin/sh").canonicalize().unwrap();
+        super::super::process::run(
+            &executable,
+            &["-c".to_owned(), script.to_owned()],
+            &std::collections::BTreeMap::new(),
+            std::time::Duration::from_secs(5),
+            std::time::Duration::from_millis(20),
+            || false,
+        )
+        .unwrap()
+    }
+
+    /// The CLI writes its machine lines to stdout; stderr is shared with ffmpeg and the tools. A
+    /// stderr chunk read while a line is still open must not break the line.
+    #[test]
+    fn machine_lines_are_read_from_stdout_even_when_stderr_lands_inside_them() {
+        let removed = shell(
+            "printf 'ATVPREP-SOURCE removed'; sleep 0.2; printf 'ffmpeg warning\\n' >&2; sleep 0.2; printf '\\n'",
+        );
+        assert!(source_removed(&removed));
+        let refused = shell(
+            "printf 'ATVPREP-ENCODE need=video allowance=audio\\nATVPREP-OUTCOME encode_not_allowed'; sleep 0.2; printf 'warning\\n' >&2; sleep 0.2; printf '\\n'",
+        );
+        assert_eq!(
+            encode_refusal(&refused).as_deref(),
+            Some("Encoding not allowed (need=video allowance=audio): the file stays as it was.")
+        );
+    }
 
     #[test]
     fn a_check_against_a_superseded_profile_leaves_the_file_unknown() {
