@@ -14,7 +14,7 @@ use atvprep_core::encode::EncodeAllowance::{self, All, Audio, Copy};
 use atvprep_core::encode::EncodeNeed;
 use atvprep_manager::{
     Error,
-    approval::{ApprovalItem, ApprovalVerifier, PREPARE_POLICY},
+    approval::{ApprovalItem, ApprovalVerifier, PREPARE_POLICY, ScheduleParams},
     clock::{Clock, SystemClock, format_micros},
     db::{Conn, Db},
     jobs::{Jobs, NewJob},
@@ -22,6 +22,7 @@ use atvprep_manager::{
     library::LibraryRoots,
     media::Media,
     repo::Ctx,
+    schedules::run_schedule,
     schema,
     settings::{Settings, TargetProfile},
     snapshots::InputSnapshots,
@@ -930,4 +931,242 @@ fn an_item_without_a_profile_is_refused_for_good() {
     let (item, result) = world.run_next();
     assert!(result.is_err());
     assert_eq!(world.ended(item).status, ItemStatus::StaleInput);
+}
+
+/// A library of `files`, each checked with the real CLI, and an approved schedule that prepares
+/// them under `encode`, signed as the API signs it when the operator turns it on. Nothing is queued
+/// yet: [`World::run_schedule`] does that.
+fn schedule_world(files: &[(&str, MakeFile)], encode: EncodeAllowance) -> World {
+    require_media_tools(&search_path());
+    let dir = tempfile::tempdir().unwrap();
+    let root_path = dir.path().canonicalize().unwrap();
+    for (name, make) in files {
+        make(&root_path.join(name));
+    }
+    let db = Db::memory().unwrap();
+    let mut conn = db.conn().unwrap();
+    schema::migrate(&mut conn).unwrap();
+    let clock = SystemClock;
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    let root = LibraryRoots(ctx)
+        .create("Movies", root_path.to_str().unwrap())
+        .unwrap();
+    let mut media = Vec::new();
+    for (name, _) in files {
+        let observed =
+            atvprep_manager::worker::scanner::observe(&root_path, name, 0, clock.now_micros())
+                .unwrap();
+        let id = Media(ctx).create(root.id, name, &observed.meta).unwrap().id;
+        media.push(((*name).to_owned(), id));
+    }
+    let mut lease = MediaExecutorLease::new(ctx);
+    assert!(lease.acquire("worker", 600).unwrap());
+    let fence = lease.fencing_token.unwrap();
+    let config = ExecutionConfig {
+        executable: PathBuf::from(env!("CARGO_BIN_EXE_atvprep")),
+        environment: BTreeMap::from([("PATH".to_owned(), search_path())]),
+        timeout: Duration::from_secs(120),
+        grace: Duration::from_secs(2),
+        lease_seconds: 600,
+        shutdown: None,
+        approvals: ApprovalVerifier::new(SECRET).map(Arc::new),
+        session_idle_seconds: 3600,
+    };
+    let world = World {
+        dir,
+        conn,
+        media,
+        job: 0,
+        fence,
+        config,
+    };
+    world.verify_all();
+    let params = ScheduleParams {
+        schedule_id: 1,
+        action: "prepare",
+        root_id: Some(root.id),
+        compliance_state: None,
+        max_files: 6,
+        delete_original: false,
+        encode,
+        profile: TargetProfile::default(),
+    };
+    let mac = ApprovalVerifier::new(SECRET)
+        .unwrap()
+        .sign_schedule(&params, 1, 1_700_000_000);
+    world
+        .conn
+        .raw()
+        .execute(
+            "INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,max_files,enabled,armed_at,encode,approved_by,approved_at,approval_mac)
+             VALUES(1,'Nightly','prepare',?1,127,'03:00',6,1,'2000-01-01',?2,1,1700000000,?3)",
+            rusqlite::params![root.id, encode.as_str(), mac],
+        )
+        .unwrap();
+    world
+}
+
+impl World {
+    /// Run „Prüfen“ on every file with the real CLI, so each stores its Kodierbedarf.
+    fn verify_all(&self) {
+        let clock = SystemClock;
+        let ids: Vec<i64> = self.media.iter().map(|(_, id)| *id).collect();
+        let job = Jobs(self.ctx(&clock))
+            .create(&NewJob::new("verify", &ids))
+            .unwrap();
+        for _ in &ids {
+            let (item, result) = self.run_item_of(job.id);
+            result.unwrap();
+            let ended = self.ended(item);
+            let log: Option<String> = self
+                .conn
+                .raw()
+                .query_row(
+                    "SELECT log_tail FROM job_items WHERE id=?1",
+                    [item],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(
+                ended.status,
+                ItemStatus::Succeeded,
+                "{:?} {:?} {log:?}",
+                ended.code,
+                ended.detail
+            );
+        }
+    }
+
+    /// The stored Kodierbedarf of `name`.
+    fn need_of(&self, name: &str) -> Option<EncodeNeed> {
+        let clock = SystemClock;
+        let id = self
+            .media
+            .iter()
+            .find(|(known, _)| known == name)
+            .unwrap()
+            .1;
+        Media(self.ctx(&clock))
+            .get(id)
+            .unwrap()
+            .unwrap()
+            .encode_need
+    }
+
+    /// Run the schedule once, as „Run now“ does, and return the names of the queued files.
+    fn run_schedule(&mut self) -> Vec<String> {
+        let clock = SystemClock;
+        let message = run_schedule(self.ctx(&clock), 1).unwrap();
+        assert!(message.starts_with("Queued "), "{message}");
+        self.job = self
+            .conn
+            .raw()
+            .query_row("SELECT max(id) FROM jobs", [], |row| row.get(0))
+            .unwrap();
+        Jobs(self.ctx(&clock))
+            .items(self.job)
+            .unwrap()
+            .iter()
+            .map(|item| {
+                self.media
+                    .iter()
+                    .find(|(_, id)| *id == item.media_file_id)
+                    .unwrap()
+                    .0
+                    .clone()
+            })
+            .collect()
+    }
+}
+
+#[test]
+fn a_schedule_with_audio_prepares_gringa_and_leaves_the_file_that_needs_video_out() {
+    let mut world = schedule_world(
+        &[("gringa.mp4", surround_only), ("high10.mp4", high10)],
+        Audio,
+    );
+    assert_eq!(world.need_of("gringa.mp4"), Some(EncodeNeed::Audio));
+    assert_eq!(world.need_of("high10.mp4"), Some(EncodeNeed::Video));
+    let untouched = std::fs::read(world.path("high10.mp4")).unwrap();
+    assert_eq!(world.run_schedule(), ["gringa.mp4"]);
+    let (item, result) = world.run_next();
+    result.unwrap();
+    assert_ran(&world.ended(item));
+    let file = world.path("gringa.mp4");
+    assert!(codecs(&file, "a").contains(&"aac".to_owned()));
+    assert_eq!(codecs(&file, "v"), ["h264"]);
+    assert_eq!(std::fs::read(world.path("high10.mp4")).unwrap(), untouched);
+}
+
+#[test]
+fn a_schedule_with_copy_takes_only_files_that_need_no_encoding() {
+    let mut world = schedule_world(
+        &[
+            ("gringa.mp4", surround_only),
+            ("high10.mp4", high10),
+            ("moovlast.mp4", only_remux),
+        ],
+        Copy,
+    );
+    assert_eq!(world.need_of("moovlast.mp4"), Some(EncodeNeed::None));
+    assert_eq!(world.run_schedule(), ["moovlast.mp4"]);
+    let (item, result) = world.run_next();
+    result.unwrap();
+    assert_ran(&world.ended(item));
+}
+
+#[test]
+fn a_schedule_with_audio_and_video_re_encodes_the_video() {
+    let mut world = schedule_world(&[("high10.mp4", high10)], All);
+    assert_eq!(world.run_schedule(), ["high10.mp4"]);
+    let (item, result) = world.run_next();
+    result.unwrap();
+    assert_ran(&world.ended(item));
+    let profile = Command::new("ffprobe")
+        .args(["-v", "error", "-select_streams", "v:0"])
+        .args(["-show_entries", "stream=profile", "-of", "csv=p=0"])
+        .arg(world.path("high10.mp4"))
+        .output()
+        .unwrap();
+    let profile = String::from_utf8_lossy(&profile.stdout).trim().to_owned();
+    assert_ne!(profile, "High 10", "the video was re-encoded");
+}
+
+#[test]
+fn a_schedule_item_is_refused_when_the_allowance_changes_after_queueing() {
+    let mut world = schedule_world(&[("gringa.mp4", surround_only)], Audio);
+    let before = std::fs::read(world.path("gringa.mp4")).unwrap();
+    assert_eq!(world.run_schedule(), ["gringa.mp4"]);
+    world
+        .conn
+        .raw()
+        .execute("UPDATE schedules SET encode='all' WHERE id=1", [])
+        .unwrap();
+    let (item, result) = world.run_next();
+    assert!(result.is_err());
+    assert_eq!(world.ended(item).status, ItemStatus::StaleInput);
+    assert_eq!(std::fs::read(world.path("gringa.mp4")).unwrap(), before);
+}
+
+#[test]
+fn a_schedule_item_is_refused_when_the_target_profile_changes_after_queueing() {
+    let mut world = schedule_world(&[("gringa.mp4", surround_only)], Audio);
+    let before = std::fs::read(world.path("gringa.mp4")).unwrap();
+    assert_eq!(world.run_schedule(), ["gringa.mp4"]);
+    // Written straight into the table: the settings module would also pause the schedule.
+    world
+        .conn
+        .raw()
+        .execute(
+            "INSERT INTO runtime_settings(key,value_json,value_type,revision) VALUES('target_crf','24','int',1)",
+            [],
+        )
+        .unwrap();
+    let (item, result) = world.run_next();
+    assert!(result.is_err());
+    assert_eq!(world.ended(item).status, ItemStatus::StaleInput);
+    assert_eq!(std::fs::read(world.path("gringa.mp4")).unwrap(), before);
 }

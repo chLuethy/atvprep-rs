@@ -67,12 +67,13 @@ fn api() -> Api {
              INSERT INTO sidecars(media_file_id,relative_path,fingerprint) VALUES
                (2,'open.de.srt','x'),(3,'warn.de.srt','x'),(4,'done.de.srt','x');
              INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,max_files,enabled,armed_at)
-               VALUES(1,'Fix','fix',1,127,'12:00',5,0,'2000-01-01');
+               VALUES(1,'Fix','prepare',1,127,'12:00',5,0,'2000-01-01');
              INSERT INTO inspections(media_file_id,source_fingerprint,input_fingerprint,tool_name,tool_version,result) VALUES
                (2,'s','f2','ffprobe','1','{\"streams\":[]}'),
                (3,'s','f3','ffprobe','1','{\"streams\":[]}'),
                (4,'s','f4','ffprobe','1','{\"streams\":[{\"codec_type\":\"subtitle\",\"codec_name\":\"mov_text\",\"tags\":{\"language\":\"deu\"}}]}');
-             UPDATE media_files SET encode_need='video' WHERE id IN (3,4);",
+             UPDATE media_files SET encode_need='video' WHERE id IN (3,4);
+             UPDATE media_files SET encode_need='none' WHERE id IN (1,2);",
         )
         .unwrap();
     let state = AppState::new(

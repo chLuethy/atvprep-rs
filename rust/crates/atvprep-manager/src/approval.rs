@@ -83,8 +83,10 @@ pub struct ScheduleParams<'a> {
     pub max_files: i64,
     /// The `delete_original` setting at the time of signing and of each run.
     pub delete_original: bool,
-    /// Whether the schedule may take files that need a re-encode (ADR 0007).
-    pub allow_reencode: bool,
+    /// The schedule's Kodierfreigabe: how far its items may encode (ADR 0008).
+    pub encode: EncodeAllowance,
+    /// The Zielprofil at the time of signing and of each run.
+    pub profile: TargetProfile,
 }
 
 impl ScheduleParams<'_> {
@@ -98,7 +100,8 @@ impl ScheduleParams<'_> {
             "compliance_state": self.compliance_state,
             "max_files": self.max_files,
             "delete_original": self.delete_original,
-            "allow_reencode": self.allow_reencode,
+            "encode": self.encode.as_str(),
+            "profile": self.profile.to_json(),
         })
     }
 }
@@ -218,14 +221,15 @@ impl ApprovalVerifier {
         approved_at: i64,
     ) -> HmacSha256 {
         self.mac_over(&json!([
-            "schedule-approval-v2",
+            "schedule-approval-v3",
             params.schedule_id,
             params.action,
             params.root_id,
             params.compliance_state,
             params.max_files,
             params.delete_original,
-            params.allow_reencode,
+            params.encode.as_str(),
+            params.profile.to_json(),
             approved_by,
             approved_at
         ]))
@@ -330,17 +334,26 @@ mod tests {
     };
     use serde_json::{Value, json};
 
+    const PROFILE: crate::settings::TargetProfile = crate::settings::TargetProfile {
+        crf: 18,
+        prefer_hevc10: false,
+        keep_av1: false,
+        fix_dts: false,
+    };
+
     const PARAMS: ScheduleParams<'static> = ScheduleParams {
         schedule_id: 3,
-        action: "fix",
+        action: "prepare",
         root_id: Some(1),
         compliance_state: Some("warning"),
-        max_files: 25,
+        max_files: 12,
         delete_original: false,
-        allow_reencode: false,
+        encode: EncodeAllowance::Copy,
+        profile: PROFILE,
     };
 
     #[test]
+    #[allow(clippy::too_many_lines)] // Every signed parameter, one after the other.
     fn a_schedule_signature_binds_every_parameter() {
         let verifier = ApprovalVerifier::new(b"secret").unwrap();
         let mac = verifier.sign_schedule(&PARAMS, 5, 1000);
@@ -360,7 +373,7 @@ mod tests {
         );
         assert!(
             other(ScheduleParams {
-                action: "convert",
+                action: "verify",
                 ..PARAMS
             })
             .is_some()
@@ -393,14 +406,35 @@ mod tests {
             })
             .is_some()
         );
-        assert!(
-            other(ScheduleParams {
-                allow_reencode: true,
-                ..PARAMS
-            })
-            .is_some(),
-            "the re-encode permission is signed"
-        );
+        for encode in [EncodeAllowance::Audio, EncodeAllowance::All] {
+            assert!(
+                other(ScheduleParams { encode, ..PARAMS }).is_some(),
+                "the Kodierfreigabe is signed"
+            );
+        }
+        for profile in [
+            crate::settings::TargetProfile { crf: 20, ..PROFILE },
+            crate::settings::TargetProfile {
+                prefer_hevc10: true,
+                ..PROFILE
+            },
+            crate::settings::TargetProfile {
+                keep_av1: true,
+                ..PROFILE
+            },
+            crate::settings::TargetProfile {
+                fix_dts: true,
+                ..PROFILE
+            },
+        ] {
+            assert!(
+                other(ScheduleParams { profile, ..PARAMS }).is_some(),
+                "the Zielprofil is signed"
+            );
+        }
+        let recorded = PARAMS.to_json();
+        assert_eq!(recorded["encode"], "copy");
+        assert_eq!(recorded["profile"], PROFILE.to_json());
         assert!(
             verifier
                 .check_schedule(&PARAMS, Some(6), Some(1000), Some(&mac))

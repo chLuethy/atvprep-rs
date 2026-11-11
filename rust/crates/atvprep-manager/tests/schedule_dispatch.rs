@@ -258,7 +258,7 @@ fn dispatch_respects_catchup_arming_pause_and_gate() {
 }
 #[test]
 fn slots_that_pass_behind_a_closed_gate_are_never_reported_when_it_reopens() {
-    for (hours, action) in [(7, "verify"), (1, "fix")] {
+    for (hours, action) in [(7, "verify"), (1, "prepare")] {
         let db = Db::memory().unwrap();
         let conn = seed(&db);
         let clock = FixedClock(NOW);

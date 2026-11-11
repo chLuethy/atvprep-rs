@@ -430,22 +430,27 @@ impl Settings<'_> {
                 now
             ],
         )?;
-        if key == "delete_original"
+        let profile_changed = TARGET_PROFILE_KEYS.contains(&key)
+            && old
+                .as_ref()
+                .map(|s| s.value.clone())
+                .or_else(|| default_of(key))
+                .as_ref()
+                != Some(value);
+        let delete_original_changed = key == "delete_original"
             && old.as_ref().is_some_and(|s| s.value == Value::Bool(true))
-                != (value == &Value::Bool(true))
-        {
-            // The signature of a fix/convert schedule binds the current value, so every such approval
-            // ends here, in the caller's transaction: the schedules show as paused instead of
-            // silently refusing their runs.
+                != (value == &Value::Bool(true));
+        if delete_original_changed || profile_changed {
+            // The signature of a schedule that prepares binds the current value of both, so every
+            // such approval ends here, in the caller's transaction: the schedules show as paused
+            // instead of silently refusing their runs.
             self.0.conn.execute(
                 "UPDATE schedules SET enabled=0, approved_by=NULL, approved_at=NULL, approval_mac=NULL
-                 WHERE action IN ('fix','convert') AND (enabled=1 OR approval_mac IS NOT NULL)",
+                 WHERE action='prepare' AND (enabled=1 OR approval_mac IS NOT NULL)",
                 [],
             )?;
         }
-        if TARGET_PROFILE_KEYS.contains(&key)
-            && old.map(|s| s.value).or_else(|| default_of(key)).as_ref() != Some(value)
-        {
+        if profile_changed {
             // Every stored need was calculated against the old profile. The background check
             // then asks again, see `queue_need_checks`.
             self.0.conn.execute(
@@ -453,6 +458,7 @@ impl Settings<'_> {
                 [],
             )?;
         }
+
         self.get(key)?
             .ok_or_else(|| Error::NotFound(format!("setting {key}")))
     }

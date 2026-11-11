@@ -11,7 +11,6 @@ use crate::{
     schedules::{ScheduleApproval, delete_original_setting},
     snapshots::InputSnapshots,
 };
-use atvprep_core::encode::EncodeAllowance;
 use serde_json::Value;
 
 /// Check a changing item's approval against the identity of its opened input and report how
@@ -118,7 +117,10 @@ fn authorize_schedule_job(
     if !row.enabled {
         return refuse("The schedule is paused; its approval has ended. Turn it on again.");
     }
-    let params = row.params(delete_original_setting(ctx.conn)?);
+    let params = row.params(
+        delete_original_setting(ctx.conn)?,
+        crate::settings::target_profile(ctx.conn)?,
+    );
     if let Some(reason) = verifier.check_schedule(
         &params,
         row.approved_by,
@@ -130,8 +132,8 @@ fn authorize_schedule_job(
     if snapshot.get("schedule_params") != Some(&params.to_json()) {
         return refuse("The schedule changed after this job was queued.");
     }
-    // The item's own decision is not signed; the schedule's permission is. An item may encode
-    // only while the signed schedule allows it.
+    // The item's own record is not signed; the schedule's parameters are. An item runs only with
+    // exactly the signed Kodierfreigabe and Zielprofil.
     let Some(encode) = item_encode(snapshot) else {
         return refuse("The job carries no encoding allowance.");
     };
@@ -139,17 +141,20 @@ fn authorize_schedule_job(
     if item_force(snapshot) {
         return refuse("A schedule cannot force a rebuild.");
     }
-    if encode != EncodeAllowance::Copy && !params.allow_reencode {
-        return refuse("The schedule does not allow a re-encode.");
+    if encode != params.encode {
+        return refuse("The item's encoding allowance is not the one the schedule signed.");
     }
     let Some(profile) = item_profile(snapshot) else {
         return refuse("The job carries no target profile.");
     };
+    if profile != params.profile {
+        return refuse("The item's target profile is not the one the schedule signed.");
+    }
     Ok(PrepareMode {
-        encode,
+        encode: params.encode,
         delete_original: params.delete_original,
         force: false,
-        profile,
+        profile: params.profile,
     })
 }
 
@@ -161,6 +166,7 @@ mod tests {
         db::Db,
         schema,
     };
+    use atvprep_core::encode::EncodeAllowance;
     use serde_json::json;
 
     #[test]
@@ -229,7 +235,7 @@ mod tests {
         };
         conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/library');
             INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES(1,1,'film.mp4','video','.mp4',1,1,'fp','present','warning','idle','none');
-            INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,max_files,enabled) VALUES(1,'s','fix',1,127,'03:00',25,1);
+            INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,max_files,enabled) VALUES(1,'s','prepare',1,127,'03:00',12,1);
             INSERT INTO jobs(id,action,status,trigger) VALUES(1,'fix','queued','manual');
             INSERT INTO job_items(id,job_id,media_file_id,action,position,status) VALUES(1,1,1,'fix',0,'queued');").unwrap();
         let identity = [json!(1), json!(2), json!(3), json!("sidecars")];
@@ -237,12 +243,13 @@ mod tests {
         let verifier = ApprovalVerifier::new(b"secret").unwrap();
         let params = ScheduleParams {
             schedule_id: 1,
-            action: "fix",
+            action: "prepare",
             root_id: Some(1),
             compliance_state: None,
-            max_files: 25,
+            max_files: 12,
             delete_original: false,
-            allow_reencode: false,
+            encode: EncodeAllowance::Copy,
+            profile: crate::settings::TargetProfile::default(),
         };
         let sql = |statement: &str| conn.raw().execute(statement, []).unwrap();
         let sign = || {
@@ -279,17 +286,17 @@ mod tests {
         moved[1] = json!(9);
         assert!(authorize_prepare(ctx, 1, &verifier, &moved, 3600).is_err());
 
-        sql("UPDATE schedules SET max_files=26 WHERE id=1");
+        sql("UPDATE schedules SET max_files=11 WHERE id=1");
         assert!(!allowed(&verifier), "max_files changed");
-        sql("UPDATE schedules SET max_files=25 WHERE id=1");
+        sql("UPDATE schedules SET max_files=12 WHERE id=1");
         assert!(allowed(&verifier));
         sql("UPDATE schedules SET root_id=NULL WHERE id=1");
         assert!(!allowed(&verifier), "library changed");
         sql("UPDATE schedules SET root_id=1, compliance_state='clean' WHERE id=1");
         assert!(!allowed(&verifier), "filter changed");
-        sql("UPDATE schedules SET compliance_state=NULL, action='convert' WHERE id=1");
+        sql("UPDATE schedules SET compliance_state=NULL, action='verify' WHERE id=1");
         assert!(!allowed(&verifier), "action changed");
-        sql("UPDATE schedules SET action='fix' WHERE id=1");
+        sql("UPDATE schedules SET action='prepare' WHERE id=1");
         assert!(allowed(&verifier));
 
         sql(
@@ -299,9 +306,9 @@ mod tests {
         sql("DELETE FROM runtime_settings WHERE key='delete_original'");
         assert!(allowed(&verifier));
 
-        sql("UPDATE schedules SET allow_reencode=1 WHERE id=1");
-        assert!(!allowed(&verifier), "re-encode permission changed");
-        sql("UPDATE schedules SET allow_reencode=0 WHERE id=1");
+        sql("UPDATE schedules SET encode='audio' WHERE id=1");
+        assert!(!allowed(&verifier), "Kodierfreigabe changed");
+        sql("UPDATE schedules SET encode='copy' WHERE id=1");
         assert!(allowed(&verifier));
 
         sql("UPDATE schedules SET enabled=0 WHERE id=1");
@@ -312,6 +319,7 @@ mod tests {
             max_files: 10,
             ..params
         });
+
         assert!(!allowed(&verifier), "queued under older parameters");
         queue(&params);
         assert!(allowed(&verifier));
@@ -426,8 +434,10 @@ mod tests {
     }
 
     #[test]
-    fn a_schedule_item_re_encodes_only_under_a_signed_permission() {
+    #[allow(clippy::too_many_lines)] // One signed schedule item walks through every refusal.
+    fn a_schedule_item_runs_with_the_signed_allowance_and_profile_only() {
         use crate::approval::ScheduleParams;
+        use crate::settings::TargetProfile;
         let db = Db::memory().unwrap();
         let mut conn = db.conn().unwrap();
         schema::migrate(&mut conn).unwrap();
@@ -438,24 +448,27 @@ mod tests {
         };
         conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/library');
             INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES(1,1,'film.mp4','video','.mp4',1,1,'fp','present','warning','idle','none');
-            INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,max_files,enabled) VALUES(1,'s','fix',1,127,'03:00',25,1);
+            INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,max_files,enabled) VALUES(1,'s','prepare',1,127,'03:00',6,1);
             INSERT INTO jobs(id,action,status,trigger) VALUES(1,'fix','queued','manual');
             INSERT INTO job_items(id,job_id,media_file_id,action,position,status) VALUES(1,1,1,'fix',0,'queued');").unwrap();
         let identity = [json!(1), json!(2), json!(3), json!("sidecars")];
         InputSnapshots(ctx).record(1,&json!({"file_device":1,"file_inode":2,"file_ctime_ns":3,"sidecar_fingerprint":"sidecars"})).unwrap();
         let verifier = ApprovalVerifier::new(b"secret").unwrap();
-        let params = |allow_reencode| ScheduleParams {
+        let params = |encode| ScheduleParams {
             schedule_id: 1,
-            action: "fix",
+            action: "prepare",
             root_id: Some(1),
             compliance_state: None,
-            max_files: 25,
+            max_files: 6,
             delete_original: false,
-            allow_reencode,
+            encode,
+            profile: TargetProfile::default(),
         };
-        let queue = |allow_reencode: bool, item_encode: EncodeAllowance| {
-            let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","profile":crate::settings::TargetProfile::default().to_json(),"encode":item_encode.as_str(),"manual_approval":false,
-                "schedule_id":1,"schedule_params":params(allow_reencode).to_json()});
+        let queue_with = |signed: EncodeAllowance,
+                          item: EncodeAllowance,
+                          profile: TargetProfile| {
+            let snapshot = json!({"pipeline":"prepare","policy":"encode-v3","profile":profile.to_json(),"encode":item.as_str(),"manual_approval":false,
+                "schedule_id":1,"schedule_params":params(signed).to_json()});
             conn.raw()
                 .execute(
                     "UPDATE job_items SET settings_snapshot_json=?1 WHERE id=1",
@@ -463,60 +476,87 @@ mod tests {
                 )
                 .unwrap();
         };
-        let sign = |allow_reencode: bool| {
+        let queue = |signed, item| queue_with(signed, item, TargetProfile::default());
+        let sign = |encode: EncodeAllowance| {
             conn.raw()
                 .execute(
-                    "UPDATE schedules SET allow_reencode=?2, approved_by=1, approved_at=1700000000, approval_mac=?1 WHERE id=1",
+                    "UPDATE schedules SET encode=?2, approved_by=1, approved_at=1700000000, approval_mac=?1 WHERE id=1",
                     rusqlite::params![
-                        verifier.sign_schedule(&params(allow_reencode), 1, 1_700_000_000),
-                        allow_reencode
+                        verifier.sign_schedule(&params(encode), 1, 1_700_000_000),
+                        encode.as_str()
                     ],
                 )
                 .unwrap();
         };
         let run = || authorize_prepare(ctx, 1, &verifier, &identity, 3600);
-        let copying = PrepareMode {
-            encode: EncodeAllowance::Copy,
+        let mode = |encode| PrepareMode {
+            encode,
             delete_original: false,
             force: false,
-            profile: crate::settings::TargetProfile::default(),
+            profile: TargetProfile::default(),
         };
 
-        sign(false);
-        queue(false, EncodeAllowance::Copy);
-        assert_eq!(run().unwrap(), copying);
-        // The item claims a re-encode that the signature never covered.
-        queue(false, EncodeAllowance::All);
-        assert!(run().is_err(), "no signed permission");
+        for encode in [
+            EncodeAllowance::Copy,
+            EncodeAllowance::Audio,
+            EncodeAllowance::All,
+        ] {
+            sign(encode);
+            queue(encode, encode);
+            assert_eq!(run().unwrap(), mode(encode), "{encode:?}");
+        }
 
-        sign(true);
-        queue(true, EncodeAllowance::All);
-        assert_eq!(
-            run().unwrap(),
-            PrepareMode {
-                encode: EncodeAllowance::All,
-                delete_original: false,
-                force: false,
-                profile: crate::settings::TargetProfile::default(),
-            }
+        // An item that claims another level than the signed one is refused, either way.
+        sign(EncodeAllowance::Audio);
+        queue(EncodeAllowance::Audio, EncodeAllowance::All);
+        assert!(run().is_err(), "more than signed");
+        queue(EncodeAllowance::Audio, EncodeAllowance::Copy);
+        assert!(run().is_err(), "another level than signed");
+
+        // An item that records another Zielprofil than the signed one is refused.
+        queue_with(
+            EncodeAllowance::Audio,
+            EncodeAllowance::Audio,
+            TargetProfile {
+                crf: 30,
+                ..TargetProfile::default()
+            },
         );
-        queue(true, EncodeAllowance::Copy);
-        assert_eq!(run().unwrap(), copying);
+        assert!(run().is_err(), "another profile on the item");
+
+        // Changing the profile after signing ends the approval, as does a changed allowance.
+        queue(EncodeAllowance::Audio, EncodeAllowance::Audio);
+        assert!(run().is_ok());
+        conn.raw()
+            .execute(
+                "INSERT INTO runtime_settings(key,value_json,value_type,revision) VALUES('target_crf','30','int',1)",
+                [],
+            )
+            .unwrap();
+        assert!(run().is_err(), "the profile is signed");
+        conn.raw()
+            .execute("DELETE FROM runtime_settings WHERE key='target_crf'", [])
+            .unwrap();
+        assert!(run().is_ok());
+        conn.raw()
+            .execute("UPDATE schedules SET encode='all' WHERE id=1", [])
+            .unwrap();
+        assert!(run().is_err(), "the allowance is signed");
 
         // A rebuild is a manual decision: a schedule item that claims one is refused.
-        sign(false);
+        sign(EncodeAllowance::Copy);
         conn.raw()
             .execute(
                 "UPDATE job_items SET settings_snapshot_json=json_set(?1,'$.force',json('true')) WHERE id=1",
-                [json!({"pipeline":"prepare","policy":"encode-v3","profile":crate::settings::TargetProfile::default().to_json(),"encode":"copy","manual_approval":false,
-                    "schedule_id":1,"schedule_params":params(false).to_json()}).to_string()],
+                [json!({"pipeline":"prepare","policy":"encode-v3","profile":TargetProfile::default().to_json(),"encode":"copy","manual_approval":false,
+                    "schedule_id":1,"schedule_params":params(EncodeAllowance::Copy).to_json()}).to_string()],
             )
             .unwrap();
         assert!(run().is_err(), "a schedule never forces a rebuild");
 
-        // Withdrawing the permission after queueing refuses the item, as for every parameter.
-        sign(false);
-        queue(true, EncodeAllowance::All);
-        assert!(run().is_err(), "permission withdrawn after queueing");
+        // Lowering the allowance after queueing refuses the item, as for every parameter.
+        sign(EncodeAllowance::Copy);
+        queue(EncodeAllowance::All, EncodeAllowance::All);
+        assert!(run().is_err(), "allowance changed after queueing");
     }
 }

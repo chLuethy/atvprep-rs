@@ -66,16 +66,28 @@ pub fn embed_not_open(param: &str) -> String {
     format!("m.id NOT IN (SELECT value FROM json_each({param}))")
 }
 
-/// What makes a file a candidate for a repair or conversion schedule.
+/// What makes a file a candidate for a schedule that prepares files.
 ///
 /// Excludes converted originals; takes MP4-likes only when they have something to repair or
-/// embed; takes files with a video Kodierbedarf only when `allow_reencode_param` is true. The
-/// stages of a schedule's Kodierfreigabe come with #57.
+/// embed; takes only files whose Kodierbedarf lies within the schedule's Kodierfreigabe, bound as
+/// its name (`copy`, `audio`, `all`) in `encode_param`. A need that is not known yet only fits
+/// the top level (ADR 0008).
 #[must_use]
-pub fn change_candidate(allow_reencode_param: &str, open_ids_param: &str) -> String {
+pub fn change_candidate(encode_param: &str, open_ids_param: &str) -> String {
     format!(
         "NOT {CONVERTED} AND ({NOT_MP4_LIKE} OR m.compliance_state IN ('warning','blocker') \
-         OR m.desired_action='fix' OR {open}) AND ({allow_reencode_param} OR m.encode_need<>'video')",
-        open = embed_open(open_ids_param)
+         OR m.desired_action='fix' OR {open}) AND {within}",
+        open = embed_open(open_ids_param),
+        within = need_within(encode_param)
+    )
+}
+
+/// The file's Kodierbedarf lies within the Kodierfreigabe named by `encode_param`.
+#[must_use]
+pub fn need_within(encode_param: &str) -> String {
+    format!(
+        "(CASE {encode_param} WHEN 'copy' THEN m.encode_need='none' \
+         WHEN 'audio' THEN m.encode_need IN ('none','audio') \
+         WHEN 'all' THEN 1 ELSE 0 END)"
     )
 }

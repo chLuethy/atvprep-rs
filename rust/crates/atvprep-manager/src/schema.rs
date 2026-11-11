@@ -5,7 +5,7 @@ use crate::{Error, Result};
 
 /// Migration stages in order; stage `n` takes a database from version `n - 1` to `n`.
 /// To extend: add `000N_name.sql`, append it here and raise [`VERSION`].
-const STAGES: [&str; 10] = [
+const STAGES: [&str; 11] = [
     include_str!("migrations/0001_base.sql"),
     include_str!("migrations/0002_cron.sql"),
     include_str!("migrations/0003_scan_action.sql"),
@@ -16,10 +16,11 @@ const STAGES: [&str; 10] = [
     include_str!("migrations/0008_scan_orphans.sql"),
     include_str!("migrations/0009_schedule_allow_reencode.sql"),
     include_str!("migrations/0010_encode_need.sql"),
+    include_str!("migrations/0011_schedule_encode.sql"),
 ];
 
 /// The version this build creates and understands.
-pub const VERSION: i64 = 10;
+pub const VERSION: i64 = 11;
 
 /// Every table of the current schema.
 pub const TABLES: [&str; 23] = [
@@ -202,7 +203,7 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(row, "old|convert|1|5|03:30|40|0|a|b|c|9|done|d");
+        assert_eq!(row, "old|prepare|1|5|03:30|40|0|a|b|c|9|done|d");
         exec(
             &conn,
             "INSERT INTO schedules(name, action, days_mask, time_of_day) VALUES ('s', 'scan', 1, '01:00')",
@@ -599,22 +600,22 @@ mod tests {
         .unwrap();
         migrate(&mut conn).unwrap();
         assert_eq!(version(&conn).unwrap(), VERSION);
-        let rows: Vec<(i64, bool, bool, Option<String>, bool)> = conn
+        let rows: Vec<(i64, bool, Option<String>, bool)> = conn
             .raw()
-            .prepare("SELECT id, enabled, allow_reencode, approval_mac, last_result IS NOT NULL FROM schedules ORDER BY id")
+            .prepare("SELECT id, enabled, approval_mac, last_result IS NOT NULL FROM schedules ORDER BY id")
             .unwrap()
-            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
             .unwrap()
             .collect::<std::result::Result<_, _>>()
             .unwrap();
         assert_eq!(
             rows,
             vec![
-                (1, false, false, None, true),
-                (2, false, false, None, true),
-                (3, false, false, None, false),
-                (4, true, false, None, false),
-                (5, true, false, None, false),
+                (1, false, None, true),
+                (2, false, None, true),
+                (3, false, None, false),
+                (4, true, None, false),
+                (5, true, None, false),
             ]
         );
         let history: Vec<(i64, String, String)> = conn
@@ -637,10 +638,115 @@ mod tests {
                     && result.starts_with("Paused: ")
                     && result.contains("re-encoding"))
         );
-        assert!(
-            exec(&conn, "UPDATE schedules SET allow_reencode=2 WHERE id=1").is_err(),
-            "only 0 or 1"
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)] // One upgrade, checked from every side.
+    fn a_version_10_database_turns_repair_and_conversion_into_preparing_with_an_allowance() {
+        let (_db, mut conn) = database_at(10);
+        exec(
+            &conn,
+            "INSERT INTO schedules(id, name, action, days_mask, time_of_day, max_files, enabled, allow_reencode, approved_by, approved_at, approval_mac) VALUES
+               (1, 'repair', 'fix', 127, '03:00', 5, 1, 0, 1, 1700000000, 'mac'),
+               (2, 'convert', 'convert', 127, '03:00', 5, 1, 1, 1, 1700000000, 'mac'),
+               (3, 'repair paused', 'fix', 127, '03:00', 5, 0, 1, NULL, NULL, NULL),
+               (4, 'check', 'verify', 127, '03:00', 5, 1, 0, NULL, NULL, NULL),
+               (5, 'scan', 'scan', 127, '03:00', 5, 1, 0, NULL, NULL, NULL)",
+        )
+        .unwrap();
+        exec(
+            &conn,
+            "INSERT INTO schedule_runs(id, schedule_id, slot, started_at, trigger, result, kind) VALUES
+               (7, 4, '2026-01-01 03:00:00.000000', '2026-01-01 03:00:00.000000', 'scheduled', 'Queued 1 file', 'run'),
+               (8, 4, '2026-01-02 03:00:00.000000', '2026-01-02 03:10:00.000000', 'scheduled', 'Missed', 'missed')",
+        )
+        .unwrap();
+        migrate(&mut conn).unwrap();
+        assert_eq!(version(&conn).unwrap(), VERSION);
+        let kept: Vec<(i64, String)> = conn
+            .raw()
+            .prepare("SELECT id, kind FROM schedule_runs WHERE schedule_id=4 ORDER BY id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            kept,
+            [(7, "run".to_owned()), (8, "missed".to_owned())],
+            "history survives"
         );
+        assert!(
+            exec(&conn, "INSERT INTO schedule_runs(schedule_id, slot, started_at, trigger, result, kind) VALUES (4, '2026-01-02 03:00:00.000000', 'x', 'scheduled', 'Missed', 'missed')").is_err(),
+            "a missed slot is still noted once"
+        );
+        let rows: Vec<(i64, String, String, bool, Option<String>)> = conn
+            .raw()
+            .prepare("SELECT id, action, encode, enabled, approval_mac FROM schedules ORDER BY id")
+            .unwrap()
+            .query_map([], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+            })
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap();
+        let row = |id, action: &str, encode: &str, enabled| {
+            (id, action.to_owned(), encode.to_owned(), enabled, None)
+        };
+        assert_eq!(
+            rows,
+            vec![
+                row(1, "prepare", "copy", false),
+                row(2, "prepare", "all", false),
+                row(3, "prepare", "all", false),
+                row(4, "verify", "copy", true),
+                row(5, "scan", "copy", true),
+            ]
+        );
+        let history: Vec<(i64, String, String)> = conn
+            .raw()
+            .prepare("SELECT schedule_id, trigger, result FROM schedule_runs WHERE schedule_id<>4 ORDER BY schedule_id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            history.iter().map(|(id, _, _)| *id).collect::<Vec<_>>(),
+            [1, 2],
+            "only the two switched-on schedules get an entry"
+        );
+        for (_, trigger, result) in &history {
+            assert_eq!(trigger, "scheduled");
+            assert!(result.starts_with("Paused: "), "{result}");
+            assert!(result.contains("encoding allowance"), "{result}");
+        }
+        let last: Option<String> = conn
+            .raw()
+            .query_row("SELECT last_result FROM schedules WHERE id=1", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(last.as_deref(), Some(history[0].2.as_str()));
+        for bad in [
+            "UPDATE schedules SET encode='video' WHERE id=1",
+            "UPDATE schedules SET action='fix' WHERE id=1",
+            "UPDATE schedules SET action='convert' WHERE id=1",
+            "UPDATE schedules SET allow_reencode=1 WHERE id=1",
+        ] {
+            assert!(exec(&conn, bad).is_err(), "{bad}");
+        }
+        // The run history survives the rebuild of the table and still follows a deleted schedule.
+        exec(&conn, "DELETE FROM schedules WHERE id=1").unwrap();
+        let left: i64 = conn
+            .raw()
+            .query_row(
+                "SELECT count(*) FROM schedule_runs WHERE schedule_id=1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(left, 0);
     }
 
     #[test]
