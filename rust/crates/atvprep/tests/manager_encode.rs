@@ -229,7 +229,9 @@ fn world_profiled(
                 profile,
             },
             1,
-            clock.now_micros() / 1_000_000,
+            // The time the job records, not a second reading of the clock: a second boundary
+            // between the two would sign another approval and the worker would refuse it.
+            item.settings_snapshot["approved_at"].as_i64().unwrap(),
         );
         item.settings_snapshot["approval_mac"] = json!(mac);
         ctx.conn
