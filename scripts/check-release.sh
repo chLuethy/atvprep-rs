@@ -30,6 +30,8 @@ for platform in linux-x86_64 linux-aarch64; do
     linux-aarch64) readelf -h "$asset" | grep -q 'AArch64'; arch=aarch64; emulator=qemu-aarch64-static ;;
   esac
   if readelf -l "$asset" | grep -q 'INTERP'; then echo "$platform is dynamically linked" >&2; exit 1; fi
+  # Ubuntu 26.04 dropped qemu-user-static; its qemu-user ships the emulators without the suffix.
+  if ! command -v "$emulator" >/dev/null 2>&1; then emulator=${emulator%-static}; fi
   if [ "$native" = "$arch" ]; then runner=(); else runner=("$emulator"); fi
   actual=$("${runner[@]}" "$asset" --version)
   test "$actual" = "atvprep $RELEASE_VERSION"

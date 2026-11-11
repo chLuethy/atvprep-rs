@@ -22,7 +22,7 @@ jobs:
         run: |
           if [ "$(id -u)" -eq 0 ]; then SUDO=(); else SUDO=(sudo); fi
           "${SUDO[@]}" apt-get update
-          "${SUDO[@]}" apt-get install -y jq binutils openssh-client qemu-user-static
+          "${SUDO[@]}" apt-get install -y jq binutils openssh-client qemu-user
       - name: Check the signed manifest inputs and version
         shell: bash
         env:
