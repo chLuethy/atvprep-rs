@@ -98,8 +98,8 @@ Ein Status, aus dem kein weiterer Übergang mehr erwartet wird: die Arbeit ist a
 ## Dateien und Prüfergebnis
 
 **Vorbereiten**:
-Die eine Aktion, die eine Datei so weit bringt wie nötig, um dem Ziel zu genügen, begrenzt durch die Kodierfreigabe.
-_Avoid_: Prepare, Reparieren, Konvertieren, Fix
+Die eine Aktion, die eine Datei so weit bringt wie nötig, um dem Ziel zu genügen, begrenzt durch die Kodierfreigabe. „Reparieren“ und „Konvertieren“ sind als Namen dieser Aktion zu meiden; die Eigenschaft „zu konvertieren“ (die Datei liegt in einem Nicht-MP4-Container) bleibt erlaubt, weil sie die Datei beschreibt und keine Aktion benennt.
+_Avoid_: Prepare, Reparieren, Konvertieren (als Aktion), Fix
 
 **Re-Encode**:
 Das Neu-Kodieren des Videos.
@@ -111,6 +111,10 @@ Das Neu-Kodieren von Audio, während das Video kopiert bleibt: Der Stereo-Downmi
 **Kodierbedarf**:
 Was „Prüfen“ je Datei festhält: keiner, Audio, Video oder unbekannt, solange noch keine Prüfung gegen das aktuelle Zielprofil vorliegt. Er ist unabhängig vom Zustand (bereit, Warnung, Blocker) und stammt vom selben Planer, der später ausführt.
 _Avoid_: Re-Encode nötig
+
+**Änderungsart**:
+Wie Vorbereiten eine Datei ändern würde, so wie „Prüfen“ es zusammen mit dem Kodierbedarf festhält: keine, Patch (nur Flags und Tags an Ort und Stelle), Remux (die Datei wird als MP4 neu geschrieben, alle Streams kopiert), Audio-Kodierung oder Re-Encode. Eine Kodierung geht dem Weg vor: Braucht ein Remux eine Audio-Kodierung, ist die Änderungsart Audio-Kodierung. Vorschau und Inspector zeigen sie, statt sie selbst vorherzusagen.
+_Avoid_: „Remux“ für jede Änderung
 
 **Kodierfreigabe**:
 Die vom Betreiber gesetzte Obergrenze, was ein Auftrag oder Zeitplan kodieren darf: Nur kopieren, Audio kodieren, Audio und Video kodieren.
@@ -136,7 +140,7 @@ Eine Datei, deren Prüfung keine Verstöße ergab und bei der nichts mehr eingeb
 _Avoid_: Sauber, Clean (nur der interne Zustandsname)
 
 **Eigenschaften**:
-Merkmale einer Datei, die unabhängig vom Zustand gelten und sich überschneiden dürfen: zu konvertieren, Kodierbedarf, Einbetten offen, konvertiert (Original behalten). In der Bibliothek zeigen gewählte Eigenschaften nur Dateien, die alle gewählten haben.
+Merkmale einer Datei, die unabhängig vom Zustand gelten und sich überschneiden dürfen: zu konvertieren (Nicht-MP4-Container), Kodierbedarf, Einbetten offen, konvertiert (Original behalten). In der Bibliothek zeigen gewählte Eigenschaften nur Dateien, die alle gewählten haben.
 
 **Verwaiste Teilüberarbeitung**:
 Eine halbfertige Arbeitsdatei, die nach einem Absturz oder Abbruch eines Vorbereitens neben der Quelle zurückbleibt. Ist nie ein Ergebnis und wird beim Start des Managers aufgeräumt. Was dabei stehen bleibt, weil es noch zu einem laufenden Vorgang gehören könnte, meldet der Scan; der Betreiber entfernt es dort nach Bestätigung mit Anzahl und Größe. Entfernt wird nur, wenn beides noch stimmt und die Datei nicht zu laufender Arbeit gehört. Jede Löschung steht im Verlauf.
