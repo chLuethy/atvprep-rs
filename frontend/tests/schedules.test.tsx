@@ -2,7 +2,8 @@ import { fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
 import { setLanguage } from "../src/lib/i18n";
 import { SchedulesPage } from "../src/features/schedules/SchedulesPage";
-import { describeDays, describeProblem, describeResult, describeTarget, simpleForm, stateChoices, weeklyCron } from "../src/features/schedules/model";
+import { describeDays, describeProblem, describeProfile, describeResult, describeTarget, simpleForm, stateChoices, weeklyCron } from "../src/features/schedules/model";
+
 import type { Schedule } from "../src/features/schedules/loaders";
 
 type Api = { request: (path: string, init?: RequestInit) => Promise<Response> };
@@ -16,7 +17,11 @@ const schedule = (over: Partial<Schedule> = {}): Schedule => ({
 const scanSchedule = (over: Partial<Schedule> = {}): Schedule =>
   schedule({ id: "sc_s", name: "Nightly scan", action: "scan", compliance_state: null, max_files: null, matching: null, ...over });
 
-const LIMITS = { min_change_interval_minutes: 15, max_files: { verify: 500, fix: 12, convert: 6 } };
+const LIMITS = { min_change_interval_minutes: 15, max_files: { verify: 500, prepare: 12 }, max_files_video: 6 };
+const PROFILE = { crf: 18, prefer_hevc10: false, keep_av1: false, fix_dts: false };
+/** A schedule that prepares, as the server lists it: with its Kodierfreigabe and the current Zielprofil. */
+const prepareSchedule = (over: Partial<Schedule> = {}): Schedule =>
+  schedule({ id: "sc_f", name: "Weekly prepare", action: "prepare", compliance_state: null, max_files: 10, encode: "copy", profile: PROFILE, ...over });
 const json = (data: unknown, status = 200, meta: unknown = {}) => new Response(JSON.stringify({ data, meta }), { status });
 
 function makeApi(initial: Schedule[], handlers: Record<string, (init?: RequestInit) => Response> = {}, options: { deleteOriginal?: boolean; limits?: unknown } = {}) {
@@ -47,8 +52,8 @@ describe("schedule wording", () => {
 
   it("summarises what a schedule acts on", () => {
     expect(describeTarget({ action: "verify", root_name: "Film", compliance_state: "unknown", max_files: 25 })).toBe("Verify · Film · Not verified · up to 25 files");
-    expect(describeTarget({ action: "fix", root_name: null, compliance_state: null, max_files: 1 })).toBe("Fix · All libraries · up to 1 file");
-    expect(describeTarget({ action: "convert", root_name: "TV", compliance_state: null, max_files: 3 })).toBe("Convert · TV · up to 3 files");
+    expect(describeTarget({ action: "prepare", root_name: null, compliance_state: null, max_files: 1, encode: "copy" })).toBe("Prepare · All libraries · up to 1 file · Copy only");
+    expect(describeTarget({ action: "prepare", root_name: "TV", compliance_state: null, max_files: 3, encode: "all" })).toBe("Prepare · TV · up to 3 files · Encode audio and video");
     expect(describeTarget({ action: "scan", root_name: null, compliance_state: null, max_files: null })).toBe("Scan · All libraries");
     expect(describeTarget({ action: "scan", root_name: "Film", compliance_state: null, max_files: null })).toBe("Scan · Film");
   });
@@ -63,14 +68,31 @@ describe("schedule wording", () => {
     expect(describeResult("Not queued: not approved to change files. Turn the schedule on again.")).toBe("Not queued: Not approved to change files. Turn the schedule on again.");
   });
 
+  it("explains the pause of the switch to an encoding allowance", () => {
+    expect(describeResult("Paused: the approval now covers the encoding allowance and the target profile. Turn the schedule on again to approve it."))
+      .toBe("Paused: the approval now covers the encoding allowance and the target profile. Turn the schedule on again to approve it.");
+    setLanguage("de");
+    try {
+      expect(describeResult("Paused: the approval now covers the encoding allowance and the target profile. Turn the schedule on again to approve it."))
+        .toBe("Pausiert: Die Freigabe umfasst jetzt die Kodierfreigabe und das Zielprofil. Den Zeitplan erneut einschalten, um ihn freizugeben.");
+    } finally {
+      setLanguage("en");
+    }
+  });
+
+  it("puts a target profile into words", () => {
+    expect(describeProfile(PROFILE)).toBe("CRF 18, HEVC10 off, keep AV1 off, DTS fix off");
+    expect(describeProfile({ crf: 22, prefer_hevc10: true, keep_av1: true, fix_dts: true })).toBe("CRF 22, HEVC10 on, keep AV1 on, DTS fix on");
+  });
+
   it("explains why a schedule was paused for breaking a limit", () => {
     expect(describeResult("Paused: Files per run may be at most 12 for this action.")).toBe("Paused: it takes more than 12 files per run. Adjust the schedule.");
     expect(describeResult("Paused: A schedule that changes files may run at most every 15 minutes; this one runs every 10.")).toBe("Paused: it runs more often than every 15 minutes (every 10). Adjust the schedule.");
   });
 
   it("offers state filters that fit the action", () => {
-    expect(stateChoices("fix").map((choice) => choice.label)).toEqual(["Any file that needs work", "Warning", "Blocker"]);
-    expect(stateChoices("convert").map((choice) => choice.value)).toEqual([null, "warning", "blocker"]);
+    expect(stateChoices("prepare").map((choice) => choice.label)).toEqual(["Any file that needs work", "Warning", "Blocker"]);
+    expect(stateChoices("prepare").map((choice) => choice.value)).toEqual([null, "warning", "blocker"]);
     expect(stateChoices("scan")).toEqual([]);
     expect(stateChoices("verify")[0]?.value).toBe("unknown");
   });
@@ -85,14 +107,14 @@ describe("SchedulesPage", () => {
     expect(view.getByText(/starts paused/)).toBeInTheDocument();
   });
 
-  it("offers Verify, Fix, Convert and Scan", async () => {
+  it("offers Verify, Prepare and Scan", async () => {
     const { api } = makeApi([]);
     const view = render(() => <SchedulesPage api={api} />);
     await fireEvent.click(await view.findByRole("button", { name: /New schedule/ }));
     const editor = await view.findByRole("region", { name: "New schedule" });
     const picker = within(editor).getByRole("group", { name: "Action" });
 
-    expect(within(picker).getAllByRole("button").map((button) => button.textContent)).toEqual(["Verify", "Fix", "Convert", "Scan"]);
+    expect(within(picker).getAllByRole("button").map((button) => button.textContent)).toEqual(["Verify", "Prepare", "Scan"]);
     expect(within(editor).queryByRole("note")).toBeNull();
   });
 
@@ -210,54 +232,69 @@ describe("SchedulesPage", () => {
   it("asks before turning on a schedule that changes files, and sends the confirmation", async () => {
     const patches: unknown[] = [];
     const state = makeApi(
-      [schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, next_run_at: null, compliance_state: null, max_files: 10 })],
+      [prepareSchedule({ enabled: false, next_run_at: null })],
       { "PATCH /schedules/sc_f": (init) => { patches.push(JSON.parse(String(init?.body))); return json(schedule()); } },
     );
     const view = render(() => <SchedulesPage api={state.api} />);
 
-    await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Weekly fix" }));
-    const question = await view.findByRole("region", { name: "Turn on Weekly fix" });
+    await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Weekly prepare" }));
+    const question = await view.findByRole("region", { name: "Turn on Weekly prepare" });
     expect(question).toHaveTextContent("up to 10");
     expect(question).toHaveTextContent("originals are kept");
     expect(patches).toEqual([]);
     await fireEvent.click(within(question).getByRole("button", { name: "Cancel" }));
     expect(patches).toEqual([]);
-    expect(view.queryByRole("region", { name: "Turn on Weekly fix" })).toBeNull();
+    expect(view.queryByRole("region", { name: "Turn on Weekly prepare" })).toBeNull();
 
-    await fireEvent.click(view.getByRole("checkbox", { name: "Turn on Weekly fix" }));
-    await fireEvent.click(within(await view.findByRole("region", { name: "Turn on Weekly fix" })).getByRole("button", { name: "Confirm turn on" }));
+    await fireEvent.click(view.getByRole("checkbox", { name: "Turn on Weekly prepare" }));
+    await fireEvent.click(within(await view.findByRole("region", { name: "Turn on Weekly prepare" })).getByRole("button", { name: "Confirm turn on" }));
     await waitFor(() => expect(patches).toEqual([{ enabled: true, confirm_changes_files: true }]));
   });
 
-  it("names re-encoding and the removal of originals separately in the confirmation", async () => {
+  it("names the allowance, the target profile and the removal of originals in the confirmation", async () => {
     const cases = [
-      { allow: false, deleteOriginal: false, text: "Re-encoding is not allowed", not: "removed once" },
-      { allow: false, deleteOriginal: true, text: "another container's original is removed once its new MP4 passes verification", not: "Originals are kept" },
-      { allow: true, deleteOriginal: true, text: "files that need it are re-encoded", not: "only runs while" },
-      { allow: true, deleteOriginal: false, text: "“Delete original” is off: originals are kept", not: "stay unchanged" },
+      { encode: "copy", deleteOriginal: false, text: "Encoding allowance: Copy only", not: "removed once" },
+      { encode: "audio", deleteOriginal: true, text: "Encoding allowance: Encode audio", not: "Originals are kept" },
+      { encode: "all", deleteOriginal: true, text: "Encoding allowance: Encode audio and video", not: "only runs while" },
+      { encode: "all", deleteOriginal: false, text: "“Delete original” is off: originals are kept", not: "stay unchanged" },
     ] as const;
-    for (const { allow, deleteOriginal, text, not } of cases) {
-      const state = makeApi([schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, compliance_state: null, max_files: 10, allow_reencode: allow })], {}, { deleteOriginal });
+    for (const { encode, deleteOriginal, text, not } of cases) {
+      const state = makeApi([prepareSchedule({ enabled: false, encode, profile: { ...PROFILE, crf: 21 } })], {}, { deleteOriginal });
       const view = render(() => <SchedulesPage api={state.api} />);
-      await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Weekly fix" }));
-      const question = await view.findByRole("region", { name: "Turn on Weekly fix" });
+      await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Weekly prepare" }));
+      const question = await view.findByRole("region", { name: "Turn on Weekly prepare" });
       expect(question).toHaveTextContent(text);
+      expect(question).toHaveTextContent("Target profile: CRF 21, HEVC10 off, keep AV1 off, DTS fix off");
       expect(question).not.toHaveTextContent(not);
+      view.unmount();
+    }
+  });
+
+  it("explains in the confirmation what the chosen level takes", async () => {
+    for (const [encode, text] of [
+      ["copy", "Takes only files that need no encoding."],
+      ["audio", "Also takes files whose audio has to be encoded; the video is only copied."],
+      ["all", "Also takes files that need a re-encode or are not checked yet."],
+    ] as const) {
+      const state = makeApi([prepareSchedule({ enabled: false, encode })]);
+      const view = render(() => <SchedulesPage api={state.api} />);
+      await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Weekly prepare" }));
+      expect(await view.findByRole("region", { name: "Turn on Weekly prepare" })).toHaveTextContent(text);
       view.unmount();
     }
   });
 
   it("tells the current match count, capped by the run size, and that originals of other containers go", async () => {
     const state = makeApi(
-      [schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, compliance_state: null, max_files: 10, matching: 4, allow_reencode: true })],
+      [prepareSchedule({ enabled: false, matching: 4, encode: "all" })],
       {}, { deleteOriginal: true },
     );
     const view = render(() => <SchedulesPage api={state.api} />);
-    await view.findByText("Weekly fix");
-    state.set([schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, compliance_state: null, max_files: 10, matching: 37, allow_reencode: true })]);
+    await view.findByText("Weekly prepare");
+    state.set([prepareSchedule({ enabled: false, matching: 37, encode: "all" })]);
 
-    await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Weekly fix" }));
-    const question = await view.findByRole("region", { name: "Turn on Weekly fix" });
+    await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Weekly prepare" }));
+    const question = await view.findByRole("region", { name: "Turn on Weekly prepare" });
 
     expect(question).toHaveTextContent("10 files match now");
     expect(question).toHaveTextContent("another container's original is removed once its new MP4 passes verification");
@@ -280,7 +317,7 @@ describe("SchedulesPage", () => {
   it("pauses a schedule that changes files without asking", async () => {
     const patches: unknown[] = [];
     const state = makeApi(
-      [schedule({ id: "sc_c", name: "Weekly convert", action: "convert", enabled: true, compliance_state: null })],
+      [prepareSchedule({ id: "sc_c", name: "Weekly convert", enabled: true })],
       { "PATCH /schedules/sc_c": (init) => { patches.push(JSON.parse(String(init?.body))); return json(schedule()); } },
     );
     const view = render(() => <SchedulesPage api={state.api} />);
@@ -293,7 +330,7 @@ describe("SchedulesPage", () => {
   it("can run a schedule that changes files now", async () => {
     const runs: string[] = [];
     const state = makeApi(
-      [schedule({ id: "sc_f", name: "Weekly fix", action: "fix", compliance_state: null })],
+      [prepareSchedule()],
       { "POST /schedules/sc_f/run": () => { runs.push("fix"); return json(schedule()); } },
     );
     const view = render(() => <SchedulesPage api={state.api} />);
@@ -303,14 +340,17 @@ describe("SchedulesPage", () => {
     await waitFor(() => expect(runs).toEqual(["fix"]));
   });
 
-  it("creates a fix schedule that starts paused and needs its files per run", async () => {
+  it("creates a schedule that prepares, starts paused, copies only and needs its files per run", async () => {
     let body: unknown;
-    const state = makeApi([], { "POST /schedules": (init) => { body = JSON.parse(String(init?.body)); return json(schedule({ action: "fix", enabled: false }), 201); } });
+    const state = makeApi([], { "POST /schedules": (init) => { body = JSON.parse(String(init?.body)); return json(prepareSchedule({ enabled: false }), 201); } });
     const view = render(() => <SchedulesPage api={state.api} />);
 
     await fireEvent.click(await view.findByRole("button", { name: /New schedule/ }));
     const editor = await view.findByRole("region", { name: "New schedule" });
-    await fireEvent.click(within(within(editor).getByRole("group", { name: "Action" })).getByRole("button", { name: "Fix" }));
+    const actions = within(within(editor).getByRole("group", { name: "Action" })).getAllByRole("button").map((button) => button.textContent);
+    expect(actions).toEqual(["Verify", "Prepare", "Scan"]);
+    await fireEvent.click(within(within(editor).getByRole("group", { name: "Action" })).getByRole("button", { name: "Prepare" }));
+    expect(within(editor).getByRole("radio", { name: "Copy only" })).toBeChecked();
     await fireEvent.input(within(editor).getByLabelText("Name"), { target: { value: "Nightly fix" } });
     await fireEvent.input(within(editor).getByLabelText("Files per run"), { target: { value: "0" } });
     expect(within(editor).getByRole("button", { name: "Save schedule" })).toBeDisabled();
@@ -318,23 +358,35 @@ describe("SchedulesPage", () => {
     await fireEvent.click(within(editor).getByRole("button", { name: "Save schedule" }));
 
     await waitFor(() => expect(body).toEqual({
-      name: "Nightly fix", action: "fix", root_id: null, compliance_state: null,
-      days: [0, 1, 2, 3, 4], time: "03:00", max_files: 7, allow_reencode: false,
+      name: "Nightly fix", action: "prepare", root_id: null, compliance_state: null,
+      days: [0, 1, 2, 3, 4], time: "03:00", max_files: 7, encode: "copy",
     }));
     expect(await view.findByRole("status")).toHaveTextContent("Schedule saved. It is paused until you turn it on.");
   });
 
-  it("still shows an old repair or conversion schedule under its own name", async () => {
-    const { api } = makeApi([
-      schedule({ id: "sc_f", name: "Weekly fix", action: "fix", enabled: false, next_run_at: null, compliance_state: null }),
-      schedule({ id: "sc_c", name: "Weekly convert", action: "convert", enabled: false, next_run_at: null, compliance_state: null }),
-    ]);
+  it("explains every level in one sentence in the form", async () => {
+    const state = makeApi([]);
+    const view = render(() => <SchedulesPage api={state.api} />);
+    await fireEvent.click(await view.findByRole("button", { name: /New schedule/ }));
+    const editor = await view.findByRole("region", { name: "New schedule" });
+    expect(within(editor).queryByRole("radiogroup", { name: "Encoding allowance" })).toBeNull();
+    await fireEvent.click(within(within(editor).getByRole("group", { name: "Action" })).getByRole("button", { name: "Prepare" }));
+    const group = within(editor).getByRole("radiogroup", { name: "Encoding allowance" });
+    for (const [name, text] of [
+      ["Copy only", "Takes only files that need no encoding."],
+      ["Encode audio", "Also takes files whose audio has to be encoded; the video is only copied."],
+      ["Encode audio and video", "Also takes files that need a re-encode or are not checked yet."],
+    ] as const) {
+      expect(within(group).getByRole("radio", { name })).toHaveAccessibleDescription(expect.stringContaining(text));
+    }
+  });
+
+  it("lists a schedule that prepares with its allowance", async () => {
+    const { api } = makeApi([prepareSchedule({ encode: "audio", max_files: 25, root_name: "Film" })]);
     const view = render(() => <SchedulesPage api={api} />);
 
     const list = await view.findByRole("list", { name: "Schedules" });
-    expect(list).toHaveTextContent("Fix · Film · up to 25 files");
-    expect(list).toHaveTextContent("Convert · Film · up to 25 files");
-    expect(list.textContent).not.toMatch(/prepare/i);
+    expect(list).toHaveTextContent("Prepare · Film · up to 25 files · Encode audio");
   });
 
   it("creates a scan schedule without file filter or files per run", async () => {
@@ -636,38 +688,37 @@ describe("duplicating a schedule", () => {
     await waitFor(() => expect(body).toMatchObject({ name: "Nightly verify (copy)", cron: "*/15 * * * *", max_files: 25 }));
   });
 
-  it("copies a fix schedule with its files per run, and the copy starts paused", async () => {
+  it("copies a schedule that prepares with its files per run, and the copy starts paused", async () => {
     let body: unknown;
-    const state = makeApi([schedule({ action: "fix", compliance_state: "warning", max_files: 9 })], { "POST /schedules": (init) => { body = JSON.parse(String(init?.body)); return json(schedule({ id: "sc_2", action: "fix", enabled: false }), 201); } });
+    const state = makeApi([prepareSchedule({ compliance_state: "warning", max_files: 9 })], { "POST /schedules": (init) => { body = JSON.parse(String(init?.body)); return json(prepareSchedule({ id: "sc_2", enabled: false }), 201); } });
     const { view, editor } = await open(state);
 
     expect(within(editor).getByLabelText("Files per run")).toHaveValue(9);
     await fireEvent.click(within(editor).getByRole("button", { name: "Save schedule" }));
-    await waitFor(() => expect(body).toMatchObject({ action: "fix", compliance_state: "warning", max_files: 9 }));
+    await waitFor(() => expect(body).toMatchObject({ action: "prepare", compliance_state: "warning", max_files: 9 }));
     expect(await view.findByRole("status")).toHaveTextContent("Schedule saved. It is paused until you turn it on.");
   });
 
-  it("offers the re-encode permission only for fix and convert, off by default, and sends it", async () => {
+  it("offers the allowance only for preparing and sends the chosen level", async () => {
     const bodies: Array<Record<string, unknown>> = [];
-    const state = makeApi([schedule({ action: "fix", compliance_state: "warning", max_files: 9, allow_reencode: false })], { "POST /schedules": (init) => { bodies.push(JSON.parse(String(init?.body))); return json(schedule({ id: "sc_2", action: "fix", enabled: false }), 201); } });
+    const state = makeApi([prepareSchedule({ compliance_state: "warning", max_files: 6 })], { "POST /schedules": (init) => { bodies.push(JSON.parse(String(init?.body))); return json(prepareSchedule({ id: "sc_2", enabled: false }), 201); } });
     const { editor } = await open(state);
 
-    const box = within(editor).getByRole("checkbox", { name: "Re-encode allowed" });
-    expect(box).not.toBeChecked();
+    expect(within(editor).getByRole("radio", { name: "Copy only" })).toBeChecked();
     await fireEvent.click(within(within(editor).getByRole("group", { name: "Action" })).getByRole("button", { name: "Verify" }));
-    expect(within(editor).queryByRole("checkbox", { name: "Re-encode allowed" })).toBeNull();
-    await fireEvent.click(within(within(editor).getByRole("group", { name: "Action" })).getByRole("button", { name: "Fix" }));
+    expect(within(editor).queryByRole("radiogroup", { name: "Encoding allowance" })).toBeNull();
+    await fireEvent.click(within(within(editor).getByRole("group", { name: "Action" })).getByRole("button", { name: "Prepare" }));
 
-    await fireEvent.click(within(editor).getByRole("checkbox", { name: "Re-encode allowed" }));
+    await fireEvent.click(within(editor).getByRole("radio", { name: "Encode audio and video" }));
     await fireEvent.click(within(editor).getByRole("button", { name: "Save schedule" }));
     await waitFor(() => expect(bodies).toHaveLength(1));
-    expect(bodies[0]).toMatchObject({ action: "fix", allow_reencode: true });
+    expect(bodies[0]).toMatchObject({ action: "prepare", encode: "all" });
   });
 
-  it("copies the re-encode permission of the schedule it is copied from", async () => {
-    const state = makeApi([schedule({ action: "convert", compliance_state: null, max_files: 3, allow_reencode: true })]);
+  it("copies the allowance of the schedule it is copied from", async () => {
+    const state = makeApi([prepareSchedule({ max_files: 3, encode: "audio" })]);
     const { editor } = await open(state);
-    expect(within(editor).getByRole("checkbox", { name: "Re-encode allowed" })).toBeChecked();
+    expect(within(editor).getByRole("radio", { name: "Encode audio" })).toBeChecked();
   });
 
   it("copies a scan schedule without files per run", async () => {
@@ -700,17 +751,19 @@ describe("limits read from the server", () => {
   };
 
   it("shows the limit of the chosen action at Files per run, with the server's numbers", async () => {
-    const state = makeApi([], {}, { limits: { min_change_interval_minutes: 20, max_files: { verify: 321, fix: 9, convert: 4 } } });
+    const state = makeApi([], {}, { limits: { min_change_interval_minutes: 20, max_files: { verify: 321, prepare: 9 }, max_files_video: 4 } });
     const { editor } = await openEditor(state);
     const files = () => within(editor).getByLabelText("Files per run");
     const choose = (name: string) => fireEvent.click(within(within(editor).getByRole("group", { name: "Action" })).getByRole("button", { name }));
 
     await waitFor(() => expect(files()).toHaveAttribute("max", "321"));
     expect(within(editor).getByText("At most 321 files per run.")).toBeInTheDocument();
-    await choose("Fix");
+    await choose("Prepare");
     expect(files()).toHaveAttribute("max", "9");
     expect(within(editor).getByText("At most 9 files per run.")).toBeInTheDocument();
-    await choose("Convert");
+    await fireEvent.click(within(editor).getByRole("radio", { name: "Encode audio" }));
+    expect(files()).toHaveAttribute("max", "9");
+    await fireEvent.click(within(editor).getByRole("radio", { name: "Encode audio and video" }));
     expect(files()).toHaveAttribute("max", "4");
     await choose("Scan");
     expect(within(editor).queryByLabelText("Files per run")).toBeNull();
@@ -720,7 +773,8 @@ describe("limits read from the server", () => {
     const state = makeApi([]);
     const { editor } = await openEditor(state);
     await waitFor(() => expect(within(editor).getByLabelText("Files per run")).toHaveAttribute("max", "500"));
-    await fireEvent.click(within(within(editor).getByRole("group", { name: "Action" })).getByRole("button", { name: "Convert" }));
+    await fireEvent.click(within(within(editor).getByRole("group", { name: "Action" })).getByRole("button", { name: "Prepare" }));
+    await fireEvent.click(within(editor).getByRole("radio", { name: "Encode audio and video" }));
     await fireEvent.input(within(editor).getByLabelText("Name"), { target: { value: "x" } });
     await fireEvent.input(within(editor).getByLabelText("Files per run"), { target: { value: "7" } });
 
@@ -732,11 +786,11 @@ describe("limits read from the server", () => {
 
   it("asks the server about the cron for the chosen action and shows its refusal", async () => {
     const state = makeApi([], {
-      "GET /schedules/cron-preview?expression=0%203%20*%20*%201%2C2%2C3%2C4%2C5&lang=en&action=fix": () => preview("0 3 * * 1,2,3,4,5", "At 03:00, on weekdays"),
-      "GET /schedules/cron-preview?expression=0%2C10%20*%20*%20*%20*&lang=en&action=fix": () => invalid("A schedule that changes files may run at most every 15 minutes; this one runs every 10."),
+      "GET /schedules/cron-preview?expression=0%203%20*%20*%201%2C2%2C3%2C4%2C5&lang=en&action=prepare": () => preview("0 3 * * 1,2,3,4,5", "At 03:00, on weekdays"),
+      "GET /schedules/cron-preview?expression=0%2C10%20*%20*%20*%20*&lang=en&action=prepare": () => invalid("A schedule that changes files may run at most every 15 minutes; this one runs every 10."),
     });
     const { editor } = await openEditor(state);
-    await fireEvent.click(within(within(editor).getByRole("group", { name: "Action" })).getByRole("button", { name: "Fix" }));
+    await fireEvent.click(within(within(editor).getByRole("group", { name: "Action" })).getByRole("button", { name: "Prepare" }));
     await fireEvent.input(within(editor).getByLabelText("Name"), { target: { value: "x" } });
     await fireEvent.click(within(editor).getByRole("button", { name: "Cron" }));
     await within(editor).findByText("At 03:00, on weekdays");

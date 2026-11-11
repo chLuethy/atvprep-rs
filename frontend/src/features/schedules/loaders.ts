@@ -3,11 +3,18 @@ import { rawId } from "../files/loaders";
 
 export type Api = { request: (path: string, init?: RequestInit) => Promise<Response> };
 
-/** The four things a schedule can do. Fix and Convert change files. */
-export type Action = "verify" | "fix" | "convert" | "scan";
+/** The three things a schedule can do. Prepare changes files. */
+export type Action = "verify" | "prepare" | "scan";
 
 /** Whether a schedule of this action changes files: it starts paused and is turned on only after a confirmation. */
-export const changesFiles = (action: Action): boolean => action === "fix" || action === "convert";
+export const changesFiles = (action: Action): boolean => action === "prepare";
+
+/** The Kodierfreigabe of a schedule that prepares, in rising order (ADR 0008). */
+export type EncodeLevel = "copy" | "audio" | "all";
+export const ENCODE_LEVELS: ReadonlyArray<EncodeLevel> = ["copy", "audio", "all"];
+
+/** The Zielprofil as the server reports it: what a schedule is signed against when it is turned on. */
+export type TargetProfile = { crf: number; prefer_hevc10: boolean; keep_av1: boolean; fix_dts: boolean };
 
 /** One entry of a schedule's history: a run at its slot or by hand. */
 export type ScheduleRun = {
@@ -35,8 +42,10 @@ export type Schedule = {
   time: string;
   /** Null for a scan: it has no file limit. */
   max_files: number | null;
-  /** Fix and convert only: may the schedule take files that need a re-encode? Part of what the person signs when turning it on. */
-  allow_reencode?: boolean | null;
+  /** Prepare only: the Kodierfreigabe. Part of what the person signs when turning it on. */
+  encode?: EncodeLevel | null;
+  /** Prepare only: the current Zielprofil, which turning the schedule on signs as well. */
+  profile?: TargetProfile | null;
   enabled: boolean;
   /** How many files it would pick right now. */
   matching: number | null;
@@ -54,20 +63,30 @@ export type Limits = {
   minChangeIntervalMinutes: number;
   /** The most files per run, by action. A scan has none. */
   maxFiles: Partial<Record<Action, number>>;
+  /** The most files per run of a schedule that prepares with the video in its Kodierfreigabe. */
+  maxFilesVideo: number | null;
 };
+
+/** The most files one run may take: the video level of preparing has its own, lower limit. Null when the server has not said. */
+export function maxFilesLimit(limits: Limits | null, action: Action, encode: EncodeLevel): number | null {
+  if (!limits) return null;
+  if (action === "prepare" && encode === "all") return limits.maxFilesVideo ?? limits.maxFiles.prepare ?? null;
+  return limits.maxFiles[action] ?? null;
+}
 
 export type SchedulesResult = { kind: "ok"; items: Schedule[]; limits: Limits | null } | { kind: "error" } | { kind: "session" };
 
-type LimitsWire = { min_change_interval_minutes?: unknown; max_files?: Record<string, unknown> };
+type LimitsWire = { min_change_interval_minutes?: unknown; max_files?: Record<string, unknown>; max_files_video?: unknown };
 
 function readLimits(wire: LimitsWire | undefined): Limits | null {
   if (!wire || typeof wire.min_change_interval_minutes !== "number") return null;
   const maxFiles: Limits["maxFiles"] = {};
-  for (const action of ["verify", "fix", "convert", "scan"] as const) {
+  for (const action of ["verify", "prepare", "scan"] as const) {
     const value = wire.max_files?.[action];
     if (typeof value === "number") maxFiles[action] = value;
   }
-  return { minChangeIntervalMinutes: wire.min_change_interval_minutes, maxFiles };
+  const maxFilesVideo = typeof wire.max_files_video === "number" ? wire.max_files_video : null;
+  return { minChangeIntervalMinutes: wire.min_change_interval_minutes, maxFiles, maxFilesVideo };
 }
 
 export async function loadSchedules(api: Api): Promise<SchedulesResult> {
@@ -92,8 +111,8 @@ export type ScheduleInput = {
   /** A cron expression (the Cron mode); null means the days and time above (the Simple mode). */
   cron: string | null;
   maxFiles: number;
-  /** Fix and convert only. */
-  allowReencode: boolean;
+  /** Prepare only. A new schedule only copies. */
+  encode: EncodeLevel;
 };
 
 export type SaveResult = { ok: true; schedule: Schedule } | { ok: false; session: boolean; detail?: string };
@@ -130,7 +149,7 @@ export async function createSchedule(api: Api, input: ScheduleInput, key: string
     ...(input.action === "scan" ? {} : { compliance_state: input.complianceState }),
     ...timing(input),
     ...(input.action === "scan" ? {} : { max_files: input.maxFiles }),
-    ...(changesFiles(input.action) ? { allow_reencode: input.allowReencode } : {}),
+    ...(changesFiles(input.action) ? { encode: input.encode } : {}),
   });
   return result.ok && result.schedule ? { ok: true, schedule: result.schedule } : result.ok ? { ok: false, session: false } : result;
 }
@@ -141,7 +160,7 @@ export async function updateSchedule(api: Api, id: string, input: ScheduleInput,
     name: input.name,
     root_id: input.rootId, clear_root: input.rootId === null,
     ...(scan ? {} : { compliance_state: input.complianceState, clear_compliance_state: input.complianceState === null, max_files: input.maxFiles }),
-    ...(changesFiles(input.action) ? { allow_reencode: input.allowReencode } : {}),
+    ...(changesFiles(input.action) ? { encode: input.encode } : {}),
     ...timing(input),
   });
 }
@@ -154,7 +173,7 @@ export const runScheduleNow = (api: Api, id: string, key: string) => send(api, `
 
 /** What the server says about a cron expression someone is typing. */
 /** What the person is told before turning on a schedule that changes files, read fresh from the server. */
-export type EnableFacts = { matching: number; deleteOriginal: boolean | null };
+export type EnableFacts = { matching: number; deleteOriginal: boolean | null; encode: EncodeLevel | null; profile: TargetProfile | null };
 
 /** The schedule's current match count (capped by its run size) and the `delete_original` setting; null when the schedule cannot be read. */
 export async function loadEnableFacts(api: Api, id: string): Promise<EnableFacts | { session: true } | null> {
@@ -171,7 +190,13 @@ export async function loadEnableFacts(api: Api, id: string): Promise<EnableFacts
       if (error instanceof SessionError) return { session: true };
     }
     const matching = found.matching ?? 0;
-    return { matching: found.max_files === null ? matching : Math.min(matching, found.max_files), deleteOriginal };
+    return {
+      matching: found.max_files === null ? matching : Math.min(matching, found.max_files),
+      deleteOriginal,
+      encode: found.encode ?? null,
+      profile: found.profile ?? null,
+    };
+
   } catch {
     return null;
   }

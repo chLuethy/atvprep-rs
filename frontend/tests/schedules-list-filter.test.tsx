@@ -39,13 +39,13 @@ describe("filterSchedules", () => {
     s({ name: "v-on", action: "verify", enabled: true }),
     s({ name: "v-off", action: "verify", enabled: false }),
     s({ name: "sc-on", action: "scan", enabled: true }),
-    s({ name: "f-off", action: "fix", enabled: false }),
+    s({ name: "f-off", action: "prepare", enabled: false }),
   ];
   it("keeps everything without a selection", () => {
     expect(names(filterSchedules(rows, none))).toEqual(["v-on", "v-off", "sc-on", "f-off"]);
   });
   it("filters by any selected action", () => {
-    expect(names(filterSchedules(rows, { actions: ["scan", "fix"], statuses: [] }))).toEqual(["sc-on", "f-off"]);
+    expect(names(filterSchedules(rows, { actions: ["scan", "prepare"], statuses: [] }))).toEqual(["sc-on", "f-off"]);
   });
   it("filters by status", () => {
     expect(names(filterSchedules(rows, { actions: [], statuses: ["paused"] }))).toEqual(["v-off", "f-off"]);
@@ -92,7 +92,7 @@ describe("schedule list toolbar", () => {
   });
   it("shows an empty state with a reset when filters hide everything", async () => {
     const view = await page(rows);
-    fireEvent.click(view.getByRole("button", { name: "Fix" }));
+    fireEvent.click(view.getByRole("button", { name: "Prepare" }));
     expect(view.getByText("No schedule matches these filters")).toBeTruthy();
     fireEvent.click(view.getByRole("button", { name: "Reset filters" }));
     await waitFor(() => expect(listNames(view)).toHaveLength(3));
