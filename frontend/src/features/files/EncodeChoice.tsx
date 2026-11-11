@@ -1,8 +1,8 @@
 import { createSignal, createUniqueId, For, Show, type Component } from "solid-js";
+import type { EncodeLevel } from "../../lib/encode";
 import { N, t } from "../../lib/i18n";
 
-/** The Kodierfreigabe of one job: how far Prepare may encode (ADR 0008). */
-export type EncodeLevel = "copy" | "audio" | "all";
+export type { EncodeLevel } from "../../lib/encode";
 
 const LEVELS: ReadonlyArray<{ value: EncodeLevel; label: string; hint: string }> = [
   { value: "copy", label: N("Copy only"), hint: N("Streams are only copied. A file that needs encoding stays unchanged.") },

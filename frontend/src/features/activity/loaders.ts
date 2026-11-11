@@ -1,4 +1,5 @@
 import { SessionError } from "../../lib/api";
+import type { EncodeNeed } from "../../lib/encode";
 
 /** Data loading for the activity view. UI-free; every loader normalises SessionError. */
 
@@ -36,6 +37,8 @@ export type ItemRow = {
   output_media_id: string | null;
   /** The Kodierfreigabe this item ran with. */
   encode?: string | null;
+  /** The Kodierbedarf the server stores for the item's file. */
+  encode_need?: EncodeNeed | null;
   display_path?: string | null;
   error_code?: string | null;
   error_detail?: string | null;

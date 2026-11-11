@@ -10,8 +10,8 @@ export type Action = "verify" | "prepare" | "scan";
 export const changesFiles = (action: Action): boolean => action === "prepare";
 
 /** The Kodierfreigabe of a schedule that prepares, in rising order (ADR 0008). */
-export type EncodeLevel = "copy" | "audio" | "all";
-export const ENCODE_LEVELS: ReadonlyArray<EncodeLevel> = ["copy", "audio", "all"];
+import type { EncodeLevel } from "../../lib/encode";
+export { ENCODE_LEVELS, type EncodeLevel } from "../../lib/encode";
 
 /** The Zielprofil as the server reports it: what a schedule is signed against when it is turned on. */
 export type TargetProfile = { crf: number; prefer_hevc10: boolean; keep_av1: boolean; fix_dts: boolean };

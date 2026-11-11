@@ -375,6 +375,31 @@ describe("JobDetail: what happened", () => {
     await waitFor(() => expect(raisedBodies(api)).toEqual([{ encode: "audio" }]));
   });
 
+  it("preselects audio and video for a copy item whose file needs video, still behind the confirmation", async () => {
+    const api = detailApi({}, [item({ encode: "copy", encode_need: "video", error_code: "encode_not_allowed", error_detail: "Encoding not allowed (need=video allowance=copy): the file stays as it was." })], raising());
+    const view = render(() => <JobDetail api={api} jobId="j_1" />);
+
+    await fireEvent.click(await view.findByRole("button", { name: "Prepare with a higher allowance" }));
+    const panel = within(await view.findByRole("region", { name: "Prepare with a higher allowance" }));
+    expect(panel.getByRole("radio", { name: /^Encode audio\b(?! and)/ })).not.toBeChecked();
+    expect(panel.getByRole("radio", { name: /^Encode audio and video/ })).toBeChecked();
+    expect(panel.getByRole("button", { name: "Confirm" })).toBeDisabled();
+
+    await fireEvent.click(panel.getByRole("checkbox", { name: /re-encoded/ }));
+    await fireEvent.click(panel.getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(raisedBodies(api)).toEqual([{ encode: "all", confirm_video_encode: true }]));
+  });
+
+  it("preselects audio for a copy item whose file needs audio", async () => {
+    const api = detailApi({}, [item({ encode: "copy", encode_need: "audio", error_code: "encode_not_allowed", error_detail: "Encoding not allowed (need=audio allowance=copy): the file stays as it was." })], raising());
+    const view = render(() => <JobDetail api={api} jobId="j_1" />);
+
+    await fireEvent.click(await view.findByRole("button", { name: "Prepare with a higher allowance" }));
+    const panel = within(await view.findByRole("region", { name: "Prepare with a higher allowance" }));
+    expect(panel.getByRole("radio", { name: /^Encode audio\b(?! and)/ })).toBeChecked();
+    expect(panel.getByRole("button", { name: "Confirm" })).toBeEnabled();
+  });
+
   it("says when the higher allowance could not be queued", async () => {
     const api = detailApi({}, [refused("audio")], (path, init) => (path === "/job-items/i_1/raise-encode" && init?.method === "POST" ? json({ detail: "no" }, 409) : undefined));
     const view = render(() => <JobDetail api={api} jobId="j_1" />);

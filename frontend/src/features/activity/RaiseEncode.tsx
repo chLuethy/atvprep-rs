@@ -1,18 +1,24 @@
 import { createSignal, Show, type Component } from "solid-js";
 import { t } from "../../lib/i18n";
 import { Button } from "../../ui";
-import { createEncodeChoice, EncodeChoice, type EncodeLevel } from "../files/EncodeChoice";
+import { levelsAbove, requiredLevel, type EncodeLevel } from "../../lib/encode";
+import { createEncodeChoice, EncodeChoice } from "../files/EncodeChoice";
 import { raiseEncode, type Api, type ItemRow } from "./loaders";
 
-const HIGHER: Partial<Record<string, EncodeLevel[]>> = { copy: ["audio", "all"], audio: ["all"] };
-
 /** The levels above the allowance an item ran with; empty when it already had the highest. */
-export const higherLevels = (encode: string | null | undefined): EncodeLevel[] => (encode ? HIGHER[encode] ?? [] : []);
+export const higherLevels = (encode: string | null | undefined): EncodeLevel[] => levelsAbove(encode);
+
+/** The level offered first: the one the file's need asks for, else the next one up. */
+const preselected = (levels: EncodeLevel[], need: string | null | undefined): EncodeLevel | undefined => {
+  const wanted = requiredLevel(need);
+  return wanted && levels.includes(wanted) ? wanted : levels[0];
+};
 
 /** „Mit höherer Freigabe vorbereiten“: a new job for one refused item, confirmed here and not borrowed from the old one. */
 export const RaiseEncode: Component<{ api: Api; item: ItemRow; onRaised: (jobId: string | undefined) => void }> = (props) => {
   const levels = () => higherLevels(props.item.encode);
-  const choice = createEncodeChoice(levels()[0]);
+  // „Audio und Video“ still waits for its own confirmation when the need preselects it.
+  const choice = createEncodeChoice(preselected(levels(), props.item.encode_need));
   const [open, setOpen] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
   const [failure, setFailure] = createSignal<"queue" | "session" | null>(null);
