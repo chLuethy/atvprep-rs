@@ -583,3 +583,80 @@ fn blockers_are_quarantined_only_for_standalone_runs() {
     assert!(!f.base.join("q").exists());
     assert_eq!(leftovers(&f.base), Vec::<String>::new());
 }
+
+fn write_srt(path: &Path, text: &str) {
+    std::fs::write(path, format!("1\n00:00:00,000 --> 00:00:01,000\n{text}\n")).unwrap();
+}
+
+/// Prepares `name` next to `de.srt`, `de.sdh.srt` and `de.forced.srt`: afterwards every sidecar
+/// counts as embedded, no sidecar is reported as still to merge, and a second prepare changes
+/// nothing. The MP4 muxer drops subtitle titles, so SDH survives only as the `hearing_impaired`
+/// disposition (#62).
+fn sdh_sidecars_stay_embedded(name: &str) {
+    let mut f = fixture(name, None);
+    let work = f.source.parent().unwrap().to_path_buf();
+    let stem = f.source.file_stem().unwrap().to_string_lossy().into_owned();
+    let sidecars: Vec<String> = ["de", "de.sdh", "de.forced"]
+        .iter()
+        .map(|kind| format!("{stem}.{kind}.srt"))
+        .collect();
+    for sidecar in &sidecars {
+        write_srt(&work.join(sidecar), sidecar);
+    }
+
+    let first = prepare_file(&mut f.ctx, &f.source, &PrepareOptions::default(), None).unwrap();
+    assert_eq!(first.error, None, "{name}: first prepare");
+    let output = first.output.clone().unwrap_or_else(|| f.source.clone());
+    let output_name = output.file_name().unwrap().to_string_lossy().into_owned();
+    let probe = f.ctx.ffprobe.probe_json(&output).unwrap();
+    let streams = probe["streams"].as_array().unwrap();
+    let states: Vec<(String, String)> =
+        atvprep_core::sidecars::classify_sidecars(&output_name, &sidecars, Some(streams))
+            .into_iter()
+            .map(|(n, _, s)| (n, s))
+            .collect();
+    let embedded: Vec<(String, String)> = sidecars
+        .iter()
+        .map(|n| (n.clone(), "embedded".to_owned()))
+        .collect();
+    assert_eq!(states, embedded, "{name}: sidecar states after prepare");
+
+    let paths: Vec<PathBuf> = sidecars.iter().map(|n| work.join(n)).collect();
+    let issues = atvprep_core::planner::detect_issues(
+        &output,
+        &probe,
+        &paths,
+        None,
+        &f.ctx.ffprobe,
+        &std::collections::BTreeSet::new(),
+        atvprep_core::planner::DetectOptions {
+            fix_dts: true,
+            untagged_audio: false,
+        },
+    );
+    assert!(
+        !issues.iter().any(|i| i.contains("sidecar")),
+        "{name}: {issues:?}"
+    );
+
+    let before = sha(&output);
+    let signature_before = signature(&output, &f.ctx.ffprobe);
+    let second = prepare_file(&mut f.ctx, &output, &PrepareOptions::default(), None).unwrap();
+    assert_eq!(second.error, None, "{name}: second prepare");
+    assert_eq!(
+        sha(&output),
+        before,
+        "{name}: the second prepare rewrote the file"
+    );
+    assert_eq!(signature(&output, &f.ctx.ffprobe), signature_before);
+}
+
+#[test]
+fn sdh_sidecars_embedded_into_an_mp4_count_as_embedded() {
+    sdh_sidecars_stay_embedded("clean.mp4");
+}
+
+#[test]
+fn sdh_sidecars_embedded_from_an_mkv_count_as_embedded() {
+    sdh_sidecars_stay_embedded("movie.mkv");
+}

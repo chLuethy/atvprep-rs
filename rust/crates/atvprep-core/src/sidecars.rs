@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 use crate::constants::{LANG_MAP, TEXT_SUB_CODECS, normalize_lang};
-use crate::probe_helpers::{object, subtitle_is_forced};
+use crate::probe_helpers::{object, subtitle_is_forced, truthy};
 
 /// Languages written out in a file name, as Bazarr and many subtitle sites do (`Film.German.srt`).
 const LANGUAGE_NAMES: &[(&str, &str)] = &[
@@ -139,6 +139,10 @@ pub const fn sub_kind(forced: bool, sdh: bool) -> &'static str {
 }
 
 /// Forced and SDH flags of a subtitle stream.
+///
+/// SDH comes from the `hearing_impaired` disposition or an SDH hint in the title. The disposition
+/// matters for MP4: its muxer drops subtitle titles, so a prepared SDH track keeps only the flag
+/// (#62). [`sub_kind`] lets forced win over SDH.
 #[must_use]
 pub fn sub_info_from_stream(stream: &Value) -> (bool, bool) {
     let title = object(stream, "tags")
@@ -146,9 +150,10 @@ pub fn sub_info_from_stream(stream: &Value) -> (bool, bool) {
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_lowercase();
-    let sdh = ["sdh", " hi ", "hearing", "hörgeschädigt"]
-        .iter()
-        .any(|x| title.contains(x));
+    let sdh = truthy(object(stream, "disposition").and_then(|d| d.get("hearing_impaired")))
+        || ["sdh", " hi ", "hearing", "hörgeschädigt"]
+            .iter()
+            .any(|x| title.contains(x));
     (subtitle_is_forced(stream), sdh)
 }
 
