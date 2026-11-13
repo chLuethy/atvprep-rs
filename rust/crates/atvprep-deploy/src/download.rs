@@ -1,9 +1,26 @@
-//! Bounded HTTPS fetching without redirects or unverified installation.
+//! Bounded HTTPS fetching without unverified installation.
 use crate::{
     Asset, Error, MAX_ASSET_BYTES, MAX_MANIFEST_BYTES, Manifest, Result, parse_signed_manifest,
     verify_asset,
 };
 use std::{io::Read, time::Duration};
+
+/// HTTPS without embedded credentials or fragment; plain HTTP only to loopback in tests.
+fn permitted(url: &reqwest::Url, allow_loopback_http: bool) -> bool {
+    let local = allow_loopback_http
+        && url.scheme() == "http"
+        && url
+            .host_str()
+            .is_some_and(|host| host == "127.0.0.1" || host == "[::1]");
+    (local || url.scheme() == "https")
+        && url.host_str().is_some()
+        && url.username().is_empty()
+        && url.password().is_none()
+        && url.fragment().is_none()
+}
+
+/// GitHub release downloads redirect once to their storage host; a little headroom, no more.
+const MAX_REDIRECTS: usize = 3;
 
 pub struct Downloader {
     client: reqwest::blocking::Client,
@@ -11,11 +28,15 @@ pub struct Downloader {
 }
 
 impl Downloader {
-    /// Build a downloader with an overall request timeout and no redirects.
+    /// Build a downloader with an overall request timeout that follows redirects (ADR 0009).
     ///
     /// # Errors
     /// The timeout is zero or the HTTPS client cannot be initialized.
     pub fn new(timeout: Duration) -> Result<Self> {
+        Self::build(timeout, false)
+    }
+
+    fn build(timeout: Duration, allow_loopback_http: bool) -> Result<Self> {
         if timeout.is_zero() {
             return Err(Error::Invalid(
                 "download timeout must be positive".to_owned(),
@@ -24,31 +45,29 @@ impl Downloader {
         let client = reqwest::blocking::Client::builder()
             .timeout(timeout)
             .connect_timeout(timeout.min(Duration::from_secs(15)))
-            .redirect(reqwest::redirect::Policy::none())
-            .https_only(true)
+            .redirect(reqwest::redirect::Policy::custom(move |attempt| {
+                if attempt.previous().len() > MAX_REDIRECTS {
+                    attempt.error("too many redirects")
+                } else if permitted(attempt.url(), allow_loopback_http) {
+                    attempt.follow()
+                } else {
+                    attempt.error("redirect target must use HTTPS without embedded credentials")
+                }
+            }))
+            .https_only(!allow_loopback_http)
             .user_agent(concat!("atvprep/", env!("CARGO_PKG_VERSION")))
             .build()
             .map_err(|_| Error::Invalid("cannot initialize HTTPS downloader".to_owned()))?;
         Ok(Self {
             client,
-            allow_loopback_http: false,
+            allow_loopback_http,
         })
     }
 
     fn fetch(&self, url: &str, limit: u64) -> Result<Vec<u8>> {
         let url = reqwest::Url::parse(url)
             .map_err(|_| Error::Invalid("invalid download URL".to_owned()))?;
-        let local = self.allow_loopback_http
-            && url.scheme() == "http"
-            && url
-                .host_str()
-                .is_some_and(|host| host == "127.0.0.1" || host == "[::1]");
-        if (!local && url.scheme() != "https")
-            || url.host_str().is_none()
-            || !url.username().is_empty()
-            || url.password().is_some()
-            || url.fragment().is_some()
-        {
+        if !permitted(&url, self.allow_loopback_http) {
             return Err(Error::Invalid(
                 "download URL must use HTTPS without embedded credentials".to_owned(),
             ));
@@ -123,14 +142,7 @@ mod tests {
         (url, handle)
     }
     fn local() -> Downloader {
-        Downloader {
-            client: reqwest::blocking::Client::builder()
-                .timeout(Duration::from_secs(2))
-                .redirect(reqwest::redirect::Policy::none())
-                .build()
-                .unwrap(),
-            allow_loopback_http: true,
-        }
+        Downloader::build(Duration::from_secs(2), true).unwrap()
     }
     fn asset(url: String) -> Asset {
         Asset {
@@ -142,12 +154,11 @@ mod tests {
     }
 
     #[test]
-    fn downloads_only_exact_verified_bytes_and_refuses_redirects_or_truncation() {
+    fn downloads_only_exact_verified_bytes_and_refuses_truncation() {
         let responses=[b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\nConnection: close\r\n\r\nabc".as_slice(),
             b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\nConnection: close\r\n\r\nbad",
             b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\nabcd",
             b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\nConnection: close\r\n\r\nab",
-            b"HTTP/1.1 302 Found\r\nLocation: https://example.test/secret\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
             b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n4\r\nabcd\r\n0\r\n\r\n"];
         for (index, response) in responses.into_iter().enumerate() {
             let (url, server) = source(response.to_vec());
@@ -159,6 +170,59 @@ mod tests {
             }
             server.join().unwrap();
         }
+    }
+
+    const OK_ABC_RESPONSE: &[u8] =
+        b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\nConnection: close\r\n\r\nabc";
+
+    fn redirect_to(target: &str) -> Vec<u8> {
+        format!("HTTP/1.1 302 Found\r\nLocation: {target}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+            .into_bytes()
+    }
+
+    /// A chain of `hops` redirects that ends at a server answering with `final_response`.
+    fn redirect_chain(hops: usize, final_response: &[u8]) -> (String, Vec<thread::JoinHandle<()>>) {
+        let (mut url, server) = source(final_response.to_vec());
+        let mut servers = vec![server];
+        for _ in 0..hops {
+            let (next, server) = source(redirect_to(&url));
+            url = next;
+            servers.push(server);
+        }
+        (url, servers)
+    }
+
+    #[test]
+    fn follows_a_redirect_to_the_release_asset_host() {
+        let (url, servers) = redirect_chain(1, OK_ABC_RESPONSE);
+        assert_eq!(local().asset(&asset(url)).unwrap(), b"abc");
+        for server in servers {
+            server.join().unwrap();
+        }
+    }
+
+    #[test]
+    fn follows_at_most_three_redirects() {
+        let (url, servers) = redirect_chain(3, OK_ABC_RESPONSE);
+        assert_eq!(local().asset(&asset(url)).unwrap(), b"abc");
+        for server in servers {
+            server.join().unwrap();
+        }
+
+        // The fourth redirect is refused: its target and the asset are never contacted, so their
+        // one-shot servers stay blocked in accept and are detached instead of joined.
+        let (url, _servers) = redirect_chain(4, OK_ABC_RESPONSE);
+        assert!(local().asset(&asset(url)).is_err());
+    }
+
+    #[test]
+    fn refuses_a_redirect_to_a_target_with_embedded_credentials() {
+        // The credentialed target is never contacted; its server is detached instead of joined.
+        let (target, _server) = source(OK_ABC_RESPONSE.to_vec());
+        let target = target.replacen("http://", "http://user:secret@", 1);
+        let (url, redirect) = source(redirect_to(&target));
+        assert!(local().asset(&asset(url)).is_err());
+        redirect.join().unwrap();
     }
 
     #[test]

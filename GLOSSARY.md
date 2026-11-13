@@ -5,8 +5,12 @@ Wie atvprep gebaut, signiert, auf dem Host `mm` und in den Servarr-Containern in
 ## Language
 
 **Release**:
-Eine Version von atvprep, bestehend aus Manifest, Signatur und je einem Asset pro Plattform. Wird lokal gebaut und signiert, nie in CI.
+Eine Version von atvprep, bestehend aus Manifest, Signatur und je einem Asset pro Plattform. Wird lokal gebaut und signiert, in CI reproduzierbar nachgebaut, aber nie dort signiert. Veröffentlicht auf GitHub, danach auf den Spiegel übertragen.
 _Avoid_: Build, Paket, Wheel (Python-Altsystem)
+
+**Spiegel**:
+Die Kopie von Repository und Releases auf Gitea, nur beim Release aktualisiert. Nimmt keine Arbeit an (keine Issues, PRs, CI) und dient als zweite Download-Quelle.
+_Avoid_: Backup, Mirror (meint in Gitea die eingebaute Funktion, die nicht genutzt wird)
 
 **Asset**:
 Die statisch gelinkte Binary eines Releases für genau eine Plattform, zum Beispiel `linux-x86_64`.

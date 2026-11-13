@@ -9,10 +9,10 @@ Der Manager verwendet eine eigene SQLite-Datenbank. Eine Datenbank der früheren
 Auf einem Linux-Host (x86_64 oder aarch64) installiert oder aktualisiert dieser Befehl die neueste signierte Version nach `/usr/local/bin`:
 
 ```sh
-curl -fsSL https://git.ch-luethy.ch/chl/atvprep-rs/raw/branch/main/scripts/install.sh | sudo sh
+curl -fsSL https://raw.githubusercontent.com/chLuethy/atvprep-rs/main/scripts/install.sh | sudo sh
 ```
 
-Beim ersten Lauf zeigt er den Fingerabdruck des Vertrauensschlüssels an und legt diesen unter `/etc/atvprep/release.pub` ab; den Fingerabdruck mit dem ausserhalb von Gitea notierten vergleichen oder vorab mit `ATVPREP_KEY_FINGERPRINT=SHA256:…` festlegen. Das Skript prüft Signatur und SHA-256, bevor es etwas ausführt. Auf `mm` produktiv nur im Releasefenster, siehe [DEPLOYMENT.md](DEPLOYMENT.md), dort auch Servarr-Hook, Optionen und manuelle Installation.
+Beim ersten Lauf zeigt er den Fingerabdruck des Vertrauensschlüssels an und legt diesen unter `/etc/atvprep/release.pub` ab; den Fingerabdruck mit dem ausserhalb von GitHub und Gitea notierten vergleichen oder vorab mit `ATVPREP_KEY_FINGERPRINT=SHA256:…` festlegen. Das Skript prüft Signatur und SHA-256, bevor es etwas ausführt. Auf `mm` produktiv nur im Releasefenster, siehe [DEPLOYMENT.md](DEPLOYMENT.md), dort auch Servarr-Hook, Optionen und manuelle Installation.
 
 ## Voraussetzungen für den Eigenbau
 

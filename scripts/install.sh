@@ -1,7 +1,7 @@
 #!/bin/sh
 # Installs or updates atvprep from the latest signed release.
 #
-#   curl -fsSL https://git.ch-luethy.ch/chl/atvprep-rs/raw/branch/main/scripts/install.sh | sudo sh
+#   curl -fsSL https://raw.githubusercontent.com/chLuethy/atvprep-rs/main/scripts/install.sh | sudo sh
 #   ... | sudo sh -s -- servarr sonarr /pfad/zu/sonarr-config/atvprep-hook
 #
 # This script itself is not trusted: it only runs binaries whose signed manifest
@@ -15,10 +15,26 @@
 #   ATVPREP_TRUSTED_KEY      trust key path (default /etc/atvprep/release.pub)
 #   ATVPREP_KEY_FINGERPRINT  expected SHA256:... fingerprint of the key
 #   ATVPREP_HOOKS            hook register (default /etc/atvprep/hooks)
+#   ATVPREP_HOST             release host (default https://github.com; the Gitea
+#                            mirror is https://git.ch-luethy.ch, ADR 0009)
+#   ATVPREP_REPO             owner/repo on that host (default chLuethy/atvprep-rs
+#                            on GitHub, chl/atvprep-rs elsewhere)
 set -eu
 
-HOST=${ATVPREP_HOST:-https://git.ch-luethy.ch}
-REPO=${ATVPREP_REPO:-chl/atvprep-rs}
+HOST=${ATVPREP_HOST:-https://github.com}
+HOST=${HOST%/}
+case "$HOST" in
+    https://github.com)
+        REPO=${ATVPREP_REPO:-chLuethy/atvprep-rs}
+        LATEST_URL=https://api.github.com/repos/$REPO/releases/latest
+        RAW_URL=https://raw.githubusercontent.com/$REPO/main
+        ;;
+    *)
+        REPO=${ATVPREP_REPO:-chl/atvprep-rs}
+        LATEST_URL=$HOST/api/v1/repos/$REPO/releases/latest
+        RAW_URL=$HOST/$REPO/raw/branch/main
+        ;;
+esac
 DEST=${ATVPREP_DEST:-/usr/local/bin/atvprep}
 KEY=${ATVPREP_TRUSTED_KEY:-/etc/atvprep/release.pub}
 HOOKS=${ATVPREP_HOOKS:-/etc/atvprep/hooks}
@@ -62,7 +78,7 @@ fetch() { curl -fsSL --proto '=https' --max-time 300 -o "$2" "$1"; }
 if [ -n "${ATVPREP_VERSION:-}" ]; then
     TAG=v${ATVPREP_VERSION#v}
 else
-    fetch "$HOST/api/v1/repos/$REPO/releases/latest" "$WORK/latest.json"
+    fetch "$LATEST_URL" "$WORK/latest.json"
     TAG=$(sed -n 's/.*"tag_name": *"\(v[0-9][0-9.]*\)".*/\1/p' "$WORK/latest.json" | head -n 1)
     [ -n "$TAG" ] || die "neueste Version konnte nicht ermittelt werden"
 fi
@@ -78,7 +94,7 @@ if [ ! -f "$KEY" ]; then
     [ "$(wc -l < "$WORK/release.pub")" -le 1 ] && grep -q '^ssh-ed25519 ' "$WORK/release.pub" || die "release.pub ist kein einzelner OpenSSH-Ed25519-Schlüssel"
     FINGERPRINT=$(ssh-keygen -lf "$WORK/release.pub" | awk '{print $2}')
     printf 'Erstinstallation: Vertrauensschlüssel %s wird nach %s übernommen.\n' "$FINGERPRINT" "$KEY"
-    printf 'Fingerabdruck mit dem ausserhalb von Gitea notierten vergleichen!\n'
+    printf 'Fingerabdruck mit dem ausserhalb von GitHub und Gitea notierten vergleichen!\n'
     if [ -n "${ATVPREP_KEY_FINGERPRINT:-}" ] && [ "$ATVPREP_KEY_FINGERPRINT" != "$FINGERPRINT" ]; then
         die "Fingerabdruck stimmt nicht mit ATVPREP_KEY_FINGERPRINT überein"
     fi
@@ -178,7 +194,7 @@ elif [ "$INSTALLED_NEW" -eq 1 ] && [ "$MODE" != servarr ]; then
     cat <<EOF
 
 Servarr-Hook einrichten (einmalig, je Anwendung):
-  curl -fsSL $HOST/$REPO/raw/branch/main/scripts/install.sh | sudo sh -s -- servarr sonarr /pfad/zu/sonarr-config/atvprep-hook
+  curl -fsSL $RAW_URL/scripts/install.sh | sudo sh -s -- servarr sonarr /pfad/zu/sonarr-config/atvprep-hook
 Danach aktualisiert jeder erneute Lauf dieses Skripts auch die eingetragenen Hooks.
 Auf dem produktiven Host nur im Releasefenster, siehe DEPLOYMENT.md.
 EOF
