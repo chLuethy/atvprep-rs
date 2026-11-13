@@ -17,7 +17,7 @@ const STAGES: [&str; 12] = [
     include_str!("migrations/0009_schedule_allow_reencode.sql"),
     include_str!("migrations/0010_encode_need.sql"),
     include_str!("migrations/0011_schedule_encode.sql"),
-    include_str!("migrations/0012_recheck_sidecar_warnings.sql"),
+    include_str!("migrations/0012_recheck_sdh_sidecar_plans.sql"),
 ];
 
 /// The version this build creates and understands.
@@ -750,81 +750,123 @@ mod tests {
         assert_eq!(left, 0);
     }
 
+    /// A file of a version 11 database with its stored plan, an optional sidecar and the finished
+    /// background check of these bytes and this Zielprofil that stored the plan.
+    fn seed_checked_file(conn: &Conn, id: i64, change: &str, sidecar: Option<&str>) {
+        let need = if change == "audio" { "audio" } else { "none" };
+        conn.raw()
+            .execute(
+                "INSERT INTO media_files(id, root_id, relative_path, kind, suffix, size, mtime_ns, fingerprint,
+                   discovery_state, compliance_state, compliance_reasons, workflow_state, desired_action,
+                   encode_need, planned_change)
+                 VALUES (?1, 1, ?2, 'video', '.mp4', 1, 1, ?3, 'present', 'clean',
+                         '[\"No compliance violations reported by verify.\"]', 'idle', 'none', ?4, ?5)",
+                params![id, format!("f{id}.mp4"), format!("fp{id}"), need, change],
+            )
+            .unwrap();
+        if let Some(sidecar) = sidecar {
+            conn.raw()
+                .execute(
+                    "INSERT INTO sidecars(media_file_id, relative_path, fingerprint) VALUES (?1, ?2, 's')",
+                    params![id, sidecar],
+                )
+                .unwrap();
+        }
+        exec(
+            conn,
+            "INSERT INTO jobs(action, status) VALUES ('verify', 'succeeded')",
+        )
+        .unwrap();
+        let job = conn.raw().last_insert_rowid();
+        conn.raw()
+            .execute(
+                "INSERT INTO job_items(job_id, media_file_id, action, position, status, settings_snapshot_json)
+                 VALUES (?1, ?2, 'verify', 0, 'succeeded', '{\"need_check\":true,\"profile_revision\":0}')",
+                params![job, id],
+            )
+            .unwrap();
+        conn.raw()
+            .execute(
+                "INSERT INTO input_snapshots(job_item_id, snapshot_json) VALUES (?1, ?2)",
+                params![
+                    conn.raw().last_insert_rowid(),
+                    format!("{{\"file_fingerprint\":\"fp{id}\"}}")
+                ],
+            )
+            .unwrap();
+    }
+
+    /// Before #62 the check saw an embedded SDH sidecar of an MP4 as still to merge and stored a
+    /// Remux. Version 12 sends such a file back to the background check, even though that check
+    /// already ran once on the same bytes and Zielprofil.
     #[test]
-    fn a_version_11_database_sends_a_warning_only_about_unmerged_sidecars_to_a_new_check() {
+    fn a_version_11_database_checks_a_file_with_an_sdh_sidecar_and_a_planned_change_again() {
         let (_db, mut conn) = database_at(11);
         exec(
             &conn,
             "INSERT INTO library_roots(name, canonical_path) VALUES ('r', '/r')",
         )
         .unwrap();
-        let insert = |id: i64, state: &str, reasons: &str| {
-            conn.raw()
-                .execute(
-                    "INSERT INTO media_files(id, root_id, relative_path, kind, suffix, size, mtime_ns, fingerprint,
-                       discovery_state, compliance_state, compliance_reasons, workflow_state, desired_action,
-                       encode_need, planned_change)
-                     VALUES (?1, 1, ?2, 'video', '.mp4', 1, 1, 'f', 'present', ?3, ?4, 'idle', 'none',
-                             'none', 'none')",
-                    rusqlite::params![id, format!("f{id}.mp4"), state, reasons],
-                )
-                .unwrap();
-        };
-        let sidecar = r#"["[warning] sidecars: 1 sidecar SRT(s) not yet merged"]"#;
-        let mixed = r#"["[warning] fast-start: moov after mdat","[warning] sidecars: 2 sidecar SRT(s) not yet merged"]"#;
-        let other = r#"["[warning] fast-start: moov after mdat"]"#;
-        let blocker = r#"["[blocker] sidecars: 1 sidecar SRT(s) not yet merged"]"#;
-        insert(1, "warning", sidecar);
-        insert(2, "warning", mixed);
-        insert(3, "warning", other);
-        insert(4, "blocker", blocker);
-        insert(
-            5,
-            "clean",
-            r#"["No compliance violations reported by verify."]"#,
-        );
+        // (id, planned_change, sidecar of the file)
+        let files = [
+            (1, "remux", Some("f1.de.sdh.srt")),
+            (2, "none", Some("f2.de.sdh.srt")),
+            (3, "remux", Some("f3.de.srt")),
+            (4, "remux", None),
+            (5, "audio", Some("Sub/f5.en.hi.srt")),
+        ];
+        for (id, change, sidecar) in files {
+            seed_checked_file(&conn, id, change, sidecar);
+        }
         migrate(&mut conn).unwrap();
         assert_eq!(version(&conn).unwrap(), VERSION);
-        let rows: Vec<(String, String, String, String)> = conn
+
+        let rows: Vec<(i64, String, String, String)> = conn
             .raw()
-            .prepare(
-                "SELECT compliance_state, compliance_reasons, encode_need, planned_change
-                 FROM media_files ORDER BY id",
-            )
+            .prepare("SELECT id, compliance_state, encode_need, planned_change FROM media_files ORDER BY id")
             .unwrap()
             .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
             .unwrap()
             .collect::<std::result::Result<_, _>>()
             .unwrap();
-        // Unknown, not clean: only a real check may call it ready. The unknown need is what the
-        // background check of `queue_need_checks` picks up.
-        assert_eq!(rows[0].0, "unknown");
-        assert_eq!(
-            (rows[0].2.as_str(), rows[0].3.as_str()),
-            ("unknown", "unknown")
-        );
-        let reasons: Vec<String> = serde_json::from_str(&rows[0].1).unwrap();
-        assert_eq!(reasons.len(), 1);
-        assert!(reasons[0].contains("check"), "{reasons:?}");
-        let untouched = |state: &str, reasons: &str| {
-            (
-                state.to_owned(),
-                reasons.to_owned(),
-                "none".to_owned(),
-                "none".to_owned(),
-            )
+        let row = |id: i64, need: &str, change: &str| {
+            (id, "clean".to_owned(), need.to_owned(), change.to_owned())
         };
         assert_eq!(
-            rows[1..],
+            rows,
             [
-                untouched("warning", mixed),
-                untouched("warning", other),
-                untouched("blocker", blocker),
-                untouched(
-                    "clean",
-                    r#"["No compliance violations reported by verify."]"#
-                ),
+                // The stored plan is unknown again, never "ready" without a check.
+                row(1, "unknown", "unknown"),
+                row(2, "none", "none"),
+                row(3, "none", "remux"),
+                row(4, "none", "remux"),
+                row(5, "unknown", "unknown"),
             ]
+        );
+
+        let clock = crate::clock::FixedClock(1_700_000_000_000_000);
+        crate::worker::runtime::queue_need_checks(
+            crate::repo::Ctx {
+                conn: conn.raw(),
+                clock: &clock,
+            },
+            0,
+        )
+        .unwrap();
+        let queued: Vec<i64> = conn
+            .raw()
+            .prepare(
+                "SELECT media_file_id FROM job_items WHERE status='queued' ORDER BY media_file_id",
+            )
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            queued,
+            [1, 5],
+            "the earlier check of the same bytes does not block"
         );
     }
 
