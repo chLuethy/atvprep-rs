@@ -59,6 +59,26 @@ pub fn subtitle_is_forced(stream: &Value) -> bool {
     FORCED_TITLE_HINTS.iter().any(|hint| title.contains(hint)) && !FULL_TRACK_TITLE.is_match(&title)
 }
 
+/// True if the subtitle stream is SDH: the `hearing_impaired` disposition or an SDH hint in its
+/// title.
+///
+/// The one place SDH is read from a stream. The disposition matters for MP4: its muxer drops
+/// subtitle titles, so a prepared SDH track keeps only the flag (#62).
+#[must_use]
+pub fn subtitle_is_sdh(stream: &Value) -> bool {
+    if truthy(object(stream, "disposition").and_then(|d| d.get("hearing_impaired"))) {
+        return true;
+    }
+    let title = object(stream, "tags")
+        .and_then(|t| t.get("title"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_lowercase();
+    ["sdh", " hi ", "hearing", "hörgeschädigt"]
+        .iter()
+        .any(|x| title.contains(x))
+}
+
 /// Cached per-file probe results, loaded once so the planner does not shell out again.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProbeContext {
@@ -261,18 +281,12 @@ pub fn subtitle_infos(probe: &Value) -> Vec<(String, bool, bool)> {
         .iter()
         .filter(|s| s.get("codec_type").and_then(Value::as_str) == Some("subtitle"))
         .map(|s| {
-            let tags = object(s, "tags");
-            let lang = normalize_lang(tags.and_then(|t| t.get("language")).and_then(Value::as_str));
-            let title = tags
-                .and_then(|t| t.get("title"))
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .to_lowercase();
-            let sdh = truthy(object(s, "disposition").and_then(|d| d.get("hearing_impaired")))
-                || ["sdh", " hi ", "hearing", "hörgeschädigt"]
-                    .iter()
-                    .any(|x| title.contains(x));
-            (lang, sdh, subtitle_is_forced(s))
+            let lang = normalize_lang(
+                object(s, "tags")
+                    .and_then(|t| t.get("language"))
+                    .and_then(Value::as_str),
+            );
+            (lang, subtitle_is_sdh(s), subtitle_is_forced(s))
         })
         .collect()
 }

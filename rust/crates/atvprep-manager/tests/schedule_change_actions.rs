@@ -246,6 +246,32 @@ fn a_schedule_leaves_a_clean_mp4_whose_sidecar_is_already_embedded() {
 }
 
 #[test]
+fn a_schedule_leaves_a_clean_mp4_whose_sdh_sidecar_is_embedded_without_a_title() {
+    let db = Db::memory().unwrap();
+    let conn = seed(&db, "prepare", 0, true);
+    // What ffprobe reports for an SDH track ffmpeg wrote into an MP4: the title is gone, only the
+    // disposition says SDH (#62).
+    conn.raw()
+        .execute_batch(
+            "INSERT INTO sidecars(media_file_id,relative_path,fingerprint) VALUES(1,'one.de.sdh.srt','x');
+             INSERT INTO inspections(media_file_id,source_fingerprint,input_fingerprint,tool_name,tool_version,result)
+             VALUES(1,'s','one','ffprobe','1','{\"streams\":[{\"codec_type\":\"subtitle\",\"codec_name\":\"mov_text\",\"tags\":{\"language\":\"deu\",\"handler_name\":\"SubtitleHandler\"},\"disposition\":{\"default\":0,\"forced\":0,\"hearing_impaired\":1,\"captions\":1}}]}');",
+        )
+        .unwrap();
+    assert!(
+        !atvprep_manager::embed::open_media_ids(conn.raw())
+            .unwrap()
+            .contains(&1)
+    );
+    let clock = FixedClock(NOW);
+    let ctx = Ctx {
+        conn: conn.raw(),
+        clock: &clock,
+    };
+    assert_eq!(run_schedule(ctx, 1).unwrap(), "Queued 2 files");
+}
+
+#[test]
 fn a_schedule_honours_max_files() {
     let db = Db::memory().unwrap();
     let conn = seed(&db, "prepare", 0, true);

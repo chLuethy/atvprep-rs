@@ -255,7 +255,7 @@ const NEED_CHECK_BATCH: i64 = 32;
 /// Queue „Prüfen“ for files whose Kodierbedarf is unknown. Each file, state of its bytes and
 /// revision of the Zielprofil is tried once: a check that ends without a need is not repeated on
 /// its own, a changed file or a changed profile is checked anew.
-fn queue_need_checks(ctx: Ctx<'_>, settle_seconds: i64) -> Result<()> {
+pub(crate) fn queue_need_checks(ctx: Ctx<'_>, settle_seconds: i64) -> Result<()> {
     let tx =
         rusqlite::Transaction::new_unchecked(ctx.conn, rusqlite::TransactionBehavior::Immediate)?;
     let write = Ctx {
