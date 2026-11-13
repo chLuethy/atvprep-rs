@@ -11,6 +11,8 @@ set -euo pipefail
 : "${GITEA_REPO:?}"
 : "${RELEASE_TRUSTED_KEY:?}"
 : "${RELEASE_VERSION:?}"
+GITEA_URL=${GITEA_URL%/}
+case "$GITEA_URL" in https://*) ;; *) echo "GITEA_URL must start with https://" >&2; exit 1 ;; esac
 assets=$(cd "${1:?usage: mirror-release.sh ASSET_DIR}" && pwd)
 root=$(cd "$(dirname "$0")/.." && pwd)
 work=$(mktemp -d)
@@ -71,7 +73,7 @@ for name in "${names[@]}"; do
   curl -fsS -H "$auth" -F "attachment=@$assets/$name" "$api/releases/$id/assets?name=$name" > /dev/null
 done
 curl -fsS -H "$auth" "$api/releases/$id" > "$work/release.json"
-jq -e '(.assets | length) == 5' "$work/release.json" > /dev/null
+jq -e --argjson count "${#names[@]}" '(.assets | length) == $count' "$work/release.json" > /dev/null
 for name in "${names[@]}"; do
   jq -e --arg name "$name" --argjson size "$(wc -c < "$assets/$name")" \
     '[.assets[] | select(.name == $name and .size == $size)] | length == 1' "$work/release.json" > /dev/null

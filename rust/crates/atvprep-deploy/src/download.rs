@@ -172,7 +172,8 @@ mod tests {
         }
     }
 
-    const ABC: &[u8] = b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\nConnection: close\r\n\r\nabc";
+    const OK_ABC_RESPONSE: &[u8] =
+        b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\nConnection: close\r\n\r\nabc";
 
     fn redirect_to(target: &str) -> Vec<u8> {
         format!("HTTP/1.1 302 Found\r\nLocation: {target}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
@@ -193,7 +194,7 @@ mod tests {
 
     #[test]
     fn follows_a_redirect_to_the_release_asset_host() {
-        let (url, servers) = redirect_chain(1, ABC);
+        let (url, servers) = redirect_chain(1, OK_ABC_RESPONSE);
         assert_eq!(local().asset(&asset(url)).unwrap(), b"abc");
         for server in servers {
             server.join().unwrap();
@@ -202,7 +203,7 @@ mod tests {
 
     #[test]
     fn follows_at_most_three_redirects() {
-        let (url, servers) = redirect_chain(3, ABC);
+        let (url, servers) = redirect_chain(3, OK_ABC_RESPONSE);
         assert_eq!(local().asset(&asset(url)).unwrap(), b"abc");
         for server in servers {
             server.join().unwrap();
@@ -210,14 +211,14 @@ mod tests {
 
         // The fourth redirect is refused: its target and the asset are never contacted, so their
         // one-shot servers stay blocked in accept and are detached instead of joined.
-        let (url, _servers) = redirect_chain(4, ABC);
+        let (url, _servers) = redirect_chain(4, OK_ABC_RESPONSE);
         assert!(local().asset(&asset(url)).is_err());
     }
 
     #[test]
     fn refuses_a_redirect_to_a_target_with_embedded_credentials() {
         // The credentialed target is never contacted; its server is detached instead of joined.
-        let (target, _server) = source(ABC.to_vec());
+        let (target, _server) = source(OK_ABC_RESPONSE.to_vec());
         let target = target.replacen("http://", "http://user:secret@", 1);
         let (url, redirect) = source(redirect_to(&target));
         assert!(local().asset(&asset(url)).is_err());

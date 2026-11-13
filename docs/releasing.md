@@ -51,7 +51,7 @@ Der private Schlüssel `~/.ssh/atvprep-release-ed25519` verlässt den Rechner ni
    ```
 
    Der Tag heisst `v` plus die Version aus `Cargo.toml`, sonst bricht die Action ab.
-10. [ ] **Action beobachten**: Der Job `release` baut selbst, führt `scripts/check-release.sh` aus, legt ein Draft an, lädt hoch, lädt die Bytes zum Vergleich wieder herunter und veröffentlicht. Danach prüft der Job `mirror` die Dateien erneut gegen das signierte Manifest, pusht Tag und Commit als `main` nach Gitea und legt dort dasselbe Release an.
+10. [ ] **Action beobachten**: Der Job `release` baut selbst, führt `scripts/check-release.sh` aus, legt einen Entwurf an, lädt hoch, lädt die Bytes zum Vergleich wieder herunter und veröffentlicht. Danach prüft der Job `mirror` die Dateien erneut gegen das signierte Manifest, pusht Tag und Commit als `main` nach Gitea und legt dort dasselbe Release an.
 11. [ ] **Release prüfen**: Auf `https://github.com/chLuethy/atvprep-rs/releases` und auf dem Spiegel `https://git.ch-luethy.ch/chl/atvprep-rs/releases` liegen `atvprep-linux-x86_64`, `atvprep-linux-aarch64`, `release.json`, `release.json.sig`, `release.pub`.
 12. [ ] **Einzeiler testen** auf einem Linux-Host, auf dem die Vorversion liegt: `curl -fsSL https://raw.githubusercontent.com/chLuethy/atvprep-rs/main/scripts/install.sh | sudo sh` meldet `0.5.5 -> 0.5.6 aktualisiert`; ein zweiter Lauf meldet „bereits aktuell“.
 13. [ ] **Produktiv auf `mm`**: nur im Releasefenster, siehe [DEPLOYMENT.md](../DEPLOYMENT.md), Betreiberabnahme vor dem Öffnen des Gates.
@@ -59,7 +59,7 @@ Der private Schlüssel `~/.ssh/atvprep-release-ed25519` verlässt den Rechner ni
 ## Wenn etwas schiefgeht
 
 - **Die Action meldet abweichende Hashes**: Es wird nichts veröffentlicht. Das Manifest niemals mit den Hashes der Action neu signieren. Ursache suchen: nicht reproduzierbarer Build oder anderer Quelltext als der signierte (Version, Lockfiles, uncommittete Änderungen beim lokalen Build). Danach ab Schritt 4 wiederholen.
-- **Upload bricht ab und ein Draft bleibt liegen**: Den fehlgeschlagenen Lauf neu starten. Ein unveröffentlichter Draft wird gelöscht und neu angelegt; ein veröffentlichtes Release wird nie ersetzt.
+- **Upload bricht ab und ein Entwurf bleibt liegen**: Den fehlgeschlagenen Lauf neu starten. Ein unveröffentlichter Entwurf wird gelöscht und neu angelegt; ein veröffentlichtes Release wird nie ersetzt.
 - **Nur der Spiegel schlägt fehl**: Das GitHub-Release bleibt gültig. Ursache beheben, dann den Workflow manuell mit `mirror_version` (z. B. `0.5.6`) starten; er spiegelt nur und ist nach Erfolg wiederholbar. Weicht `main` auf Gitea ab, bricht der Push ab: niemand pusht direkt auf den Spiegel, die Abweichung ist also zu klären, nicht zu überschreiben.
 - **Tag falsch gesetzt**: Bevor ein Release veröffentlicht ist, darf der Tag gelöscht und neu gesetzt werden. Ein veröffentlichtes Release wird nicht überschrieben, sondern durch eine höhere Version ersetzt.
 - **Rückfall auf eine ältere Version**: `atvprep deploy rollback` mit dem signierten Manifest der älteren Version, siehe [DEPLOYMENT.md](../DEPLOYMENT.md). Das Datenbankschema wird dabei nicht zurückgesetzt.
