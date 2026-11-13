@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 use crate::constants::{LANG_MAP, TEXT_SUB_CODECS, normalize_lang};
-use crate::probe_helpers::{object, subtitle_is_forced, truthy};
+use crate::probe_helpers::{object, subtitle_is_forced, subtitle_is_sdh};
 
 /// Languages written out in a file name, as Bazarr and many subtitle sites do (`Film.German.srt`).
 const LANGUAGE_NAMES: &[(&str, &str)] = &[
@@ -140,21 +140,10 @@ pub const fn sub_kind(forced: bool, sdh: bool) -> &'static str {
 
 /// Forced and SDH flags of a subtitle stream.
 ///
-/// SDH comes from the `hearing_impaired` disposition or an SDH hint in the title. The disposition
-/// matters for MP4: its muxer drops subtitle titles, so a prepared SDH track keeps only the flag
-/// (#62). [`sub_kind`] lets forced win over SDH.
+/// SDH as [`subtitle_is_sdh`] reads it; [`sub_kind`] lets forced win over SDH.
 #[must_use]
 pub fn sub_info_from_stream(stream: &Value) -> (bool, bool) {
-    let title = object(stream, "tags")
-        .and_then(|t| t.get("title"))
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_lowercase();
-    let sdh = truthy(object(stream, "disposition").and_then(|d| d.get("hearing_impaired")))
-        || ["sdh", " hi ", "hearing", "hörgeschädigt"]
-            .iter()
-            .any(|x| title.contains(x));
-    (subtitle_is_forced(stream), sdh)
+    (subtitle_is_forced(stream), subtitle_is_sdh(stream))
 }
 
 /// Forced and SDH flags from an SRT file name.
@@ -337,6 +326,51 @@ mod tests {
             };
             assert_eq!(actual, case.expected, "{}", case.name);
         }
+    }
+
+    /// German audio plus one German text subtitle with the given disposition and title.
+    fn german_streams(disposition: &Value, title: Option<&str>) -> Vec<Value> {
+        let mut tags = json!({"language": "deu"});
+        if let Some(title) = title {
+            tags["title"] = json!(title);
+        }
+        vec![
+            json!({"codec_type": "audio", "tags": {"language": "deu"}}),
+            json!({"codec_type": "subtitle", "codec_name": "mov_text", "tags": tags,
+                   "disposition": disposition}),
+        ]
+    }
+
+    fn states(names: &[&str], streams: &[Value]) -> Vec<(String, String)> {
+        let names: Vec<String> = names.iter().map(|n| (*n).to_owned()).collect();
+        classify_sidecars("Film.mp4", &names, Some(streams))
+            .into_iter()
+            .map(|(n, _, s)| (n, s))
+            .collect()
+    }
+
+    #[test]
+    fn an_sdh_sidecar_is_still_embedded_when_the_file_has_only_a_normal_track_of_its_language() {
+        let normal = german_streams(
+            &json!({"default": 1, "hearing_impaired": 0}),
+            Some("Deutsch"),
+        );
+        assert_eq!(
+            states(&["Film.de.sdh.srt"], &normal),
+            [("Film.de.sdh.srt".to_owned(), "pending".to_owned())]
+        );
+    }
+
+    #[test]
+    fn a_normal_sidecar_is_not_taken_as_present_by_an_sdh_track_known_only_by_its_disposition() {
+        let sdh = german_streams(&json!({"default": 0, "hearing_impaired": 1}), None);
+        assert_eq!(
+            states(&["Film.de.srt", "Film.de.sdh.srt"], &sdh),
+            [
+                ("Film.de.srt".to_owned(), "pending".to_owned()),
+                ("Film.de.sdh.srt".to_owned(), "embedded".to_owned()),
+            ]
+        );
     }
 
     #[test]

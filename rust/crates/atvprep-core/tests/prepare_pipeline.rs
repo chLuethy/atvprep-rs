@@ -592,7 +592,7 @@ fn write_srt(path: &Path, text: &str) {
 /// counts as embedded, no sidecar is reported as still to merge, and a second prepare changes
 /// nothing. The MP4 muxer drops subtitle titles, so SDH survives only as the `hearing_impaired`
 /// disposition (#62).
-fn sdh_sidecars_stay_embedded(name: &str) {
+fn assert_sdh_sidecars_stay_embedded(name: &str) {
     let mut f = fixture(name, None);
     let work = f.source.parent().unwrap().to_path_buf();
     let stem = f.source.file_stem().unwrap().to_string_lossy().into_owned();
@@ -653,10 +653,10 @@ fn sdh_sidecars_stay_embedded(name: &str) {
 
 #[test]
 fn sdh_sidecars_embedded_into_an_mp4_count_as_embedded() {
-    sdh_sidecars_stay_embedded("clean.mp4");
+    assert_sdh_sidecars_stay_embedded("clean.mp4");
 }
 
 #[test]
 fn sdh_sidecars_embedded_from_an_mkv_count_as_embedded() {
-    sdh_sidecars_stay_embedded("movie.mkv");
+    assert_sdh_sidecars_stay_embedded("movie.mkv");
 }
