@@ -5,7 +5,7 @@ use crate::{Error, Result};
 
 /// Migration stages in order; stage `n` takes a database from version `n - 1` to `n`.
 /// To extend: add `000N_name.sql`, append it here and raise [`VERSION`].
-const STAGES: [&str; 11] = [
+const STAGES: [&str; 12] = [
     include_str!("migrations/0001_base.sql"),
     include_str!("migrations/0002_cron.sql"),
     include_str!("migrations/0003_scan_action.sql"),
@@ -17,10 +17,11 @@ const STAGES: [&str; 11] = [
     include_str!("migrations/0009_schedule_allow_reencode.sql"),
     include_str!("migrations/0010_encode_need.sql"),
     include_str!("migrations/0011_schedule_encode.sql"),
+    include_str!("migrations/0012_recheck_sidecar_warnings.sql"),
 ];
 
 /// The version this build creates and understands.
-pub const VERSION: i64 = 11;
+pub const VERSION: i64 = 12;
 
 /// Every table of the current schema.
 pub const TABLES: [&str; 23] = [
@@ -747,6 +748,84 @@ mod tests {
             )
             .unwrap();
         assert_eq!(left, 0);
+    }
+
+    #[test]
+    fn a_version_11_database_sends_a_warning_only_about_unmerged_sidecars_to_a_new_check() {
+        let (_db, mut conn) = database_at(11);
+        exec(
+            &conn,
+            "INSERT INTO library_roots(name, canonical_path) VALUES ('r', '/r')",
+        )
+        .unwrap();
+        let insert = |id: i64, state: &str, reasons: &str| {
+            conn.raw()
+                .execute(
+                    "INSERT INTO media_files(id, root_id, relative_path, kind, suffix, size, mtime_ns, fingerprint,
+                       discovery_state, compliance_state, compliance_reasons, workflow_state, desired_action,
+                       encode_need, planned_change)
+                     VALUES (?1, 1, ?2, 'video', '.mp4', 1, 1, 'f', 'present', ?3, ?4, 'idle', 'none',
+                             'none', 'none')",
+                    rusqlite::params![id, format!("f{id}.mp4"), state, reasons],
+                )
+                .unwrap();
+        };
+        let sidecar = r#"["[warning] sidecars: 1 sidecar SRT(s) not yet merged"]"#;
+        let mixed = r#"["[warning] fast-start: moov after mdat","[warning] sidecars: 2 sidecar SRT(s) not yet merged"]"#;
+        let other = r#"["[warning] fast-start: moov after mdat"]"#;
+        let blocker = r#"["[blocker] sidecars: 1 sidecar SRT(s) not yet merged"]"#;
+        insert(1, "warning", sidecar);
+        insert(2, "warning", mixed);
+        insert(3, "warning", other);
+        insert(4, "blocker", blocker);
+        insert(
+            5,
+            "clean",
+            r#"["No compliance violations reported by verify."]"#,
+        );
+        migrate(&mut conn).unwrap();
+        assert_eq!(version(&conn).unwrap(), VERSION);
+        let rows: Vec<(String, String, String, String)> = conn
+            .raw()
+            .prepare(
+                "SELECT compliance_state, compliance_reasons, encode_need, planned_change
+                 FROM media_files ORDER BY id",
+            )
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap();
+        // Unknown, not clean: only a real check may call it ready. The unknown need is what the
+        // background check of `queue_need_checks` picks up.
+        assert_eq!(rows[0].0, "unknown");
+        assert_eq!(
+            (rows[0].2.as_str(), rows[0].3.as_str()),
+            ("unknown", "unknown")
+        );
+        let reasons: Vec<String> = serde_json::from_str(&rows[0].1).unwrap();
+        assert_eq!(reasons.len(), 1);
+        assert!(reasons[0].contains("check"), "{reasons:?}");
+        let untouched = |state: &str, reasons: &str| {
+            (
+                state.to_owned(),
+                reasons.to_owned(),
+                "none".to_owned(),
+                "none".to_owned(),
+            )
+        };
+        assert_eq!(
+            rows[1..],
+            [
+                untouched("warning", mixed),
+                untouched("warning", other),
+                untouched("blocker", blocker),
+                untouched(
+                    "clean",
+                    r#"["No compliance violations reported by verify."]"#
+                ),
+            ]
+        );
     }
 
     #[test]
