@@ -7,3 +7,7 @@ Ein Schlüsselwechsel und ein in die Binary einkompilierter Schlüssel sind bewu
 ## Nachtrag: Erstinstallation per `scripts/install.sh`
 
 Auf Hosts ohne vorhandene Schlüsseldatei lädt das Skript den Schlüssel einmalig aus dem Release, zeigt den Fingerabdruck an und legt ihn root-eigen ab (Trust on first use). Dieser eine Schritt vertraut Gitea samt TLS; `ATVPREP_KEY_FINGERPRINT` pinnt ihn strikt. Danach gilt wieder nur die lokale Datei, und das Skript lädt den Schlüssel nie erneut. Auf `mm` bleibt die Datei der unabhängig platzierte Anker.
+
+## Nachtrag: GitHub als Download-Quelle
+
+Seit ADR 0009 ist GitHub die Standard-Download-Quelle und Gitea der Spiegel. Der Fingerabdruck wird daher außerhalb von GitHub und Gitea festgehalten. Trust on first use vertraut dem Host, von dem `install.sh` lädt, also standardmäßig GitHub samt TLS.

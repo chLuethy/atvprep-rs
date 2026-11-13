@@ -1,18 +1,18 @@
-# Issue tracker: Gitea
+# Issue tracker: GitHub
 
-Issues and specs for this repo live as Gitea issues on `git.ch-luethy.ch`, repository `chl/atvprep-rs` (owner `chl`, repo `atvprep-rs`). Use the Gitea MCP tools (`mcp__gitea__*`); the `gitea-issues` skill also applies. Load deferred tool schemas with `ToolSearch` first if needed.
+Issues and specs for this repo live as GitHub issues in `chLuethy/atvprep-rs`. Use the `gh` CLI (`gh issue …`, `gh api …`). Gitea (`chl/atvprep-rs`) is only the release mirror and takes no issues (ADR 0009).
 
 ## Conventions
 
 - **Sprache**: Titel, Body und Kommentare auf Deutsch schreiben (siehe `docs/agents/language.md`). Label-Namen und Marker wie `Part of #<n>` / `Blocked by: #<n>` bleiben englisch.
-- **Create an issue**: `issue_write` with `method: create`, `owner: chl`, `repo: atvprep-rs`, `title`, `body`.
-- **Read an issue**: `issue_read` (body, labels, comments).
-- **List issues**: `list_issues` / `search_issues`, filtered by `state` and labels.
-- **Comment on an issue**: `issue_write` with the comment method.
-- **Apply / remove labels**: `issue_write` (edit) with the label list; manage label definitions with `label_read` / `label_write`.
-- **Close**: `issue_write` (edit) with `state: closed`, after leaving a closing comment.
+- **Create an issue**: `gh issue create --title "…" --body-file -` (pass the body on stdin).
+- **Read an issue**: `gh issue view <n> --comments`.
+- **List issues**: `gh issue list --state <open|closed|all> --label <label> --json number,title,labels`.
+- **Comment on an issue**: `gh issue comment <n> --body-file -`.
+- **Apply / remove labels**: `gh issue edit <n> --add-label <l> --remove-label <l>`; manage label definitions with `gh label`.
+- **Close**: `gh issue close <n> --comment "…"` (`--reason "not planned"` for wontfix).
 
-Gitea shares one number space across issues and PRs, so a bare `#42` may be either.
+GitHub shares one number space across issues and PRs, so a bare `#42` may be either. Issues #1–#58 were imported from Gitea; their first line names the original Gitea number. `#n` in commit messages from before the move refers to Gitea numbers.
 
 ## Pull requests as a triage surface
 
@@ -20,11 +20,11 @@ Gitea shares one number space across issues and PRs, so a bare `#42` may be eith
 
 ## When a skill says "publish to the issue tracker"
 
-Create a Gitea issue in `chl/atvprep-rs`.
+Create a GitHub issue in `chLuethy/atvprep-rs`.
 
 ## When a skill says "fetch the relevant ticket"
 
-Read it with `issue_read`, including comments.
+Read it with `gh issue view <n> --comments`.
 
 ## Wayfinding operations
 

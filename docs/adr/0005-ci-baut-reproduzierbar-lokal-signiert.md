@@ -7,3 +7,7 @@ Der Schlüssel bleibt lokal; das Signieren ändert sich nicht. Neu ist, dass die
 Das ist stärker als zuvor: Die veröffentlichten Bytes sind nachweislich aus dem getaggten Quelltext entstanden, nicht nur vom Betreiberrechner behauptet. Es setzt voraus, dass der Build reproduzierbar bleibt. Der aarch64-Build läuft in CI unter QEMU und ist langsam; produktiv zählt weiter nur `linux-x86_64`.
 
 Die Release-Dateien im Repository sind nur noch Manifest, Signatur und öffentlicher Schlüssel. Die zuvor eingecheckten Binaries von v0.5.5 bleiben in der Historie.
+
+## Nachtrag: Nachbau auf GitHub
+
+Seit ADR 0009 baut eine GitHub-Action auf GitHub-gehosteten Runnern nach und veröffentlicht auf GitHub; Gitea erhält die bereits verifizierten Bytes als Spiegel. Reproduzierbarkeit und Vergleich mit den signierten Hashes gelten unverändert.

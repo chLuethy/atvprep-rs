@@ -2,7 +2,7 @@
 
 ### Issue tracker
 
-Issues live in Gitea (`chl/atvprep-rs` on git.ch-luethy.ch), accessed via the Gitea MCP tools. See `docs/agents/issue-tracker.md`.
+Issues live in GitHub (`chLuethy/atvprep-rs`), accessed via the `gh` CLI. Gitea (`chl/atvprep-rs` on git.ch-luethy.ch) is only a release mirror: never file issues, PRs or pushes there (ADR 0009). See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

@@ -21,7 +21,7 @@ atvprep deploy install --manifest release.json --signature release.json.sig --tr
 ```
 
 Manifest und Signatur können auch HTTPS-URLs sein. Ohne `--asset-file` lädt der Installer die
-Manifest-URL des zur Maschine passenden Assets. HTTPS-Redirects sind deaktiviert. Signatur,
+Manifest-URL des zur Maschine passenden Assets. Höchstens drei Redirects werden gefolgt, nur auf HTTPS ohne Zugangsdaten (GitHub leitet Release-Downloads um, ADR 0009). Signatur,
 Plattform, Größe und SHA-256 werden vor Installation oder Start geprüft. Der Austausch ist atomar;
 eine falsche Versionsausgabe stellt die vorherige Binary automatisch wieder her.
 `update` verweigert gleiche/ältere Versionen; `rollback` erlaubt bewusst eine signierte ältere Version.

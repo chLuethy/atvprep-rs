@@ -2,7 +2,7 @@ name: Rust and frontend CI
 on:
   push:
     branches:
-      - '**'
+      - main
   pull_request:
 
 jobs:

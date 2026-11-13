@@ -5,7 +5,7 @@ Der Manager ist noch nicht produktiv freigegeben. Er verwendet eine neue, separa
 ## Installation und Update (ein Befehl)
 
 ```bash
-curl -fsSL https://git.ch-luethy.ch/chl/atvprep-rs/raw/branch/main/scripts/install.sh | sudo sh
+curl -fsSL https://raw.githubusercontent.com/chLuethy/atvprep-rs/main/scripts/install.sh | sudo sh
 ```
 
 `scripts/install.sh` installiert die Binary nach `/usr/local/bin/atvprep` samt Verknüpfungen `atvprep-manager` und `atvprep-hook`, oder aktualisiert sie, wenn sie schon vorhanden ist (gleiche Version: „bereits aktuell“, Exitcode 0; ein Downgrade verweigert es). Es unterstützt Linux x86_64 und aarch64 und braucht `curl`, `ssh-keygen` und `sha256sum`.
@@ -15,12 +15,20 @@ Vertrauen: Das Skript selbst ist nicht vertrauenswürdig. Es führt nur eine Bin
 Servarr-Hook (einmalig je Anwendung; der Pfad endet auf `atvprep-hook` im `/config` des Containers):
 
 ```bash
-curl -fsSL https://git.ch-luethy.ch/chl/atvprep-rs/raw/branch/main/scripts/install.sh | sudo sh -s -- servarr sonarr /pfad/zu/sonarr-config/atvprep-hook
+curl -fsSL https://raw.githubusercontent.com/chLuethy/atvprep-rs/main/scripts/install.sh | sudo sh -s -- servarr sonarr /pfad/zu/sonarr-config/atvprep-hook
 ```
 
 Der Pfad wird in `/etc/atvprep/hooks` eingetragen; jeder weitere Lauf aktualisiert zuerst die Binary und danach alle eingetragenen Hooks. Ein fehlgeschlagener Hook beendet den Lauf mit Exitcode 1, die Binary bleibt neu.
 
-Umgebungsvariablen: `ATVPREP_VERSION` (feste Version), `ATVPREP_DEST`, `ATVPREP_TRUSTED_KEY`, `ATVPREP_KEY_FINGERPRINT`, `ATVPREP_HOOKS`. Auf `mm` läuft ein Update der Binary produktiv nur im Releasefenster (unten); der Befehl ändert weder Gate noch Datenbank.
+Umgebungsvariablen: `ATVPREP_VERSION` (feste Version), `ATVPREP_DEST`, `ATVPREP_TRUSTED_KEY`, `ATVPREP_KEY_FINGERPRINT`, `ATVPREP_HOOKS`, `ATVPREP_HOST` und `ATVPREP_REPO`.
+
+Releases kommen standardmäßig von GitHub. Ist GitHub nicht erreichbar, lädt dasselbe Skript die identischen, signierten Bytes vom Spiegel auf Gitea (ADR 0009):
+
+```bash
+curl -fsSL https://git.ch-luethy.ch/chl/atvprep-rs/raw/branch/main/scripts/install.sh | sudo ATVPREP_HOST=https://git.ch-luethy.ch sh
+```
+
+Der Spiegel enthält nur veröffentlichte Releases; ältere Versionen bis 0.5.8 gibt es nur dort. Auf `mm` läuft ein Update der Binary produktiv nur im Releasefenster (unten); der Befehl ändert weder Gate noch Datenbank.
 
 ## Manuell und offline installieren
 
@@ -42,7 +50,7 @@ atvprep deploy install --manifest release.json --signature release.json.sig --tr
 ```
 
 Manifest und Signatur können auch HTTPS-URLs sein. Ohne `--asset-file` lädt der Installer die
-Manifest-URL des zur Maschine passenden Assets. HTTPS-Redirects sind deaktiviert. Signatur,
+Manifest-URL des zur Maschine passenden Assets. Höchstens drei Redirects werden gefolgt, nur auf HTTPS ohne Zugangsdaten (GitHub leitet Release-Downloads um, ADR 0009). Signatur,
 Plattform, Größe und SHA-256 werden vor Installation oder Start geprüft. Der Austausch ist atomar;
 eine falsche Versionsausgabe stellt die vorherige Binary automatisch wieder her.
 `update` verweigert gleiche/ältere Versionen; `rollback` erlaubt bewusst eine signierte ältere Version.

@@ -6,7 +6,7 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 build=${1:?usage: make-manifest.sh BUILD_DIR}
 version=$(sed -n '/^\[workspace.package\]/,/^\[/{s/^version = "\([^"]*\)"/\1/p;}' "$root/rust/Cargo.toml")
 : "${version:?cannot read the workspace version}"
-base=${RELEASE_BASE_URL:-https://git.ch-luethy.ch/chl/atvprep-rs/releases/download/v$version}
+base=${RELEASE_BASE_URL:-https://github.com/chLuethy/atvprep-rs/releases/download/v$version}
 entries=()
 for platform in linux-x86_64 linux-aarch64; do
   asset="$build/$platform/atvprep"
