@@ -1113,6 +1113,36 @@ describe("ActivityPage: the filter bar", () => {
   });
 });
 
+describe("ActivityPage: quick filters", () => {
+  it("replaces the whole filter but the order with one, shows it as in effect and takes it away on a second click", async () => {
+    const onFilter = vi.fn();
+    const api = filterApi([job()]);
+    const view = render(() => <ActivityPage api={api} filter={{ ...EMPTY_JOB_FILTER, q: "Heat", action: ["verify"], sort: "oldest" }} onOpen={vi.fn()} onFilter={onFilter} />);
+    const quick = within(await view.findByRole("group", { name: "Quick filters" }));
+    expect(quick.getAllByRole("button").map((button) => button.textContent)).toEqual(["Running", "Failed in 24 h", "Schedules today"]);
+    expect(quick.getByRole("button", { name: "Failed in 24 h" })).toHaveAttribute("aria-pressed", "false");
+
+    await fireEvent.click(quick.getByRole("button", { name: "Failed in 24 h" }));
+    expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, status: ["partial_success", "failed"], period: { preset: "24h" }, sort: "oldest" }, { replace: false });
+    expect(quick.getByRole("button", { name: "Failed in 24 h" })).toHaveAttribute("aria-pressed", "true");
+    expect(view.getByRole("searchbox", { name: "Search jobs" })).toHaveValue("");
+    await waitFor(() => expect(listCalls(api).at(-1)).toMatch(/^\/jobs\?limit=50&order=asc&status=partial_success,failed&from=[^&]+$/));
+
+    await fireEvent.click(quick.getByRole("button", { name: "Schedules today" }));
+    expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, trigger: ["schedule"], period: { preset: "today" }, sort: "oldest" }, { replace: false });
+    expect(quick.getByRole("button", { name: "Failed in 24 h" })).toHaveAttribute("aria-pressed", "false");
+
+    await fireEvent.click(quick.getByRole("button", { name: "Schedules today" }));
+    expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, sort: "oldest" }, { replace: false });
+  });
+
+  it("shows a quick filter as in effect when the address sets it by hand", async () => {
+    const view = render(() => <ActivityPage api={filterApi([job()])} filter={{ ...EMPTY_JOB_FILTER, status: ["queued", "running", "cancel_requested"] }} onOpen={vi.fn()} />);
+    const quick = within(await view.findByRole("group", { name: "Quick filters" }));
+    expect(quick.getByRole("button", { name: "Running" })).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
 describe("ActivityPage: the Auslöser", () => {
   const withTriggers = {
     ...jobCounts({ matched: 6, total: 6 }),

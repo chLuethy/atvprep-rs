@@ -183,3 +183,19 @@ function rootPart(filter: JobFilter): string[] {
 
 const periodLibraryAddress = (filter: JobFilter): string[] => [...periodAddress(filter.period), ...rootPart(filter)];
 const periodLibraryServer = (filter: JobFilter, now: Date): string[] => [...periodServer(filter.period, now), ...rootPart(filter)];
+
+/**
+ * A fixed filter one click away (#73). It replaces the whole filter, search included, keeps the order, and is
+ * active while the filter is exactly it, in either order.
+ */
+export type JobQuickFilter = { id: string; label: string; filter: JobFilter };
+
+export const JOB_QUICK_FILTERS: ReadonlyArray<JobQuickFilter> = [
+  { id: "running", label: N("Running"), filter: { ...EMPTY_JOB_FILTER, status: [...ACTIVE_STATUSES] } },
+  { id: "failed24h", label: N("Failed in 24 h"), filter: { ...EMPTY_JOB_FILTER, status: ["partial_success", "failed"], period: { preset: "24h" } } },
+  { id: "schedulesToday", label: N("Schedules today"), filter: { ...EMPTY_JOB_FILTER, trigger: ["schedule"], period: { preset: "today" } } },
+];
+
+/** The quick filter the filter is exactly, the order aside, if any. */
+export const activeJobQuickFilter = (filter: JobFilter): JobQuickFilter | undefined =>
+  JOB_QUICK_FILTERS.find((entry) => sameJobFilter(entry.filter, { ...filter, sort: entry.filter.sort }));

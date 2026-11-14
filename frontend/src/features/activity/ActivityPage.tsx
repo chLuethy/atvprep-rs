@@ -8,7 +8,7 @@ import { flash } from "../../lib/flash";
 import { isTyping } from "../../lib/keys";
 import { reuseUnchanged } from "../../lib/stable";
 import { clearJobs, loadJobCounts, loadJobs, type Api, type ClearStatus, type JobRow } from "./loaders";
-import { EMPTY_JOB_FILTER, isJobFiltered, JOB_ACTIONS, JOB_STATUSES, JOB_TRIGGERS, revealActive, sameJobFilter, type JobCounts, type JobFilter, type JobSort } from "./filters";
+import { activeJobQuickFilter, EMPTY_JOB_FILTER, isJobFiltered, JOB_ACTIONS, JOB_QUICK_FILTERS, JOB_STATUSES, JOB_TRIGGERS, revealActive, sameJobFilter, type JobCounts, type JobFilter, type JobSort } from "./filters";
 import { N, t, tn } from "../../lib/i18n";
 import { autoDismiss } from "../../lib/autoDismiss";
 import { useClock } from "../../lib/clock";
@@ -187,6 +187,19 @@ export const ActivityPage: Component<{
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => changeFilter({ ...filter(), q: value.trim() }, true), 250);
   };
+  const quickChoices = () => {
+    const active = activeJobQuickFilter(filter());
+    return JOB_QUICK_FILTERS.map((entry) => ({ id: entry.id, label: t(entry.label), active: entry.id === active?.id }));
+  };
+  /** A quick filter replaces the whole filter, search included, but keeps the order; the one in effect takes itself away again. */
+  const onQuick = (id: string) => {
+    const chosen = JOB_QUICK_FILTERS.find((entry) => entry.id === id);
+    if (!chosen) return;
+    clearTimeout(searchTimer);
+    setSearch("");
+    const next = activeJobQuickFilter(filter())?.id === id ? EMPTY_JOB_FILTER : chosen.filter;
+    changeFilter({ ...next, sort: filter().sort });
+  };
   const periodLibrary = periodLibraryFacets({ api: props.api, filter, counts: () => counts()?.facets ?? null, onChange: (next) => changeFilter(next) });
   const showHidden = () => {
     const known = counts();
@@ -321,6 +334,8 @@ export const ActivityPage: Component<{
             dirty={isJobFiltered(filter())}
             onChange={onFacets}
             onReset={clearFilters}
+            quick={quickChoices()}
+            onQuick={onQuick}
             search={(
               <div class="search">
                 <Icon name="search" />

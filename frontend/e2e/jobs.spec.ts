@@ -40,6 +40,33 @@ test.describe("activity journey", () => {
     await expect(page).toHaveURL(/\/jobs\?sort=oldest$/);
   });
 
+  test("a quick filter sets its filter, shows as in effect, is in the command palette and the overview leads there", async ({ page }) => {
+    await openAndUnlock(page, "/jobs?q=Heat");
+    const bar = page.getByRole("search", { name: "Filter jobs" });
+    const quick = bar.getByRole("group", { name: "Quick filters" });
+    const failed = quick.getByRole("button", { name: "Failed in 24 h" });
+    await failed.click();
+    await expect(page).toHaveURL(/\/jobs\?status=partial_success,failed&range=24h$/);
+    await expect(failed).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByLabel("Search jobs")).toHaveValue("");
+    await expect(page.getByRole("region", { name: "History" }).getByRole("link", { name: /Failed Movie/ }).first()).toBeVisible();
+    await expect(page.getByRole("region", { name: "Active" })).toHaveCount(0);
+
+    await page.keyboard.press("ControlOrMeta+k");
+    const search = page.getByRole("combobox", { name: "Search commands" });
+    await search.fill("activity: running");
+    await search.press("Enter");
+    await expect(page).toHaveURL(/\/jobs\?status=queued,running,cancel_requested$/);
+    await expect(quick.getByRole("button", { name: "Running" })).toHaveAttribute("aria-pressed", "true");
+    await expect(failed).toHaveAttribute("aria-pressed", "false");
+    await expect(page.getByRole("region", { name: "Active" })).toBeVisible();
+
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Overview" }).click();
+    await page.getByRole("region", { name: "Needs you" }).getByRole("link", { name: /jobs? failed$/ }).click();
+    await expect(page).toHaveURL(/\/jobs\?status=failed$/);
+    await expect(bar.getByRole("button", { name: "Status: Failed" })).toBeVisible();
+  });
+
   test("the Auslöser tells jobs from a schedule apart from those by hand and keeps the choice in the address", async ({ page }) => {
     await openAndUnlock(page, "/jobs");
     const bar = page.getByRole("search", { name: "Filter jobs" });

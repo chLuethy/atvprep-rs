@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_JOB_FILTER, isJobFiltered, JOB_ACTIONS, JOB_STATUSES, JOB_TRIGGERS, jobFilterQuery, jobListParams, parseJobFilter, revealActive } from "../src/features/activity/filters";
+import { activeJobQuickFilter, EMPTY_JOB_FILTER, isJobFiltered, JOB_QUICK_FILTERS, JOB_ACTIONS, JOB_STATUSES, JOB_TRIGGERS, jobFilterQuery, jobListParams, parseJobFilter, revealActive } from "../src/features/activity/filters";
 
 const parse = (search: string) => parseJobFilter(new URLSearchParams(search));
 
@@ -88,5 +88,25 @@ describe("activity filter: showing hidden active jobs", () => {
     const filter = { q: "Heat", status: ["failed"], action: [], sort: "oldest" as const };
     expect(revealActive(filter, counts({ queued: 1, running: 0, cancel_requested: 0, failed: 1 }, 3)))
       .toEqual({ ...EMPTY_JOB_FILTER, sort: "oldest" });
+  });
+});
+
+describe("activity filter: quick filters", () => {
+  const quick = (id: string) => JOB_QUICK_FILTERS.find((entry) => entry.id === id)!;
+
+  it("sets the agreed filters and nothing else", () => {
+    expect(JOB_QUICK_FILTERS.map((entry) => entry.id)).toEqual(["running", "failed24h", "schedulesToday"]);
+    expect(jobFilterQuery(quick("running").filter)).toBe("status=queued,running,cancel_requested");
+    expect(jobFilterQuery(quick("failed24h").filter)).toBe("status=partial_success,failed&range=24h");
+    expect(jobFilterQuery(quick("schedulesToday").filter)).toBe("trigger=schedule&range=today");
+  });
+
+  it("is active only while the filter is exactly it, whatever the order", () => {
+    expect(activeJobQuickFilter(parse("status=failed,partial_success&range=24h"))?.id).toBe("failed24h");
+    expect(activeJobQuickFilter(parse("status=queued,running,cancel_requested&sort=oldest"))?.id).toBe("running");
+    expect(activeJobQuickFilter(parse("status=queued,running,cancel_requested&q=x"))).toBeUndefined();
+    expect(activeJobQuickFilter(parse("trigger=schedule&range=24h"))).toBeUndefined();
+    expect(activeJobQuickFilter(parse("status=queued,running"))).toBeUndefined();
+    expect(activeJobQuickFilter(EMPTY_JOB_FILTER)).toBeUndefined();
   });
 });

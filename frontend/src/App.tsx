@@ -6,7 +6,7 @@ import type { SessionControls } from "./features/auth/AuthGate";
 import { ActivityPage } from "./features/activity/ActivityPage";
 import { LibraryPage } from "./features/files/LibraryPage";
 import { fileFilterQuery, fileSortQuery, parseFileFilter, parseFileSort, QUICK_FILTERS, sameFilter, type FileFilter, type FileSort } from "./features/files/filters";
-import { jobFilterQuery, parseJobFilter, sameJobFilter } from "./features/activity/filters";
+import { JOB_QUICK_FILTERS, jobFilterQuery, parseJobFilter, sameJobFilter } from "./features/activity/filters";
 import { OverviewPage } from "./features/overview/OverviewPage";
 import { SchedulesPage } from "./features/schedules/SchedulesPage";
 import { SettingsPage } from "./features/settings/SettingsPage";
@@ -162,6 +162,12 @@ const Shell: ParentComponent<{ session?: SessionControls; api?: ManagerApi }> = 
       label: t("Files: {quick}", { quick: t(entry.label) }),
       hint: t("Quick filter"),
       run: () => navigate(`/files?${fileFilterQuery(entry.filter)}`),
+    })),
+    ...JOB_QUICK_FILTERS.map((entry) => ({
+      id: `jobs-quick-${entry.id}`,
+      label: t("Activity: {quick}", { quick: t(entry.label) }),
+      hint: t("Quick filter"),
+      run: () => navigate(`/jobs?${jobFilterQuery(entry.filter)}`),
     })),
     ...THEMES.map((theme) => ({ id: `theme-${theme.value}`, label: t("Theme: {theme}", { theme: t(theme.label) }), hint: t("Appearance"), run: () => chooseTheme(theme.value) })),
     { id: "help-shortcuts", label: t("Show keyboard shortcuts"), hint: t("Help"), run: openHelp },
