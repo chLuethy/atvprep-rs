@@ -1,4 +1,4 @@
-import { fireEvent, waitFor } from "@solidjs/testing-library";
+import { fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@solidjs/testing-library";
 import App from "../src/App";
@@ -158,5 +158,50 @@ describe("command palette in the shell", () => {
     await fireEvent.input(insideSearch, { target: { value: "lock" } });
     await fireEvent.keyDown(insideSearch, { key: "Enter" });
     expect(lock).toHaveBeenCalledOnce();
+  });
+});
+
+describe("the files filter in the address", () => {
+  class QuietSocket { static OPEN = 1; readyState = 0; addEventListener() {} removeEventListener() {} close() {} send() {} }
+  beforeEach(() => vi.stubGlobal("WebSocket", QuietSocket));
+  afterEach(() => { vi.unstubAllGlobals(); window.history.replaceState(null, "", "/"); });
+
+  const filesApi = () => {
+    const paths: string[] = [];
+    const api = {
+      request: vi.fn(async (path: string) => {
+        paths.push(path);
+        if (path.startsWith("/files?")) return new Response(JSON.stringify({ data: [], meta: { next_cursor: null } }));
+        return new Response(JSON.stringify({ data: {} }));
+      }),
+    };
+    return { api, lastList: () => paths.filter((path) => path.startsWith("/files?")).at(-1) ?? "" };
+  };
+
+  it("rewrites an old address with hide to the states it showed, without a new history entry", async () => {
+    window.history.replaceState(null, "", "/files?hide=clean&has=embed");
+    const before = window.history.length;
+    const { api, lastList } = filesApi();
+    render(() => <App api={api as never} />);
+
+    await waitFor(() => expect(window.location.search).toBe("?status=embed_open,warning,blocker,unknown,probe_failed,missing&has=embed"));
+    expect(window.history.length).toBe(before);
+    await waitFor(() => expect(lastList()).toContain("status=embed_open%2Cwarning%2Cblocker%2Cunknown%2Cprobe_failed%2Cmissing"));
+    expect(lastList()).not.toContain("hide=");
+  });
+
+  it("adds a history entry for a chosen state, and Back brings the earlier filter back", async () => {
+    window.history.replaceState(null, "", "/files?status=blocker");
+    const { api, lastList } = filesApi();
+    const view = render(() => <App api={api as never} />);
+    const bar = await view.findByRole("search", { name: "Filter files" });
+    await fireEvent.click(within(bar).getByRole("button", { name: "Status: Blocker" }));
+    await fireEvent.click(within(view.getByRole("dialog", { name: "Status" })).getByRole("checkbox", { name: /^Warning/ }));
+
+    await waitFor(() => expect(window.location.search).toBe("?status=warning,blocker"));
+    window.history.back();
+    await waitFor(() => expect(window.location.search).toBe("?status=blocker"));
+    await waitFor(() => expect(within(bar).getByRole("button", { name: "Status: Blocker" })).toBeInTheDocument());
+    await waitFor(() => expect(lastList()).toMatch(/status=blocker(&|$)/));
   });
 });

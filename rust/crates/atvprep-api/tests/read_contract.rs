@@ -511,7 +511,7 @@ async fn file_listing_filters_sorts_and_paginates() {
     let filtered = app
         .clone()
         .oneshot(request(
-            "/api/v1/files?hide=clean,blocker&sort=size&dir=desc".to_owned(),
+            "/api/v1/files?status=warning&sort=size&dir=desc".to_owned(),
         ))
         .await
         .unwrap();
@@ -521,7 +521,7 @@ async fn file_listing_filters_sorts_and_paginates() {
     assert_eq!(filtered["data"][0]["display_path"], "Straße.mkv");
     assert_eq!(
         app.clone()
-            .oneshot(request("/api/v1/files?hide=invalid".to_owned()))
+            .oneshot(request("/api/v1/files?status=invalid".to_owned()))
             .await
             .unwrap()
             .status(),

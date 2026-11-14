@@ -1,6 +1,13 @@
 /** German texts used on several pages. */
 export const deCommon: Record<string, string | readonly [string, string]> = {
   "Language": "Sprache",
+  // The shared filter bar (ui/FilterBar).
+  "All of these": "Alle davon",
+  "Any of these": "Eines davon",
+  "Reset": "Zurücksetzen",
+  "All filters": "Alle Filter",
+  "All filters ({count} active)": "Alle Filter ({count} aktiv)",
+  "Clear {facet}": "{facet} entfernen",
   "Version {version}": "Version {version}",
   "Verify": "Prüfen",
   "Inspect": "Analysieren",

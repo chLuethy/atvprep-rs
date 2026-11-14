@@ -1,6 +1,7 @@
 @import "./fonts.css";
 @import "./tokens.css";
 @import "./library.css";
+@import "./filterbar.css";
 @import "./schedules.css";
 
 @tailwind base;

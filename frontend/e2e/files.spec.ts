@@ -32,24 +32,77 @@ test.describe("files journey", () => {
     await expect(page.getByText("Re-inspection queued", { exact: true })).toBeVisible();
   });
 
-  test("chosen properties show only files that have all of them, and nothing chosen shows everything", async ({ page }) => {
+  test("the filter bar narrows by state (any) and property (all), keeps it in the address and Back restores it", async ({ page }) => {
     await openAndUnlock(page, "/files");
     await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
+    const bar = page.getByRole("search", { name: "Filter files" });
+    await expect(bar.getByText("4 of 4 files")).toBeVisible();
 
-    await page.getByRole("checkbox", { name: /^Needs video encoding/ }).check();
-    await expect(page).toHaveURL(/has=encode_video/);
+    await bar.getByRole("button", { name: "Status", exact: true }).click();
+    const status = page.getByRole("dialog", { name: "Status" });
+    await status.getByRole("checkbox", { name: /^Ready/ }).check();
+    await expect(page).toHaveURL(/\?status=clean$/);
+    await expect(page.getByRole("link", { name: "Failed Movie" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Sample Movie" })).toBeVisible();
+    await expect(bar.getByText("1 of 4 files")).toBeVisible();
+
+    // A second state adds its files (OR).
+    await status.getByRole("checkbox", { name: /^Warning/ }).check();
+    await expect(page).toHaveURL(/\?status=clean,warning$/);
+    await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(status).toHaveCount(0);
+    await expect(bar.getByRole("button", { name: "Status: Ready, Warning" })).toBeFocused();
+
+    // A property narrows (AND).
+    await bar.getByRole("button", { name: "Properties", exact: true }).click();
+    await page.getByRole("dialog", { name: "Properties" }).getByRole("checkbox", { name: /^Needs video encoding/ }).check();
+    await expect(page).toHaveURL(/\?status=clean,warning&has=encode_video$/);
     await expect(page.getByRole("link", { name: "Old Codec Movie" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Failed Movie" })).toHaveCount(0);
 
-    // A second property narrows further: no file here has both.
-    await page.getByRole("checkbox", { name: /^Subtitles embeddable/ }).check();
-    await expect(page).toHaveURL(/has=encode_video%2Cembed/);
-    await expect(page.getByRole("link", { name: "Old Codec Movie" })).toHaveCount(0);
-
-    await page.getByRole("button", { name: "Show all files" }).click();
-    await expect(page).not.toHaveURL(/has=/);
+    // Back undoes one choice at a time.
+    await page.goBack();
+    await expect(page).toHaveURL(/\?status=clean,warning$/);
     await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Old Codec Movie" })).toBeVisible();
+    await expect(bar.getByRole("button", { name: "Properties", exact: true })).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL(/\?status=clean$/);
+    await expect(page.getByRole("link", { name: "Failed Movie" })).toHaveCount(0);
+
+    await bar.getByRole("button", { name: "Reset filters" }).click();
+    await expect(page).toHaveURL(/\/files$/);
+    await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Sample Movie" })).toBeVisible();
+  });
+
+  test("an old address with hide shows the same files as before, under the new address", async ({ page }) => {
+    await openAndUnlock(page, "/files?hide=clean");
+    await expect(page).toHaveURL(/\?status=embed_open,warning,blocker,unknown,probe_failed,missing$/);
+    await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Sample Movie" })).toHaveCount(0);
+  });
+
+  test("on a narrow screen the facets scroll in one row and a popover takes the whole screen", async ({ page }) => {
+    await openAndUnlock(page, "/files?has=encode_video");
+    await page.setViewportSize({ width: 390, height: 844 });
+    const bar = page.getByRole("search", { name: "Filter files" });
+    await expect(bar.getByRole("button", { name: "All filters (1 active)" })).toBeVisible();
+    // The active facet comes right after the filter symbol.
+    const facets = bar.locator(".fb-facets > .fb-facet");
+    const left = async (name: string) => (await bar.getByRole("button", { name, exact: true }).boundingBox())!.x;
+    expect(await left("Properties: Needs video encoding")).toBeLessThan(await left("Status"));
+    await expect(facets.first()).toBeVisible();
+    // Search, view switch and the facet row fit the width; only the facet row scrolls.
+    expect(await bar.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+
+    await bar.getByRole("button", { name: "Status", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Status" });
+    const box = (await dialog.boundingBox())!;
+    expect(box.width).toBeGreaterThanOrEqual(389);
+    expect(box.height).toBeGreaterThanOrEqual(843);
+    await dialog.getByRole("button", { name: "Close" }).click();
+    await expect(dialog).toHaveCount(0);
   });
 
   test("shows the scope of a prepare run before anything is queued", async ({ page }) => {
