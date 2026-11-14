@@ -125,6 +125,8 @@ struct Parsed {
     lang: String,
     index: u32,
     atmos: bool,
+    /// `None` when ffprobe names no rate.
+    sample_rate: Option<u32>,
 }
 
 /// The primary non-German language, or `None` if only German/undetermined streams exist.
@@ -148,7 +150,6 @@ fn pick_original_lang(parsed: &[Parsed]) -> Option<String> {
     winner.map(|(lang, _)| (*lang).to_owned())
 }
 
-#[allow(clippy::too_many_arguments)]
 fn track(
     index: u32,
     codec: &str,
@@ -166,6 +167,34 @@ fn track(
         action,
         is_transcoded: action != AudioAction::Copy,
         is_default: false,
+        target_sample_rate: None,
+    }
+}
+
+/// The rate every encoded track is written at, unless its source already has it.
+const TARGET_SAMPLE_RATE: u32 = 48_000;
+
+/// `track` resampled to [`TARGET_SAMPLE_RATE`] when its source is known to be at another rate.
+const fn at_target_rate(mut track: AudioTrack, source_rate: Option<u32>) -> AudioTrack {
+    if let Some(rate) = source_rate
+        && rate != TARGET_SAMPLE_RATE
+    {
+        track.target_sample_rate = Some(TARGET_SAMPLE_RATE);
+    }
+    track
+}
+
+/// Whether the Apple TV wants this codec at another rate (the `audio-sample-rate` rule).
+fn rate_unfit(codec: &str, rate: Option<u32>) -> bool {
+    let Some(rate) = rate else {
+        return false;
+    };
+    if COMPAT_AUDIO_COPY.contains(&codec) {
+        rate != TARGET_SAMPLE_RATE
+    } else if codec == "aac" {
+        rate != 44_100 && rate != TARGET_SAMPLE_RATE
+    } else {
+        false
     }
 }
 
@@ -191,6 +220,9 @@ fn parse_streams(streams: &[Value], skip: &BTreeSet<i64>) -> Vec<Parsed> {
             ),
             index: u32::try_from(py_int(s.get("index"))).unwrap_or(0),
             atmos: is_atmos_audio(s),
+            sample_rate: u32::try_from(py_int(s.get("sample_rate")))
+                .ok()
+                .filter(|rate| *rate > 0),
         })
         .collect()
 }
@@ -225,36 +257,53 @@ fn split_tracks(kept: &[&Parsed]) -> (Vec<AudioTrack>, Vec<AudioTrack>, BTreeSet
     for p in kept {
         let (codec, ch, lang) = (p.codec.as_str(), p.channels, p.lang.as_str());
         let transcodable = TRANSCODE_TO_EAC3.contains(&codec) || is_pcm(codec);
-        if ch <= 2 {
+        let eac3 = || {
+            at_target_rate(
+                track(p.index, "eac3", ch, lang, false, AudioAction::TranscodeEac3),
+                p.sample_rate,
+            )
+        };
+        if rate_unfit(codec, p.sample_rate) {
+            // Encoded again only to reach the rate; the track keeps its place. ffmpeg's E-AC-3
+            // encoder writes no Atmos (JOC) layer, so a resampled track carries no Atmos flag.
+            let resampled = if codec == "aac" {
+                at_target_rate(
+                    track(p.index, "aac", ch, lang, false, AudioAction::TranscodeAac),
+                    p.sample_rate,
+                )
+            } else {
+                eac3()
+            };
+            if ch <= 2 {
+                stereo.push(resampled);
+                stereo_langs.insert(lang.to_owned());
+            } else {
+                multi.push(resampled);
+            }
+        } else if ch <= 2 {
             if codec == "aac" || COMPAT_AUDIO_COPY.contains(&codec) {
                 stereo.push(track(p.index, codec, ch, lang, false, AudioAction::Copy));
                 stereo_langs.insert(lang.to_owned());
             } else if transcodable {
-                multi.push(track(
-                    p.index,
-                    "eac3",
-                    ch,
-                    lang,
-                    false,
-                    AudioAction::TranscodeEac3,
-                ));
+                multi.push(eac3());
             }
         } else if codec == "aac" {
             multi.push(track(p.index, "aac", ch, lang, false, AudioAction::Copy));
         } else if COMPAT_AUDIO_COPY.contains(&codec) {
             multi.push(track(p.index, codec, ch, lang, p.atmos, AudioAction::Copy));
         } else if transcodable {
-            multi.push(track(
-                p.index,
-                "eac3",
-                ch,
-                lang,
-                false,
-                AudioAction::TranscodeEac3,
-            ));
+            multi.push(eac3());
         }
     }
     (stereo, multi, stereo_langs)
+}
+
+/// An AAC 2.0 downmix of `src`, at the rate `src` is written at.
+fn downmix_of(src: &AudioTrack) -> AudioTrack {
+    AudioTrack {
+        target_sample_rate: src.target_sample_rate,
+        ..track(src.index, "aac", 2, &src.lang, false, AudioAction::Downmix)
+    }
 }
 
 /// An AAC stereo downmix for each multi-channel language without a native stereo track.
@@ -273,14 +322,7 @@ fn add_downmixes(
     }
     for src in best {
         if !stereo_langs.contains(&src.lang) && src.channels > 2 {
-            stereo.push(track(
-                src.index,
-                "aac",
-                2,
-                &src.lang,
-                false,
-                AudioAction::Downmix,
-            ));
+            stereo.push(downmix_of(src));
             stereo_langs.insert(src.lang.clone());
         }
     }
@@ -315,14 +357,7 @@ pub fn analyze_audio(streams: &[Value], skip: &BTreeSet<i64>) -> Vec<AudioTrack>
         let Some(src) = multi.first() else {
             return Vec::new();
         };
-        stereo.push(track(
-            src.index,
-            "aac",
-            2,
-            &src.lang,
-            false,
-            AudioAction::Downmix,
-        ));
+        stereo.push(downmix_of(src));
     }
 
     let mut result = stereo;
@@ -507,6 +542,82 @@ mod tests {
         let tracks = analyze_audio(&streams, &BTreeSet::new());
         assert_eq!(tracks.iter().filter(|t| t.is_default).count(), 1);
         assert!(tracks[0].is_default);
+    }
+
+    fn audio(index: u32, codec: &str, channels: u32, rate: &str) -> Value {
+        serde_json::json!({"index": index, "codec_name": codec, "channels": channels,
+            "sample_rate": rate, "tags": {"language": "deu", "title": "Kino"}})
+    }
+
+    /// (codec, channels, action, target rate) of each planned track.
+    fn planned(streams: &[Value]) -> Vec<(String, u32, AudioAction, Option<u32>)> {
+        analyze_audio(streams, &BTreeSet::new())
+            .into_iter()
+            .map(|t| (t.codec, t.channels, t.action, t.target_sample_rate))
+            .collect()
+    }
+
+    #[test]
+    fn ac3_off_48_khz_becomes_eac3_at_48_khz_and_its_downmix_too() {
+        assert_eq!(
+            planned(&[audio(1, "ac3", 6, "44100")]),
+            [
+                (
+                    "eac3".to_owned(),
+                    6,
+                    AudioAction::TranscodeEac3,
+                    Some(48000)
+                ),
+                ("aac".to_owned(), 2, AudioAction::Downmix, Some(48000)),
+            ]
+        );
+        assert_eq!(
+            planned(&[audio(1, "eac3", 2, "32000")]),
+            [(
+                "eac3".to_owned(),
+                2,
+                AudioAction::TranscodeEac3,
+                Some(48000)
+            )]
+        );
+    }
+
+    #[test]
+    fn aac_outside_44_1_and_48_khz_becomes_aac_at_48_khz() {
+        assert_eq!(
+            planned(&[audio(1, "aac", 2, "32000")]),
+            [("aac".to_owned(), 2, AudioAction::TranscodeAac, Some(48000))]
+        );
+    }
+
+    #[test]
+    fn tracks_at_a_fitting_rate_stay_copies() {
+        assert_eq!(
+            planned(&[audio(1, "ac3", 2, "48000")]),
+            [("ac3".to_owned(), 2, AudioAction::Copy, None)]
+        );
+        assert_eq!(
+            planned(&[audio(1, "aac", 2, "44100")]),
+            [("aac".to_owned(), 2, AudioAction::Copy, None)]
+        );
+        // Without a known rate nothing changes either.
+        let unknown = serde_json::json!({"index": 1, "codec_name": "ac3", "channels": 2});
+        assert_eq!(
+            planned(&[unknown]),
+            [("ac3".to_owned(), 2, AudioAction::Copy, None)]
+        );
+    }
+
+    #[test]
+    fn an_encoded_track_from_another_codec_is_resampled_only_when_off_48_khz() {
+        assert_eq!(
+            planned(&[audio(1, "dts", 6, "44100"), audio(2, "truehd", 8, "48000")])
+                .into_iter()
+                .filter(|t| t.2 == AudioAction::TranscodeEac3)
+                .map(|t| (t.1, t.3))
+                .collect::<Vec<_>>(),
+            [(8, None), (6, Some(48000))]
+        );
     }
 
     #[derive(Deserialize)]

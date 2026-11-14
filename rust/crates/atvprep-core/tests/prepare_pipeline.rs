@@ -15,7 +15,7 @@ use atvprep_core::encode::EncodeAllowance;
 use atvprep_core::fd_fix_contract::FdFixTarget;
 use atvprep_core::ffprobe::Ffprobe;
 use atvprep_core::pipeline_postfix::RunContext;
-use atvprep_core::prepare::pipeline::{PrepareError, prepare_file};
+use atvprep_core::prepare::pipeline::{PrepareError, planned_change, prepare_file};
 use atvprep_core::prepare::{ErrorKind, PrepareOptions, PrepareResult};
 use atvprep_core::stages::StageReporter;
 use atvprep_core::verify::verify_file;
@@ -659,4 +659,118 @@ fn sdh_sidecars_embedded_into_an_mp4_count_as_embedded() {
 #[test]
 fn sdh_sidecars_embedded_from_an_mkv_count_as_embedded() {
     assert_sdh_sidecars_stay_embedded("movie.mkv");
+}
+
+/// A one-second MP4 whose German AC-3 5.1 track runs at 44.1 kHz, otherwise ready for the Apple TV.
+fn ac3_at_44_1_khz(dir: &Path) -> PathBuf {
+    let path = dir.join("Film.mp4");
+    let status = std::process::Command::new("ffmpeg")
+        .args([
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=320x240:rate=25",
+        ])
+        .args(["-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100"])
+        .args(["-t", "1", "-map", "0:v", "-map", "1:a"])
+        .args([
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-profile:v",
+            "high",
+        ])
+        .args(["-c:a", "ac3", "-ac", "6", "-ar", "44100"])
+        .args([
+            "-metadata:s:v:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "language=deu",
+        ])
+        .args(["-disposition:a:0", "default"])
+        .args(["-movflags", "+faststart"])
+        .arg(&path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    path
+}
+
+fn rules(report: &atvprep_core::verify::VerifyReport) -> Vec<&str> {
+    report.violations.iter().map(|v| v.rule.as_str()).collect()
+}
+
+#[test]
+fn ac3_at_44_1_khz_is_resampled_to_48_khz_and_then_passes_the_check() {
+    let mut f = fixture("clean.mp4", None);
+    let source = ac3_at_44_1_khz(f.source.parent().unwrap());
+    assert!(
+        rules(&verify_file(&source, &SystemTools::new(), None, None))
+            .contains(&"audio-sample-rate")
+    );
+
+    let target = FdFixTarget::for_path(&source).unwrap();
+    let audio = PrepareOptions {
+        encode: EncodeAllowance::Audio,
+        ..PrepareOptions::default()
+    };
+    let planned = planned_change(&mut f.ctx, &source, &audio, &target).unwrap();
+    assert_eq!(
+        (planned.need.as_str(), planned.change.as_str()),
+        ("audio", "audio")
+    );
+    drop(target);
+
+    // „Nur kopieren“ refuses and leaves the file as it was.
+    let before = sha(&source);
+    let copy = PrepareOptions {
+        encode: EncodeAllowance::Copy,
+        ..PrepareOptions::default()
+    };
+    let refused = prepare_file(&mut f.ctx, &source, &copy, None).unwrap();
+    assert_eq!(refused.outcome.as_str(), "encode_not_allowed");
+    assert_eq!(
+        refused.reasons,
+        [
+            "no stereo track for deu",
+            "audio stream #1 sample rate 44100Hz needs 48000Hz"
+        ]
+    );
+    assert_eq!(sha(&source), before);
+
+    let result = prepare_file(&mut f.ctx, &source, &audio, None).unwrap();
+    assert_eq!(result.error, None);
+    let output = result.output.unwrap_or_else(|| source.clone());
+    let report = verify_file(&output, &SystemTools::new(), None, None);
+    assert!(!rules(&report).contains(&"audio-sample-rate"), "{report:?}");
+
+    let probe = f.ctx.ffprobe.probe_json(&output).unwrap();
+    // Language and the Apple layout (the stereo track of the language is the enabled one) stay as
+    // for any copy; the MP4 muxer keeps no track title apart from the handler name.
+    let tracks: Vec<(&str, &str, &str, &str, i64)> = probe["streams"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|s| s["codec_type"] == "audio")
+        .map(|s| {
+            (
+                s["codec_name"].as_str().unwrap(),
+                s["sample_rate"].as_str().unwrap(),
+                s["tags"]["language"].as_str().unwrap_or(""),
+                s["tags"]["handler_name"].as_str().unwrap_or(""),
+                s["disposition"]["default"].as_i64().unwrap_or(0),
+            )
+        })
+        .collect();
+    assert_eq!(
+        tracks,
+        [
+            ("eac3", "48000", "deu", "German", 0),
+            ("aac", "48000", "deu", "German", 1),
+        ]
+    );
 }
