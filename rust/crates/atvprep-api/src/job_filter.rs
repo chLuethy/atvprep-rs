@@ -7,8 +7,11 @@
 //! counter alike.
 //!
 //! To add a facet, add a [`FacetDef`] to [`FACETS`] and its query field to [`JobQuery::facet`]. To add
-//! a plain narrowing (a period, a library), add its field to [`JobQuery`] and its clause in
-//! [`JobFilter::parse`].
+//! a plain narrowing, add its field to [`JobQuery`] and its clause in [`JobFilter::parse`].
+//!
+//! The period (`from`/`to`) is a plain narrowing. The library (`root_id`) is a facet whose tokens are
+//! the configured libraries rather than fixed ones; it lives beside [`FACETS`] in [`Libraries`].
+use crate::opaque::Opaque;
 use atvprep_manager::state_machine::JobStatus;
 use rusqlite::types::Value;
 use serde::Deserialize;
@@ -26,6 +29,12 @@ pub struct JobQuery {
     action: Option<String>,
     exclude_status: Option<String>,
     q: Option<String>,
+    /// Queued at or after this instant (RFC 3339).
+    from: Option<String>,
+    /// Queued before this instant (RFC 3339).
+    to: Option<String>,
+    /// Opaque library ids: a job with a file in any of them.
+    root_id: Option<String>,
 }
 
 impl JobQuery {
@@ -116,16 +125,20 @@ pub(crate) struct JobFilter {
     chosen: Vec<Vec<&'static str>>,
     narrowing: Vec<String>,
     narrowing_values: Vec<Value>,
+    /// The chosen libraries; none is every job.
+    roots: Vec<i64>,
 }
 
 impl JobFilter {
     /// Check every filter parameter and build the filter; the error is the problem's detail.
-    pub(crate) fn parse(query: &JobQuery) -> Result<Self, &'static str> {
+    pub(crate) fn parse(query: &JobQuery, opaque: &Opaque) -> Result<Self, &'static str> {
         let too_long = [
             &query.status,
             &query.action,
             &query.exclude_status,
             &query.q,
+            &query.from,
+            &query.to,
         ]
         .iter()
         .any(|value| {
@@ -161,16 +174,28 @@ impl JobFilter {
             narrowing.push(SEARCHED.to_owned());
             narrowing_values.push(Value::from(format!("%{}%", like_literal(q))));
         }
+        period_clauses(query, &mut narrowing, &mut narrowing_values)?;
         Ok(Self {
             chosen,
             narrowing,
             narrowing_values,
+            roots: Libraries::parse(query.root_id.as_deref(), opaque)?,
         })
     }
 
     /// The clauses (joined with AND) and their values for every filter, with facet `index` set to
     /// `instead` when given (`Some(&[])` drops that facet).
     fn clauses(&self, index: Option<usize>, instead: &[&str]) -> (String, Vec<Value>) {
+        self.clauses_with(index, instead, &self.roots)
+    }
+
+    /// As [`Self::clauses`], with `roots` as the chosen libraries.
+    fn clauses_with(
+        &self,
+        index: Option<usize>,
+        instead: &[&str],
+        roots: &[i64],
+    ) -> (String, Vec<Value>) {
         let mut clauses = self.narrowing.clone();
         let mut values = self.narrowing_values.clone();
         for (position, facet) in FACETS.iter().enumerate() {
@@ -182,6 +207,9 @@ impl JobFilter {
             if !chosen.is_empty() {
                 clauses.push((facet.clause)(chosen, &mut values));
             }
+        }
+        if !roots.is_empty() {
+            clauses.push(Libraries::clause(roots, &mut values));
         }
         (clauses.join(" AND "), values)
     }
@@ -196,6 +224,7 @@ impl JobFilter {
     pub(crate) fn counts(
         &self,
         conn: &rusqlite::Connection,
+        opaque: &Opaque,
     ) -> rusqlite::Result<serde_json::Value> {
         let count = |sql: &str, values: &[Value]| -> rusqlite::Result<i64> {
             conn.query_row(
@@ -213,6 +242,10 @@ impl JobFilter {
             }
             data.insert(facet.key.to_owned(), by_token.into());
         }
+        data.insert(
+            "root_id".to_owned(),
+            Libraries::counts(self, conn, opaque, &count)?.into(),
+        );
         let (sql, values) = self.sql();
         let active = format!("j.status IN {}", JobStatus::non_terminal_sql_list());
         let matched_active = count(&format!("{sql} AND {active}"), &values)?;
@@ -224,6 +257,83 @@ impl JobFilter {
             (total_active - matched_active).into(),
         );
         Ok(data.into())
+    }
+}
+
+/// The period on when a job was queued: `from` inclusive, `to` exclusive, each an RFC 3339 instant
+/// with any offset. Stored times come in several spellings, so both sides compare as instants.
+fn period_clauses(
+    query: &JobQuery,
+    clauses: &mut Vec<String>,
+    values: &mut Vec<Value>,
+) -> Result<(), &'static str> {
+    for (op, value) in [(">=", &query.from), ("<", &query.to)] {
+        let Some(value) = value.as_deref().filter(|v| !v.is_empty()) else {
+            continue;
+        };
+        let instant = chrono::DateTime::parse_from_rfc3339(value).map_err(|_| "invalid request")?;
+        clauses.push(format!("julianday(j.requested_at){op}julianday(?)"));
+        values.push(Value::from(
+            instant
+                .naive_utc()
+                .format("%Y-%m-%d %H:%M:%S%.6f")
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// The library facet: a job lies in every library one of its files lies in. Its tokens are the
+/// opaque ids of the configured libraries, so they are read from the database, not listed in code.
+struct Libraries;
+
+impl Libraries {
+    /// Longest accepted `root_id` list, in characters: several libraries make a long list of ids.
+    const MAX_LIST: usize = 1024;
+
+    fn parse(value: Option<&str>, opaque: &Opaque) -> Result<Vec<i64>, &'static str> {
+        if value.is_some_and(|v| v.chars().count() > Self::MAX_LIST) {
+            return Err("invalid request");
+        }
+        let mut ids = Vec::new();
+        for token in tokens(value) {
+            match opaque.decode(token, "r") {
+                Ok(id) if id > 0 => {
+                    if !ids.contains(&id) {
+                        ids.push(id);
+                    }
+                }
+                _ => return Err("invalid request"),
+            }
+        }
+        Ok(ids)
+    }
+
+    fn clause(roots: &[i64], values: &mut Vec<Value>) -> String {
+        values.extend(roots.iter().map(|id| Value::from(*id)));
+        format!(
+            "EXISTS(SELECT 1 FROM job_items i JOIN media_files m ON m.id=i.media_file_id WHERE i.job_id=j.id AND m.root_id IN ({}))",
+            placeholders(roots.len())
+        )
+    }
+
+    /// Per configured library, by its opaque id: the jobs it alone would show with every other filter.
+    fn counts(
+        filter: &JobFilter,
+        conn: &rusqlite::Connection,
+        opaque: &Opaque,
+        count: &dyn Fn(&str, &[Value]) -> rusqlite::Result<i64>,
+    ) -> rusqlite::Result<serde_json::Map<String, serde_json::Value>> {
+        let ids: Vec<i64> = conn
+            .prepare("SELECT id FROM library_roots ORDER BY id")?
+            .query_map([], |row| row.get(0))?
+            .collect::<Result<_, _>>()?;
+        let mut by_root = serde_json::Map::new();
+        for id in ids {
+            let (sql, values) = filter.clauses_with(None, &[], &[id]);
+            by_root.insert(opaque.encode("r", id), count(&sql, &values)?.into());
+        }
+        Ok(by_root)
     }
 }
 
