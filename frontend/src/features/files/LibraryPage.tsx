@@ -7,7 +7,7 @@ import { ColumnsView, type ColumnAction, type Picked } from "./ColumnsView";
 import { RowMenu, type MenuItem } from "./RowMenu";
 import { additive, copyText, selectionMenu } from "./selection";
 import { loadBelow } from "./browse";
-import { activeQuickFilter, EMPTY_FILTER, fileSortQuery, isFiltered, QUICK_FILTERS, sameFilter, STATE_FILTERS, TRAIT_FILTERS, type FileFilter, type FileSort, type SortKey as FileSortKey } from "./filters";
+import { activeQuickFilter, defaultDir, EMPTY_FILTER, fileSortQuery, isFiltered, QUICK_FILTERS, sameFilter, STATE_FILTERS, TRAIT_FILTERS, type FileFilter, type FileSort, type SortKey as FileSortKey } from "./filters";
 import { loadRoots } from "../scan/loaders";
 import { FileTable, type Sort, type SortKey } from "./FileTable";
 import { FixPreview } from "./FixPreview";
@@ -365,7 +365,9 @@ export const LibraryPage: Component<{
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => changeFilter({ ...filter(), q: value.trim() }, true), 250);
   };
-  const changeSort = (next: Sort) => {
+  const changeSort = (chosen: Sort) => {
+    // The default order is always null, so the address and the page agree on it.
+    const next = fileSortQuery(chosen) === "" ? null : chosen;
     if (sameSort(next, sort())) return;
     setSort(next);
     props.onSort?.(next);
@@ -376,7 +378,7 @@ export const LibraryPage: Component<{
     changeSort(current?.key === key ? (current.dir === 1 ? { key, dir: -1 } : null) : { key, dir: 1 });
   };
   const sortKey = (): FileSortKey => sort()?.key ?? "added";
-  const sortDir = (): 1 | -1 => sort()?.dir ?? 1;
+  const sortDir = (): 1 | -1 => sort()?.dir ?? defaultDir("added");
 
   /** Rows a preview or verification acts on: an explicit list, else the selection, else the open file. */
   const targets = (explicit?: string[]): FileRow[] => {
@@ -627,7 +629,7 @@ export const LibraryPage: Component<{
               <div class="lib-sort">
                 <select class="select" aria-label={t("Sort by")} value={sortKey()} onChange={(event) => {
                   const key = event.currentTarget.value as FileSortKey;
-                  changeSort({ key, dir: sortDir() });
+                  changeSort({ key, dir: defaultDir(key) });
                 }}>
                   <For each={SORT_CHOICES}>{(choice) => <option value={choice.key}>{t(choice.label)}</option>}</For>
                 </select>

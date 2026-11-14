@@ -1159,7 +1159,7 @@ describe("ActivityPage: the Auslöser", () => {
   const withTriggers = {
     ...jobCounts({ matched: 6, total: 6 }),
     trigger: { manual: 1, retry: 1, schedule: 4 },
-    schedule: { sc_n: 3, sc_w: 1 },
+    schedule_id: { sc_n: 3, sc_w: 1 },
     schedules: [{ id: "sc_n", name: "Nachtlauf" }, { id: "sc_w", name: "Wochenende" }],
   };
 
@@ -1174,10 +1174,10 @@ describe("ActivityPage: the Auslöser", () => {
 
     await fireEvent.click(trigger.getByRole("checkbox", { name: "Wochenende, 1 job" }));
     expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, schedule: ["sc_w"] }, { replace: false });
-    await waitFor(() => expect(listCalls(api).at(-1)).toBe("/jobs?limit=50&order=desc&schedule=sc_w"));
+    await waitFor(() => expect(listCalls(api).at(-1)).toBe("/jobs?limit=50&order=desc&schedule_id=sc_w"));
     await fireEvent.click(trigger.getByRole("checkbox", { name: "By hand, 1 job" }));
-    await waitFor(() => expect(listCalls(api).at(-1)).toBe("/jobs?limit=50&order=desc&trigger=manual&schedule=sc_w"));
-    expect(countsCalls(api).at(-1)).toBe("/jobs/counts?order=desc&trigger=manual&schedule=sc_w");
+    await waitFor(() => expect(listCalls(api).at(-1)).toBe("/jobs?limit=50&order=desc&trigger=manual&schedule_id=sc_w"));
+    expect(countsCalls(api).at(-1)).toBe("/jobs/counts?order=desc&trigger=manual&schedule_id=sc_w");
     expect(view.getByRole("button", { name: "Trigger: By hand, Wochenende" })).toBeInTheDocument();
 
     await fireEvent.click(trigger.getByRole("checkbox", { name: "Schedules, 4 jobs" }));

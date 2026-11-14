@@ -145,7 +145,7 @@ export const dePages: Record<string, string | readonly [string, string]> = {
   "Default: on.": "Standard: ein.",
   "Default: off.": "Standard: aus.",
   "Changed from the default.": "Vom Standard abweichend.",
-  "How often the libraries are scanned for new and changed files.": "Wie oft die Mediatheken nach neuen und geänderten Dateien durchsucht wird.",
+  "How often the libraries are scanned for new and changed files.": "Wie oft die Mediatheken nach neuen und geänderten Dateien durchsucht werden.",
   "A new or changed file is left alone for this long, so files still being copied or imported are not touched.": "Eine neue oder geänderte Datei bleibt so lange unberührt, damit Dateien, die noch kopiert oder importiert werden, nicht angefasst werden.",
   "How many files are prepared at once. More is faster but loads the server. Verify jobs are not counted.": "Wie viele Dateien gleichzeitig vorbereitet werden. Mehr ist schneller, belastet aber den Server. Prüf-Aufträge zählen nicht mit.",
   "How many files are read at once by the scan and by Verify jobs. Preparing has its own limit.": "Wie viele Dateien der Scan und Prüf-Aufträge gleichzeitig lesen. Das Vorbereiten hat ein eigenes Limit.",

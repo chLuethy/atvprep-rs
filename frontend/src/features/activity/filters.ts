@@ -1,19 +1,18 @@
 import { N } from "../../lib/i18n";
+import { canonical, list, sorted, type FilterEntry, type QuickFilter } from "../../ui/filterAddress";
 import type { FacetCounts } from "../../ui/FilterBar";
 import { parsePeriod, periodAddress, periodServer, type JobPeriod } from "./period";
 
 /**
  * The activity filter and its address. Status and action: nothing chosen shows every job, chosen values show
  * the jobs with any of them (OR); the server takes them as `status` and `action`. The search is `q`, the order
- * `sort` (newest first unless `sort=oldest`). The Auslöser is `trigger` with single schedules as `schedule`,
- * alternatives to each other (OR) within one facet. New facets and narrowings (#71 period
- * and library, #72 search over all items) go into `JobFilter`, `parseJobFilter`, `jobFilterQuery` and
- * `jobListParams` alike.
+ * `sort` (newest first unless `sort=oldest`). The Auslöser is `trigger` with single schedules as `schedule_id`
+ * (an old address may still say `schedule`), alternatives to each other (OR) within one facet. New facets and
+ * narrowings go into `JobFilter`, `parseJobFilter`, `jobFilterQuery` and `jobListParams` alike.
  */
-export type JobFilterEntry = { token: string; label: string; urgent?: boolean };
 
 /** Every job status, in the order of a job's life. */
-export const JOB_STATUSES: ReadonlyArray<JobFilterEntry> = [
+export const JOB_STATUSES: ReadonlyArray<FilterEntry> = [
   { token: "queued", label: N("Queued") },
   { token: "running", label: N("Running") },
   { token: "cancel_requested", label: N("Cancelling") },
@@ -24,14 +23,14 @@ export const JOB_STATUSES: ReadonlyArray<JobFilterEntry> = [
 ];
 
 /** The actions as the API names them. */
-export const JOB_ACTIONS: ReadonlyArray<JobFilterEntry> = [
+export const JOB_ACTIONS: ReadonlyArray<FilterEntry> = [
   { token: "verify", label: N("Verify") },
   { token: "prepare", label: N("Prepare") },
   { token: "inspect", label: N("Inspect") },
 ];
 
 /** The Auslöser as the server derives them, in popover order; `schedule` is the group of every schedule. */
-export const JOB_TRIGGERS: ReadonlyArray<JobFilterEntry> = [
+export const JOB_TRIGGERS: ReadonlyArray<FilterEntry> = [
   { token: "manual", label: N("By hand") },
   { token: "retry", label: N("Retried") },
   { token: "schedule", label: N("Schedules") },
@@ -67,7 +66,7 @@ const ACTION_ORDER = JOB_ACTIONS.map((entry) => entry.token);
 const TRIGGER_ORDER = JOB_TRIGGERS.map((entry) => entry.token);
 /** What an opaque schedule id looks like; anything else would be refused by the server. */
 const SCHEDULE_ID = /^sc_[A-Za-z0-9_-]+$/;
-const scheduleIds = (values: Iterable<string>): string[] => [...new Set(values)].filter((id) => SCHEDULE_ID.test(id)).sort();
+const scheduleIds = (values: Iterable<string>): string[] => sorted(values).filter((id) => SCHEDULE_ID.test(id));
 
 /** The Auslöser part of a filter, only with something chosen, so a filter without it stays as it was. */
 function triggerPart(trigger: Iterable<string>, schedule: Iterable<string>): Pick<JobFilter, "trigger" | "schedule"> {
@@ -79,20 +78,13 @@ function triggerPart(trigger: Iterable<string>, schedule: Iterable<string>): Pic
   return part;
 }
 
-const list = (value: string | null): string[] => (value ?? "").split(",").filter(Boolean);
-/** Known values only, once each, in the order of `order`. */
-const canonical = (order: ReadonlyArray<string>, values: Iterable<string>): string[] => {
-  const wanted = new Set(values);
-  return order.filter((token) => wanted.has(token));
-};
-
-/** The filter an address asks for; unknown values are dropped. */
+/** The filter an address asks for; unknown values are dropped, and an old `schedule` counts as `schedule_id`. */
 export function parseJobFilter(params: URLSearchParams): JobFilter {
   return {
     q: (params.get("q") ?? "").trim(),
     status: canonical(STATUS_ORDER, list(params.get("status"))),
     action: canonical(ACTION_ORDER, list(params.get("action"))),
-    ...triggerPart(list(params.get("trigger")), list(params.get("schedule"))),
+    ...triggerPart(list(params.get("trigger")), [...list(params.get("schedule_id")), ...list(params.get("schedule"))]),
     sort: params.get("sort") === "oldest" ? "oldest" : "newest",
     ...parsePeriodLibrary(params),
   };
@@ -107,7 +99,7 @@ function filterParts(filter: JobFilter): string[] {
   if (action.length > 0) parts.push(`action=${action.join(",")}`);
   const { trigger, schedule } = triggerPart(filter.trigger ?? [], filter.schedule ?? []);
   if (trigger) parts.push(`trigger=${trigger.join(",")}`);
-  if (schedule) parts.push(`schedule=${schedule.join(",")}`);
+  if (schedule) parts.push(`schedule_id=${schedule.join(",")}`);
   if (filter.q.trim()) parts.push(`q=${encodeURIComponent(filter.q.trim())}`);
   return parts;
 }
@@ -163,7 +155,7 @@ export function revealActive(filter: JobFilter, counts: JobCounts): JobFilter {
 }
 
 /*
- * The period and the library (#71), after the search and before the order. The period is `range=<preset>` or
+ * The period and the library, after the search and before the order. The period is `range=<preset>` or
  * `from`/`to` days in the address and absolute instants for the server (see period.ts); the libraries are
  * `root_id`, sorted, as on the Files page. Both are left out of the filter when not chosen.
  */
@@ -171,13 +163,13 @@ function parsePeriodLibrary(params: URLSearchParams): Pick<JobFilter, "period" |
   const result: Pick<JobFilter, "period" | "root"> = {};
   const period = parsePeriod(params);
   if (period) result.period = period;
-  const root = [...new Set(list(params.get("root_id")))].sort();
+  const root = sorted(list(params.get("root_id")));
   if (root.length > 0) result.root = root;
   return result;
 }
 
 function rootPart(filter: JobFilter): string[] {
-  const root = [...new Set(filter.root ?? [])].sort();
+  const root = sorted(filter.root ?? []);
   return root.length > 0 ? [`root_id=${root.map(encodeURIComponent).join(",")}`] : [];
 }
 
@@ -185,17 +177,15 @@ const periodLibraryAddress = (filter: JobFilter): string[] => [...periodAddress(
 const periodLibraryServer = (filter: JobFilter, now: Date): string[] => [...periodServer(filter.period, now), ...rootPart(filter)];
 
 /**
- * A fixed filter one click away (#73). It replaces the whole filter, search included, keeps the order, and is
+ * The quick filters of Activity. Each replaces the whole filter, search included, keeps the order, and is
  * active while the filter is exactly it, in either order.
  */
-export type JobQuickFilter = { id: string; label: string; filter: JobFilter };
-
-export const JOB_QUICK_FILTERS: ReadonlyArray<JobQuickFilter> = [
+export const JOB_QUICK_FILTERS: ReadonlyArray<QuickFilter<JobFilter>> = [
   { id: "running", label: N("Running"), filter: { ...EMPTY_JOB_FILTER, status: [...ACTIVE_STATUSES] } },
   { id: "failed24h", label: N("Failed in 24 h"), filter: { ...EMPTY_JOB_FILTER, status: ["partial_success", "failed"], period: { preset: "24h" } } },
   { id: "schedulesToday", label: N("Schedules today"), filter: { ...EMPTY_JOB_FILTER, trigger: ["schedule"], period: { preset: "today" } } },
 ];
 
 /** The quick filter the filter is exactly, the order aside, if any. */
-export const activeJobQuickFilter = (filter: JobFilter): JobQuickFilter | undefined =>
+export const activeJobQuickFilter = (filter: JobFilter): QuickFilter<JobFilter> | undefined =>
   JOB_QUICK_FILTERS.find((entry) => sameJobFilter(entry.filter, { ...filter, sort: entry.filter.sort }));

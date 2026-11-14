@@ -99,8 +99,8 @@ export async function loadJobCounts(api: Api, filter: JobFilter): Promise<JobCou
     if (!data || !status || !action || typeof data.matched !== "number" || typeof data.total !== "number") return null;
     const facets: Record<string, Record<string, number>> = { status, action };
     const trigger = tally(data.trigger);
-    const schedule = tally(data.schedule);
-    // Per library (#71), under the facet key of the page; an older server without it shows no library counts.
+    const schedule = tally(data.schedule_id);
+    // Per library, under the facet key of the page; an older server without it shows no library counts.
     const root = tally(data.root_id);
     if (trigger) facets.trigger = trigger;
     if (schedule) facets.schedule = schedule;

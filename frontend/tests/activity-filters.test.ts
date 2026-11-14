@@ -56,14 +56,20 @@ describe("activity filter: the Auslöser", () => {
   });
 
   it("reads the Auslöser and single schedules, dropping what is no schedule id", () => {
-    expect(parse("trigger=schedule,bogus,manual&schedule=sc_b,sc_a-1,sc_b,j_x,a%20b")).toEqual({ ...EMPTY_JOB_FILTER, trigger: ["manual", "schedule"], schedule: ["sc_a-1", "sc_b"] });
-    expect(parse("trigger=&schedule=")).toEqual(EMPTY_JOB_FILTER);
+    expect(parse("trigger=schedule,bogus,manual&schedule_id=sc_b,sc_a-1,sc_b,j_x,a%20b")).toEqual({ ...EMPTY_JOB_FILTER, trigger: ["manual", "schedule"], schedule: ["sc_a-1", "sc_b"] });
+    expect(parse("trigger=&schedule_id=")).toEqual(EMPTY_JOB_FILTER);
+  });
+
+  it("still reads an old address with single schedules as schedule", () => {
+    expect(parse("schedule=sc_b,sc_a")).toEqual({ ...EMPTY_JOB_FILTER, schedule: ["sc_a", "sc_b"] });
+    expect(parse("schedule=sc_a&schedule_id=sc_c")).toEqual({ ...EMPTY_JOB_FILTER, schedule: ["sc_a", "sc_c"] });
+    expect(jobFilterQuery(parse("schedule=sc_a"))).toBe("schedule_id=sc_a");
   });
 
   it("writes them after the action and before the search, for the address and the server alike", () => {
     const filter = { ...EMPTY_JOB_FILTER, action: ["verify"], q: "Heat", trigger: ["schedule", "manual"], schedule: ["sc_x"] };
-    expect(jobFilterQuery(filter)).toBe("action=verify&trigger=manual,schedule&schedule=sc_x&q=Heat");
-    expect(jobListParams(filter)).toBe("order=desc&action=verify&trigger=manual,schedule&schedule=sc_x&q=Heat");
+    expect(jobFilterQuery(filter)).toBe("action=verify&trigger=manual,schedule&schedule_id=sc_x&q=Heat");
+    expect(jobListParams(filter)).toBe("order=desc&action=verify&trigger=manual,schedule&schedule_id=sc_x&q=Heat");
     expect(parse(jobFilterQuery(filter))).toEqual({ ...filter, trigger: ["manual", "schedule"] });
   });
 

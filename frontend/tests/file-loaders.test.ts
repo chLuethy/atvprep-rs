@@ -83,6 +83,17 @@ describe("loadFiles", () => {
     expect(calls[1]!.get("dir")).toBe("desc");
   });
 
+  it("asks for recently added, newest first, without a sort", async () => {
+    const api = apiFor(() => json([]));
+    await loadFiles(api, { ...EMPTY_FILTER, cursor: null, sort: null });
+    await loadFiles(api, { ...EMPTY_FILTER, cursor: null });
+    const calls = (api.request as ReturnType<typeof vi.fn>).mock.calls.map((call) => new URLSearchParams(String(call[0]).split("?")[1]));
+    for (const call of calls) {
+      expect(call.has("sort")).toBe(false);
+      expect(call.get("dir")).toBe("desc");
+    }
+  });
+
   it("separates a lost session from a failed request", async () => {
     expect(await loadFiles(expired(), { ...EMPTY_FILTER, cursor: null })).toMatchObject({ error: true, session: true });
     expect(await loadFiles(apiFor(() => json({}, 500)), { ...EMPTY_FILTER, cursor: null })).toMatchObject({ error: true, session: false });

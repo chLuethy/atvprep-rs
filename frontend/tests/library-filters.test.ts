@@ -66,20 +66,27 @@ describe("files filter: library, extension and subtitle files", () => {
 describe("files filter: the sort in the address", () => {
   const sortOf = (search: string) => parseFileSort(new URLSearchParams(search));
 
-  it("is recently added, oldest first, when the address says nothing", () => {
+  it("is recently added, newest first, when the address says nothing", () => {
     expect(sortOf("")).toBeNull();
     expect(fileSortQuery(null)).toBe("");
     expect(sortOf("sort=added")).toBeNull();
-    expect(sortOf("sort=nonsense&dir=desc")).toBeNull();
+    expect(sortOf("sort=nonsense")).toBeNull();
+    // An old link that spelled out the default still means it, and is shortened.
+    expect(sortOf("sort=added&dir=desc")).toBeNull();
+    expect(fileSortQuery({ key: "added", dir: -1 })).toBe("");
   });
 
-  it("reads and writes a key and the direction, descending only when it is", () => {
+  it("reads and writes a key and the direction, the other direction than the key's own only when chosen", () => {
     expect(sortOf("sort=size&dir=desc")).toEqual({ key: "size", dir: -1 });
     expect(sortOf("sort=title")).toEqual({ key: "title", dir: 1 });
-    expect(sortOf("sort=added&dir=desc")).toEqual({ key: "added", dir: -1 });
     expect(fileSortQuery({ key: "status", dir: 1 })).toBe("sort=status");
-    expect(fileSortQuery({ key: "added", dir: -1 })).toBe("sort=added&dir=desc");
-    expect(fileSortQuery({ key: "added", dir: 1 })).toBe("");
+    expect(fileSortQuery({ key: "size", dir: -1 })).toBe("sort=size&dir=desc");
+  });
+
+  it("writes recently added, oldest first, as an explicit dir=asc", () => {
+    expect(fileSortQuery({ key: "added", dir: 1 })).toBe("dir=asc");
+    expect(sortOf("dir=asc")).toEqual({ key: "added", dir: 1 });
+    expect(sortOf("sort=added&dir=asc")).toEqual({ key: "added", dir: 1 });
   });
 });
 
