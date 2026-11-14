@@ -209,6 +209,7 @@ async fn counts_vary_each_facet_with_the_other_filters() {
         json!({
             "status": {"queued":1,"running":1,"cancel_requested":1,"succeeded":1,"partial_success":1,"failed":1,"cancelled":1},
             "action": {"verify":3,"prepare":3,"inspect":1},
+            "trigger": {"manual":0,"schedule":0,"retry":0}, "schedule": {}, "schedules": [],
             "matched": 7, "total": 7, "hidden_active": 0
         })
     );
@@ -222,6 +223,7 @@ async fn counts_vary_each_facet_with_the_other_filters() {
         json!({
             "status": {"queued":0,"running":1,"cancel_requested":0,"succeeded":0,"partial_success":1,"failed":1,"cancelled":0},
             "action": {"verify":1,"prepare":2,"inspect":0},
+            "trigger": {"manual":0,"schedule":0,"retry":0}, "schedule": {}, "schedules": [],
             "matched": 2, "total": 7, "hidden_active": 3
         })
     );

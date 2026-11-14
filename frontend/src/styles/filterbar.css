@@ -60,6 +60,13 @@
 /* No hit with the other filters: dimmed, still choosable. */
 .fb-option[data-empty="true"] { color: var(--faint); }
 .fb-option[data-empty="true"] .count { color: var(--faint); }
+/* A group (e.g. Schedules): its box shows a dash while only some of its options are chosen; they follow indented. */
+.fb-option .box > svg { grid-area: 1 / 1; }
+.fb-option input:indeterminate + .box { border-color: var(--accent-strong); background: var(--accent-weak); }
+.fb-option input:indeterminate + .box::after { content: ""; grid-area: 1 / 1; width: 8px; height: 2px; border-radius: 1px; background: var(--accent-strong); }
+.fb-group { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--line); }
+.fb-group-options { display: flex; flex-direction: column; padding-left: 22px; }
+.fb-group-options .fb-find { margin: 2px 0 6px; width: 100%; }
 
 /* Narrow: search and tools share a row, the facets scroll sideways below with the filter symbol first and the
    active facets next; every popover is a full screen with Close. Targets are at least 44px high. */

@@ -8,7 +8,10 @@
 //!
 //! To add a facet, add a [`FacetDef`] to [`FACETS`] and its query field to [`JobQuery::facet`]. To add
 //! a plain narrowing (a period, a library), add its field to [`JobQuery`] and its clause in
-//! [`JobFilter::parse`].
+//! [`JobFilter::parse`]. The facet Auslöser (`trigger` with single schedules as `schedule`) has
+//! tokens from the database, so it lives apart in [`crate::job_trigger`].
+use crate::job_trigger::{self, TRIGGERS, TriggerChoice};
+use crate::opaque::Opaque;
 use atvprep_manager::state_machine::JobStatus;
 use rusqlite::types::Value;
 use serde::Deserialize;
@@ -26,6 +29,8 @@ pub struct JobQuery {
     action: Option<String>,
     exclude_status: Option<String>,
     q: Option<String>,
+    trigger: Option<String>,
+    schedule: Option<String>,
 }
 
 impl JobQuery {
@@ -116,11 +121,13 @@ pub(crate) struct JobFilter {
     chosen: Vec<Vec<&'static str>>,
     narrowing: Vec<String>,
     narrowing_values: Vec<Value>,
+    /// The facet Auslöser.
+    trigger: TriggerChoice,
 }
 
 impl JobFilter {
     /// Check every filter parameter and build the filter; the error is the problem's detail.
-    pub(crate) fn parse(query: &JobQuery) -> Result<Self, &'static str> {
+    pub(crate) fn parse(query: &JobQuery, opaque: &Opaque) -> Result<Self, &'static str> {
         let too_long = [
             &query.status,
             &query.action,
@@ -161,16 +168,29 @@ impl JobFilter {
             narrowing.push(SEARCHED.to_owned());
             narrowing_values.push(Value::from(format!("%{}%", like_literal(q))));
         }
+        let trigger =
+            TriggerChoice::parse(query.trigger.as_deref(), query.schedule.as_deref(), opaque)?;
         Ok(Self {
             chosen,
             narrowing,
             narrowing_values,
+            trigger,
         })
     }
 
     /// The clauses (joined with AND) and their values for every filter, with facet `index` set to
     /// `instead` when given (`Some(&[])` drops that facet).
     fn clauses(&self, index: Option<usize>, instead: &[&str]) -> (String, Vec<Value>) {
+        self.clauses_with(index, instead, &self.trigger)
+    }
+
+    /// As [`Self::clauses`], with the facet Auslöser set to `trigger`.
+    fn clauses_with(
+        &self,
+        index: Option<usize>,
+        instead: &[&str],
+        trigger: &TriggerChoice,
+    ) -> (String, Vec<Value>) {
         let mut clauses = self.narrowing.clone();
         let mut values = self.narrowing_values.clone();
         for (position, facet) in FACETS.iter().enumerate() {
@@ -183,6 +203,7 @@ impl JobFilter {
                 clauses.push((facet.clause)(chosen, &mut values));
             }
         }
+        clauses.extend(trigger.clause(&mut values));
         (clauses.join(" AND "), values)
     }
 
@@ -196,6 +217,7 @@ impl JobFilter {
     pub(crate) fn counts(
         &self,
         conn: &rusqlite::Connection,
+        opaque: &Opaque,
     ) -> rusqlite::Result<serde_json::Value> {
         let count = |sql: &str, values: &[Value]| -> rusqlite::Result<i64> {
             conn.query_row(
@@ -213,6 +235,7 @@ impl JobFilter {
             }
             data.insert(facet.key.to_owned(), by_token.into());
         }
+        self.trigger_counts(conn, opaque, &mut data, &count)?;
         let (sql, values) = self.sql();
         let active = format!("j.status IN {}", JobStatus::non_terminal_sql_list());
         let matched_active = count(&format!("{sql} AND {active}"), &values)?;
@@ -224,6 +247,37 @@ impl JobFilter {
             (total_active - matched_active).into(),
         );
         Ok(data.into())
+    }
+
+    /// The counters of the facet Auslöser (`trigger`, per schedule `schedule`) and the schedules a
+    /// job can come from with their names (`schedules`), into `data`.
+    fn trigger_counts(
+        &self,
+        conn: &rusqlite::Connection,
+        opaque: &Opaque,
+        data: &mut serde_json::Map<String, serde_json::Value>,
+        count: &dyn Fn(&str, &[Value]) -> rusqlite::Result<i64>,
+    ) -> rusqlite::Result<()> {
+        let mut by_trigger = serde_json::Map::new();
+        for token in TRIGGERS {
+            let (sql, values) = self.clauses_with(None, &[], &TriggerChoice::only_trigger(token));
+            by_trigger.insert(token.to_owned(), count(&sql, &values)?.into());
+        }
+        let mut by_schedule = serde_json::Map::new();
+        let mut schedules = Vec::new();
+        for (id, name) in job_trigger::job_schedules(conn)? {
+            let (sql, values) = self.clauses_with(None, &[], &TriggerChoice::only_schedule(id));
+            let key = opaque.encode("sc", id);
+            by_schedule.insert(key.clone(), count(&sql, &values)?.into());
+            schedules.push(serde_json::json!({
+                "id": key,
+                "name": crate::read_jobs::safe_head(&name, 2048),
+            }));
+        }
+        data.insert("trigger".to_owned(), by_trigger.into());
+        data.insert("schedule".to_owned(), by_schedule.into());
+        data.insert("schedules".to_owned(), schedules.into());
+        Ok(())
     }
 }
 

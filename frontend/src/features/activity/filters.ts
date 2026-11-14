@@ -4,7 +4,8 @@ import type { FacetCounts } from "../../ui/FilterBar";
 /**
  * The activity filter and its address. Status and action: nothing chosen shows every job, chosen values show
  * the jobs with any of them (OR); the server takes them as `status` and `action`. The search is `q`, the order
- * `sort` (newest first unless `sort=oldest`). New facets (#70 trigger and schedule) and narrowings (#71 period
+ * `sort` (newest first unless `sort=oldest`). The Auslöser is `trigger` with single schedules as `schedule`,
+ * alternatives to each other (OR) within one facet. New facets and narrowings (#71 period
  * and library, #72 search over all items) go into `JobFilter`, `parseJobFilter`, `jobFilterQuery` and
  * `jobListParams` alike.
  */
@@ -28,6 +29,13 @@ export const JOB_ACTIONS: ReadonlyArray<JobFilterEntry> = [
   { token: "inspect", label: N("Inspect") },
 ];
 
+/** The Auslöser as the server derives them, in popover order; `schedule` is the group of every schedule. */
+export const JOB_TRIGGERS: ReadonlyArray<JobFilterEntry> = [
+  { token: "manual", label: N("By hand") },
+  { token: "retry", label: N("Retried") },
+  { token: "schedule", label: N("Schedules") },
+];
+
 /** The statuses of a job that still waits or runs. */
 export const ACTIVE_STATUSES: ReadonlyArray<string> = ["queued", "running", "cancel_requested"];
 
@@ -40,6 +48,10 @@ export type JobFilter = {
   status: string[];
   /** Chosen actions in canonical order; none means every action. */
   action: string[];
+  /** Chosen Auslöser in canonical order; missing or none means every one. */
+  trigger?: string[];
+  /** Chosen single schedules (opaque ids, sorted), alternatives to `trigger`; missing or none means none. */
+  schedule?: string[];
   sort: JobSort;
 };
 
@@ -47,6 +59,20 @@ export const EMPTY_JOB_FILTER: JobFilter = { q: "", status: [], action: [], sort
 
 const STATUS_ORDER = JOB_STATUSES.map((entry) => entry.token);
 const ACTION_ORDER = JOB_ACTIONS.map((entry) => entry.token);
+const TRIGGER_ORDER = JOB_TRIGGERS.map((entry) => entry.token);
+/** What an opaque schedule id looks like; anything else would be refused by the server. */
+const SCHEDULE_ID = /^sc_[A-Za-z0-9_-]+$/;
+const scheduleIds = (values: Iterable<string>): string[] => [...new Set(values)].filter((id) => SCHEDULE_ID.test(id)).sort();
+
+/** The Auslöser part of a filter, only with something chosen, so a filter without it stays as it was. */
+function triggerPart(trigger: Iterable<string>, schedule: Iterable<string>): Pick<JobFilter, "trigger" | "schedule"> {
+  const part: Pick<JobFilter, "trigger" | "schedule"> = {};
+  const triggers = canonical(TRIGGER_ORDER, trigger);
+  const schedules = scheduleIds(schedule);
+  if (triggers.length > 0) part.trigger = triggers;
+  if (schedules.length > 0) part.schedule = schedules;
+  return part;
+}
 
 const list = (value: string | null): string[] => (value ?? "").split(",").filter(Boolean);
 /** Known values only, once each, in the order of `order`. */
@@ -61,6 +87,7 @@ export function parseJobFilter(params: URLSearchParams): JobFilter {
     q: (params.get("q") ?? "").trim(),
     status: canonical(STATUS_ORDER, list(params.get("status"))),
     action: canonical(ACTION_ORDER, list(params.get("action"))),
+    ...triggerPart(list(params.get("trigger")), list(params.get("schedule"))),
     sort: params.get("sort") === "oldest" ? "oldest" : "newest",
   };
 }
@@ -72,6 +99,9 @@ function filterParts(filter: JobFilter): string[] {
   const action = canonical(ACTION_ORDER, filter.action);
   if (status.length > 0) parts.push(`status=${status.join(",")}`);
   if (action.length > 0) parts.push(`action=${action.join(",")}`);
+  const { trigger, schedule } = triggerPart(filter.trigger ?? [], filter.schedule ?? []);
+  if (trigger) parts.push(`trigger=${trigger.join(",")}`);
+  if (schedule) parts.push(`schedule=${schedule.join(",")}`);
   if (filter.q.trim()) parts.push(`q=${encodeURIComponent(filter.q.trim())}`);
   return parts;
 }
@@ -89,13 +119,21 @@ export function jobListParams(filter: JobFilter): string {
 }
 
 /** Anything at all narrows the list; the order does not. */
-export const isJobFiltered = (filter: JobFilter): boolean => filter.q !== "" || filter.status.length > 0 || filter.action.length > 0;
+export const isJobFiltered = (filter: JobFilter): boolean =>
+  filter.q !== "" || filter.status.length > 0 || filter.action.length > 0 || (filter.trigger?.length ?? 0) > 0 || (filter.schedule?.length ?? 0) > 0;
 
 /** Two filters show the same jobs in the same order. */
 export const sameJobFilter = (a: JobFilter, b: JobFilter): boolean => jobFilterQuery(a) === jobFilterQuery(b);
 
 /** The facet counters of the job list, plus how many waiting or running jobs the filter leaves out. */
-export type JobCounts = { facets: FacetCounts; matched: number; total: number; hiddenActive: number };
+export type JobCounts = {
+  facets: FacetCounts;
+  matched: number;
+  total: number;
+  hiddenActive: number;
+  /** The schedules a job can come from, by name, for the facet Auslöser. */
+  schedules?: ReadonlyArray<{ id: string; name: string }>;
+};
 
 /**
  * A filter that shows the active jobs the current one hides. When only the status choice hides them (the

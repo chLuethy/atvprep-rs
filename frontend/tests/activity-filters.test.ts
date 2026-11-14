@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_JOB_FILTER, isJobFiltered, JOB_ACTIONS, JOB_STATUSES, jobFilterQuery, jobListParams, parseJobFilter, revealActive } from "../src/features/activity/filters";
+import { EMPTY_JOB_FILTER, isJobFiltered, JOB_ACTIONS, JOB_STATUSES, JOB_TRIGGERS, jobFilterQuery, jobListParams, parseJobFilter, revealActive } from "../src/features/activity/filters";
 
 const parse = (search: string) => parseJobFilter(new URLSearchParams(search));
 
@@ -47,6 +47,30 @@ describe("activity filter: the server query", () => {
   it("sends the lists with plain commas and the order", () => {
     expect(jobListParams({ q: "Heat & Co", status: ["queued", "failed"], action: ["prepare"], sort: "oldest" }))
       .toBe("order=asc&status=queued,failed&action=prepare&q=Heat%20%26%20Co");
+  });
+});
+
+describe("activity filter: the Auslöser", () => {
+  it("offers by hand, retry and the schedules as a group", () => {
+    expect(JOB_TRIGGERS.map((entry) => entry.token)).toEqual(["manual", "retry", "schedule"]);
+  });
+
+  it("reads the Auslöser and single schedules, dropping what is no schedule id", () => {
+    expect(parse("trigger=schedule,bogus,manual&schedule=sc_b,sc_a-1,sc_b,j_x,a%20b")).toEqual({ ...EMPTY_JOB_FILTER, trigger: ["manual", "schedule"], schedule: ["sc_a-1", "sc_b"] });
+    expect(parse("trigger=&schedule=")).toEqual(EMPTY_JOB_FILTER);
+  });
+
+  it("writes them after the action and before the search, for the address and the server alike", () => {
+    const filter = { ...EMPTY_JOB_FILTER, action: ["verify"], q: "Heat", trigger: ["schedule", "manual"], schedule: ["sc_x"] };
+    expect(jobFilterQuery(filter)).toBe("action=verify&trigger=manual,schedule&schedule=sc_x&q=Heat");
+    expect(jobListParams(filter)).toBe("order=desc&action=verify&trigger=manual,schedule&schedule=sc_x&q=Heat");
+    expect(parse(jobFilterQuery(filter))).toEqual({ ...filter, trigger: ["manual", "schedule"] });
+  });
+
+  it("counts a single schedule as a filter", () => {
+    expect(isJobFiltered({ ...EMPTY_JOB_FILTER, schedule: ["sc_x"] })).toBe(true);
+    expect(isJobFiltered({ ...EMPTY_JOB_FILTER, trigger: ["retry"] })).toBe(true);
+    expect(isJobFiltered({ ...EMPTY_JOB_FILTER, trigger: [], schedule: [] })).toBe(false);
   });
 });
 
