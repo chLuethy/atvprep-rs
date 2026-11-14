@@ -6,6 +6,7 @@ import type { SessionControls } from "./features/auth/AuthGate";
 import { ActivityPage } from "./features/activity/ActivityPage";
 import { LibraryPage } from "./features/files/LibraryPage";
 import { fileFilterQuery, parseFileFilter, sameFilter } from "./features/files/filters";
+import { jobFilterQuery, parseJobFilter, sameJobFilter } from "./features/activity/filters";
 import { OverviewPage } from "./features/overview/OverviewPage";
 import { SchedulesPage } from "./features/schedules/SchedulesPage";
 import { SettingsPage } from "./features/settings/SettingsPage";
@@ -55,16 +56,29 @@ const Library: ParentComponent<{ api: ManagerApi | undefined; fileId: string | u
   );
 };
 
-/** Same shape as the files page: one route for the list and the open job. */
+/**
+ * Same shape as the files page: one route for the list and the open job, and the filter in the address. A chosen
+ * value or order is a new history entry, a search replaces the entry, and an untidy address is rewritten.
+ */
 const Activity: ParentComponent<{ api: ManagerApi | undefined; jobId: string | undefined }> = (props) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const base = (id: string | undefined) => (id ? `/jobs/${encodeURIComponent(id)}` : "/jobs");
+  const at = (id: string | undefined, query: string) => `${base(id)}${query ? `?${query}` : ""}`;
+  const filter = createMemo(() => parseJobFilter(new URLSearchParams(location.search)), undefined, { equals: sameJobFilter });
+  createEffect(() => {
+    const canonical = jobFilterQuery(filter());
+    if (location.search.replace(/^\?/, "") !== canonical) navigate(at(props.jobId, canonical), { replace: true });
+  });
   return (
     <Show when={props.api} fallback={<Jobs />}>
       {(api) => (
         <ActivityPage
           api={api()}
           activeId={props.jobId}
-          onOpen={(id) => navigate(id ? `/jobs/${encodeURIComponent(id)}` : "/jobs")}
+          filter={filter()}
+          onFilter={(next, how) => navigate(at(props.jobId, jobFilterQuery(next)), { replace: how.replace })}
+          onOpen={(id) => navigate(`${base(id)}${location.search}`)}
         />
       )}
     </Show>

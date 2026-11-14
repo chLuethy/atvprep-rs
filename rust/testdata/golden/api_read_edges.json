@@ -2,7 +2,7 @@
   "cases": [
     {
       "expected": {
-        "completed": 65
+        "completed": 68
       },
       "input": {
         "steps": [
@@ -1772,6 +1772,81 @@
                 "cache-control": "no-store"
               },
               "status": 400
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs?status=failed,bogus"
+            },
+            "response": {
+              "body": {
+                "detail": "request validation failed",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "request validation failed"
+                },
+                "instance": "/api/v1/jobs",
+                "status": 422,
+                "title": "request validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs?action=fix"
+            },
+            "response": {
+              "body": {
+                "detail": "request validation failed",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "request validation failed"
+                },
+                "instance": "/api/v1/jobs",
+                "status": 422,
+                "title": "request validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs/counts?status=bogus"
+            },
+            "response": {
+              "body": {
+                "detail": "request validation failed",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "request validation failed"
+                },
+                "instance": "/api/v1/jobs/counts",
+                "status": 422,
+                "title": "request validation failed",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
             }
           },
           {

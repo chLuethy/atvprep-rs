@@ -2,7 +2,7 @@
   "cases": [
     {
       "expected": {
-        "completed": 34
+        "completed": 36
       },
       "input": {
         "steps": [
@@ -251,6 +251,79 @@
                   "next_cursor": null,
                   "truncated": false
                 }
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs?status=queued,running&action=verify,inspect&q=FILM&order=desc"
+            },
+            "response": {
+              "body": {
+                "data": [
+                  {
+                    "action": "verify",
+                    "cancelled_count": 0,
+                    "delete_confirmed": false,
+                    "failed_count": 0,
+                    "finished_at": null,
+                    "id": "<j:1>",
+                    "origin_job_id": null,
+                    "progress": 0,
+                    "requested_at": "<ts>",
+                    "started_at": null,
+                    "status": "queued",
+                    "subject": "Movie/film.mp4",
+                    "succeeded_count": 0,
+                    "total_count": 1,
+                    "trigger": "manual"
+                  }
+                ],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {},
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/jobs/counts?status=succeeded"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "status": {
+                    "queued": 1,
+                    "running": 0,
+                    "cancel_requested": 0,
+                    "succeeded": 0,
+                    "partial_success": 0,
+                    "failed": 0,
+                    "cancelled": 0
+                  },
+                  "action": {
+                    "verify": 0,
+                    "prepare": 0,
+                    "inspect": 0
+                  },
+                  "matched": 0,
+                  "total": 1,
+                  "hidden_active": 1
+                },
+                "meta": {}
               },
               "status": 200
             }

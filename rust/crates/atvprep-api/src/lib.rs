@@ -7,6 +7,7 @@ pub mod config;
 pub mod errors;
 pub mod extract;
 pub mod health;
+mod job_filter;
 pub mod mutation;
 pub mod opaque;
 pub mod random;
@@ -74,6 +75,7 @@ pub fn router(state: AppState) -> Router {
             "/api/v1/jobs",
             get(read_jobs::jobs).post(routes_jobs::create),
         )
+        .route("/api/v1/jobs/counts", get(read_jobs::job_counts))
         .route(
             "/api/v1/jobs/clear",
             axum::routing::post(routes_jobs::clear),

@@ -31,6 +31,7 @@ fn python_schema_lists_the_read_contract_routes() {
         "/api/v1/roots",
         "/api/v1/scans",
         "/api/v1/jobs",
+        "/api/v1/jobs/counts",
         "/api/v1/events",
         "/api/v1/settings",
         "/api/v1/schedules",
