@@ -151,6 +151,26 @@ test.describe("files journey", () => {
     await expect(page.getByRole("button", { name: "Descending" })).toBeVisible();
   });
 
+  test("the sort applies in every column of the columns view and keeps the selection", async ({ page }) => {
+    await openAndUnlock(page, "/files");
+    await page.getByRole("button", { name: "Columns" }).click();
+    const columns = page.getByRole("group", { name: /Files by folder/ });
+    await columns.getByRole("option", { name: /E2E Library/ }).click();
+    const names = columns.locator('.col[data-col="1"] [role=option] .col-name');
+    // Recently added, newest first, as in the list.
+    await expect(names).toHaveText(["Old Codec Movie.mp4", "Interrupted Movie.mp4", "Failed Movie.mp4", "Sample Movie.mp4"]);
+
+    const sortBy = page.getByRole("combobox", { name: "Sort by" });
+    await sortBy.selectOption("title");
+    await expect(names).toHaveText(["Failed Movie.mp4", "Interrupted Movie.mp4", "Old Codec Movie.mp4", "Sample Movie.mp4"]);
+    await columns.getByRole("option", { name: /Interrupted Movie/ }).click();
+
+    await page.getByRole("button", { name: "Ascending" }).click();
+    await expect(names).toHaveText(["Sample Movie.mp4", "Old Codec Movie.mp4", "Interrupted Movie.mp4", "Failed Movie.mp4"]);
+    await expect(columns.getByRole("option", { name: /Interrupted Movie/ })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("navigation", { name: "Location" })).toContainText("E2E Library");
+  });
+
   test("an old address with hide shows the same files as before, under the new address", async ({ page }) => {
     await openAndUnlock(page, "/files?hide=clean");
     await expect(page).toHaveURL(/\?status=embed_open,warning,blocker,unknown,probe_failed,missing$/);
