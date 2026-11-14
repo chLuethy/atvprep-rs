@@ -19,6 +19,8 @@ pub enum AudioAction {
     Copy,
     Downmix,
     TranscodeEac3,
+    /// AAC again, only to reach a target sample rate the Apple TV accepts.
+    TranscodeAac,
 }
 
 /// What happens to a subtitle track.
@@ -78,6 +80,9 @@ pub struct AudioTrack {
     /// True if the action is not a plain copy.
     pub is_transcoded: bool,
     pub is_default: bool,
+    /// The sample rate an encoded track is written at; `None` keeps the source rate.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_sample_rate: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
