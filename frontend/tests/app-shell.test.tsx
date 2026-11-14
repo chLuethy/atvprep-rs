@@ -172,6 +172,7 @@ describe("the files filter in the address", () => {
       request: vi.fn(async (path: string) => {
         paths.push(path);
         if (path.startsWith("/files?")) return new Response(JSON.stringify({ data: [], meta: { next_cursor: null } }));
+        if (path === "/roots") return new Response(JSON.stringify({ data: [] }));
         return new Response(JSON.stringify({ data: {} }));
       }),
     };
