@@ -1,6 +1,5 @@
 /** German texts of the files page: toolbar, filters, selection, menus and the empty states. */
 export const deLibrary: Record<string, string | readonly [string, string]> = {
-  "All": "Alle",
   "Unable to load more files. Try again.": "Weitere Dateien konnten nicht geladen werden. Versuche es erneut.",
   "Unable to remove missing files. Try again.": "Fehlende Dateien konnten nicht entfernt werden. Versuche es erneut.",
   "Removed {count} missing file from Files. A file that turns up again in a scan is shown again.": [
@@ -33,7 +32,6 @@ export const deLibrary: Record<string, string | readonly [string, string]> = {
   ],
   "Confirm remove": "Entfernen bestätigen",
   "Keep": "Behalten",
-  "Filter by status": "Nach Zustand filtern",
   "Status": "Zustand",
   "Properties": "Eigenschaften",
   "Filter files": "Dateien filtern",

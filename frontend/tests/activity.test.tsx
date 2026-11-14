@@ -5,6 +5,8 @@ import { JobDetail } from "../src/features/activity/JobDetail";
 import { LogViewer } from "../src/features/activity/LogViewer";
 import { SessionError } from "../src/lib/api";
 import { setLanguage } from "../src/lib/i18n";
+import { EMPTY_JOB_FILTER } from "../src/features/activity/filters";
+import { createSignal } from "solid-js";
 
 type Api = { request: (path: string, init?: RequestInit) => Promise<Response> };
 const json = (data: unknown, status = 200, meta: unknown = {}) => new Response(JSON.stringify({ data, meta }), { status });
@@ -12,6 +14,8 @@ const apiFor = (handler: (path: string, init?: RequestInit) => Response | Promis
   request: vi.fn(async (path: string, init?: RequestInit) => handler(path, init)),
 });
 const calls = (api: Api) => (api.request as unknown as ReturnType<typeof vi.fn>).mock.calls as Array<[string, RequestInit | undefined]>;
+/** The paths of the list requests, without the counters and the detail pane. */
+const listCalls = (api: Api) => calls(api).map((call) => call[0]).filter((path) => path.startsWith("/jobs?"));
 
 const job = (over: Record<string, unknown> = {}) => ({
   id: "j_1", action: "prepare", status: "succeeded", trigger: "manual", origin_job_id: null,
@@ -52,7 +56,7 @@ describe("ActivityPage: the list", () => {
     expect(await view.findByText("Heat and 1 more")).toBeInTheDocument();
     expect(view.getByText(/Prepare · 1 of 2 succeeded, 1 failed/)).toBeInTheDocument();
     expect(within(view.getByRole("region", { name: "History" })).getByText("Partly failed")).toBeInTheDocument();
-    expect(calls(api)[0]![0]).toBe("/jobs?limit=50&order=desc&exclude_status=cancelled");
+    expect(calls(api)[0]![0]).toBe("/jobs?limit=50&order=desc");
   });
 
   it("shows how far a running job has come and for how long, and nothing for the others", async () => {
@@ -144,30 +148,17 @@ describe("ActivityPage: the list", () => {
     expect(active.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("filters by one status and pages on with the same filter", async () => {
+  it("pages on with the same filter", async () => {
     const api = apiFor((path) =>
       path.includes("cursor=") ? json([job({ id: "j_old", subject: "Film/Old (1999)/Old (1999).mp4" })])
-        : json([job({ id: "j_new", status: "failed" })], 200, { next_cursor: "older page" }));
-    const view = render(() => <ActivityPage api={api} onOpen={vi.fn()} />);
+        : path.startsWith("/jobs?") ? json([job({ id: "j_new", status: "failed" })], 200, { next_cursor: "older page" }) : json({}));
+    const view = render(() => <ActivityPage api={api} filter={{ ...EMPTY_JOB_FILTER, status: ["failed"] }} onOpen={vi.fn()} />);
     await view.findByText("Heat");
-
-    await fireEvent.click(view.getByRole("button", { name: "Failed" }));
-    await waitFor(() => expect(calls(api).at(-1)![0]).toBe("/jobs?limit=50&order=desc&status=failed"));
-    expect(view.getByRole("button", { name: "Failed" })).toHaveAttribute("aria-pressed", "true");
 
     await fireEvent.click(await view.findByRole("button", { name: "Load more jobs" }));
-    await waitFor(() => expect(calls(api).at(-1)![0]).toBe("/jobs?limit=50&order=desc&status=failed&cursor=older%20page"));
+    await waitFor(() => expect(listCalls(api).at(-1)).toBe("/jobs?limit=50&order=desc&status=failed&cursor=older%20page"));
     expect(await view.findByText("Old (1999)")).toBeInTheDocument();
     expect(view.getByText("Heat")).toBeInTheDocument();
-  });
-
-  it("keeps cancelled jobs out of All and shows them under their own filter", async () => {
-    const api = apiFor(() => json([job()]));
-    const view = render(() => <ActivityPage api={api} onOpen={vi.fn()} />);
-    await view.findByText("Heat");
-
-    await fireEvent.click(view.getByRole("button", { name: "Cancelled" }));
-    await waitFor(() => expect(calls(api).at(-1)![0]).toBe("/jobs?limit=50&order=desc&status=cancelled"));
   });
 
   it("opens a job when it is chosen", async () => {
@@ -196,15 +187,15 @@ describe("ActivityPage: the list", () => {
     const view = render(() => <ActivityPage api={api} onOpen={vi.fn()} />);
     await vi.advanceTimersByTimeAsync(0);
     expect(within(view.getByRole("region", { name: "Active" })).getByText("Running")).toBeInTheDocument();
-    const initial = calls(api).length;
+    const initial = listCalls(api).length;
 
     status = "succeeded";
     await vi.advanceTimersByTimeAsync(4100);
-    expect(calls(api).length).toBe(initial + 1);
+    expect(listCalls(api).length).toBe(initial + 1);
     expect(within(view.getByRole("region", { name: "History" })).getByText("Succeeded")).toBeInTheDocument();
 
     await vi.advanceTimersByTimeAsync(12000);
-    expect(calls(api).length).toBe(initial + 1);
+    expect(listCalls(api).length).toBe(initial + 1);
   });
 
   it("does not repeat jobs when the server issues fresh ids on every response", async () => {
@@ -224,7 +215,7 @@ describe("ActivityPage: the list", () => {
     await vi.advanceTimersByTimeAsync(4100);
     await vi.advanceTimersByTimeAsync(4100);
 
-    expect(calls(api).length).toBeGreaterThan(2);
+    expect(listCalls(api).length).toBeGreaterThan(2);
     expect(view.getAllByRole("link")).toHaveLength(2);
   });
 
@@ -976,10 +967,135 @@ describe("ActivityPage: a running job, live", () => {
     const api = apiFor(() => json([job({ id: "j_a", status: "running", progress: 5, finished_at: null })]));
     render(() => <ActivityPage api={api} onOpen={vi.fn()} />);
     await vi.advanceTimersByTimeAsync(0);
-    const before = calls(api).length;
+    const before = listCalls(api).length;
 
     await vi.advanceTimersByTimeAsync(3000);
 
-    expect(calls(api).length - before).toBe(3);
+    expect(listCalls(api).length - before).toBe(3);
+  });
+});
+
+/** A counts answer as the server gives it; anything left out is 0. */
+const jobCounts = (over: { status?: Record<string, number>; action?: Record<string, number>; matched?: number; total?: number; hidden_active?: number } = {}) => ({
+  status: { queued: 0, running: 0, cancel_requested: 0, succeeded: 0, partial_success: 0, failed: 0, cancelled: 0, ...over.status },
+  action: { verify: 0, prepare: 0, inspect: 0, ...over.action },
+  matched: over.matched ?? 1, total: over.total ?? 1, hidden_active: over.hidden_active ?? 0,
+});
+const countsCalls = (api: Api) => calls(api).map((call) => call[0]).filter((path) => path.startsWith("/jobs/counts"));
+/** A server with one list answer and one counts answer, whatever the filter. */
+const filterApi = (rows: unknown[], counts = jobCounts()) => apiFor((path) =>
+  path.startsWith("/jobs/counts") ? json(counts) : path.startsWith("/jobs?") ? json(rows) : json([]));
+const openFacet = async (view: ReturnType<typeof render>, title: string) => {
+  const bar = within(await view.findByRole("search", { name: "Filter jobs" }));
+  await fireEvent.click(await bar.findByRole("button", { name: new RegExp(`^${title}(: .+)?$`) }));
+  return within(view.getByRole("dialog", { name: title }));
+};
+
+describe("ActivityPage: the filter bar", () => {
+  it("offers every job status and every action with counts, and says how many jobs are left", async () => {
+    const api = filterApi([job()], jobCounts({ status: { failed: 2, cancel_requested: 1, cancelled: 3 }, action: { verify: 4, prepare: 2 }, matched: 6, total: 9 }));
+    const view = render(() => <ActivityPage api={api} onOpen={vi.fn()} />);
+
+    expect(await view.findByText("6 of 9 jobs")).toHaveAttribute("aria-live", "polite");
+    const status = await openFacet(view, "Status");
+    expect(status.getAllByRole("checkbox").map((box) => box.closest("label")?.textContent)).toEqual(
+      ["Queued0", "Running0", "Cancelling1", "Succeeded0", "Partly failed0", "Failed2", "Cancelled3"]);
+    const action = await openFacet(view, "Action");
+    expect(action.getByRole("checkbox", { name: "Verify 4" })).toBeInTheDocument();
+    expect(action.getByRole("checkbox", { name: "Inspect 0" })).toBeInTheDocument();
+    expect(countsCalls(api)[0]).toBe("/jobs/counts?order=desc");
+  });
+
+  it("shows the jobs of any chosen status and action, for the list and its counters alike", async () => {
+    const onFilter = vi.fn();
+    const api = filterApi([job()], jobCounts({ status: { failed: 1, partial_success: 1 }, action: { prepare: 1 } }));
+    const view = render(() => <ActivityPage api={api} onOpen={vi.fn()} onFilter={onFilter} />);
+    const status = await openFacet(view, "Status");
+
+    await fireEvent.click(await status.findByRole("checkbox", { name: "Failed 1" }));
+    await fireEvent.click(status.getByRole("checkbox", { name: "Partly failed 1" }));
+    expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, status: ["partial_success", "failed"] }, { replace: false });
+    await waitFor(() => expect(listCalls(api).at(-1)).toBe("/jobs?limit=50&order=desc&status=partial_success,failed"));
+
+    const action = await openFacet(view, "Action");
+    await fireEvent.click(action.getByRole("checkbox", { name: "Prepare 1" }));
+    await waitFor(() => expect(listCalls(api).at(-1)).toBe("/jobs?limit=50&order=desc&status=partial_success,failed&action=prepare"));
+    expect(countsCalls(api).at(-1)).toBe("/jobs/counts?order=desc&status=partial_success,failed&action=prepare");
+    expect(view.getByRole("button", { name: "Status: Partly failed, Failed" })).toBeInTheDocument();
+  });
+
+  it("sorts newest or oldest first", async () => {
+    const onFilter = vi.fn();
+    const api = filterApi([job()]);
+    const view = render(() => <ActivityPage api={api} onOpen={vi.fn()} onFilter={onFilter} />);
+    await view.findByText("Heat");
+
+    await fireEvent.change(view.getByRole("combobox", { name: "Order" }), { target: { value: "oldest" } });
+    await waitFor(() => expect(listCalls(api).at(-1)).toBe("/jobs?limit=50&order=asc"));
+    expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, sort: "oldest" }, { replace: false });
+    // The order is no filter: nothing to reset.
+    expect(view.queryByRole("button", { name: "Reset filters" })).not.toBeInTheDocument();
+  });
+
+  it("searches after a pause and reports it as a replacement of the address", async () => {
+    const onFilter = vi.fn();
+    const api = filterApi([job()]);
+    const view = render(() => <ActivityPage api={api} onOpen={vi.fn()} onFilter={onFilter} />);
+    await view.findByText("Heat");
+
+    await fireEvent.input(view.getByRole("searchbox", { name: "Search jobs" }), { target: { value: " Heat & Co " } });
+    await waitFor(() => expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, q: "Heat & Co" }, { replace: true }), { timeout: 2000 });
+    expect(listCalls(api).at(-1)).toBe("/jobs?limit=50&order=desc&q=Heat%20%26%20Co");
+  });
+
+  it("follows the filter when the address changes, as Back does", async () => {
+    const api = filterApi([job()]);
+    const [filter, setFilter] = createSignal({ ...EMPTY_JOB_FILTER, status: ["failed"] });
+    const view = render(() => <ActivityPage api={api} filter={filter()} onOpen={vi.fn()} />);
+    expect(await view.findByRole("button", { name: "Status: Failed" })).toBeInTheDocument();
+
+    setFilter({ ...EMPTY_JOB_FILTER, q: "Heat", sort: "oldest" });
+    expect(await view.findByRole("button", { name: "Status" })).toBeInTheDocument();
+    expect(view.getByRole("searchbox", { name: "Search jobs" })).toHaveValue("Heat");
+    expect(view.getByRole("combobox", { name: "Order" })).toHaveValue("oldest");
+    await waitFor(() => expect(listCalls(api).at(-1)).toBe("/jobs?limit=50&order=asc&q=Heat"));
+  });
+
+  it("resets the filters but keeps the order", async () => {
+    const onFilter = vi.fn();
+    const api = filterApi([job()]);
+    const view = render(() => <ActivityPage api={api} filter={{ q: "Heat", status: ["failed"], action: [], sort: "oldest" }} onOpen={vi.fn()} onFilter={onFilter} />);
+    await view.findByText("Heat");
+
+    await fireEvent.click(view.getAllByRole("button", { name: "Reset filters" })[0]!);
+    expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, sort: "oldest" }, { replace: false });
+    expect(view.getByRole("searchbox", { name: "Search jobs" })).toHaveValue("");
+  });
+
+  it("tells how many active jobs the filter hides and shows them on request", async () => {
+    const onFilter = vi.fn();
+    const api = filterApi([job({ status: "failed" })], jobCounts({ status: { queued: 2, running: 1, failed: 1 }, hidden_active: 3 }));
+    const view = render(() => <ActivityPage api={api} filter={{ ...EMPTY_JOB_FILTER, status: ["failed"] }} onOpen={vi.fn()} onFilter={onFilter} />);
+
+    const note = await view.findByRole("status", { name: "Hidden active jobs" });
+    expect(note).toHaveTextContent("3 active jobs hidden");
+    await fireEvent.click(within(note).getByRole("button", { name: "Show them" }));
+    expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, status: ["queued", "running", "cancel_requested", "failed"] }, { replace: false });
+  });
+
+  it("says nothing about hidden jobs when none are", async () => {
+    const view = render(() => <ActivityPage api={filterApi([job()])} onOpen={vi.fn()} />);
+    await view.findByText("1 of 1 job");
+    expect(view.queryByRole("status", { name: "Hidden active jobs" })).not.toBeInTheDocument();
+  });
+
+  it("tells an empty filter result apart from no jobs at all", async () => {
+    const filtered = render(() => <ActivityPage api={filterApi([], jobCounts({ matched: 0, total: 4 }))} filter={{ ...EMPTY_JOB_FILTER, status: ["failed"] }} onOpen={vi.fn()} />);
+    expect(await filtered.findByText("No jobs match the current filters")).toBeInTheDocument();
+    expect(filtered.queryByText("No jobs yet")).not.toBeInTheDocument();
+    filtered.unmount();
+
+    const none = render(() => <ActivityPage api={filterApi([], jobCounts({ matched: 0, total: 0 }))} onOpen={vi.fn()} />);
+    expect(await none.findByText("No jobs yet")).toBeInTheDocument();
   });
 });
