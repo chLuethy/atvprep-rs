@@ -56,6 +56,11 @@ impl Api {
 /// One job per job status, named after it by its only file; `prepare` is stored under its former
 /// names. A cleared job never shows.
 fn api() -> Api {
+    api_with("")
+}
+
+/// The fixture of [`api`] plus `extra` SQL run after it.
+fn api_with(extra: &str) -> Api {
     let db = Db::memory().unwrap();
     let mut conn = db.conn().unwrap();
     schema::migrate(&mut conn).unwrap();
@@ -80,6 +85,7 @@ fn api() -> Api {
              UPDATE jobs SET cleared_at='2026-01-01' WHERE id=8;",
         )
         .unwrap();
+    conn.raw().execute_batch(extra).unwrap();
     let state = AppState::new(
         db,
         ManagerConfig {
@@ -178,6 +184,52 @@ async fn search_matches_the_subject_case_insensitively_and_literally() {
     // `_` and `%` are plain characters, not patterns.
     assert_eq!(api.subjects("q=d_1").await, ["Films/Failed_1.mkv"]);
     assert!(api.subjects("q=%25").await.is_empty());
+}
+
+/// A job of three files whose search hits a later item, listed next to the fixture's jobs.
+const BATCH: &str = "INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES
+       (9,1,'Batch/First.mkv','video','.mkv',1,1,'f9','present','clean','idle','none'),
+       (10,1,'Batch/Hundredth Episode.mkv','video','.mkv',1,1,'f10','present','clean','idle','none'),
+       (11,1,'Batch/Hundredth Extra.mkv','video','.mkv',1,1,'f11','present','clean','idle','none');
+     INSERT INTO jobs(id,action,status) VALUES (9,'verify','succeeded');
+     INSERT INTO job_items(job_id,media_file_id,action,position,status) VALUES
+       (9,9,'verify',0,'succeeded'),(9,11,'verify',2,'succeeded'),(9,10,'verify',1,'succeeded');";
+
+#[tokio::test]
+async fn search_finds_a_job_by_any_of_its_items_once() {
+    let api = api_with(BATCH);
+    let body = api.get("/api/v1/jobs?q=hundredth").await;
+    let jobs = body["data"].as_array().unwrap();
+    // Two items match, the job shows once; the row names the first matching item in job order.
+    assert_eq!(jobs.len(), 1, "{body}");
+    assert_eq!(jobs[0]["subject"], "Batch/First.mkv");
+    assert_eq!(jobs[0]["matched_path"], "Batch/Hundredth Episode.mkv");
+
+    // When the first file matches, the row needs no hint.
+    let body = api.get("/api/v1/jobs?q=first").await;
+    assert_eq!(body["data"][0]["subject"], "Batch/First.mkv");
+    assert!(body["data"][0].get("matched_path").is_none(), "{body}");
+
+    // The search combines with the other filters and narrows the counts alike.
+    assert!(api.subjects("q=hundredth&status=failed").await.is_empty());
+    assert_eq!(
+        api.subjects("q=hundredth&action=verify&status=succeeded")
+            .await,
+        ["Batch/First.mkv"]
+    );
+    let counts = api.get("/api/v1/jobs/counts?q=hundredth").await;
+    assert_eq!(counts["data"]["matched"], 1);
+    assert_eq!(counts["data"]["status"]["succeeded"], 1);
+
+    // Without a search no row carries the hint.
+    let body = api.get("/api/v1/jobs").await;
+    assert!(
+        body["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|job| job.get("matched_path").is_none())
+    );
 }
 
 #[tokio::test]

@@ -18,10 +18,16 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 fn job_select() -> String {
+    job_select_with("NULL")
+}
+
+/// [`job_select`] with `extra` as a last column, the path of the item a search matched.
+fn job_select_with(extra: &str) -> String {
     format!(
         "SELECT j.id,j.action,j.status,j.trigger,j.origin_job_id,j.requested_at,j.started_at,j.finished_at,j.total_count,j.succeeded_count,j.failed_count,j.cancelled_count,j.settings_snapshot_json,
  (SELECT m.relative_path FROM job_items i JOIN media_files m ON m.id=i.media_file_id WHERE i.job_id=j.id ORDER BY i.position,i.id LIMIT 1),
- (SELECT CAST(SUM(CASE WHEN i.status IN {terminal} THEN 100 ELSE COALESCE(i.progress,0) END)*1.0/COUNT(*) AS INTEGER) FROM job_items i WHERE i.job_id=j.id)
+ (SELECT CAST(SUM(CASE WHEN i.status IN {terminal} THEN 100 ELSE COALESCE(i.progress,0) END)*1.0/COUNT(*) AS INTEGER) FROM job_items i WHERE i.job_id=j.id),
+ {extra}
  FROM jobs j",
         terminal = ItemStatus::terminal_sql_list()
     )
@@ -87,6 +93,13 @@ fn view(row: &rusqlite::Row<'_>, opaque: &Opaque) -> rusqlite::Result<(i64, Valu
     // Only a job that may remove originals carries the field; every other job reads as before.
     if snapshot.get("delete_original").and_then(Value::as_bool) == Some(true) {
         job["delete_original"] = json!(true);
+    }
+    // A search hit in a later item names that item; a hit in the first file reads as before.
+    let matched = row
+        .get::<_, Option<String>>(15)?
+        .map(|value| subject(&value));
+    if let Some(matched) = matched.filter(|path| Some(path.as_str()) != job["subject"].as_str()) {
+        job["matched_path"] = json!(matched);
     }
     Ok((id, job))
 }
@@ -335,8 +348,16 @@ pub async fn jobs(
     let descending = query.order.as_deref() == Some("desc");
     let result = tokio::task::spawn_blocking(move || {
         let conn = state.db.conn().map_err(|_| ())?;
-        let (filter_sql, mut values) = filter.sql();
-        let mut sql = format!("{job_select} WHERE {filter_sql}", job_select = job_select());
+        let (filter_sql, filter_values) = filter.sql();
+        let (matched, mut values) = match filter.matched() {
+            Some((column, pattern)) => (column, vec![pattern]),
+            None => ("NULL", Vec::new()),
+        };
+        values.extend(filter_values);
+        let mut sql = format!(
+            "{job_select} WHERE {filter_sql}",
+            job_select = job_select_with(matched)
+        );
         if let Some(after) = after {
             sql.push_str(if descending {
                 " AND j.id<?"

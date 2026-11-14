@@ -12,6 +12,7 @@ import { EMPTY_JOB_FILTER, isJobFiltered, JOB_ACTIONS, JOB_STATUSES, revealActiv
 import { N, t, tn } from "../../lib/i18n";
 import { autoDismiss } from "../../lib/autoDismiss";
 import { useClock } from "../../lib/clock";
+import { baseName } from "../files/model";
 import { actionLabel, isActive, jobPercent, jobProgress, jobTitle, jobTone, partitionJobs, runningFor } from "./model";
 
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
@@ -51,6 +52,9 @@ const Row: Component<{ job: JobRow; current: boolean; flagged: boolean; onOpen: 
         onClick={(event) => { event.preventDefault(); props.onOpen(props.job.id); }}
       >
         <span class="job-title">{jobTitle(props.job)}</span>
+        <Show when={props.job.matched_path}>
+          {(path) => <span class="job-match muted" title={path()}>{t("Match: {file}", { file: baseName(path()).title })}</span>}
+        </Show>
         <span class="job-meta muted">{`${actionLabel(props.job.action)} · ${jobProgress(props.job)}`}</span>
         <Show when={props.job.status === "running"}>
           <span class="job-live">

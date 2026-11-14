@@ -29,6 +29,7 @@ export const deActivity: Record<string, string | readonly [string, string]> = {
   "File changed": "Datei geändert",
   "Interrupted": "Unterbrochen",
   "{name} and {count} more": "{name} und {count} weitere",
+  "Match: {file}": "Treffer: {file}",
   "{action} job for {count} files": "{action}-Auftrag für {count} Dateien",
   "{action} job": "{action}-Auftrag",
   "{done} of {total} succeeded": "{done} von {total} erfolgreich",
