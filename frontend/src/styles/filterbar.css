@@ -2,10 +2,20 @@
    A facet button is quiet until something is chosen; then it is filled and carries its values and an ✕.
    Chosen is the fill and the words on the button, never colour alone. Nothing is struck through. */
 .filterbar { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.fb-head { display: flex; align-items: baseline; gap: 12px; min-height: 18px; font-size: var(--text-sm); }
+.fb-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-height: 18px; font-size: var(--text-sm); }
 .fb-summary { color: var(--muted); font-variant-numeric: tabular-nums; }
 .fb-link { border: 0; background: none; padding: 2px 4px; border-radius: 6px; color: var(--accent-text); font-size: var(--text-sm); font-weight: 500; }
-.fb-link:hover { background: var(--hover); }
+.fb-link:hover:not(:disabled) { background: var(--hover); }
+/* Quick filters: small toggles; one in effect is filled like an active facet. */
+.fb-quick { display: flex; flex-wrap: wrap; gap: 4px; }
+.fb-quick-button { padding: 1px 9px; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--muted); font-size: var(--text-sm); font-weight: 500; white-space: nowrap; }
+.fb-quick-button:hover { background: var(--hover); color: var(--text); }
+.fb-quick-button[aria-pressed="true"] { background: var(--accent-weak); border-color: var(--accent-strong); color: var(--text); font-weight: 600; }
+/* "More filters" opens a second row in place; it cannot close while a facet in it is active. */
+.fb-more-toggle { white-space: nowrap; }
+.fb-more-toggle:disabled { color: var(--muted); cursor: default; }
+.fb-more { padding-top: 2px; }
+.fb-find { margin: 0 6px 6px; width: calc(100% - 12px); }
 .fb-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
 .fb-search { flex: 1 1 220px; max-width: 320px; display: flex; }
 .fb-search .search { margin-left: 0; max-width: none; }
@@ -63,7 +73,8 @@
   .fb-all { display: inline-flex; }
   .fb-all-wrap { order: -2; }
   .fb-facet[data-active="true"] { order: -1; }
-  .fb-button, .fb-clear { min-height: 44px; }
+  .fb-button, .fb-clear, .fb-quick-button, .fb-more-toggle { min-height: 44px; }
+  .fb-quick { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .fb-popover { position: fixed; inset: 0; z-index: 60; max-width: none; max-height: none; border: 0; border-radius: 0; animation: none; }
   .fb-pop-head { padding: 12px 16px 8px; }
   .fb-close { min-height: 44px; padding: 0 12px; color: var(--accent-text); font-weight: 600; }
