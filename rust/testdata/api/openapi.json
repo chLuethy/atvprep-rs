@@ -4029,6 +4029,7 @@
             }
           },
           {
+            "description": "Comma-separated job statuses; only the jobs in any of them are listed (OR). Nothing chosen lists every status, cancelled jobs included. Statuses: ``queued``, ``running``, ``cancel_requested``, ``succeeded``, ``partial_success``, ``failed`` and ``cancelled``; an unknown one is refused with 422.",
             "in": "query",
             "name": "status",
             "required": false,
@@ -4045,6 +4046,7 @@
             }
           },
           {
+            "description": "Comma-separated actions; only the jobs with any of them are listed (OR): ``verify``, ``prepare`` (also the history stored as ``fix`` or ``convert``) and ``inspect``. An unknown action, the former names included, is refused with 422.",
             "in": "query",
             "name": "action",
             "required": false,
@@ -4061,6 +4063,7 @@
             }
           },
           {
+            "description": "One job status to leave out, for example ``cancelled``.",
             "in": "query",
             "name": "exclude_status",
             "required": false,
@@ -4088,6 +4091,23 @@
               ],
               "title": "Order",
               "type": "string"
+            }
+          },
+          {
+            "description": "Search text, matched case-insensitively and literally against the job's subject (the path of its first file). At most 128 characters.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
             }
           },
           {
@@ -4208,6 +4228,166 @@
         "summary": "Clear Jobs",
         "tags": [
           "mutations"
+        ]
+      }
+    },
+    "/api/v1/jobs/counts": {
+      "get": {
+        "description": "The facet counters for the job list, with the same filters as ``/api/v1/jobs``.\n\n``status`` counts each job status with every filter except the chosen statuses; ``action`` counts each action with every filter except the chosen actions. ``matched`` is the number of jobs the list shows with all filters, ``total`` the number of jobs without any filter, and ``hidden_active`` the number of waiting or running jobs the filters leave out.",
+        "operationId": "job_counts_api_v1_jobs_counts_get",
+        "parameters": [
+          {
+            "description": "Comma-separated job statuses; only the jobs in any of them are listed (OR). Nothing chosen lists every status, cancelled jobs included. Statuses: ``queued``, ``running``, ``cancel_requested``, ``succeeded``, ``partial_success``, ``failed`` and ``cancelled``; an unknown one is refused with 422.",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "description": "Comma-separated actions; only the jobs with any of them are listed (OR): ``verify``, ``prepare`` (also the history stored as ``fix`` or ``convert``) and ``inspect``. An unknown action, the former names included, is refused with 422.",
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Action"
+            }
+          },
+          {
+            "description": "One job status to leave out, for example ``cancelled``.",
+            "in": "query",
+            "name": "exclude_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Exclude Status"
+            }
+          },
+          {
+            "description": "Search text, matched case-insensitively and literally against the job's subject (the path of its first file). At most 128 characters.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "__Host-atvprep_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "  Host-Atvprep Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "action": {
+                          "additionalProperties": {
+                            "type": "integer"
+                          },
+                          "type": "object"
+                        },
+                        "hidden_active": {
+                          "type": "integer"
+                        },
+                        "matched": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "additionalProperties": {
+                            "type": "integer"
+                          },
+                          "type": "object"
+                        },
+                        "total": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "action",
+                        "matched",
+                        "total",
+                        "hidden_active"
+                      ],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Job Counts",
+        "tags": [
+          "read"
         ]
       }
     },
