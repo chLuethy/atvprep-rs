@@ -93,7 +93,7 @@ describe("ColumnsView", () => {
   it("walks with the arrow keys: right goes in, down moves, left goes back", async () => {
     const { api } = makeApi();
     const { view, onOpen } = show(api);
-    const group = await view.findByRole("group", { name: /Library by folder/ });
+    const group = await view.findByRole("group", { name: /Files by folder/ });
     await view.findByText("Film");
 
     await fireEvent.click(await view.findByText("Film"));
@@ -194,7 +194,7 @@ describe("ColumnsView: selecting like the Finder", () => {
 
   it("selects everything in the column with Cmd+A and lets Escape let go", async () => {
     const { view, picks } = await inFilmA();
-    const group = view.getByRole("group", { name: /Library by folder/ });
+    const group = view.getByRole("group", { name: /Files by folder/ });
 
     await fireEvent.click(row(view, "A.mp4"));
     await fireEvent.keyDown(group, { key: "a", metaKey: true });
@@ -207,7 +207,7 @@ describe("ColumnsView: selecting like the Finder", () => {
 
   it("extends the selection with Shift and the arrow keys", async () => {
     const { view, picks } = await inFilmA();
-    const group = view.getByRole("group", { name: /Library by folder/ });
+    const group = view.getByRole("group", { name: /Files by folder/ });
 
     await fireEvent.click(row(view, "A.mp4"));
     await fireEvent.keyDown(group, { key: "ArrowDown", shiftKey: true });

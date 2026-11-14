@@ -67,7 +67,7 @@ const FilterGroup: Component<{
 type Phase = "loading" | "ready" | "error" | "session";
 
 /**
- * The library: a dense list on the left, the inspector (or a fix preview) on the right.
+ * The files page: a dense list on the left, the inspector (or a fix preview) on the right.
  * Routing stays outside: the page reports which file was opened and shows the one it is given.
  */
 export const LibraryPage: Component<{
@@ -228,7 +228,7 @@ export const LibraryPage: Component<{
     setRemoveBusy(false);
     if (!result.ok) { setRemoveError(result.session ? t(SESSION_EXPIRED) : t("Unable to remove missing files. Try again.")); return; }
     setRemoveOpen(false);
-    setStatus(tn("Removed {count} missing file from the library. A file that turns up again in a scan is shown again.", "Removed {count} missing files from the library. A file that turns up again in a scan is shown again.", result.removed));
+    setStatus(tn("Removed {count} missing file from Files. A file that turns up again in a scan is shown again.", "Removed {count} missing files from Files. A file that turns up again in a scan is shown again.", result.removed));
     props.onOpen(undefined);
     await load(true);
     await refreshSummary();
@@ -557,10 +557,10 @@ export const LibraryPage: Component<{
 
   return (
     <div class="library" data-pane={props.activeId || previewRows() ? "detail" : "list"} onKeyDown={onKeyDown}>
-      <section class="lib-main" aria-label={t("Library")}>
+      <section class="lib-main" aria-label={t("Files")}>
         <div class="lib-bar">
           <div class="lib-bar-top">
-            <h1>{t("Library")}</h1>
+            <h1>{t("Files")}</h1>
             <div class="search">
               <Icon name="search" />
               <input
@@ -574,7 +574,7 @@ export const LibraryPage: Component<{
               />
               <Kbd>/</Kbd>
             </div>
-            <div class="seg view-switch" role="group" aria-label={t("Library view")}>
+            <div class="seg view-switch" role="group" aria-label={t("Files view")}>
               <button type="button" aria-pressed={view() === "list"} onClick={() => setView("list")}><Icon name="rows" size={14} /> {t("List")}</button>
               <button type="button" aria-pressed={view() === "columns"} onClick={() => setView("columns")}><Icon name="columns" size={14} /> {t("Columns")}</button>
             </div>
@@ -587,7 +587,7 @@ export const LibraryPage: Component<{
           </div>
           <Show when={removeOpen()}>
             <div class="confirm" role="region" aria-label={t("Remove missing files")} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); closeRemove(); } }}>
-              <p>{tn("Remove {count} missing file from the library? Nothing is deleted from disk, and its job history stays.", "Remove {count} missing files from the library? Nothing is deleted from disk, and their job history stays.", missing())}</p>
+              <p>{tn("Remove {count} missing file from Files? Nothing is deleted from disk, and its job history stays.", "Remove {count} missing files from Files? Nothing is deleted from disk, and their job history stays.", missing())}</p>
               <Show when={removeError()}><p class="notice bad" role="alert">{removeError()}</p></Show>
               <div class="insp-actions">
                 <Button variant="primary" disabled={removeBusy()} onClick={() => void submitRemove()}>{t("Confirm remove")}</Button>

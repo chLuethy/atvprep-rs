@@ -66,7 +66,7 @@ function attention(files: Record<string, number>, jobs: Record<string, number>):
   return rows.filter((row) => row.n > 0).map((row) => ({ text: row.text(row.n), href: row.href }));
 }
 
-/** Where to look first: what needs you, how healthy the library is, what is running. */
+/** Where to look first: what needs you, how healthy the files are, what is running. */
 export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: string) => void }> = (props) => {
   const [overview, { refetch }] = createResource(() => load(props.api));
   const [removed, setRemoved] = createSignal<string | null>(null);
@@ -117,8 +117,8 @@ export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: str
                   </Show>
                 </section>
 
-                <section class="ov-sec" role="region" aria-label={t("Library health")}>
-                  <h2>{t("Library health")}</h2>
+                <section class="ov-sec" role="region" aria-label={t("File health")}>
+                  <h2>{t("File health")}</h2>
                   <Show when={total() > 0} fallback={<><p class="muted">{t("No files yet: scan a library to find them.")}</p><ScanControl api={props.api} onFinished={() => void refetch()} /></>}>
                     <Show when={(data().files.clean ?? 0) === total()}>
                       {(() => {

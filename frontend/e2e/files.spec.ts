@@ -3,10 +3,10 @@ import { openAndUnlock } from "./support";
 
 test.use({ trace: "off", screenshot: "off", video: "off" });
 
-test.describe("library journey", () => {
+test.describe("files journey", () => {
   test("filters, verifies a selection, deep-links the inspector and queues re-inspection", async ({ page }) => {
     await openAndUnlock(page, "/files");
-    await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Files" })).toBeVisible();
     await expect(page.getByRole("table", { name: "Media files" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
 

@@ -13,6 +13,7 @@ export const deCommon: Record<string, string | readonly [string, string]> = {
   "Name": "Name",
   "Action": "Aktion",
   "Library": "Mediathek",
+  "Files": "Dateien",
   "Open job": "Auftrag öffnen",
   "Run now": "Jetzt ausführen",
   "Schedules": "Zeitpläne",

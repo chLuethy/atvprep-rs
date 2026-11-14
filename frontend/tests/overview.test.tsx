@@ -13,12 +13,12 @@ const base = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-describe("OverviewPage: library health", () => {
+describe("OverviewPage: file health", () => {
   it("draws the library as one bar with a spoken summary and a legend that links to each status", async () => {
     const view = render(() => <OverviewPage api={api(base()) as never} />);
 
     expect(view.getByText("Loading overview")).toBeInTheDocument();
-    const health = await view.findByRole("region", { name: "Library health" });
+    const health = await view.findByRole("region", { name: "File health" });
     expect(within(health).getByRole("img")).toHaveAccessibleName("19 files: 12 ready, 3 warning, 1 blocker, 2 not verified, 1 inspection failed");
     expect(within(health).getByRole("link", { name: "12 Ready" })).toHaveAttribute("href", "/files?status=clean");
     expect(within(health).getByRole("link", { name: "1 Blocker" })).toHaveAttribute("href", "/files?status=blocker");
@@ -28,7 +28,7 @@ describe("OverviewPage: library health", () => {
   it("counts files with an open embed apart from the ready ones and links to them", async () => {
     const view = render(() => <OverviewPage api={api(base({ "/dashboard": summary({ clean: 10, embed_open: 3, warning: 1 }) })) as never} />);
 
-    const health = await view.findByRole("region", { name: "Library health" });
+    const health = await view.findByRole("region", { name: "File health" });
     expect(within(health).getByRole("img")).toHaveAccessibleName("14 files: 10 ready, 3 embedding open, 1 warning");
     expect(within(health).getByRole("link", { name: "3 Embedding open" })).toHaveAttribute("href", "/files?status=embed_open");
     expect(within(health).queryByText(/ready for Apple TV/)).not.toBeInTheDocument();
@@ -44,7 +44,7 @@ describe("OverviewPage: library health", () => {
     const roots = { data: [{ id: "r_1", name: "Film", latest_scan: null }] };
     const view = render(() => <OverviewPage api={api(base({ "/dashboard": summary({}), "/roots": roots })) as never} />);
 
-    const health = await view.findByRole("region", { name: "Library health" });
+    const health = await view.findByRole("region", { name: "File health" });
 
     expect(await within(health).findByRole("button", { name: "Scan library" })).toBeEnabled();
   });
@@ -57,7 +57,7 @@ describe("OverviewPage: when everything is ready", () => {
     window.localStorage.clear();
     const view = render(() => <OverviewPage api={api(allClean()) as never} />);
 
-    const health = await view.findByRole("region", { name: "Library health" });
+    const health = await view.findByRole("region", { name: "File health" });
 
     expect(within(health).getByText("All 19 files are ready for Apple TV.")).toBeInTheDocument();
     expect(await view.findByText("Nothing needs you.")).toBeInTheDocument();
@@ -66,12 +66,12 @@ describe("OverviewPage: when everything is ready", () => {
   it("draws the check the first time it is seen that day and shows it plain afterwards", async () => {
     window.localStorage.clear();
     const first = render(() => <OverviewPage api={api(allClean()) as never} />);
-    const drawn = (await first.findByRole("region", { name: "Library health" })).querySelector(".ready-check");
+    const drawn = (await first.findByRole("region", { name: "File health" })).querySelector(".ready-check");
     expect(drawn).toHaveClass("draw");
     first.unmount();
 
     const second = render(() => <OverviewPage api={api(allClean()) as never} />);
-    const plain = (await second.findByRole("region", { name: "Library health" })).querySelector(".ready-check");
+    const plain = (await second.findByRole("region", { name: "File health" })).querySelector(".ready-check");
     expect(plain).not.toHaveClass("draw");
     expect(plain).toHaveAttribute("aria-hidden", "true");
   });
@@ -87,7 +87,7 @@ describe("OverviewPage: when everything is ready", () => {
     window.localStorage.clear();
     const view = render(() => <OverviewPage api={api(base()) as never} />);
 
-    const health = await view.findByRole("region", { name: "Library health" });
+    const health = await view.findByRole("region", { name: "File health" });
 
     expect(health.querySelector(".ready-check")).toBeNull();
   });
@@ -188,7 +188,7 @@ describe("OverviewPage: leftover partial rewrites", () => {
 
   it("shows nothing without hits", async () => {
     const view = render(() => <OverviewPage api={api(base()) as never} />);
-    await view.findByRole("region", { name: "Library health" });
+    await view.findByRole("region", { name: "File health" });
 
     expect(view.queryByRole("region", { name: "Leftover files" })).toBeNull();
   });

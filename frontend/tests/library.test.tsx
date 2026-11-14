@@ -1,8 +1,9 @@
 import { fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { LibraryPage } from "../src/features/files/LibraryPage";
 import { SessionError } from "../src/lib/api";
+import { setLanguage } from "../src/lib/i18n";
 
 type Api = { request: (path: string, init?: RequestInit) => Promise<Response> };
 
@@ -61,6 +62,21 @@ const isPicked = (view: { getByRole: (role: string, options: { name: string }) =
 
 const open = vi.fn();
 const renderLibrary = (api: Api, activeId?: string) => render(() => <LibraryPage api={api} activeId={activeId} onOpen={open} />);
+
+describe("LibraryPage: the page title", () => {
+  afterEach(() => setLanguage("en"));
+
+  it("is called Files, and Dateien in German, never Library", async () => {
+    const { api } = makeApi();
+    const view = renderLibrary(api);
+    expect(await view.findByRole("heading", { level: 1, name: "Files" })).toBeInTheDocument();
+    expect(view.getByRole("region", { name: "Files" })).toBeInTheDocument();
+
+    setLanguage("de");
+    expect(await view.findByRole("heading", { level: 1, name: "Dateien" })).toBeInTheDocument();
+    expect(view.queryByText(/Mediathek|Bibliothek/)).not.toBeInTheDocument();
+  });
+});
 
 describe("LibraryPage: the list", () => {
   it("shows each file with a worded verdict and its first reason, and nothing redundant for clean files", async () => {
@@ -1084,13 +1100,13 @@ describe("LibraryPage: list and columns", () => {
 
     await fireEvent.click(view.getByRole("button", { name: /Columns/ }));
 
-    expect(await view.findByRole("group", { name: /Library by folder/ })).toBeInTheDocument();
+    expect(await view.findByRole("group", { name: /Files by folder/ })).toBeInTheDocument();
     expect(view.getByRole("button", { name: /Columns/ })).toHaveAttribute("aria-pressed", "true");
     expect(calls.some((call) => call.path.startsWith("/browse"))).toBe(true);
     expect(localStorage.getItem("atvprep.library.view")).toBe("columns");
 
     await fireEvent.input(view.getByRole("searchbox", { name: "Search files" }), { target: { value: "heat" } });
-    await waitFor(() => expect(view.queryByRole("group", { name: /Library by folder/ })).not.toBeInTheDocument());
+    await waitFor(() => expect(view.queryByRole("group", { name: /Files by folder/ })).not.toBeInTheDocument());
     expect(await view.findByRole("table", { name: "Media files" })).toBeVisible();
     localStorage.removeItem("atvprep.library.view");
   });

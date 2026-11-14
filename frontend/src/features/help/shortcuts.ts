@@ -1,6 +1,6 @@
 /**
  * Every key the interface answers to, grouped by where it works. A chord is keys pressed together;
- * the chords of one item are alternatives. Keep this in step with the handlers: the library and
+ * the chords of one item are alternatives. Keep this in step with the handlers: the files and
  * activity pages, the shell and the command palette.
  */
 import { N } from "../../lib/i18n";
@@ -18,7 +18,7 @@ export const SHORTCUTS: ReadonlyArray<ShortcutGroup> = [
     ],
   },
   {
-    title: N("Library"),
+    title: N("Files"),
     items: [
       { chords: [["↓"], ["J"]], does: N("Next file") },
       { chords: [["↑"], ["K"]], does: N("Previous file") },
