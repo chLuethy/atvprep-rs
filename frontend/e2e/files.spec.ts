@@ -134,8 +134,12 @@ test.describe("files journey", () => {
   test("the sort stands in the address and follows the column headers", async ({ page }) => {
     await openAndUnlock(page, "/files");
     const firstRow = page.getByRole("table", { name: "Media files" }).locator("tbody tr").first();
-    await expect(firstRow).toContainText("Sample Movie");
+    // Recently added starts with the newest file; the oldest first is chosen explicitly.
     const sortBy = page.getByRole("combobox", { name: "Sort by" });
+    await expect(sortBy).toHaveValue("added");
+    await page.getByRole("button", { name: "Descending" }).click();
+    await expect(page).toHaveURL(/\?dir=asc$/);
+    await expect(firstRow).toContainText("Sample Movie");
     await sortBy.selectOption("title");
     await expect(page).toHaveURL(/\?sort=title$/);
     await expect(firstRow).toContainText("Failed Movie");

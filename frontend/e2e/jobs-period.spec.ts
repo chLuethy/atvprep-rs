@@ -43,12 +43,10 @@ test.describe("activity period and library", () => {
     const bar = page.getByRole("search", { name: "Filter jobs" });
     await expect(bar.getByRole("button", { name: "All filters (1 active)" })).toBeVisible();
     // The filter symbol first, then the active period from More filters, then the rest.
-    const left = async (name: string | RegExp) => (await bar.getByRole("button", { name, exact: true }).boundingBox())!.x;
-    const period = bar.getByRole("button", { name: /^Period: / });
-    await expect(period).toBeVisible();
-    const periodLeft = (await period.boundingBox())!.x;
-    expect(await left("All filters (1 active)")).toBeLessThan(periodLeft);
-    expect(periodLeft).toBeLessThan(await left("Status"));
+    const left = async (name: string | RegExp) => (await bar.getByRole("button", { name, exact: typeof name === "string" }).boundingBox())!.x;
+    // The narrow layout follows the resize; wait until the period has joined the row.
+    await expect.poll(async () => (await left("Status")) > (await left(/^Period: /))).toBe(true);
+    expect(await left("All filters (1 active)")).toBeLessThan(await left(/^Period: /));
     // Search, sort and the facet row fit the width; only the facet row scrolls.
     expect(await bar.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     const row = bar.locator(".fb-facets").first();
@@ -59,7 +57,7 @@ test.describe("activity period and library", () => {
     const box = (await dialog.boundingBox())!;
     expect(box.width).toBeGreaterThanOrEqual(389);
     expect(box.height).toBeGreaterThanOrEqual(843);
-    await dialog.getByRole("checkbox", { name: /^Failed, \d+ jobs?$/ }).check();
+    await dialog.getByRole("checkbox", { name: /^Failed, \d+ jobs?/ }).check();
     await expect(page).toHaveURL(/\/jobs\?status=failed&range=today$/);
     await dialog.getByRole("button", { name: "Close" }).click();
     await expect(dialog).toHaveCount(0);
