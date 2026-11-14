@@ -21,6 +21,8 @@ export type JobRow = {
   cancelled_count: number;
   /** Display path of the first file, so a list can name it without a request per job. */
   subject?: string | null;
+  /** With a search that hit a later file than the first: the display path of that file. */
+  matched_path?: string;
   /** Whole percent across the job's items, as far as the server can tell. */
   progress?: number | null;
   /** The setting „Delete original“ was on when the job was queued. */

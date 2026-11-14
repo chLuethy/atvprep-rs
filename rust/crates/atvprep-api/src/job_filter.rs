@@ -4,7 +4,7 @@
 //! list of known tokens: nothing chosen is every job, chosen tokens show jobs with any of them (OR).
 //! Its counter shows, per token, how many jobs that token alone would show with every other filter
 //! as it is. A plain narrowing (the search, `exclude_status`) applies to the list and to every
-//! counter alike.
+//! counter alike. The search matches the display path of any item of a job.
 //!
 //! To add a facet, add a [`FacetDef`] to [`FACETS`] and its query field to [`JobQuery::facet`]. To add
 //! a plain narrowing (a period, a library), add its field to [`JobQuery`] and its clause in
@@ -112,8 +112,22 @@ fn tokens(value: Option<&str>) -> Vec<&str> {
 /// The jobs the list shows at all: cleared ones are gone from Activity.
 const LISTED: &str = "j.cleared_at IS NULL";
 
-/// SQL that a job's search text must match: for now its subject, the first file (#72 widens it).
-const SEARCHED: &str = "lower(COALESCE((SELECT m.relative_path FROM job_items i JOIN media_files m ON m.id=i.media_file_id WHERE i.job_id=j.id ORDER BY i.position,i.id LIMIT 1),'')) LIKE lower(?) ESCAPE '\\'";
+/// A job item's display path matched by the search pattern bound to `?`.
+macro_rules! item_matches {
+    () => {
+        "FROM job_items i JOIN media_files m ON m.id=i.media_file_id WHERE i.job_id=j.id AND lower(m.relative_path) LIKE lower(?) ESCAPE '\\'"
+    };
+}
+
+/// SQL true for a job with any item whose display path matches the search.
+const SEARCHED: &str = concat!("EXISTS(SELECT 1 ", item_matches!(), ")");
+
+/// SQL for the display path of a job's first item, in job order, that matches the search.
+const MATCHED: &str = concat!(
+    "(SELECT m.relative_path ",
+    item_matches!(),
+    " ORDER BY i.position,i.id LIMIT 1)"
+);
 
 /// A validated job filter: the chosen tokens per facet and the plain narrowings as SQL.
 pub(crate) struct JobFilter {
@@ -123,6 +137,8 @@ pub(crate) struct JobFilter {
     narrowing_values: Vec<Value>,
     /// The facet Auslöser.
     trigger: TriggerChoice,
+    /// The search's LIKE pattern, when there is a search.
+    search: Option<Value>,
 }
 
 impl JobFilter {
@@ -164,9 +180,15 @@ impl JobFilter {
             narrowing.push("j.status!=?".to_owned());
             narrowing_values.push(Value::from(status.as_str().to_owned()));
         }
-        if let Some(q) = query.q.as_deref().map(str::trim).filter(|v| !v.is_empty()) {
+        let search = query
+            .q
+            .as_deref()
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .map(|q| Value::from(format!("%{}%", like_literal(q))));
+        if let Some(pattern) = &search {
             narrowing.push(SEARCHED.to_owned());
-            narrowing_values.push(Value::from(format!("%{}%", like_literal(q))));
+            narrowing_values.push(pattern.clone());
         }
         let trigger =
             TriggerChoice::parse(query.trigger.as_deref(), query.schedule.as_deref(), opaque)?;
@@ -175,6 +197,7 @@ impl JobFilter {
             narrowing,
             narrowing_values,
             trigger,
+            search,
         })
     }
 
@@ -205,6 +228,12 @@ impl JobFilter {
         }
         clauses.extend(trigger.clause(&mut values));
         (clauses.join(" AND "), values)
+    }
+
+    /// With a search, a column expression for the display path of the first matching item of `j`
+    /// and its value.
+    pub(crate) fn matched(&self) -> Option<(&'static str, Value)> {
+        self.search.clone().map(|pattern| (MATCHED, pattern))
     }
 
     /// The WHERE clause of the list and its values.
