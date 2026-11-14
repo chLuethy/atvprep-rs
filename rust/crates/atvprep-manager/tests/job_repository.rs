@@ -381,6 +381,11 @@ fn heartbeat_progress_and_log_belong_to_the_fenced_owner() {
     assert_eq!(jobs.get_item(item.id).unwrap().unwrap().progress, Some(100));
     assert!(jobs.set_item_log_tail(item.id, 7, "frame=1").unwrap());
     assert!(!jobs.set_item_log_tail(item.id, 8, "x").unwrap());
+    // A cancelled run still writes its last lines before it ends.
+    for stopping in ["cancel_requested", "cancelling"] {
+        f.sql(&format!("UPDATE job_items SET status='{stopping}'"));
+        assert!(jobs.set_item_log_tail(item.id, 7, "Cancelled").unwrap());
+    }
     f.sql("UPDATE job_items SET status='succeeded'");
     assert!(!jobs.set_item_progress(item.id, 7, 99).unwrap());
     assert!(!jobs.set_item_log_tail(item.id, 7, "late").unwrap());

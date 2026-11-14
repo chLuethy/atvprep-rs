@@ -289,6 +289,9 @@ pub async fn items(
     }
 }
 
+/// The most of an item's log one response returns: a whole log as the manager stores it.
+const ITEM_LOG_LIMIT: usize = atvprep_manager::worker::logs::ITEM_LOG_LIMIT;
+
 /// Return a bounded and redacted log tail for one job item.
 pub async fn item_log(
     State(state): State<AppState>,
@@ -306,9 +309,9 @@ pub async fn item_log(
         let row:Option<(ItemStatus,Option<String>)>=conn.raw().query_row("SELECT status,log_tail FROM job_items WHERE id=?1",[id],|row|Ok((row.get(0)?,row.get(1)?))).optional().map_err(|_|())?;
         Ok::<_,()>(row.map(|(status,tail)| {
             let redacted=tail.map(|value|safe_diagnostic(&value,usize::MAX));
-            let truncated=redacted.as_ref().is_some_and(|value|value.len()>8192);
+            let truncated=redacted.as_ref().is_some_and(|value|value.len()>ITEM_LOG_LIMIT);
             let tail=redacted.map(|value| {
-                let mut start=value.len().saturating_sub(8192);
+                let mut start=value.len().saturating_sub(ITEM_LOG_LIMIT);
                 while !value.is_char_boundary(start) {start+=1;}
                 value[start..].to_owned()
             });
