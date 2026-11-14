@@ -8,9 +8,16 @@ describe("library filter list", () => {
     expect(normalizeHidden(new Set(["missing", "warning"]))).toBe("warning,missing");
   });
 
-  it("offers Embed open next to the other file traits", () => {
-    expect(TRAIT_FILTERS.map((entry) => entry.token)).toContain("embed");
+  it("offers Subtitles embeddable next to the other file traits", () => {
+    expect(TRAIT_FILTERS.find((entry) => entry.token === "embed")?.label).toBe("Subtitles embeddable");
     expect(knownState("embed")).toBe("embed");
+  });
+
+  it("has Embedding open as a state of its own, right after Ready", () => {
+    expect(STATE_FILTERS.map((entry) => entry.token)).toEqual(["clean", "embed_open", "warning", "blocker", "unknown", "probe_failed", "missing"]);
+    expect(STATE_FILTERS.find((entry) => entry.token === "embed_open")?.label).toBe("Embedding open");
+    expect(knownState("embed_open")).toBe("embed_open");
+    expect(normalizeHidden("missing,embed_open,clean")).toBe("clean,embed_open,missing");
   });
 
   it("drops properties from an old hide list, since hiding them is not what a property filter does now", () => {
@@ -35,7 +42,7 @@ describe("library filter list", () => {
   });
 
   it("shows or hides every state at once", () => {
-    expect(setGroupHidden("", STATE_FILTERS, true)).toBe("clean,warning,blocker,unknown,probe_failed,missing");
+    expect(setGroupHidden("", STATE_FILTERS, true)).toBe("clean,embed_open,warning,blocker,unknown,probe_failed,missing");
     expect(setGroupHidden("clean,blocker", STATE_FILTERS, false)).toBe("");
   });
 

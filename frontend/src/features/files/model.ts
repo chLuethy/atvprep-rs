@@ -18,7 +18,7 @@ export function verdictOf(file: { compliance_state: string; discovery_state?: st
   switch (file.compliance_state) {
     // Clean is only Ready while nothing is left to embed; the stored state stays clean.
     case "clean":
-      if ((file.pending_sidecars ?? 0) > 0) return { kind: "warn", icon: "dot", label: t("Embed open") };
+      if ((file.pending_sidecars ?? 0) > 0) return { kind: "warn", icon: "dot", label: t("Embedding open") };
       return { kind: "ok", icon: "check", label: t("Ready") };
     case "warning": return { kind: "warn", icon: "warn", label: t("Warning") };
     case "blocker": {

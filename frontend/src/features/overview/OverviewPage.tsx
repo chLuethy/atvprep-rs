@@ -36,7 +36,7 @@ async function load(api: OverviewApi): Promise<Overview> {
 
 const STATES: ReadonlyArray<{ state: string; label: string; bar: string; filter?: string }> = [
   { state: "clean", label: N("Ready"), bar: "ok" },
-  { state: "embed_open", label: N("Embed open"), bar: "warn", filter: "embed" },
+  { state: "embed_open", label: N("Embedding open"), bar: "warn" },
   { state: "warning", label: N("Warning"), bar: "warn" },
   { state: "blocker", label: N("Blocker"), bar: "bad" },
   { state: "unknown", label: N("Not verified"), bar: "neutral" },

@@ -61,7 +61,7 @@ export function describeCounts(counts: StateCounts): string {
     n("unknown") > 0 ? t("{count} not verified", { count: n("unknown") }) : "",
     n("missing") > 0 ? t("{count} missing", { count: n("missing") }) : "",
     n("convert") > 0 ? t("{count} to convert", { count: n("convert") }) : "",
-    n("embed_open") > 0 ? t("{count} embed open", { count: n("embed_open") }) : "",
+    n("embed_open") > 0 ? t("{count} embedding open", { count: n("embed_open") }) : "",
     n("clean") > 0 ? t("{count} ready", { count: n("clean") }) : "",
   ].filter(Boolean);
   return parts.length > 0 ? parts.join(", ") : t("empty");
