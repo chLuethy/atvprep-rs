@@ -19,13 +19,11 @@ Beim ersten Lauf zeigt er den Fingerabdruck des Vertrauensschlüssels an und leg
 Rust gemäß `rust/rust-toolchain.toml`, Node.js 22 mit npm sowie für die Medienverarbeitung `ffmpeg`, `ffprobe`, `mp4info` und `mp4dump` (Bento4). Für die vollständige Rust-Prüfung ist außerdem `cargo-deny` erforderlich.
 
 ```sh
-./rust/check.sh
-cd frontend
-npm ci
-npm run typecheck
-npm test
-npm run build
+git config core.hooksPath .githooks   # einmal pro Klon: prüft Commit-Betreffs
+./scripts/check-all.sh                # Rust, Frontend und E2E; --no-e2e lässt die Journeys aus
 ```
+
+`./rust/check.sh` prüft nur den Rust-Teil; die CI führt dasselbe Skript aus.
 
 Die Tests verwenden eingecheckte Referenzdaten und benötigen kein zusätzliches Oracle. Die Binary wird mit `cargo build --locked --release --manifest-path rust/Cargo.toml -p atvprep` gebaut. `atvprep`, `atvprep-manager` und `atvprep-hook` sind Einstiegspunkte derselben ausführbaren Datei; für die Aliasnamen genügt ein Symlink.
 
