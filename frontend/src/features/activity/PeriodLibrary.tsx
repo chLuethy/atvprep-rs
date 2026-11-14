@@ -14,7 +14,7 @@ const CUSTOM_LABEL = N("Custom period");
 const dayText = (day: string) => dayStart(day)?.toLocaleDateString(locale(), { dateStyle: "medium" }) ?? day;
 
 /**
- * The period and library facets of the activity filter (#71), both under "More filters". The period is one
+ * The period and library facets of the activity filter, both under "More filters". The period is one
  * choice: a preset or a custom period, whose days are set in two fields under the options; choosing the custom
  * period starts with today. The libraries come from the configured roots; a chosen one the server no longer
  * lists stays as its id, so a choice never vanishes.

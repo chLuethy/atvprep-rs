@@ -6,6 +6,7 @@ pub mod casefold;
 pub mod config;
 pub mod errors;
 pub mod extract;
+mod filter_params;
 pub mod health;
 mod job_filter;
 mod job_trigger;

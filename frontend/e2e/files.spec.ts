@@ -101,14 +101,14 @@ test.describe("files journey", () => {
     await expect(page.getByText("No files match the current filters")).toBeVisible();
     await expect(page.getByRole("list", { name: "Active filters" }).getByRole("listitem")).toHaveText(["Extension: mp4", "Subtitle files: Yes"]);
     await page.keyboard.press("Escape");
-    await expect(more).toBeDisabled();
+    await expect(more).toHaveAttribute("aria-disabled", "true");
 
     await page.goBack();
     await expect(page).toHaveURL(/\?suffix=\.mp4$/);
     await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
     await bar.getByRole("button", { name: "Clear Extension" }).click();
     await expect(page).toHaveURL(/\/files$/);
-    await expect(more).toBeEnabled();
+    await expect(more).not.toHaveAttribute("aria-disabled");
   });
 
   test("a quick filter sets its states, shows as in effect and is also in the command palette", async ({ page }) => {
@@ -134,8 +134,12 @@ test.describe("files journey", () => {
   test("the sort stands in the address and follows the column headers", async ({ page }) => {
     await openAndUnlock(page, "/files");
     const firstRow = page.getByRole("table", { name: "Media files" }).locator("tbody tr").first();
-    await expect(firstRow).toContainText("Sample Movie");
+    // Recently added starts with the newest file; the oldest first is chosen explicitly.
     const sortBy = page.getByRole("combobox", { name: "Sort by" });
+    await expect(sortBy).toHaveValue("added");
+    await page.getByRole("button", { name: "Descending" }).click();
+    await expect(page).toHaveURL(/\?dir=asc$/);
+    await expect(firstRow).toContainText("Sample Movie");
     await sortBy.selectOption("title");
     await expect(page).toHaveURL(/\?sort=title$/);
     await expect(firstRow).toContainText("Failed Movie");

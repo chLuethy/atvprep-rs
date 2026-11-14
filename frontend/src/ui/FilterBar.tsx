@@ -291,6 +291,9 @@ const Options: Component<{ facet: Facet; value: FilterValue; counts: FacetCounts
   );
 };
 
+/** The width below which the facets scroll in one row (as in filterbar.css). */
+const NARROW = "(max-width: 720px)";
+
 export const FilterBar: Component<{
   /** The name of the whole bar, e.g. "Filter files". */
   label: string;
@@ -323,16 +326,43 @@ export const FilterBar: Component<{
   const moreFacets = () => props.facets.filter((facet) => facet.placement === "more");
   /** An active facet in the second row keeps it open, so no active filter is ever hidden. */
   const moreActive = () => activeCount(moreFacets(), props.value) > 0;
-  const moreShown = () => moreFacets().length > 0 && (moreOpen() || moreActive());
+  /** A popover of the second row is open: the row stays while it does, even once its last value is cleared. */
+  const moreInUse = () => moreFacets().some((facet) => facet.key === open());
+  const moreShown = () => moreFacets().length > 0 && (moreOpen() || moreActive() || moreInUse());
   const buttons = new Map<string, HTMLButtonElement>();
   let bar: HTMLDivElement | undefined;
+  let moreToggle: HTMLButtonElement | undefined;
+  /**
+   * Below 720px the facets scroll in one row: the filter symbol, then the active facets, then the rest. The
+   * facets of the second row join that row there, so an active one moves to the front with the others.
+   */
+  const narrowQuery = () => (typeof window.matchMedia === "function" ? window.matchMedia(NARROW) : undefined);
+  const [narrow, setNarrow] = createSignal(narrowQuery()?.matches ?? false);
+  onMount(() => {
+    const query = narrowQuery();
+    if (!query?.addEventListener) return;
+    const onChange = () => setNarrow(query.matches);
+    query.addEventListener("change", onChange);
+    onCleanup(() => query.removeEventListener("change", onChange));
+  });
+  /** Focus `element`, or "More filters" when it went with the second row, so the focus is never lost. */
+  const focusOr = (element: HTMLElement | undefined) => (element?.isConnected ? element : moreToggle)?.focus();
 
   const active = () => activeCount(props.facets, props.value);
   const countText: CountText = (count) => (props.countText ?? plainCount)(count);
   const lockedHint = `${id}-locked`;
   const resettable = () => active() > 0 || !!props.dirty;
   const reset = () => (props.onReset ? props.onReset() : props.onChange({}));
-  const clearFacet = (facet: Facet) => props.onChange({ ...props.value, [facet.key]: [], ...(facet.group ? { [facet.group.key]: [] } : {}) });
+  const clearFacet = (facet: Facet) => {
+    props.onChange({ ...props.value, [facet.key]: [], ...(facet.group ? { [facet.group.key]: [] } : {}) });
+    // Its ✕ in the second row may go with the row; then the focus moves to "More filters".
+    if (facet.placement === "more") {
+      queueMicrotask(() => {
+        const focused = document.activeElement;
+        if (!focused || focused === document.body || !focused.isConnected) moreToggle?.focus();
+      });
+    }
+  };
   /** No option would show anything and nothing is chosen: there is nothing to pick. */
   const locked = (facet: Facet) => {
     const counts = props.counts?.[facet.key];
@@ -341,7 +371,7 @@ export const FilterBar: Component<{
   const close = (refocus = true) => {
     const was = open();
     setOpen(null);
-    if (refocus && was) (was === "*" ? allButton : buttons.get(was))?.focus();
+    if (refocus && was) focusOr(was === "*" ? allButton : buttons.get(was));
   };
   const toggle = (key: string) => (open() === key ? close() : setOpen(key));
   /**
@@ -478,15 +508,21 @@ export const FilterBar: Component<{
             </Show>
           </span>
           <For each={keysOf(mainFacets())}>{facetItem}</For>
+          <Show when={narrow() && moreShown()}>
+            <div class="fb-more-inline" id={`${id}-more`} role="group" aria-label={t("More filters")}>
+              <For each={keysOf(moreFacets())}>{facetItem}</For>
+            </div>
+          </Show>
           <Show when={moreFacets().length > 0}>
             <button
               type="button"
+              ref={moreToggle}
               class="fb-link fb-more-toggle"
               aria-expanded={moreShown()}
               aria-controls={`${id}-more`}
-              disabled={moreActive()}
+              aria-disabled={moreActive() ? "true" : undefined}
               title={moreActive() ? t("Stays open while a filter in it is active") : undefined}
-              onClick={() => setMoreOpen(!moreOpen())}
+              onClick={() => { if (!moreActive()) setMoreOpen(!moreShown()); }}
             >
               {t("More filters")}
             </button>
@@ -494,7 +530,7 @@ export const FilterBar: Component<{
         </div>
         <Show when={props.tools}><div class="fb-tools">{props.tools}</div></Show>
       </div>
-      <Show when={moreShown()}>
+      <Show when={!narrow() && moreShown()}>
         <div class="fb-row fb-more" id={`${id}-more`} role="group" aria-label={t("More filters")}>
           <div class="fb-facets">
             <For each={keysOf(moreFacets())}>{facetItem}</For>

@@ -271,6 +271,19 @@ export const ActivityPage: Component<{
     }, 1000);
     onCleanup(() => window.clearInterval(timer));
   });
+  // A relative period ("Today", "Last 24 hours") moves with the clock: once a minute the list and the counters
+  // are asked for with fresh bounds, so a page left open past midnight does not keep yesterday's.
+  const relativePeriod = () => { const period = filter().period; return !!period && "preset" in period; };
+  createEffect(() => {
+    if (!relativePeriod()) return;
+    let reading = false;
+    const timer = window.setInterval(() => {
+      if (reading || anyActive()) return;
+      reading = true;
+      void refresh().finally(() => { reading = false; });
+    }, 60 * 1000);
+    onCleanup(() => window.clearInterval(timer));
+  });
 
   const move = (delta: number, from: string | undefined) => {
     const list = [...grouped().active, ...grouped().history];

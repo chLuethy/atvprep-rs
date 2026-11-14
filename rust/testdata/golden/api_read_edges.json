@@ -1883,20 +1883,20 @@
             },
             "response": {
               "body": {
-                "detail": "request validation failed",
+                "detail": "resource not found",
                 "error": {
-                  "code": "invalid_request",
-                  "message": "request validation failed"
+                  "code": "not_found",
+                  "message": "resource not found"
                 },
                 "instance": "/api/v1/jobs/counts",
-                "status": 422,
-                "title": "request validation failed",
+                "status": 404,
+                "title": "Not Found",
                 "type": "about:blank"
               },
               "headers": {
                 "cache-control": "no-store"
               },
-              "status": 422
+              "status": 404
             }
           },
           {

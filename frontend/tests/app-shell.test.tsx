@@ -210,10 +210,23 @@ describe("the files filter in the address", () => {
     await waitFor(() => expect(lastList()).toContain("sort=size"));
     expect(lastList()).toContain("has_sidecar=true");
     const select = await view.findByRole("combobox", { name: "Sort by" });
+    // Recently added is the default order, newest first, so the address leaves it out.
     await fireEvent.change(select, { target: { value: "added" } });
-    await waitFor(() => expect(window.location.search).toBe("?has_sidecar=true&sort=added&dir=desc"));
+    await waitFor(() => expect(window.location.search).toBe("?has_sidecar=true"));
+    await fireEvent.click(view.getByRole("button", { name: "Descending" }));
+    await waitFor(() => expect(window.location.search).toBe("?has_sidecar=true&dir=asc"));
+    window.history.back();
+    await waitFor(() => expect(view.getByRole("button", { name: "Descending" })).toBeInTheDocument());
     window.history.back();
     await waitFor(() => expect(select).toHaveValue("size"));
+  });
+
+  it("shortens an old link that spelled out the newest first", async () => {
+    window.history.replaceState(null, "", "/files?sort=added&dir=desc");
+    const { api, lastList } = filesApi();
+    render(() => <App api={api as never} />);
+    await waitFor(() => expect(window.location.search).toBe(""));
+    await waitFor(() => expect(lastList()).toContain("dir=desc"));
   });
 
   it("rewrites an old address with hide to the states it showed, without a new history entry", async () => {

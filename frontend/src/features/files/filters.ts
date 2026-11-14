@@ -1,4 +1,5 @@
 import { N } from "../../lib/i18n";
+import { canonical, list, sorted, type FilterEntry, type QuickFilter } from "../../ui/filterAddress";
 
 /**
  * The files filter and its address. Status: nothing chosen shows every file, chosen states show the files in
@@ -6,7 +7,6 @@ import { N } from "../../lib/i18n";
  * (AND); the server takes them as `has`. Libraries (`root_id`) and extensions (`suffix`) are OR like the states,
  * `has_sidecar` is yes or no, and the search is `q`. The address uses the server's names.
  */
-export type FilterEntry = { token: string; label: string; urgent?: boolean };
 
 /** What the checker decided about a file, plus whether it is still on disk. A file is in exactly one of these. */
 export const STATE_FILTERS: ReadonlyArray<FilterEntry> = [
@@ -48,14 +48,6 @@ export type FileFilter = {
 
 export const EMPTY_FILTER: FileFilter = { q: "", status: [], has: [], root: [], suffix: [], sidecar: null };
 
-const list = (value: string | null): string[] => (value ?? "").split(",").filter(Boolean);
-/** Known values only, once each, in the order of `order`. */
-const canonical = (order: ReadonlyArray<string>, values: Iterable<string>): string[] => {
-  const wanted = new Set(values);
-  return order.filter((token) => wanted.has(token));
-};
-/** Values nobody lists in advance (ids, extensions): once each, sorted. */
-const sorted = (values: Iterable<string>): string[] => [...new Set(values)].sort();
 const sidecarOf = (value: string | null): boolean | null => (value === "true" ? true : value === "false" ? false : null);
 
 /**
@@ -107,28 +99,38 @@ export const isFiltered = (filter: FileFilter): boolean =>
 export const sameFilter = (a: FileFilter, b: FileFilter): boolean => fileFilterQuery(a) === fileFilterQuery(b);
 
 export type SortKey = "title" | "status" | "size" | "added";
-/** How the list is ordered; null is the order the files were added, oldest first. */
+/** How the list is ordered; null is the default order, recently added with the newest first. */
 export type FileSort = { key: SortKey; dir: 1 | -1 } | null;
 const SORT_KEYS: ReadonlyArray<SortKey> = ["title", "status", "size", "added"];
 
-/** The sort an address asks for: `sort` and `dir=desc`; anything unknown is the default order. */
+/** The direction a key sorts in unless the address says otherwise: newest first for recently added. */
+export const defaultDir = (key: SortKey): 1 | -1 => (key === "added" ? -1 : 1);
+
+const isDefault = (sort: FileSort): boolean => !sort || (sort.key === "added" && sort.dir === -1);
+
+/**
+ * The sort an address asks for: `sort` (none or an unknown key is recently added) and `dir`, `asc` or `desc`,
+ * else the key's own direction. Old links without a sort show the default order, newest first.
+ */
 export function parseFileSort(params: URLSearchParams): FileSort {
-  const key = SORT_KEYS.find((entry) => entry === params.get("sort"));
-  const dir = params.get("dir") === "desc" ? -1 : 1;
-  if (!key || (key === "added" && dir === 1)) return null;
-  return { key, dir };
+  const key = SORT_KEYS.find((entry) => entry === params.get("sort")) ?? "added";
+  const asked = params.get("dir");
+  const dir = asked === "desc" ? -1 : asked === "asc" ? 1 : defaultDir(key);
+  const sort = { key, dir } as const;
+  return isDefault(sort) ? null : sort;
 }
 
-/** The canonical query of a sort, without "?"; "" for the default order. */
+/**
+ * The canonical query of a sort, without "?"; "" for the default order. A direction is written only when it
+ * is not the key's own, so recently added, oldest first, is `dir=asc`.
+ */
 export function fileSortQuery(sort: FileSort): string {
-  if (!sort || (sort.key === "added" && sort.dir === 1)) return "";
-  return `sort=${sort.key}${sort.dir === -1 ? "&dir=desc" : ""}`;
+  if (!sort || isDefault(sort)) return "";
+  const dir = sort.dir === defaultDir(sort.key) ? "" : `dir=${sort.dir === 1 ? "asc" : "desc"}`;
+  return [sort.key === "added" ? "" : `sort=${sort.key}`, dir].filter(Boolean).join("&");
 }
 
-/** A fixed filter one click away. It replaces the whole filter and is active while the filter is exactly it. */
-export type QuickFilter = { id: string; label: string; filter: FileFilter };
-
-export const QUICK_FILTERS: ReadonlyArray<QuickFilter> = [
+export const QUICK_FILTERS: ReadonlyArray<QuickFilter<FileFilter>> = [
   { id: "attention", label: N("Needs attention"), filter: { ...EMPTY_FILTER, status: ["blocker", "probe_failed", "missing"] } },
   { id: "unverified", label: N("Not verified"), filter: { ...EMPTY_FILTER, status: ["unknown"] } },
   // Missing is a state of its own, so these states never take in a missing file.
@@ -136,5 +138,5 @@ export const QUICK_FILTERS: ReadonlyArray<QuickFilter> = [
 ];
 
 /** The quick filter the filter is exactly, if any. */
-export const activeQuickFilter = (filter: FileFilter): QuickFilter | undefined =>
+export const activeQuickFilter = (filter: FileFilter): QuickFilter<FileFilter> | undefined =>
   QUICK_FILTERS.find((entry) => sameFilter(entry.filter, filter));

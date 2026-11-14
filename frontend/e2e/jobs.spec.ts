@@ -79,21 +79,21 @@ test.describe("activity journey", () => {
 
     await schedules.getByRole("searchbox", { name: "Search Schedules" }).fill("weekly");
     await schedules.getByRole("checkbox", { name: "E2E Weekly, 1 job" }).check();
-    await expect(page).toHaveURL(/\/jobs\?schedule=sc_[\w-]+$/);
+    await expect(page).toHaveURL(/\/jobs\?schedule_id=sc_[\w-]+$/);
     const history = page.getByRole("region", { name: "History" });
     await expect(history.getByRole("link", { name: /Old Codec Movie/ })).toBeVisible();
     await expect(history.getByRole("link", { name: /Failed Movie/ })).toHaveCount(0);
     await expect(bar.getByText(/^1 of \d+ jobs$/)).toBeVisible();
 
     await popover.getByRole("checkbox", { name: /^By hand, \d+ jobs?$/ }).check();
-    await expect(page).toHaveURL(/\/jobs\?trigger=manual&schedule=sc_[\w-]+$/);
+    await expect(page).toHaveURL(/\/jobs\?trigger=manual&schedule_id=sc_[\w-]+$/);
     await page.keyboard.press("Escape");
     await page.reload();
     await expect(bar.getByRole("button", { name: "Trigger: By hand, E2E Weekly" })).toBeVisible();
     await expect(bar.getByText(/^\d+ of \d+ jobs$/)).toBeVisible();
 
     await page.goBack();
-    await expect(page).toHaveURL(/\/jobs\?schedule=sc_[\w-]+$/);
+    await expect(page).toHaveURL(/\/jobs\?schedule_id=sc_[\w-]+$/);
     await expect(bar.getByRole("button", { name: "Trigger: E2E Weekly" })).toBeVisible();
   });
 

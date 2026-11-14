@@ -420,7 +420,7 @@ describe("LibraryPage: library, extension and subtitle files", () => {
 
     expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_FILTER, suffix: [".mkv"] }, { replace: false });
     await waitFor(() => expect(lastList()).toContain("suffix=.mkv"));
-    expect(bar.getByRole("button", { name: "More filters" })).toBeDisabled();
+    expect(bar.getByRole("button", { name: "More filters" })).toHaveAttribute("aria-disabled", "true");
 
     const sidecar = await openFacet(view, "Subtitle files");
     await fireEvent.click(sidecar.getByRole("radio", { name: "No, 3 files" }));
@@ -442,6 +442,9 @@ describe("LibraryPage: the sort control", () => {
     const view = render(() => <LibraryPage api={api} onOpen={open} onSort={onSort} />);
     const select = await view.findByRole("combobox", { name: "Sort by" });
     expect(select).toHaveValue("added");
+    // Recently added starts with the newest file.
+    expect(view.getByRole("button", { name: "Descending" })).toBeInTheDocument();
+    await waitFor(() => expect(lastList()).toContain("dir=desc"));
 
     await fireEvent.change(select, { target: { value: "size" } });
     expect(onSort).toHaveBeenLastCalledWith({ key: "size", dir: 1 });
@@ -467,7 +470,20 @@ describe("LibraryPage: the sort control", () => {
 
     setSort(null);
     await waitFor(() => expect(select).toHaveValue("added"));
-    expect(view.getByRole("button", { name: "Ascending" })).toBeInTheDocument();
+    expect(view.getByRole("button", { name: "Descending" })).toBeInTheDocument();
+    await waitFor(() => expect(lastList()).toContain("dir=desc"));
+  });
+
+  it("turns recently added to the oldest first and back to the newest", async () => {
+    const onSort = vi.fn();
+    const { api } = makeApi();
+    const view = render(() => <LibraryPage api={api} onOpen={open} onSort={onSort} />);
+    await fireEvent.click(await view.findByRole("button", { name: "Descending" }));
+    expect(onSort).toHaveBeenLastCalledWith({ key: "added", dir: 1 });
+    await waitFor(() => expect(lastList()).toContain("dir=asc"));
+    expect(lastList()).not.toContain("sort=");
+    await fireEvent.click(view.getByRole("button", { name: "Ascending" }));
+    expect(onSort).toHaveBeenLastCalledWith(null);
   });
 });
 

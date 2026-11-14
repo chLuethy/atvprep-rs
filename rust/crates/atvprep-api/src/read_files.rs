@@ -1,4 +1,5 @@
 //! Read-only media sidecar views.
+use crate::filter_params::{MAX_ID_LIST, MAX_PARAM, placeholders, tokens};
 use crate::{
     extract::AuthenticatedSession,
     opaque::Opaque,
@@ -122,7 +123,7 @@ fn list_input_error(
     if hide.is_some() {
         return Some("hide is no longer accepted, use status");
     }
-    if suffix.is_some_and(|value| value.chars().count() > 128) {
+    if suffix.is_some_and(|value| value.chars().count() > MAX_PARAM) {
         return Some("suffix is too long");
     }
     for (value, allowed, too_long) in [
@@ -134,7 +135,7 @@ fn list_input_error(
         (has, trait_token as fn(&str) -> bool, "has is too long"),
     ] {
         let Some(value) = value else { continue };
-        if value.chars().count() > 128 {
+        if value.chars().count() > MAX_PARAM {
             return Some(too_long);
         }
         if tokens(Some(value)).iter().any(|token| !allowed(token)) {
@@ -222,24 +223,25 @@ impl Facets {
 
     /// The clauses of the choices (the states as one OR clause, one per property, the libraries
     /// and extensions as one IN each), with their values bound in order.
-    fn clauses(&self, open: &str, values: &mut Vec<rusqlite::types::Value>) -> Vec<String> {
+    fn clauses(
+        &self,
+        open_embed_ids: &str,
+        values: &mut Vec<rusqlite::types::Value>,
+    ) -> Vec<String> {
         let mut clauses = Vec::new();
         let chosen: Vec<String> = self
             .status
             .iter()
-            .map(|token| state_clause(token, open, values))
+            .map(|token| state_clause(token, open_embed_ids, values))
             .collect();
         if !chosen.is_empty() {
             clauses.push(format!("({})", chosen.join(" OR ")));
         }
         for token in &self.has {
-            clauses.push(state_clause(token, open, values));
+            clauses.push(state_clause(token, open_embed_ids, values));
         }
         if !self.roots.is_empty() {
-            clauses.push(format!(
-                "m.root_id IN ({})",
-                vec!["?"; self.roots.len()].join(",")
-            ));
+            clauses.push(format!("m.root_id IN ({})", placeholders(self.roots.len())));
             values.extend(
                 self.roots
                     .iter()
@@ -247,10 +249,7 @@ impl Facets {
             );
         }
         if !self.suffix.is_empty() {
-            clauses.push(format!(
-                "m.suffix IN ({})",
-                vec!["?"; self.suffix.len()].join(",")
-            ));
+            clauses.push(format!("m.suffix IN ({})", placeholders(self.suffix.len())));
             values.extend(
                 self.suffix
                     .iter()
@@ -267,15 +266,6 @@ impl Facets {
 
 /// A subtitle file lies beside the file.
 const SIDECAR: &str = "EXISTS (SELECT 1 FROM sidecars s WHERE s.media_file_id=m.id)";
-
-/// The non-empty entries of a comma-separated list.
-fn tokens(value: Option<&str>) -> Vec<&str> {
-    value
-        .unwrap_or_default()
-        .split(',')
-        .filter(|token| !token.is_empty())
-        .collect()
-}
 
 /// Browse roots or a single level in a library.
 pub async fn browse(
@@ -344,22 +334,23 @@ async fn browse_inner(state: AppState, query: BrowseQuery, below: bool) -> Respo
         );
     }
     let folder = folder.to_owned();
-    let Some(open) = embed_open_json(&state).await else {
+    let Some(open_embed_ids) = embed_open_json(&state).await else {
         return error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "internal server error",
             PATH,
         );
     };
-    let open_ids: std::collections::BTreeSet<i64> = serde_json::from_str::<Vec<i64>>(&open)
-        .unwrap_or_default()
-        .into_iter()
-        .collect();
+    let open_ids: std::collections::BTreeSet<i64> =
+        serde_json::from_str::<Vec<i64>>(&open_embed_ids)
+            .unwrap_or_default()
+            .into_iter()
+            .collect();
     let mut values: Vec<rusqlite::types::Value> = Vec::new();
     let mut clauses =
         vec!["NOT (m.discovery_state='missing' AND m.dismissed_at IS NOT NULL)".to_owned()];
     if let Some(value) = query.state.as_deref() {
-        clauses.push(state_clause(value, &open, &mut values));
+        clauses.push(state_clause(value, &open_embed_ids, &mut values));
     }
     // The library facet is the column itself here: the page leaves out the libraries not chosen.
     let selection = match Facets::parse(
@@ -374,7 +365,7 @@ async fn browse_inner(state: AppState, query: BrowseQuery, below: bool) -> Respo
         Err((code, message)) => return error(code, message, PATH),
     };
     let filtered = query.state.is_some() || selection.any();
-    clauses.extend(selection.clauses(&open, &mut values));
+    clauses.extend(selection.clauses(&open_embed_ids, &mut values));
     if let Some(root) = root {
         clauses.push("m.root_id=?".to_owned());
         values.push(root.into());
@@ -439,14 +430,14 @@ pub async fn facet_counts(
         return response;
     }
     let opaque = Opaque::new(state.api_secret.as_bytes());
-    let Some(open) = embed_open_json(&state).await else {
+    let Some(open_embed_ids) = embed_open_json(&state).await else {
         return error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "internal server error",
             PATH,
         );
     };
-    let (base, base_values) = match base_filter(&query, &open) {
+    let (base, base_values) = match base_filter(&query, &open_embed_ids) {
         Ok(filter) => filter,
         Err((code, message)) => return error(code, message, PATH),
     };
@@ -461,7 +452,7 @@ pub async fn facet_counts(
         let grouped = |facets: &Facets, key: &str| -> Result<Vec<(rusqlite::types::Value, i64)>, ()> {
             let mut clauses = base.clone();
             let mut values = base_values.clone();
-            clauses.extend(facets.clauses(&open, &mut values));
+            clauses.extend(facets.clauses(&open_embed_ids, &mut values));
             let mut stmt = conn
                 .prepare(&format!(
                     "SELECT {key}, count(*) FROM media_files m WHERE {} GROUP BY 1",
@@ -580,24 +571,29 @@ async fn embed_open_json(state: &AppState) -> Option<String> {
 /// "Ready" is a clean file with nothing left to embed and `embed_open` a clean one with an open
 /// embedding; the trait "embed" is any file with an open embedding, whatever its state.
 /// The states split the files without overlap: a missing file is only "missing".
-fn state_clause(state: &str, open: &str, values: &mut Vec<rusqlite::types::Value>) -> String {
+/// `open_embed_ids` is the JSON list of the ids of the files with an open embedding.
+fn state_clause(
+    state: &str,
+    open_embed_ids: &str,
+    values: &mut Vec<rusqlite::types::Value>,
+) -> String {
     match state {
         "clean" => {
-            values.push(open.to_owned().into());
+            values.push(open_embed_ids.to_owned().into());
             format!(
                 "(m.discovery_state<>'missing' AND m.compliance_state='clean' AND {})",
                 media_sql::embed_not_open("?")
             )
         }
         "embed_open" => {
-            values.push(open.to_owned().into());
+            values.push(open_embed_ids.to_owned().into());
             format!(
                 "(m.discovery_state<>'missing' AND m.compliance_state='clean' AND {})",
                 media_sql::embed_open("?")
             )
         }
         "embed" => {
-            values.push(open.to_owned().into());
+            values.push(open_embed_ids.to_owned().into());
             format!(
                 "(m.discovery_state='present' AND {})",
                 media_sql::embed_open("?")
@@ -646,11 +642,10 @@ const LISTED: &str = "NOT (m.discovery_state='missing' AND m.dismissed_at IS NOT
 
 /// Bounds and token checks shared by the list and its counters.
 fn filter_input_error(query: &FileQuery, path: &str) -> Option<Response> {
-    // Several libraries make a long list of ids.
     if query
         .root_id
         .as_ref()
-        .is_some_and(|value| value.chars().count() > 1024)
+        .is_some_and(|value| value.chars().count() > MAX_ID_LIST)
     {
         return Some(error(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -668,7 +663,7 @@ fn filter_input_error(query: &FileQuery, path: &str) -> Option<Response> {
     ] {
         if value
             .as_ref()
-            .is_some_and(|value| value.chars().count() > 128)
+            .is_some_and(|value| value.chars().count() > MAX_PARAM)
         {
             return Some(error(
                 StatusCode::UNPROCESSABLE_ENTITY,
@@ -714,7 +709,10 @@ fn facets_of(query: &FileQuery, opaque: &Opaque) -> Result<Facets, (StatusCode, 
 }
 
 /// Every filter of the list except the facets (`Facets`), which the counters vary.
-fn base_filter(query: &FileQuery, open: &str) -> Result<Filter, (StatusCode, &'static str)> {
+fn base_filter(
+    query: &FileQuery,
+    open_embed_ids: &str,
+) -> Result<Filter, (StatusCode, &'static str)> {
     let mut clauses = vec![LISTED.to_owned()];
     let mut values: Vec<rusqlite::types::Value> = Vec::new();
     for (column, value) in [
@@ -729,7 +727,7 @@ fn base_filter(query: &FileQuery, open: &str) -> Result<Filter, (StatusCode, &'s
         }
     }
     if let Some(value) = query.compliance_state.as_deref().filter(|s| !s.is_empty()) {
-        clauses.push(state_clause(value, open, &mut values));
+        clauses.push(state_clause(value, open_embed_ids, &mut values));
     }
     for (op, value) in [(">=", &query.last_seen_from), ("<=", &query.last_seen_to)] {
         if let Some(value) = value {
@@ -780,19 +778,19 @@ pub async fn list(
         },
         None => 0,
     };
-    let Some(open) = embed_open_json(&state).await else {
+    let Some(open_embed_ids) = embed_open_json(&state).await else {
         return error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "internal server error",
             PATH,
         );
     };
-    let (mut clauses, mut values) = match base_filter(&query, &open) {
+    let (mut clauses, mut values) = match base_filter(&query, &open_embed_ids) {
         Ok(filter) => filter,
         Err((code, message)) => return error(code, message, PATH),
     };
     match facets_of(&query, &opaque) {
-        Ok(chosen) => clauses.extend(chosen.clauses(&open, &mut values)),
+        Ok(chosen) => clauses.extend(chosen.clauses(&open_embed_ids, &mut values)),
         Err((code, message)) => return error(code, message, PATH),
     }
     // Without a sort the list is in the order the files were added; the cursor is the last id.
@@ -823,7 +821,7 @@ pub async fn list(
             let order=match query.sort.as_deref() {Some("size")=>format!("m.size {} ,lower(m.relative_path),m.id",if descending {"DESC"} else {"ASC"}),Some("status")=>format!("{} {},lower(m.relative_path),m.id",status_rank("?"),if descending {"DESC"} else {"ASC"}),_=>if descending {"m.id DESC".to_owned()} else {"m.id".to_owned()}};
             let offset=if query.sort.is_some(){after}else{0};
             let mut stmt=conn.prepare(&format!("SELECT m.id FROM media_files m WHERE {filter} ORDER BY {order} LIMIT ? OFFSET ?")).map_err(|_|())?;
-            let mut bound=values.clone();if query.sort.as_deref()==Some("status") {bound.push(open.clone().into());}bound.push(i64::try_from(limit+1).map_err(|_|())?.into());bound.push(offset.into());
+            let mut bound=values.clone();if query.sort.as_deref()==Some("status") {bound.push(open_embed_ids.clone().into());}bound.push(i64::try_from(limit+1).map_err(|_|())?.into());bound.push(offset.into());
             stmt.query_map(rusqlite::params_from_iter(bound.iter()),|row|row.get(0)).map_err(|_|())?.collect::<Result<Vec<_>,_>>().map_err(|_|())?
         };
         let mut data=Vec::new();let mut last=None;let mut used=0usize;let mut truncated=false;
