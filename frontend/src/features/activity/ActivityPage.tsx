@@ -242,7 +242,7 @@ export const ActivityPage: Component<{ api: Api; activeId?: string | undefined; 
                 <Show when={phase() === "error"}><Button onClick={() => void load(true)}>{t("Retry")}</Button></Show>
               </div>
             }>
-              <Show when={rows().length > 0} fallback={<div class="empty"><b>{t("No jobs yet")}</b>{t("Select a file in the Library and press V to verify it, or F to preview preparing it. The job shows up here.")}</div>}>
+              <Show when={rows().length > 0} fallback={<div class="empty"><b>{t("No jobs yet")}</b>{t("Select a file in Files and press V to verify it, or F to preview preparing it. The job shows up here.")}</div>}>
                 {group(t("Active"), () => grouped().active)}
                 {group(t("History"), () => grouped().history)}
               </Show>

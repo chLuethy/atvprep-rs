@@ -214,7 +214,7 @@ export const Inspector: Component<{
       return;
     }
     setConverting(false);
-    setMessage(t("Preparation queued. The new MP4 appears in the library after the next scan."));
+    setMessage(t("Preparation queued. The new MP4 appears in Files after the next scan."));
     props.onQueued?.();
     void refetchJobs();
   };

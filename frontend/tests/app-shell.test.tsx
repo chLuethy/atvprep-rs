@@ -123,7 +123,7 @@ describe("command palette in the shell", () => {
     await waitFor(() => expect(window.location.pathname).toBe("/jobs"));
   });
 
-  it("opens the library on a chosen status through the address", async () => {
+  it("opens the files page on a chosen status through the address", async () => {
     const view = render(() => <App />);
     const search = await openPalette(view);
 

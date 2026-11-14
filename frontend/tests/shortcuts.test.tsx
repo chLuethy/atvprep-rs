@@ -11,7 +11,7 @@ afterEach(() => {
 
 describe("the shortcut list", () => {
   it("groups what works everywhere apart from what works on one page, and names every key", () => {
-    expect(SHORTCUTS.map((group) => group.title)).toEqual(["Everywhere", "Library", "Schedules", "Activity"]);
+    expect(SHORTCUTS.map((group) => group.title)).toEqual(["Everywhere", "Files", "Schedules", "Activity"]);
     for (const group of SHORTCUTS) {
       expect(group.items.length).toBeGreaterThan(0);
       for (const item of group.items) {
@@ -24,7 +24,7 @@ describe("the shortcut list", () => {
     expect(everywhere).toEqual(expect.arrayContaining([expect.stringMatching(/commands/i), expect.stringMatching(/shortcuts/i)]));
   });
 
-  it("describes the keys that are really bound in the library", () => {
+  it("describes the keys that are really bound on the files page", () => {
     const library = SHORTCUTS[1]!.items.flatMap((item) => item.chords.flat());
     for (const key of ["J", "K", "Space", "F", "V", "/", "Esc"]) expect(library).toContain(key);
   });
@@ -32,7 +32,7 @@ describe("the shortcut list", () => {
   it("renders as a labelled list of keys and what they do", () => {
     const view = render(() => <ShortcutsPanel />);
 
-    const library = view.getByRole("group", { name: "Library" });
+    const library = view.getByRole("group", { name: "Files" });
     expect(within(library).getByText("Add the file to the selection or take it out")).toBeInTheDocument();
     expect(library.querySelectorAll("kbd").length).toBeGreaterThan(4);
   });
