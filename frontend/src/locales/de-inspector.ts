@@ -47,7 +47,7 @@ export const deInspector: Record<string, string | [string, string]> = {
   "Prepare cancelling": "Vorbereiten wird abgebrochen",
   "Unable to queue the preparation. The server said: {detail}.": "Das Vorbereiten konnte nicht eingereiht werden. Der Server meldet: {detail}.",
   "Unable to queue the preparation. Try again.": "Das Vorbereiten konnte nicht eingereiht werden. Versuche es erneut.",
-  "Preparation queued. The new MP4 appears in the library after the next scan.": "Vorbereiten eingereiht. Die neue MP4 erscheint nach dem nächsten Scan in der Bibliothek.",
+  "Preparation queued. The new MP4 appears in Files after the next scan.": "Vorbereiten eingereiht. Die neue MP4 erscheint nach dem nächsten Scan unter „Dateien“.",
   "A preparation for this file is already in progress.": "Diese Datei wird bereits vorbereitet.",
   "The video has to be re-encoded. That only runs with “Encode audio and video”; otherwise the file stays as it is and the job says so.": "Das Video muss neu kodiert werden. Das läuft nur mit „Audio und Video kodieren“; sonst bleibt die Datei unverändert und der Auftrag meldet das.",
   "Prepare rewrites this MP4 in place where needed. Files already at the target are left alone.": "Beim Vorbereiten wird diese MP4 bei Bedarf an Ort und Stelle neu geschrieben. Dateien, die schon dem Ziel entsprechen, bleiben unverändert.",

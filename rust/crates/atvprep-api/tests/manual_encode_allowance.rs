@@ -709,11 +709,16 @@ async fn existing_history_entries_read_as_prepare() {
         2,
         "{by_filter}"
     );
-    assert!(
-        h.get("/api/v1/jobs?action=fix").await["data"]
-            .as_array()
-            .unwrap()
-            .is_empty()
+    // The former names are no filter values of their own; the list refuses them.
+    let request = Request::builder()
+        .uri("/api/v1/jobs?action=fix")
+        .header("origin", "http://testserver")
+        .header("cookie", format!("__Host-atvprep_session={}", h.token))
+        .body(Body::empty())
+        .unwrap();
+    assert_eq!(
+        h.app.clone().oneshot(request).await.unwrap().status(),
+        StatusCode::UNPROCESSABLE_ENTITY
     );
     for (job, item) in [(1, 1), (2, 2)] {
         let opaque = Opaque::new(SECRET.as_bytes());

@@ -4,9 +4,14 @@ use serde_json::Value;
 pub fn value(value: &mut Value, key: &str, opaque: &Opaque) {
     match value {
         Value::Object(object) => {
-            for (key, value) in object {
-                self::value(value, key, opaque);
-            }
+            // Opaque ids also key some objects (counters per schedule or library).
+            *object = std::mem::take(object)
+                .into_iter()
+                .map(|(key, mut value)| {
+                    self::value(&mut value, &key, opaque);
+                    (opaque_id(&key, opaque).unwrap_or(key), value)
+                })
+                .collect();
         }
         Value::Array(items) => {
             for value in items {
@@ -16,14 +21,19 @@ pub fn value(value: &mut Value, key: &str, opaque: &Opaque) {
         Value::String(text) if key.ends_with("_at") => "<ts>".clone_into(text),
         Value::String(text) if key == "csrf_token" => "<csrf>".clone_into(text),
         Value::String(text) => {
-            if let Some((kind, _)) = text.split_once('_')
-                && let Ok(id) = opaque.decode(text, kind)
-            {
-                *text = format!("<{kind}:{id}>");
+            if let Some(id) = opaque_id(text, opaque) {
+                *text = id;
             }
         }
         _ => {}
     }
+}
+
+/// `<kind:id>` for an opaque id, as goldens write it.
+fn opaque_id(text: &str, opaque: &Opaque) -> Option<String> {
+    let (kind, _) = text.split_once('_')?;
+    let id = opaque.decode(text, kind).ok()?;
+    Some(format!("<{kind}:{id}>"))
 }
 
 pub fn render(text: &str, opaque: &Opaque) -> String {

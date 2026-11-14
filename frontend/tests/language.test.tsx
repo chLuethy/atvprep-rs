@@ -16,12 +16,12 @@ describe("the language switch in the shell", () => {
 
     await fireEvent.click(view.getByRole("button", { name: "Deutsch" }));
     expect(view.getByRole("navigation", { name: "Hauptnavigation" })).toBeInTheDocument();
-    expect(view.getByRole("link", { name: "Mediathek" })).toBeInTheDocument();
+    expect(view.getByRole("link", { name: "Dateien" })).toBeInTheDocument();
     expect(view.getByRole("link", { name: "Einstellungen" })).toBeInTheDocument();
     expect(document.documentElement.lang).toBe("de");
 
     await fireEvent.click(view.getByRole("button", { name: "English" }));
-    expect(view.getByRole("link", { name: "Library" })).toBeInTheDocument();
+    expect(view.getByRole("link", { name: "Files" })).toBeInTheDocument();
     expect(document.documentElement.lang).toBe("en");
   });
 

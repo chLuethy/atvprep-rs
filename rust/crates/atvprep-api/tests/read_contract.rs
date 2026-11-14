@@ -31,6 +31,7 @@ fn python_schema_lists_the_read_contract_routes() {
         "/api/v1/roots",
         "/api/v1/scans",
         "/api/v1/jobs",
+        "/api/v1/jobs/counts",
         "/api/v1/events",
         "/api/v1/settings",
         "/api/v1/schedules",
@@ -511,7 +512,7 @@ async fn file_listing_filters_sorts_and_paginates() {
     let filtered = app
         .clone()
         .oneshot(request(
-            "/api/v1/files?hide=clean,blocker&sort=size&dir=desc".to_owned(),
+            "/api/v1/files?status=warning&sort=size&dir=desc".to_owned(),
         ))
         .await
         .unwrap();
@@ -521,7 +522,7 @@ async fn file_listing_filters_sorts_and_paginates() {
     assert_eq!(filtered["data"][0]["display_path"], "Straße.mkv");
     assert_eq!(
         app.clone()
-            .oneshot(request("/api/v1/files?hide=invalid".to_owned()))
+            .oneshot(request("/api/v1/files?status=invalid".to_owned()))
             .await
             .unwrap()
             .status(),

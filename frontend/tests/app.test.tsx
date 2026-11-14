@@ -8,12 +8,12 @@ describe("App", () => {
     expect(getByText("atvprep-manager")).toBeInTheDocument();
   });
 
-  it("renders navigation links for Library, Activity, Overview, Settings", () => {
+  it("renders navigation links for Files, Activity, Overview, Settings", () => {
     const { getByRole } = render(() => <App />);
     const nav = getByRole("navigation");
     expect(nav).toBeInTheDocument();
 
-    expect(getByRole("link", { name: "Library" })).toBeInTheDocument();
+    expect(getByRole("link", { name: "Files" })).toBeInTheDocument();
     expect(getByRole("link", { name: "Overview" })).toBeInTheDocument();
     expect(getByRole("link", { name: "Activity" })).toBeInTheDocument();
     expect(getByRole("link", { name: "Settings" })).toBeInTheDocument();

@@ -6,7 +6,7 @@
  *
  *   1. The root page returns 200 and the HTML title is "atvprep-manager".
  *   2. The SPA actually hydrates: the five nav links
- *      (Overview / Library / Activity / Schedules / Settings) become anchors with
+ *      (Overview / Files / Activity / Schedules / Settings) become anchors with
  *      the expected `href` values.
  *
  * Run it, together with the other journeys, from the repository root:

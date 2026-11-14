@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ColumnsView } from "../src/features/files/ColumnsView";
 import { allReady, describeCounts, worstIn } from "../src/features/files/browse";
 import type { FileRow } from "../src/features/files/loaders";
+import { EMPTY_FILTER } from "../src/features/files/filters";
 
 type Api = { request: (path: string, init?: RequestInit) => Promise<Response> };
 
@@ -38,7 +39,7 @@ const option = (view: ReturnType<typeof render>, name: string) =>
 
 const show = (api: Api, over: Partial<Parameters<typeof ColumnsView>[0]> = {}) => {
   const onOpen = vi.fn();
-  const view = render(() => <ColumnsView api={api} state="" version={0} onOpen={onOpen} {...over} />);
+  const view = render(() => <ColumnsView api={api} version={0} onOpen={onOpen} {...over} />);
   return { view, onOpen };
 };
 
@@ -49,7 +50,7 @@ describe("browse helpers", () => {
     expect(worstIn({ warning: 3, unknown: 2 })).toMatchObject({ kind: "warn", count: 3 });
     expect(worstIn({ warning: 3, blocker: 1, probe_failed: 1 })).toMatchObject({ kind: "bad", count: 2, label: "blockers" });
     expect(describeCounts({ blocker: 1, warning: 2, clean: 30, unknown: 3 })).toBe("1 blocker, 2 warnings, 3 not verified, 30 ready");
-    expect(describeCounts({ clean: 4, embed_open: 2 })).toBe("2 embed open, 4 ready");
+    expect(describeCounts({ clean: 4, embed_open: 2 })).toBe("2 embedding open, 4 ready");
     expect(describeCounts({})).toBe("empty");
   });
 
@@ -93,7 +94,7 @@ describe("ColumnsView", () => {
   it("walks with the arrow keys: right goes in, down moves, left goes back", async () => {
     const { api } = makeApi();
     const { view, onOpen } = show(api);
-    const group = await view.findByRole("group", { name: /Library by folder/ });
+    const group = await view.findByRole("group", { name: /Files by folder/ });
     await view.findByText("Film");
 
     await fireEvent.click(await view.findByText("Film"));
@@ -127,16 +128,25 @@ describe("ColumnsView", () => {
 
   it("passes the state filter on to every column", async () => {
     const { api, calls } = makeApi();
-    show(api, { state: "blocker" });
+    show(api, { filter: { ...EMPTY_FILTER, status: ["blocker"] } });
 
-    await waitFor(() => expect(calls[0]).toBe("/browse?state=blocker"));
+    await waitFor(() => expect(calls[0]).toBe("/browse?status=blocker"));
+  });
+
+  it("passes extension and subtitle files on, and shows only the chosen libraries", async () => {
+    const { api, calls } = makeApi();
+    const { view } = show(api, { filter: { ...EMPTY_FILTER, root: ["r_2"], suffix: [".mkv"], sidecar: true, q: "ignored" } });
+
+    await waitFor(() => expect(calls[0]).toBe("/browse?suffix=.mkv&has_sidecar=true"));
+    await waitFor(() => expect(option(view, "TV")).toBeDefined());
+    expect(option(view, "Film")).toBeUndefined();
   });
 
   it("says so when a folder has nothing in the chosen state", async () => {
     const api: Api = { request: vi.fn(async () => new Response(JSON.stringify({ data: { folders: [], files: [] }, meta: {} }))) };
-    const { view } = show(api, { state: "blocker" });
+    const { view } = show(api, { filter: { ...EMPTY_FILTER, status: ["blocker"] } });
 
-    expect(await view.findByText("No files in this state")).toBeInTheDocument();
+    expect(await view.findByText("Nothing here matches the filters")).toBeInTheDocument();
   });
 
   it("offers a retry when a folder cannot be read", async () => {
@@ -194,7 +204,7 @@ describe("ColumnsView: selecting like the Finder", () => {
 
   it("selects everything in the column with Cmd+A and lets Escape let go", async () => {
     const { view, picks } = await inFilmA();
-    const group = view.getByRole("group", { name: /Library by folder/ });
+    const group = view.getByRole("group", { name: /Files by folder/ });
 
     await fireEvent.click(row(view, "A.mp4"));
     await fireEvent.keyDown(group, { key: "a", metaKey: true });
@@ -207,7 +217,7 @@ describe("ColumnsView: selecting like the Finder", () => {
 
   it("extends the selection with Shift and the arrow keys", async () => {
     const { view, picks } = await inFilmA();
-    const group = view.getByRole("group", { name: /Library by folder/ });
+    const group = view.getByRole("group", { name: /Files by folder/ });
 
     await fireEvent.click(row(view, "A.mp4"));
     await fireEvent.keyDown(group, { key: "ArrowDown", shiftKey: true });

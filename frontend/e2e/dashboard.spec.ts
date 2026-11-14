@@ -23,7 +23,7 @@ test.describe("dashboard journey", () => {
     const resyncResponse = page.waitForResponse((response) => response.request().method() === "GET" && response.url().includes("/api/v1/events"));
     await openAndUnlock(page, "/dashboard");
     await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Library health" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "File health" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Recent activity" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Running now" })).toBeVisible();
     await expect.poll(() => page.evaluate(() => (window as unknown as { __e2eWsAttempts: () => number }).__e2eWsAttempts())).toBeGreaterThan(1);

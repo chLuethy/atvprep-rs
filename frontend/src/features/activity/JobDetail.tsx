@@ -224,6 +224,9 @@ export const JobDetail: Component<{
           <dl class="facts">
             <div><dt>{t("Action")}</dt><dd>{actionLabel(d().action)}</dd></div>
             <Show when={d().trigger === "retry"}><div><dt>{t("Origin")}</dt><dd>{t("Retry of an earlier job")}</dd></div></Show>
+            <Show when={d().schedule}>{(schedule) => (
+              <div><dt>{t("Origin")}</dt><dd>{schedule().name === null ? t("A deleted schedule") : t("Schedule „{name}“", { name: schedule().name ?? "" })}</dd></div>
+            )}</Show>
             <Show when={d().requested_at}><div><dt>{t("Requested")}</dt><dd>{formatDate(d().requested_at)}</dd></div></Show>
             <Show when={formatElapsed(d().started_at, d().finished_at)}><div><dt>{t("Took")}</dt><dd>{formatElapsed(d().started_at, d().finished_at)}</dd></div></Show>
             <Show when={since()}><div><dt>{t("Running for")}</dt><dd class="num">{since()}</dd></div></Show>

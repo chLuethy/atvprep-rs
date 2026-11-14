@@ -23,7 +23,7 @@ type SettingsEnvelope = { revision: number; settings: Setting[] };
 type Definition = { label: string; hint?: string; kind: "number" | "boolean" | "lines"; min?: number; max?: number };
 
 const DEFINITIONS: Record<string, Definition> = {
-  scan_interval_seconds: { label: N("Scan interval (seconds)"), hint: N("How often the library is scanned for new and changed files."), kind: "number", min: 5, max: 86400 },
+  scan_interval_seconds: { label: N("Scan interval (seconds)"), hint: N("How often the libraries are scanned for new and changed files."), kind: "number", min: 5, max: 86400 },
   settle_seconds: { label: N("Wait after last change (seconds)"), hint: N("A new or changed file is left alone for this long, so files still being copied or imported are not touched."), kind: "number", min: 0, max: 86400 },
   scan_exclude_dirs: { label: N("Folders the scan skips"), kind: "lines" },
   max_ffmpeg_workers: { label: N("Parallel preparations"), hint: N("How many files are prepared at once. More is faster but loads the server. Verify jobs are not counted."), kind: "number", min: 1, max: 32 },

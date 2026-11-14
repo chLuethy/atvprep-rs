@@ -1,6 +1,7 @@
 import { createResource, createSignal, For, Index, Show, type Component, type JSX } from "solid-js";
 import { Button, StatusChip } from "../../ui";
 import { actionLabel, jobProgress, jobTitle, jobTone } from "../activity/model";
+import { JOB_QUICK_FILTERS, jobFilterQuery } from "../activity/filters";
 import type { JobRow } from "../activity/loaders";
 import { ScanControl } from "../scan/ScanControl";
 import { Orphans, type OrphanHit } from "./Orphans";
@@ -34,9 +35,9 @@ async function load(api: OverviewApi): Promise<Overview> {
   };
 }
 
-const STATES: ReadonlyArray<{ state: string; label: string; bar: string; filter?: string }> = [
+const STATES: ReadonlyArray<{ state: string; label: string; bar: string }> = [
   { state: "clean", label: N("Ready"), bar: "ok" },
-  { state: "embed_open", label: N("Embed open"), bar: "warn", filter: "embed" },
+  { state: "embed_open", label: N("Embedding open"), bar: "warn" },
   { state: "warning", label: N("Warning"), bar: "warn" },
   { state: "blocker", label: N("Blocker"), bar: "bad" },
   { state: "unknown", label: N("Not verified"), bar: "neutral" },
@@ -52,6 +53,9 @@ const TOPICS: Record<string, string> = {
   "orphan.cleanup": N("Leftover files removed"),
 };
 
+/** The activity with the quick filter "Running": every job that waits, runs or is being cancelled, as the queue counts them. */
+const RUNNING_JOBS = `/jobs?${jobFilterQuery(JOB_QUICK_FILTERS.find((entry) => entry.id === "running")!.filter)}`;
+
 /** Rows for the "Needs you" list, worst first; each says what it is and leads to the place that fixes it. */
 function attention(files: Record<string, number>, jobs: Record<string, number>): Array<{ text: string; href: string }> {
   const count = (record: Record<string, number>, key: string) => record[key] ?? 0;
@@ -60,13 +64,13 @@ function attention(files: Record<string, number>, jobs: Record<string, number>):
     { n: count(files, "warning"), href: "/files?status=warning", text: (n) => tn("{count} file has a warning", "{count} files have warnings", n) },
     { n: count(files, "unknown"), href: "/files?status=unknown", text: (n) => tn("{count} file is not verified", "{count} files are not verified", n) },
     { n: count(files, "probe_failed"), href: "/files?status=probe_failed", text: (n) => tn("{count} file could not be inspected", "{count} files could not be inspected", n) },
-    { n: count(jobs, "failed"), href: "/jobs", text: (n) => tn("{count} job failed", "{count} jobs failed", n) },
-    { n: count(jobs, "partial_success"), href: "/jobs", text: (n) => tn("{count} job partly failed", "{count} jobs partly failed", n) },
+    { n: count(jobs, "failed"), href: "/jobs?status=failed", text: (n) => tn("{count} job failed", "{count} jobs failed", n) },
+    { n: count(jobs, "partial_success"), href: "/jobs?status=partial_success", text: (n) => tn("{count} job partly failed", "{count} jobs partly failed", n) },
   ];
   return rows.filter((row) => row.n > 0).map((row) => ({ text: row.text(row.n), href: row.href }));
 }
 
-/** Where to look first: what needs you, how healthy the library is, what is running. */
+/** Where to look first: what needs you, how healthy the files are, what is running. */
 export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: string) => void }> = (props) => {
   const [overview, { refetch }] = createResource(() => load(props.api));
   const [removed, setRemoved] = createSignal<string | null>(null);
@@ -117,8 +121,8 @@ export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: str
                   </Show>
                 </section>
 
-                <section class="ov-sec" role="region" aria-label={t("Library health")}>
-                  <h2>{t("Library health")}</h2>
+                <section class="ov-sec" role="region" aria-label={t("File health")}>
+                  <h2>{t("File health")}</h2>
                   <Show when={total() > 0} fallback={<><p class="muted">{t("No files yet: scan a library to find them.")}</p><ScanControl api={props.api} onFinished={() => void refetch()} /></>}>
                     <Show when={(data().files.clean ?? 0) === total()}>
                       {(() => {
@@ -139,13 +143,13 @@ export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: str
                     </div>
                     <ul class="plain legend">
                       <For each={STATES.filter((entry) => (data().files[entry.state] ?? 0) > 0)}>{(entry) => (
-                        <li>{link(`/files?status=${entry.filter ?? entry.state}`, <><span class="count">{data().files[entry.state]}</span> {t(entry.label)}</>)}</li>
+                        <li>{link(`/files?status=${entry.state}`, <><span class="count">{data().files[entry.state]}</span> {t(entry.label)}</>)}</li>
                       )}</For>
                       <Show when={data().encodeVideo > 0}>
-                        <li>{link("/files?status=encode_video", <><span class="count">{data().encodeVideo}</span> {t("Need video encoding")}</>)}</li>
+                        <li>{link("/files?has=encode_video", <><span class="count">{data().encodeVideo}</span> {t("Need video encoding")}</>)}</li>
                       </Show>
                       <Show when={data().encodeAudio > 0}>
-                        <li>{link("/files?status=encode_audio", <><span class="count">{data().encodeAudio}</span> {t("Need audio encoding")}</>)}</li>
+                        <li>{link("/files?has=encode_audio", <><span class="count">{data().encodeAudio}</span> {t("Need audio encoding")}</>)}</li>
                       </Show>
                     </ul>
                   </Show>
@@ -154,7 +158,7 @@ export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: str
                 <section class="ov-sec" role="region" aria-label={t("Running now")}>
                   <h2>{t("Running now")}</h2>
                   <Show when={data().queue.jobs.length > 0} fallback={<p class="muted">{t("Nothing is running.")}</p>}>
-                    <p class="muted">{tn("{count} active job", "{count} active jobs", data().queue.total)}</p>
+                    <p class="muted">{link(RUNNING_JOBS, tn("{count} active job", "{count} active jobs", data().queue.total))}</p>
                     <ul class="plain">
                       <For each={data().queue.jobs}>{(job) => {
                         const tone = jobTone(job.status);

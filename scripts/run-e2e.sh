@@ -80,6 +80,11 @@ INSERT INTO job_items(id,job_id,media_file_id,action,position,status,attempt,err
  (1,1,1,'verify',1,'queued',0,NULL,NULL,'{"relative_path":"Sample Movie.mp4"}','synthetic executor log',NULL),
  (2,2,2,'fix',1,'failed',1,'synthetic_failure','synthetic e2e failure','{"relative_path":"Failed Movie.mp4"}','synthetic executor log',NULL),
  (3,3,3,'fix',1,'interrupted',1,'worker_stopped','The worker stopped while this ran.','{"relative_path":"Interrupted Movie.mp4"}','synthetic executor log','2999-01-01T00:00:00Z');
+-- A schedule and the verification one of its runs queued; schedules store their jobs as manual.
+INSERT INTO schedules(id,name,action,days_mask,time_of_day,enabled) VALUES(1,'E2E Weekly','verify',1,'03:00',0);
+INSERT INTO jobs(id,action,status,trigger,total_count,succeeded_count,settings_snapshot_json) VALUES(4,'verify','succeeded','manual',1,1,'{"schedule_id":1}');
+INSERT INTO job_items(id,job_id,media_file_id,action,position,status,attempt,input_snapshot_json,finished_at) VALUES(4,4,4,'verify',1,'succeeded',1,'{"relative_path":"Old Codec Movie.mp4"}','2026-11-01T03:01:00Z');
+INSERT INTO schedule_runs(schedule_id,slot,started_at,trigger,result,job_id) VALUES(1,'2026-11-01 03:00:00.000000','2026-11-01 03:00:00.000000','scheduled','Queued 1 file',4);
 INSERT INTO events(job_id,topic,entity_type,entity_id,payload_json,expires_at) VALUES(1,'job.created','job',1,'{"action":"verify","source":"e2e"}',datetime('now','+1 day'));
 -- Keep the fixture stable: the real workers must not pick it up.
 INSERT OR IGNORE INTO scheduler_leases(id) VALUES(1);

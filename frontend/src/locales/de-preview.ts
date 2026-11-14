@@ -27,7 +27,6 @@ export const dePreview: Record<string, string | readonly [string, string]> = {
   ],
   "Back": "Zurück",
   "Nothing is written until you confirm.": "Es wird nichts geschrieben, bevor du bestätigst.",
-  "Files": "Dateien",
   "To rewrite": "Neu zu schreiben",
   "Estimated": "Geschätzt",
   "about {minutes} min": "etwa {minutes} Min.",

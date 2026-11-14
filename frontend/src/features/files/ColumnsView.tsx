@@ -3,6 +3,7 @@ import { N, t, tn } from "../../lib/i18n";
 import { Button, Icon } from "../../ui";
 import { allReady, describeCounts, loadBrowse, worstIn, type Browse, type BrowseFolder, type StateCounts } from "./browse";
 import type { Api, FileRow } from "./loaders";
+import { EMPTY_FILTER, fileFilterQuery, type FileFilter } from "./filters";
 import { verdictOf } from "./model";
 import { RowMenu, type MenuItem } from "./RowMenu";
 import { additive, copyText, selectionMenu, type SelectionAction } from "./selection";
@@ -22,7 +23,10 @@ export type Picked = {
 };
 export type ColumnAction = SelectionAction;
 
-const lastName = (path: string | undefined) => (path ?? "").split("/").pop() || t("(unnamed)");
+/** What of the filter the column view follows (everything but the search), as one comparable string. */
+const viewKey = (filter: FileFilter) => fileFilterQuery({ ...filter, q: "" });
+
+const lastName =(path: string | undefined) => (path ?? "").split("/").pop() || t("(unnamed)");
 const entriesOf = (data: Browse): Entry[] => [
   ...data.folders.map((folder): Entry => ({ kind: "folder", key: `d:${folder.name}`, folder })),
   ...data.files.map((file): Entry => ({ kind: "file", key: `f:${file.display_path ?? file.id}`, file })),
@@ -56,9 +60,7 @@ const Column: Component<{
   api: Api;
   index: number;
   place: Place;
-  state: string;
-  hide: string;
-  has: string;
+  filter: FileFilter;
   version: number;
   selected: (key: string) => boolean;
   focused: boolean;
@@ -68,17 +70,23 @@ const Column: Component<{
   onBackground: (index: number) => void;
 }> = (props) => {
   const [data, { refetch }] = createResource(
-    () => [props.place.rootId, props.place.path, props.state, props.hide ?? "", props.has ?? "", props.version] as const,
-    ([rootId, path, state, hide, has]) => loadBrowse(props.api, { rootId, path, state: state || undefined, hide: hide || undefined, has: has || undefined }),
+    () => [props.place.rootId, props.place.path, viewKey(props.filter), props.version] as const,
+    ([rootId, path]) => loadBrowse(props.api, { rootId, path, filter: props.filter }),
   );
   const loaded = () => data.latest;
+  // The libraries are the first column, so the library facet leaves out the ones not chosen there.
+  const shown = (value: Browse): Entry[] => {
+    const roots = props.filter.root;
+    const entries = entriesOf(value);
+    return roots.length === 0 || props.index > 0 ? entries : entries.filter((entry) => entry.kind !== "folder" || roots.includes(entry.folder.id ?? ""));
+  };
   createEffect(() => {
     const value = loaded();
-    if (value?.kind === "ok") props.onEntries(props.index, entriesOf(value));
+    if (value?.kind === "ok") props.onEntries(props.index, shown(value));
   });
   const entries = createMemo(() => {
     const value = loaded();
-    return value?.kind === "ok" ? entriesOf(value) : [];
+    return value?.kind === "ok" ? shown(value) : [];
   });
 
   return (
@@ -99,7 +107,7 @@ const Column: Component<{
               <div class="col-note notice bad" role="alert"><p>{t("Unable to load this folder")}</p><Button onClick={() => void refetch()}>{t("Retry")}</Button></div>
             </Show>
             <Show when={value().kind === "ok" && entries().length === 0}>
-              <p class="col-note muted">{props.state || props.hide || props.has ? t("No files in this state") : t("Empty folder")}</p>
+              <p class="col-note muted">{viewKey(props.filter) ? t("Nothing here matches the filters") : t("Empty folder")}</p>
             </Show>
             <For each={entries()}>{(entry) => (
               <div
@@ -152,12 +160,8 @@ const Column: Component<{
  */
 export const ColumnsView: Component<{
   api: Api;
-  /** The compliance state to keep, or "" for everything. */
-  state: string;
-  /** Comma separated states whose files are left out. */
-  hide?: string;
-  /** Comma separated properties a file must all have. */
-  has?: string;
+  /** The files filter; every column follows it except for the search. Folders without a hit are left out. */
+  filter?: FileFilter;
   /** Changes whenever the files may have changed under us (a job ended); columns read again. */
   version: number;
   /** The id of the file the inspector shows, if any. */
@@ -249,7 +253,7 @@ export const ColumnsView: Component<{
   const onBackground = (index: number) => { if (index !== active() || sel().length > 0) commit(index, [], null, null); };
 
   // A different state filter makes the folders it names a different set, so start from the libraries.
-  createEffect(on(() => [props.state, props.hide, props.has] as const, () => {
+  createEffect(on(() => viewKey(props.filter ?? EMPTY_FILTER), () => {
     batch(() => { setTrail([]); setSel([]); setAnchor(null); setCursor(null); setEntries({}); });
   }, { defer: true }));
   // The inspector was closed from outside: a file that was open is no longer selected.
@@ -379,15 +383,13 @@ export const ColumnsView: Component<{
 
   return (
     <div class="cols-wrap">
-      <div ref={scroller} class="cols" tabindex="0" role="group" aria-label={t("Library by folder. Arrow keys move, Shift extends the selection, right opens a folder, left goes back.")} onKeyDown={onKeyDown}>
+      <div ref={scroller} class="cols" tabindex="0" role="group" aria-label={t("Files by folder. Arrow keys move, Shift extends the selection, right opens a folder, left goes back.")} onKeyDown={onKeyDown}>
         <For each={Array.from({ length: count() }, (_, index) => index)}>{(index) => (
           <Column
             api={props.api}
             index={index}
             place={placeOf(index)}
-            state={props.state}
-            hide={props.hide ?? ""}
-            has={props.has ?? ""}
+            filter={props.filter ?? EMPTY_FILTER}
             version={props.version}
             selected={(key) => isSelected(index, key)}
             focused={active() === index}

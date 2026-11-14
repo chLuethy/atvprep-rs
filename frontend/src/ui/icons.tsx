@@ -22,6 +22,7 @@ const PATHS = {
   columns: "M2.5 3.5h11v9h-11zM6.2 3.5v9M9.8 3.5v9",
   rows: "M2.5 3.5h11v9h-11zM2.5 7h11M2.5 10h11",
   keyboard: "M1.5 4.5h13v7h-13zM4 7h.5M7.75 7h.5M11.5 7h.5M5 9.5h6",
+  filter: "M2 3.5h12l-4.6 5.3v3.9l-2.8 1.3V8.8z",
 } as const;
 
 export type IconName = keyof typeof PATHS;
