@@ -16,6 +16,7 @@ import { N, t, tn } from "./lib/i18n";
 import { isTyping } from "./lib/keys";
 import { realtimeState } from "./lib/realtime";
 import { useWorkTitle } from "./lib/title";
+import { recall, remember, type ViewPage } from "./lib/viewMemory";
 import { workState } from "./lib/work";
 import { dismissTip, tipPending } from "./lib/tips";
 import { Button, chooseTheme, CommandPalette, Icon, Kbd, LanguageSwitch, Logo, ThemeSwitch, type Command, type IconName, type Theme } from "./ui";
@@ -25,6 +26,21 @@ const Files: ParentComponent = () => <section>{t("Files")}</section>;
 const Jobs: ParentComponent = () => <section>{t("Activity")}</section>;
 const Schedules: ParentComponent = () => <section>{t("Schedules")}</section>;
 const Settings: ParentComponent = () => <section>{t("Settings")}</section>;
+
+/**
+ * The remembered state to open a page with, asked once when the page mounts: a page opened without a query
+ * (navigation, the palette, a reload of the bare address) takes the last remembered state, by replacing the
+ * address so no history entry is added. Later bare addresses on the same page (Reset filters, Back) are
+ * left alone, and a query of its own always wins.
+ */
+const openingState = (page: ViewPage) => {
+  let asked = false;
+  return (search: string): string | null => {
+    if (asked) return null;
+    asked = true;
+    return search === "" ? recall(page) : null;
+  };
+};
 
 /**
  * One route for the list and the open file, so choosing a file never remounts the list. The filter lives in
@@ -41,9 +57,14 @@ const Library: ParentComponent<{ api: ManagerApi | undefined; fileId: string | u
   const params = () => new URLSearchParams(location.search);
   const filter = createMemo(() => parseFileFilter(params()), undefined, { equals: sameFilter });
   const sort = createMemo(() => parseFileSort(params()), undefined, { equals: (a, b) => fileSortQuery(a) === fileSortQuery(b) });
+  const opening = openingState("files");
   createEffect(() => {
+    const search = location.search.replace(/^\?/, "");
+    const saved = opening(search);
+    if (saved !== null) return navigate(at(props.fileId, saved), { replace: true });
     const canonical = query(filter(), sort());
-    if (location.search.replace(/^\?/, "") !== canonical) navigate(at(props.fileId, canonical), { replace: true });
+    remember("files", canonical);
+    if (search !== canonical) navigate(at(props.fileId, canonical), { replace: true });
   });
   return (
     <Show when={props.api} fallback={<Files />}>
@@ -72,9 +93,14 @@ const Activity: ParentComponent<{ api: ManagerApi | undefined; jobId: string | u
   const base = (id: string | undefined) => (id ? `/jobs/${encodeURIComponent(id)}` : "/jobs");
   const at = (id: string | undefined, query: string) => `${base(id)}${query ? `?${query}` : ""}`;
   const filter = createMemo(() => parseJobFilter(new URLSearchParams(location.search)), undefined, { equals: sameJobFilter });
+  const opening = openingState("jobs");
   createEffect(() => {
+    const search = location.search.replace(/^\?/, "");
+    const saved = opening(search);
+    if (saved !== null) return navigate(at(props.jobId, saved), { replace: true });
     const canonical = jobFilterQuery(filter());
-    if (location.search.replace(/^\?/, "") !== canonical) navigate(at(props.jobId, canonical), { replace: true });
+    remember("jobs", canonical);
+    if (search !== canonical) navigate(at(props.jobId, canonical), { replace: true });
   });
   return (
     <Show when={props.api} fallback={<Jobs />}>
