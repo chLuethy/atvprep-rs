@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, on, onCleanup, onMount, Show, type Component } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, onMount, Show, type Component } from "solid-js";
 import { Button, Icon, Kbd } from "../../ui";
 import { FilterBar, type Facet, type FilterValue } from "../../ui/FilterBar";
 import { N, t, tn } from "../../lib/i18n";
@@ -7,7 +7,8 @@ import { ColumnsView, type ColumnAction, type Picked } from "./ColumnsView";
 import { RowMenu, type MenuItem } from "./RowMenu";
 import { additive, copyText, selectionMenu } from "./selection";
 import { loadBelow } from "./browse";
-import { EMPTY_FILTER, isFiltered, sameFilter, STATE_FILTERS, TRAIT_FILTERS, type FileFilter } from "./filters";
+import { activeQuickFilter, EMPTY_FILTER, fileSortQuery, isFiltered, QUICK_FILTERS, sameFilter, STATE_FILTERS, TRAIT_FILTERS, type FileFilter, type FileSort, type SortKey as FileSortKey } from "./filters";
+import { loadRoots } from "../scan/loaders";
 import { FileTable, type Sort, type SortKey } from "./FileTable";
 import { FixPreview } from "./FixPreview";
 import type { EncodeLevel } from "./EncodeChoice";
@@ -26,6 +27,13 @@ function readView(): "list" | "columns" {
 }
 
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
+/** The orders of the sort control; the column headers set the same ones. */
+const SORT_CHOICES: ReadonlyArray<{ key: "title" | "status" | "size" | "added"; label: string }> = [
+  { key: "title", label: N("Name") },
+  { key: "status", label: N("Status") },
+  { key: "size", label: N("Size") },
+  { key: "added", label: N("Recently added") },
+];
 const INSPECT_BATCH = 100;
 
 type Phase = "loading" | "ready" | "error" | "session";
@@ -44,6 +52,10 @@ export const LibraryPage: Component<{
    * entry per pause; a chosen state or property does add one, so Back undoes it.
    */
   onFilter?: (filter: FileFilter, how: { replace: boolean }) => void;
+  /** The order the address asks for; null is recently added, oldest first. Followed when it changes. */
+  sort?: FileSort | undefined;
+  /** An order chosen here (sort control or column header), for the address. */
+  onSort?: (sort: FileSort) => void;
   onOpen: (id: string | undefined) => void;
 }> = (props) => {
   const [rows, setRows] = createSignal<FileRow[]>([]);
@@ -57,7 +69,13 @@ export const LibraryPage: Component<{
   const query = () => filter().q;
   /** What the search field shows; the filter takes it after a short pause. */
   const [search, setSearch] = createSignal(filter().q);
-  const [sort, setSort] = createSignal<Sort>(null);
+  const sameSort = (a: Sort, b: Sort) => fileSortQuery(a) === fileSortQuery(b);
+  const [sort, setSort] = createSignal<Sort>(props.sort ?? null, { equals: sameSort });
+  /** The libraries by name, for the library facet; without an answer the facet shows only what is chosen. */
+  const [roots] = createResource(async () => {
+    const answer = await loadRoots(props.api);
+    return answer.kind === "ok" ? answer.items : [];
+  }, { initialValue: [] });
   const [picked, setPicked] = createSignal<ReadonlySet<string>>(new Set());
   /** The files a fix preview is open for, kept as rows because ids differ between responses. */
   const [inspectorVersion, setInspectorVersion] = createSignal(0);
@@ -212,6 +230,7 @@ export const LibraryPage: Component<{
     setSearch(wanted.q);
     setFilter(wanted);
   }, { defer: true }));
+  createEffect(on(() => props.sort, (next) => setSort(next ?? null), { defer: true }));
   createEffect(on(filter, () => { void load(true); void refreshFacetCounts(); }));
   createEffect(on(sort, () => void load(true, null, true), { defer: true }));
   onMount(() => void refreshSummary());
@@ -228,7 +247,7 @@ export const LibraryPage: Component<{
   // Nothing found and nothing filtered out: the library has not been scanned, as opposed to a search with no hits.
   const firstRun = () => total() === 0 && !filtered() && query() === "";
   /** Anything is left out of the list besides what the search leaves out. */
-  const filtered = () => filter().status.length > 0 || filter().has.length > 0;
+  const filtered = () => isFiltered({ ...filter(), q: "" });
   const changeFilter = (next: FileFilter, replace = false) => {
     if (sameFilter(next, filter())) return;
     setFilter(next);
@@ -239,12 +258,45 @@ export const LibraryPage: Component<{
     setSearch("");
     changeFilter(EMPTY_FILTER);
   };
+  /** Options nobody lists in advance: what the server knows, plus what is chosen, so a choice never vanishes. */
+  const withChosen = (known: Array<{ value: string; label: string }>, chosen: string[], label: (value: string) => string) => {
+    const seen = new Set(known.map((option) => option.value));
+    return [...known, ...chosen.filter((value) => !seen.has(value)).map((value) => ({ value, label: label(value) }))];
+  };
+  const extensionLabel = (suffix: string) => suffix.replace(/^\./, "") || t("(none)");
   const facets = (): Facet[] => [
     { key: "status", title: t("Status"), logic: "or", options: STATE_FILTERS.map((entry) => ({ value: entry.token, label: t(entry.label), urgent: entry.urgent })) },
     { key: "has", title: t("Properties"), logic: "and", options: TRAIT_FILTERS.map((entry) => ({ value: entry.token, label: t(entry.label) })) },
+    { key: "root", title: t("Library"), logic: "or", options: withChosen(roots().map((root) => ({ value: root.id, label: root.name })), filter().root, (id) => id) },
+    {
+      key: "suffix", title: t("Extension"), logic: "or", placement: "more", searchable: true,
+      options: withChosen(Object.keys(facetCounts()?.facets.suffix ?? {}).map((suffix) => ({ value: suffix, label: extensionLabel(suffix) })), filter().suffix, extensionLabel),
+    },
+    { key: "sidecar", title: t("Subtitle files"), logic: "or", multiple: false, placement: "more", options: [{ value: "true", label: t("Yes") }, { value: "false", label: t("No") }] },
   ];
-  const facetValue = (): FilterValue => ({ status: filter().status, has: filter().has });
-  const onFacets = (value: FilterValue) => changeFilter({ ...filter(), status: [...(value.status ?? [])], has: [...(value.has ?? [])] });
+  const facetValue = (): FilterValue => ({
+    status: filter().status, has: filter().has, root: filter().root, suffix: filter().suffix,
+    sidecar: filter().sidecar === null ? [] : [String(filter().sidecar)],
+  });
+  const onFacets = (value: FilterValue) => {
+    const sidecar = value.sidecar?.[0];
+    changeFilter({
+      ...filter(), status: [...(value.status ?? [])], has: [...(value.has ?? [])], root: [...(value.root ?? [])], suffix: [...(value.suffix ?? [])],
+      sidecar: sidecar === "true" ? true : sidecar === "false" ? false : null,
+    });
+  };
+  const quickChoices = () => {
+    const active = activeQuickFilter(filter());
+    return QUICK_FILTERS.map((entry) => ({ id: entry.id, label: t(entry.label), active: entry.id === active?.id }));
+  };
+  /** A quick filter replaces the whole filter, search included; the one in effect takes itself away again. */
+  const onQuick = (id: string) => {
+    const chosen = QUICK_FILTERS.find((entry) => entry.id === id);
+    if (!chosen) return;
+    clearTimeout(searchTimer);
+    setSearch("");
+    changeFilter(activeQuickFilter(filter())?.id === id ? EMPTY_FILTER : chosen.filter);
+  };
   const summaryText = () => {
     const answer = facetCounts();
     return answer ? tn("{matched} of {count} file", "{matched} of {count} files", answer.total, { matched: answer.matched }) : null;
@@ -313,10 +365,18 @@ export const LibraryPage: Component<{
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => changeFilter({ ...filter(), q: value.trim() }, true), 250);
   };
+  const changeSort = (next: Sort) => {
+    if (sameSort(next, sort())) return;
+    setSort(next);
+    props.onSort?.(next);
+  };
+  /** A column header: ascending, then descending, then back to the default order. */
   const toggleSort = (key: SortKey) => {
     const current = sort();
-    setSort(current?.key === key ? (current.dir === 1 ? { key, dir: -1 } : null) : { key, dir: 1 });
+    changeSort(current?.key === key ? (current.dir === 1 ? { key, dir: -1 } : null) : { key, dir: 1 });
   };
+  const sortKey = (): FileSortKey => sort()?.key ?? "added";
+  const sortDir = (): 1 | -1 => sort()?.dir ?? 1;
 
   /** Rows a preview or verification acts on: an explicit list, else the selection, else the open file. */
   const targets = (explicit?: string[]): FileRow[] => {
@@ -407,7 +467,7 @@ export const LibraryPage: Component<{
     let truncated = false;
     for (const folder of colPicked().folders) {
       if (!folder.rootId) continue;
-      const result = await loadBelow(props.api, { rootId: folder.rootId, path: folder.path, status: filter().status.join(",") || undefined, has: filter().has.join(",") || undefined });
+      const result = await loadBelow(props.api, { rootId: folder.rootId, path: folder.path, filter: filter() });
       if (result.kind !== "ok") return { rows: found, truncated, error: result.kind };
       result.files.forEach(add);
       truncated ||= result.truncated;
@@ -537,13 +597,15 @@ export const LibraryPage: Component<{
           </Show>
           <FilterBar
             label={t("Filter files")}
-            facets={facets()}
+            facets={facets().filter((facet) => facet.options.length > 0)}
             value={facetValue()}
             counts={facetCounts()?.facets ?? null}
             summary={summaryText()}
             dirty={isFiltered(filter())}
             onChange={onFacets}
             onReset={clearFilters}
+            quick={quickChoices()}
+            onQuick={onQuick}
             search={(
               <div class="search">
                 <Icon name="search" />
@@ -560,10 +622,29 @@ export const LibraryPage: Component<{
               </div>
             )}
             tools={(
+              <>
+              <div class="lib-sort">
+                <select class="select" aria-label={t("Sort by")} value={sortKey()} onChange={(event) => {
+                  const key = event.currentTarget.value as FileSortKey;
+                  changeSort({ key, dir: sortDir() });
+                }}>
+                  <For each={SORT_CHOICES}>{(choice) => <option value={choice.key}>{t(choice.label)}</option>}</For>
+                </select>
+                <button
+                  type="button"
+                  class="btn quiet lib-sort-dir"
+                  aria-label={sortDir() === 1 ? t("Ascending") : t("Descending")}
+                  title={sortDir() === 1 ? t("Ascending") : t("Descending")}
+                  onClick={() => changeSort({ key: sortKey(), dir: sortDir() === 1 ? -1 : 1 })}
+                >
+                  <span aria-hidden="true">{sortDir() === 1 ? "↑" : "↓"}</span>
+                </button>
+              </div>
               <div class="seg view-switch" role="group" aria-label={t("Files view")}>
                 <button type="button" aria-pressed={view() === "list"} aria-label={t("List")} onClick={() => setView("list")}><Icon name="rows" size={14} /> <span class="seg-label">{t("List")}</span></button>
                 <button type="button" aria-pressed={view() === "columns"} aria-label={t("Columns")} onClick={() => setView("columns")}><Icon name="columns" size={14} /> <span class="seg-label">{t("Columns")}</span></button>
               </div>
+              </>
             )}
           />
         </div>
@@ -572,7 +653,7 @@ export const LibraryPage: Component<{
         <Show when={actionError()}><p class="notice bad lib-notice" role="alert">{actionError()}</p></Show>
 
         <Show when={showColumns()}>
-          <ColumnsView api={props.api} status={filter().status.join(",")} has={filter().has.join(",")} version={inspectorVersion()} activeId={props.activeId} clearToken={clearToken()} onOpen={props.onOpen} onSelection={setColPicked} onAction={(action) => void actOnColumns(action)} />
+          <ColumnsView api={props.api} filter={filter()} version={inspectorVersion()} activeId={props.activeId} clearToken={clearToken()} onOpen={props.onOpen} onSelection={setColPicked} onAction={(action) => void actOnColumns(action)} />
         </Show>
         <div class="lib-scroll" hidden={showColumns()}>
           <Show when={phase() !== "loading"} fallback={<p class="muted pad">{t("Loading files")}</p>}>

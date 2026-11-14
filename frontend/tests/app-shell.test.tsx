@@ -134,6 +134,17 @@ describe("command palette in the shell", () => {
     expect(window.location.search).toBe("?status=blocker");
   });
 
+  it("offers the quick filters of the files page through the same address", async () => {
+    const view = render(() => <App />);
+    const search = await openPalette(view);
+
+    await fireEvent.input(search, { target: { value: "needs attention" } });
+    await fireEvent.keyDown(search, { key: "Enter" });
+
+    await waitFor(() => expect(window.location.pathname).toBe("/files"));
+    expect(window.location.search).toBe("?status=blocker,probe_failed,missing");
+  });
+
   it("changes the theme and keeps the appearance switch in step", async () => {
     const view = render(() => <App />);
     const search = await openPalette(view);
@@ -178,6 +189,21 @@ describe("the files filter in the address", () => {
     };
     return { api, lastList: () => paths.filter((path) => path.startsWith("/files?")).at(-1) ?? "" };
   };
+
+  it("keeps the sort in the address after the filter; a new order is a history entry", async () => {
+    window.history.replaceState(null, "", "/files?dir=desc&sort=size&has_sidecar=true");
+    const { api, lastList } = filesApi();
+    const view = render(() => <App api={api as never} />);
+
+    await waitFor(() => expect(window.location.search).toBe("?has_sidecar=true&sort=size&dir=desc"));
+    await waitFor(() => expect(lastList()).toContain("sort=size"));
+    expect(lastList()).toContain("has_sidecar=true");
+    const select = await view.findByRole("combobox", { name: "Sort by" });
+    await fireEvent.change(select, { target: { value: "added" } });
+    await waitFor(() => expect(window.location.search).toBe("?has_sidecar=true&sort=added&dir=desc"));
+    window.history.back();
+    await waitFor(() => expect(select).toHaveValue("size"));
+  });
 
   it("rewrites an old address with hide to the states it showed, without a new history entry", async () => {
     window.history.replaceState(null, "", "/files?hide=clean&has=embed");

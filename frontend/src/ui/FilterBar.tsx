@@ -96,21 +96,25 @@ const Options: Component<{ facet: Facet; value: FilterValue; counts: FacetCounts
       </Show>
       <p class="fb-logic">{props.facet.logic === "and" ? t("All of these") : t("Any of these")}</p>
       <Show when={shown().length === 0}><p class="fb-logic">{t("Nothing matches")}</p></Show>
-      <For each={shown()}>{(option) => (
-        <label class="fb-option" data-empty={count(option.value) === 0 ? "true" : undefined}>
-          <input
-            type={props.facet.multiple === false ? "radio" : "checkbox"}
-            name={name}
-            checked={chosenOf(props.value, props.facet.key).includes(option.value)}
-            onChange={() => props.onChange(toggled(props.facet, props.value, option.value))}
-          />
-          <span class="box" aria-hidden="true"><Icon name="check" size={12} /></span>
-          <span class="name">{option.label}</span>
-          <Show when={count(option.value) !== undefined}>
-            <span class="count" classList={{ urgent: !!option.urgent && (count(option.value) ?? 0) > 0 }}>{count(option.value)}</span>
-          </Show>
-        </label>
-      )}</For>
+      {/* Kept by value, so options handed in anew keep their elements and the focus. */}
+      <For each={shown().map((option) => option.value)}>{(value) => {
+        const option = () => props.facet.options.find((entry) => entry.value === value) ?? { value, label: value };
+        return (
+          <label class="fb-option" data-empty={count(value) === 0 ? "true" : undefined}>
+            <input
+              type={props.facet.multiple === false ? "radio" : "checkbox"}
+              name={name}
+              checked={chosenOf(props.value, props.facet.key).includes(value)}
+              onChange={() => props.onChange(toggled(props.facet, props.value, value))}
+            />
+            <span class="box" aria-hidden="true"><Icon name="check" size={12} /></span>
+            <span class="name">{option().label}</span>
+            <Show when={count(value) !== undefined}>
+              <span class="count" classList={{ urgent: !!option().urgent && (count(value) ?? 0) > 0 }}>{count(value)}</span>
+            </Show>
+          </label>
+        );
+      }}</For>
     </div>
   );
 };
@@ -194,36 +198,44 @@ export const FilterBar: Component<{
   );
   const focusFirst = (element: HTMLElement) => queueMicrotask(() => element.querySelector<HTMLInputElement>("input")?.focus());
 
+  /**
+   * The facets are kept by key, so a page that builds its facets anew (options from the counts) does not
+   * rebuild the buttons and an open popover under the pointer.
+   */
+  const keysOf = (facets: ReadonlyArray<Facet>) => facets.map((facet) => facet.key);
+  const facetOf = (key: string): Facet => props.facets.find((facet) => facet.key === key) ?? { key, title: key, options: [], logic: "or" };
+
   /** One facet button with its ✕ and popover, in either row. */
-  const facetItem = (facet: Facet) => {
-    const isActive = () => chosenOf(props.value, facet.key).length > 0;
-    const popId = `${id}-${facet.key}`;
+  const facetItem = (key: string) => {
+    const facet = () => facetOf(key);
+    const isActive = () => chosenOf(props.value, key).length > 0;
+    const popId = `${id}-${key}`;
     return (
       <span class="fb-facet" data-active={isActive() ? "true" : undefined}>
         <span class="fb-split">
           <button
             type="button"
-            ref={(element) => buttons.set(facet.key, element)}
+            ref={(element) => buttons.set(key, element)}
             class="fb-button"
             data-active={isActive() ? "true" : undefined}
-            disabled={locked(facet)}
+            disabled={locked(facet())}
             aria-haspopup="dialog"
-            aria-expanded={open() === facet.key}
+            aria-expanded={open() === key}
             aria-controls={popId}
-            onClick={() => toggle(facet.key)}
+            onClick={() => toggle(key)}
           >
-            <span class="fb-title">{isActive() ? `${facet.title}: ${chosenText(facet, props.value)}` : facet.title}</span>
+            <span class="fb-title">{isActive() ? `${facet().title}: ${chosenText(facet(), props.value)}` : facet().title}</span>
             <Show when={!isActive()}><Icon name="chevron" size={12} /></Show>
           </button>
           <Show when={isActive()}>
-            <button type="button" class="fb-clear" aria-label={t("Clear {facet}", { facet: facet.title })} onClick={() => clearFacet(facet)}>
+            <button type="button" class="fb-clear" aria-label={t("Clear {facet}", { facet: facet().title })} onClick={() => clearFacet(facet())}>
               <Icon name="x" size={12} />
             </button>
           </Show>
         </span>
-        <Show when={open() === facet.key}>
-          <Popover title={facet.title} id={popId} onReset={() => clearFacet(facet)}>
-            <Options facet={facet} value={props.value} counts={props.counts} onChange={props.onChange} ref={focusFirst} />
+        <Show when={open() === key}>
+          <Popover title={facet().title} id={popId} onReset={() => clearFacet(facet())}>
+            <Options facet={facet()} value={props.value} counts={props.counts} onChange={props.onChange} ref={focusFirst} />
           </Popover>
         </Show>
       </span>
@@ -264,16 +276,16 @@ export const FilterBar: Component<{
             </button>
             <Show when={open() === "*"}>
               <Popover title={t("All filters")} id={`${id}-all`}>
-                <For each={props.facets}>{(facet, index) => (
+                <For each={keysOf(props.facets)}>{(key, index) => (
                   <section class="fb-all-facet">
-                    <h3>{facet.title}</h3>
-                    <Options facet={facet} value={props.value} counts={props.counts} onChange={props.onChange} ref={index() === 0 ? focusFirst : undefined} />
+                    <h3>{facetOf(key).title}</h3>
+                    <Options facet={facetOf(key)} value={props.value} counts={props.counts} onChange={props.onChange} ref={index() === 0 ? focusFirst : undefined} />
                   </section>
                 )}</For>
               </Popover>
             </Show>
           </span>
-          <For each={mainFacets()}>{facetItem}</For>
+          <For each={keysOf(mainFacets())}>{facetItem}</For>
           <Show when={moreFacets().length > 0}>
             <button
               type="button"
@@ -293,7 +305,7 @@ export const FilterBar: Component<{
       <Show when={moreShown()}>
         <div class="fb-row fb-more" id={`${id}-more`} role="group" aria-label={t("More filters")}>
           <div class="fb-facets">
-            <For each={moreFacets()}>{facetItem}</For>
+            <For each={keysOf(moreFacets())}>{facetItem}</For>
           </div>
         </div>
       </Show>

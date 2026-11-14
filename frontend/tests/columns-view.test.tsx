@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ColumnsView } from "../src/features/files/ColumnsView";
 import { allReady, describeCounts, worstIn } from "../src/features/files/browse";
 import type { FileRow } from "../src/features/files/loaders";
+import { EMPTY_FILTER } from "../src/features/files/filters";
 
 type Api = { request: (path: string, init?: RequestInit) => Promise<Response> };
 
@@ -127,14 +128,23 @@ describe("ColumnsView", () => {
 
   it("passes the state filter on to every column", async () => {
     const { api, calls } = makeApi();
-    show(api, { status: "blocker" });
+    show(api, { filter: { ...EMPTY_FILTER, status: ["blocker"] } });
 
     await waitFor(() => expect(calls[0]).toBe("/browse?status=blocker"));
   });
 
+  it("passes extension and subtitle files on, and shows only the chosen libraries", async () => {
+    const { api, calls } = makeApi();
+    const { view } = show(api, { filter: { ...EMPTY_FILTER, root: ["r_2"], suffix: [".mkv"], sidecar: true, q: "ignored" } });
+
+    await waitFor(() => expect(calls[0]).toBe("/browse?suffix=.mkv&has_sidecar=true"));
+    await waitFor(() => expect(option(view, "TV")).toBeDefined());
+    expect(option(view, "Film")).toBeUndefined();
+  });
+
   it("says so when a folder has nothing in the chosen state", async () => {
     const api: Api = { request: vi.fn(async () => new Response(JSON.stringify({ data: { folders: [], files: [] }, meta: {} }))) };
-    const { view } = show(api, { status: "blocker" });
+    const { view } = show(api, { filter: { ...EMPTY_FILTER, status: ["blocker"] } });
 
     expect(await view.findByText("No files in this state")).toBeInTheDocument();
   });

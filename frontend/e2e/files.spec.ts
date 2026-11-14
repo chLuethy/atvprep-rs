@@ -76,6 +76,76 @@ test.describe("files journey", () => {
     await expect(page.getByRole("link", { name: "Sample Movie" })).toBeVisible();
   });
 
+  test("More filters opens in place, stays open while a filter in it is active, and Back undoes the choice", async ({ page }) => {
+    await openAndUnlock(page, "/files");
+    await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
+    const bar = page.getByRole("search", { name: "Filter files" });
+    const more = bar.getByRole("button", { name: "More filters" });
+    await expect(more).toHaveAttribute("aria-expanded", "false");
+    await more.click();
+    const row = bar.getByRole("group", { name: "More filters" });
+
+    // The extension list can be searched; every fixture file is an .mp4.
+    await row.getByRole("button", { name: "Extension", exact: true }).click();
+    const extension = page.getByRole("dialog", { name: "Extension" });
+    await extension.getByRole("searchbox", { name: "Search Extension" }).fill("mp");
+    await extension.getByRole("checkbox", { name: "mp4 4" }).check();
+    await expect(page).toHaveURL(/\?suffix=\.mp4$/);
+    await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    // No fixture file has a subtitle file beside it.
+    await row.getByRole("button", { name: "Subtitle files", exact: true }).click();
+    await page.getByRole("dialog", { name: "Subtitle files" }).getByRole("radio", { name: /^Yes/ }).check();
+    await expect(page).toHaveURL(/\?suffix=\.mp4&has_sidecar=true$/);
+    await expect(page.getByText("No files match the current filters")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(more).toBeDisabled();
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\?suffix=\.mp4$/);
+    await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
+    await bar.getByRole("button", { name: "Clear Extension" }).click();
+    await expect(page).toHaveURL(/\/files$/);
+    await expect(more).toBeEnabled();
+  });
+
+  test("a quick filter sets its states, shows as in effect and is also in the command palette", async ({ page }) => {
+    await openAndUnlock(page, "/files?q=Sample");
+    const bar = page.getByRole("search", { name: "Filter files" });
+    const preparable = bar.getByRole("group", { name: "Quick filters" }).getByRole("button", { name: "Preparable" });
+    await preparable.click();
+    await expect(page).toHaveURL(/\?status=embed_open,warning,blocker$/);
+    await expect(preparable).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Sample Movie" })).toHaveCount(0);
+    await expect(bar.getByRole("button", { name: "Status: 3" })).toBeVisible();
+
+    await page.keyboard.press("ControlOrMeta+k");
+    const search = page.getByRole("combobox", { name: "Search commands" });
+    await search.fill("needs attention");
+    await search.press("Enter");
+    await expect(page).toHaveURL(/\?status=blocker,probe_failed,missing$/);
+    await expect(bar.getByRole("button", { name: "Needs attention" })).toHaveAttribute("aria-pressed", "true");
+    await expect(preparable).toHaveAttribute("aria-pressed", "false");
+  });
+
+  test("the sort stands in the address and follows the column headers", async ({ page }) => {
+    await openAndUnlock(page, "/files");
+    const firstRow = page.getByRole("table", { name: "Media files" }).locator("tbody tr").first();
+    await expect(firstRow).toContainText("Sample Movie");
+    const sortBy = page.getByRole("combobox", { name: "Sort by" });
+    await sortBy.selectOption("title");
+    await expect(page).toHaveURL(/\?sort=title$/);
+    await expect(firstRow).toContainText("Failed Movie");
+    await page.getByRole("button", { name: "File", exact: true }).click();
+    await expect(page).toHaveURL(/\?sort=title&dir=desc$/);
+    await expect(firstRow).toContainText("Sample Movie");
+    await page.reload();
+    await expect(sortBy).toHaveValue("title");
+    await expect(page.getByRole("button", { name: "Descending" })).toBeVisible();
+  });
+
   test("an old address with hide shows the same files as before, under the new address", async ({ page }) => {
     await openAndUnlock(page, "/files?hide=clean");
     await expect(page).toHaveURL(/\?status=embed_open,warning,blocker,unknown,probe_failed,missing$/);

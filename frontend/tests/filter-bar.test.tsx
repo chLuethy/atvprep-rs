@@ -205,6 +205,23 @@ const WITH_MORE: Facet[] = [
   { key: "sidecar", title: "Subtitle files", logic: "or", multiple: false, placement: "more", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
 ];
 
+describe("FilterBar: a page that builds its facets anew", () => {
+  it("keeps the popover and the focused option when the facets come back as new objects", async () => {
+    const [value, setValue] = createSignal<FilterValue>({});
+    // Like a page whose options depend on the counts: every change hands in fresh facet and option objects.
+    const facets = () => { void value(); return FACETS.map((facet) => ({ ...facet, options: facet.options.map((option) => ({ ...option })) })); };
+    const view = render(() => <FilterBar label="Filter files" facets={facets()} value={value()} counts={COUNTS} onChange={setValue} />);
+    await fireEvent.click(view.getByRole("button", { name: "Status" }));
+    const warning = within(view.getByRole("dialog", { name: "Status" })).getByRole("checkbox", { name: "Warning 2" });
+    warning.focus();
+    await fireEvent.click(warning);
+
+    expect(warning).toBeChecked();
+    expect(warning.isConnected).toBe(true);
+    expect(warning).toHaveFocus();
+  });
+});
+
 describe("FilterBar: more filters", () => {
   it("keeps the rarer facets in a second row that opens in place", async () => {
     const { view } = show({}, { facets: WITH_MORE, counts: null });

@@ -185,6 +185,8 @@ export const deShell: Record<string, string> = {
   "Go to {page}": "Gehe zu {page}",
   "Page": "Seite",
   "Files: show {state}": "Dateien: {state} anzeigen",
+  "Files: {quick}": "Dateien: {quick}",
+  "Quick filter": "Schnellfilter",
   "Filter": "Filter",
   "Theme: {theme}": "Darstellung: {theme}",
   "Show keyboard shortcuts": "Tastenkürzel anzeigen",

@@ -5,7 +5,7 @@ import type { ManagerApi } from "./lib/api";
 import type { SessionControls } from "./features/auth/AuthGate";
 import { ActivityPage } from "./features/activity/ActivityPage";
 import { LibraryPage } from "./features/files/LibraryPage";
-import { fileFilterQuery, parseFileFilter, sameFilter } from "./features/files/filters";
+import { fileFilterQuery, fileSortQuery, parseFileFilter, parseFileSort, QUICK_FILTERS, sameFilter, type FileFilter, type FileSort } from "./features/files/filters";
 import { OverviewPage } from "./features/overview/OverviewPage";
 import { SchedulesPage } from "./features/schedules/SchedulesPage";
 import { SettingsPage } from "./features/settings/SettingsPage";
@@ -28,16 +28,20 @@ const Settings: ParentComponent = () => <section>{t("Settings")}</section>;
 /**
  * One route for the list and the open file, so choosing a file never remounts the list. The filter lives in
  * the address: a chosen state or property is a new history entry (Back undoes it), a search replaces the entry,
- * and an old or untidy address is rewritten to the canonical one.
+ * and an old or untidy address is rewritten to the canonical one. The order follows the filter (`sort`, `dir`);
+ * a new order is a history entry too.
  */
 const Library: ParentComponent<{ api: ManagerApi | undefined; fileId: string | undefined }> = (props) => {
   const navigate = useNavigate();
   const location = useLocation();
   const base = (id: string | undefined) => (id ? `/files/${encodeURIComponent(id)}` : "/files");
-  const at = (id: string | undefined, query: string) => `${base(id)}${query ? `?${query}` : ""}`;
-  const filter = createMemo(() => parseFileFilter(new URLSearchParams(location.search)), undefined, { equals: sameFilter });
+  const query = (filter: FileFilter, sort: FileSort) => [fileFilterQuery(filter), fileSortQuery(sort)].filter(Boolean).join("&");
+  const at = (id: string | undefined, search: string) => `${base(id)}${search ? `?${search}` : ""}`;
+  const params = () => new URLSearchParams(location.search);
+  const filter = createMemo(() => parseFileFilter(params()), undefined, { equals: sameFilter });
+  const sort = createMemo(() => parseFileSort(params()), undefined, { equals: (a, b) => fileSortQuery(a) === fileSortQuery(b) });
   createEffect(() => {
-    const canonical = fileFilterQuery(filter());
+    const canonical = query(filter(), sort());
     if (location.search.replace(/^\?/, "") !== canonical) navigate(at(props.fileId, canonical), { replace: true });
   });
   return (
@@ -47,7 +51,9 @@ const Library: ParentComponent<{ api: ManagerApi | undefined; fileId: string | u
           api={api()}
           activeId={props.fileId}
           filter={filter()}
-          onFilter={(next, how) => navigate(at(props.fileId, fileFilterQuery(next)), { replace: how.replace })}
+          sort={sort()}
+          onFilter={(next, how) => navigate(at(props.fileId, query(next, sort())), { replace: how.replace })}
+          onSort={(next) => navigate(at(props.fileId, query(filter(), next)))}
           onOpen={(id) => navigate(`${base(id)}${location.search}`)}
         />
       )}
@@ -136,6 +142,12 @@ const Shell: ParentComponent<{ session?: SessionControls; api?: ManagerApi }> = 
       label: t("Files: show {state}", { state: t(entry.label) }),
       hint: t("Filter"),
       run: () => navigate(entry.status ? `/files?status=${entry.status}` : "/files"),
+    })),
+    ...QUICK_FILTERS.map((entry) => ({
+      id: `files-quick-${entry.id}`,
+      label: t("Files: {quick}", { quick: t(entry.label) }),
+      hint: t("Quick filter"),
+      run: () => navigate(`/files?${fileFilterQuery(entry.filter)}`),
     })),
     ...THEMES.map((theme) => ({ id: `theme-${theme.value}`, label: t("Theme: {theme}", { theme: t(theme.label) }), hint: t("Appearance"), run: () => chooseTheme(theme.value) })),
     { id: "help-shortcuts", label: t("Show keyboard shortcuts"), hint: t("Help"), run: openHelp },
