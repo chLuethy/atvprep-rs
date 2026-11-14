@@ -35,7 +35,9 @@ pub struct FileQuery {
     kind: Option<String>,
     suffix: Option<String>,
     compliance_state: Option<String>,
+    /// Only refused: the states are chosen positively with `status` now.
     hide: Option<String>,
+    status: Option<String>,
     has: Option<String>,
     workflow_state: Option<String>,
     discovery_state: Option<String>,
@@ -54,7 +56,9 @@ pub struct BrowseQuery {
     root_id: Option<String>,
     path: Option<String>,
     state: Option<String>,
+    /// Only refused: the states are chosen positively with `status` now.
     hide: Option<String>,
+    status: Option<String>,
     has: Option<String>,
 }
 
@@ -71,12 +75,19 @@ fn python_bool<'de, D: serde::Deserializer<'de>>(
         .transpose()
 }
 
-/// States that can be hidden (`hide`). Every file is in exactly one of them.
+/// The states chosen with `status` (OR). Every file is in exactly one of them.
+const STATES: [&str; 7] = [
+    "clean",
+    "embed_open",
+    "warning",
+    "blocker",
+    "unknown",
+    "probe_failed",
+    "missing",
+];
+
 fn status_token(token: &str) -> bool {
-    matches!(
-        token,
-        "clean" | "embed_open" | "warning" | "blocker" | "unknown" | "probe_failed" | "missing"
-    )
+    STATES.contains(&token)
 }
 
 /// Traits that overlap and are only selected positively (`has`, AND).
@@ -96,53 +107,61 @@ fn known_state(state: &str) -> bool {
     status_token(state) || trait_token(state)
 }
 
-/// `hide` takes only states, `has` only traits; both are comma-separated and bounded.
-fn list_input_error(hide: Option<&str>, has: Option<&str>) -> Option<&'static str> {
+/// `status` takes only states, `has` only traits; both are comma-separated and bounded.
+/// `hide`, the old way of leaving states out, is refused so that no client silently gets every file.
+fn list_input_error(
+    hide: Option<&str>,
+    status: Option<&str>,
+    has: Option<&str>,
+) -> Option<&'static str> {
+    if hide.is_some() {
+        return Some("hide is no longer accepted, use status");
+    }
     for (value, allowed, too_long) in [
-        (hide, status_token as fn(&str) -> bool, "hide is too long"),
+        (
+            status,
+            status_token as fn(&str) -> bool,
+            "status is too long",
+        ),
         (has, trait_token as fn(&str) -> bool, "has is too long"),
     ] {
         let Some(value) = value else { continue };
         if value.chars().count() > 128 {
             return Some(too_long);
         }
-        if value
-            .split(',')
-            .filter(|token| !token.is_empty())
-            .any(|token| !allowed(token))
-        {
+        if tokens(Some(value)).iter().any(|token| !allowed(token)) {
             return Some("unknown state");
         }
     }
     None
 }
 
-/// Clauses of the `hide` filter (one clause: none of the states) and `has` (one per trait, AND).
+/// Clauses of the `status` filter (one clause: any of the states) and `has` (one per trait, AND).
 /// The tokens were validated with `list_input_error` beforehand.
-fn selection_clauses(
-    hide: Option<&str>,
-    has: &[&str],
+fn selection_clauses<S: AsRef<str>, T: AsRef<str>>(
+    status: &[S],
+    has: &[T],
     open: &str,
     values: &mut Vec<rusqlite::types::Value>,
 ) -> Vec<String> {
     let mut clauses = Vec::new();
-    let hidden: Vec<String> = hide
-        .unwrap_or_default()
-        .split(',')
-        .filter(|token| !token.is_empty())
-        .map(|token| state_clause(token, open, values))
+    let chosen: Vec<String> = status
+        .iter()
+        .map(|token| state_clause(token.as_ref(), open, values))
         .collect();
-    if !hidden.is_empty() {
-        clauses.push(format!("NOT ({})", hidden.join(" OR ")));
+    if !chosen.is_empty() {
+        clauses.push(format!("({})", chosen.join(" OR ")));
     }
     for token in has {
-        clauses.push(state_clause(token, open, values));
+        clauses.push(state_clause(token.as_ref(), open, values));
     }
     clauses
 }
 
-fn has_tokens(has: Option<&str>) -> Vec<&str> {
-    has.unwrap_or_default()
+/// The non-empty entries of a comma-separated list.
+fn tokens(value: Option<&str>) -> Vec<&str> {
+    value
+        .unwrap_or_default()
         .split(',')
         .filter(|token| !token.is_empty())
         .collect()
@@ -177,10 +196,11 @@ fn browse_input_error(query: &BrowseQuery, below: bool) -> Option<&'static str> 
     {
         return Some("unknown state");
     }
-    if let Some(message) = list_input_error(query.hide.as_deref(), query.has.as_deref()) {
-        return Some(message);
-    }
-    None
+    list_input_error(
+        query.hide.as_deref(),
+        query.status.as_deref(),
+        query.has.as_deref(),
+    )
 }
 
 #[allow(clippy::too_many_lines)] // Keep validation and its parameterized query together.
@@ -231,14 +251,13 @@ async fn browse_inner(state: AppState, query: BrowseQuery, below: bool) -> Respo
         clauses.push(state_clause(value, &open, &mut values));
     }
     let selection = selection_clauses(
-        query.hide.as_deref(),
-        &has_tokens(query.has.as_deref()),
+        &tokens(query.status.as_deref()),
+        &tokens(query.has.as_deref()),
         &open,
         &mut values,
     );
-    let hidden = selection;
-    clauses.extend(hidden.iter().cloned());
-    let filtered = query.state.is_some() || !hidden.is_empty();
+    let filtered = query.state.is_some() || !selection.is_empty();
+    clauses.extend(selection);
     if let Some(root) = root {
         clauses.push("m.root_id=?".to_owned());
         values.push(root.into());
@@ -288,30 +307,19 @@ async fn browse_inner(state: AppState, query: BrowseQuery, below: bool) -> Respo
     }
 }
 
-#[derive(Deserialize)]
-pub struct CountsQuery {
-    compliance_state: Option<String>,
-    hide: Option<String>,
-    has: Option<String>,
-}
-
-/// How many files each trait would show if it were added to the current selection.
-pub async fn trait_counts(
+/// The facet counters for the list with the same filters as `/files`: each state with every filter
+/// but the states, each property with every filter plus that property, the files that match all
+/// filters and all files there are.
+pub async fn facet_counts(
     State(state): State<AppState>,
     _session: AuthenticatedSession,
-    Query(query): Query<CountsQuery>,
+    Query(query): Query<FileQuery>,
 ) -> Response {
     const PATH: &str = "/api/v1/files/counts";
-    if let Some(message) = list_input_error(query.hide.as_deref(), query.has.as_deref()) {
-        return error(StatusCode::UNPROCESSABLE_ENTITY, message, PATH);
+    if let Some(response) = filter_input_error(&query, PATH) {
+        return response;
     }
-    if query
-        .compliance_state
-        .as_deref()
-        .is_some_and(|state| !known_state(state))
-    {
-        return error(StatusCode::UNPROCESSABLE_ENTITY, "unknown state", PATH);
-    }
+    let opaque = Opaque::new(state.api_secret.as_bytes());
     let Some(open) = embed_open_json(&state).await else {
         return error(
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -319,40 +327,61 @@ pub async fn trait_counts(
             PATH,
         );
     };
+    let (base, base_values) = match base_filter(&query, &opaque, &open) {
+        Ok(filter) => filter,
+        Err((code, message)) => return error(code, message, PATH),
+    };
+    let status: Vec<String> = tokens(query.status.as_deref())
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+    let has: Vec<String> = tokens(query.has.as_deref())
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
     let result = tokio::task::spawn_blocking(move || {
         let conn = state.db.conn().map_err(|_| ())?;
         let conn = conn.raw();
-        let mut data = serde_json::Map::new();
-        for token in TRAITS {
-            let mut values: Vec<rusqlite::types::Value> = Vec::new();
-            let mut clauses =
-                vec!["NOT (m.discovery_state='missing' AND m.dismissed_at IS NOT NULL)".to_owned()];
-            if let Some(value) = query.compliance_state.as_deref().filter(|s| !s.is_empty()) {
-                clauses.push(state_clause(value, &open, &mut values));
-            }
-            let mut has = has_tokens(query.has.as_deref());
-            if !has.contains(&token) {
-                has.push(token);
-            }
-            clauses.extend(selection_clauses(
-                query.hide.as_deref(),
-                &has,
-                &open,
-                &mut values,
-            ));
-            let count: i64 = conn
-                .query_row(
-                    &format!(
-                        "SELECT count(*) FROM media_files m WHERE {}",
-                        clauses.join(" AND ")
-                    ),
-                    rusqlite::params_from_iter(values.iter()),
-                    |row| row.get(0),
-                )
-                .map_err(|_| ())?;
-            data.insert(token.to_owned(), json!(count));
+        let count = |status: &[&str], has: &[&str]| -> Result<i64, ()> {
+            let mut clauses = base.clone();
+            let mut values = base_values.clone();
+            clauses.extend(selection_clauses(status, has, &open, &mut values));
+            conn.query_row(
+                &format!(
+                    "SELECT count(*) FROM media_files m WHERE {}",
+                    clauses.join(" AND ")
+                ),
+                rusqlite::params_from_iter(values.iter()),
+                |row| row.get(0),
+            )
+            .map_err(|_| ())
+        };
+        let status: Vec<&str> = status.iter().map(String::as_str).collect();
+        let has: Vec<&str> = has.iter().map(String::as_str).collect();
+        let mut by_status = serde_json::Map::new();
+        for token in STATES {
+            by_status.insert(token.to_owned(), json!(count(&[token], &has)?));
         }
-        Ok::<_, ()>(json!({"data": data, "meta": {}}))
+        let mut by_trait = serde_json::Map::new();
+        for token in TRAITS {
+            let mut with = has.clone();
+            if !with.contains(&token) {
+                with.push(token);
+            }
+            by_trait.insert(token.to_owned(), json!(count(&status, &with)?));
+        }
+        let matched = count(&status, &has)?;
+        let total: i64 = conn
+            .query_row(
+                &format!("SELECT count(*) FROM media_files m WHERE {LISTED}"),
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|_| ())?;
+        Ok::<_, ()>(json!({
+            "data": {"status": by_status, "has": by_trait, "matched": matched, "total": total},
+            "meta": {}
+        }))
     })
     .await;
     match result {
@@ -441,6 +470,97 @@ fn db_datetime(value: &str) -> Option<String> {
     Some(date.format("%Y-%m-%d %H:%M:%S%.6f").to_string())
 }
 
+/// The files the list shows at all: a missing file the user removed is gone.
+const LISTED: &str = "NOT (m.discovery_state='missing' AND m.dismissed_at IS NOT NULL)";
+
+/// Bounds and token checks shared by the list and its counters.
+fn filter_input_error(query: &FileQuery, path: &str) -> Option<Response> {
+    for (name, value) in [
+        ("root_id", &query.root_id),
+        ("kind", &query.kind),
+        ("suffix", &query.suffix),
+        ("compliance_state", &query.compliance_state),
+        ("workflow_state", &query.workflow_state),
+        ("discovery_state", &query.discovery_state),
+        ("desired_action", &query.desired_action),
+        ("q", &query.q),
+    ] {
+        if value
+            .as_ref()
+            .is_some_and(|value| value.chars().count() > 128)
+        {
+            return Some(error(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                &format!("{name} is too long"),
+                path,
+            ));
+        }
+    }
+    list_input_error(
+        query.hide.as_deref(),
+        query.status.as_deref(),
+        query.has.as_deref(),
+    )
+    .map(|message| error(StatusCode::UNPROCESSABLE_ENTITY, message, path))
+}
+
+/// SQL clauses joined with AND, and the values bound to them in order.
+type Filter = (Vec<String>, Vec<rusqlite::types::Value>);
+
+/// Every filter of the list except the states and properties, which the counters vary.
+fn base_filter(
+    query: &FileQuery,
+    opaque: &Opaque,
+    open: &str,
+) -> Result<Filter, (StatusCode, &'static str)> {
+    let mut clauses = vec![LISTED.to_owned()];
+    let mut values: Vec<rusqlite::types::Value> = Vec::new();
+    if let Some(root) = query.root_id.as_deref().filter(|s| !s.is_empty()) {
+        match opaque.decode(root, "r") {
+            Ok(id) if id > 0 => {
+                clauses.push("m.root_id=?".to_owned());
+                values.push(id.into());
+            }
+            _ => return Err((StatusCode::NOT_FOUND, "resource not found")),
+        }
+    }
+    for (column, value) in [
+        ("kind", &query.kind),
+        ("suffix", &query.suffix),
+        ("workflow_state", &query.workflow_state),
+        ("discovery_state", &query.discovery_state),
+        ("desired_action", &query.desired_action),
+    ] {
+        if let Some(value) = value.as_deref().filter(|s| !s.is_empty()) {
+            clauses.push(format!("m.{column}=?"));
+            values.push(value.to_owned().into());
+        }
+    }
+    if let Some(value) = query.compliance_state.as_deref().filter(|s| !s.is_empty()) {
+        clauses.push(state_clause(value, open, &mut values));
+    }
+    if let Some(sidecar) = query.has_sidecar {
+        clauses.push(format!(
+            "{}EXISTS (SELECT 1 FROM sidecars s WHERE s.media_file_id=m.id)",
+            if sidecar { "" } else { "NOT " }
+        ));
+    }
+    for (op, value) in [(">=", &query.last_seen_from), ("<=", &query.last_seen_to)] {
+        if let Some(value) = value {
+            let Some(date) = db_datetime(value) else {
+                return Err((StatusCode::UNPROCESSABLE_ENTITY, "invalid request"));
+            };
+            clauses.push(format!("m.last_seen_at{op}?"));
+            values.push(date.into());
+        }
+    }
+    if let Some(value) = query.q.as_deref().filter(|s| !s.is_empty()) {
+        clauses.push("lower(m.relative_path) LIKE lower(?)".to_owned());
+        values.push(format!("%{value}%").into());
+    }
+    Ok((clauses, values))
+}
+
 /// List library files with the reference filters, facets and ordering.
 #[allow(clippy::too_many_lines)] // Keep validation and its parameterized query together.
 pub async fn list(
@@ -463,29 +583,8 @@ pub async fn list(
             PATH,
         );
     }
-    for (name, value) in [
-        ("root_id", &query.root_id),
-        ("kind", &query.kind),
-        ("suffix", &query.suffix),
-        ("compliance_state", &query.compliance_state),
-        ("workflow_state", &query.workflow_state),
-        ("discovery_state", &query.discovery_state),
-        ("desired_action", &query.desired_action),
-        ("q", &query.q),
-    ] {
-        if value
-            .as_ref()
-            .is_some_and(|value| value.chars().count() > 128)
-        {
-            return error(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                &format!("{name} is too long"),
-                PATH,
-            );
-        }
-    }
-    if let Some(message) = list_input_error(query.hide.as_deref(), query.has.as_deref()) {
-        return error(StatusCode::UNPROCESSABLE_ENTITY, message, PATH);
+    if let Some(response) = filter_input_error(&query, PATH) {
+        return response;
     }
     let opaque = Opaque::new(state.api_secret.as_bytes());
     let after = match query.cursor.as_deref() {
@@ -502,58 +601,16 @@ pub async fn list(
             PATH,
         );
     };
-    let mut clauses =
-        vec!["NOT (m.discovery_state='missing' AND m.dismissed_at IS NOT NULL)".to_owned()];
-    let mut values: Vec<rusqlite::types::Value> = Vec::new();
-    if let Some(root) = query.root_id.as_deref().filter(|s| !s.is_empty()) {
-        match opaque.decode(root, "r") {
-            Ok(id) if id > 0 => {
-                clauses.push("m.root_id=?".to_owned());
-                values.push(id.into());
-            }
-            _ => return error(StatusCode::NOT_FOUND, "resource not found", PATH),
-        }
-    }
-    for (column, value) in [
-        ("kind", &query.kind),
-        ("suffix", &query.suffix),
-        ("workflow_state", &query.workflow_state),
-        ("discovery_state", &query.discovery_state),
-        ("desired_action", &query.desired_action),
-    ] {
-        if let Some(value) = value.as_deref().filter(|s| !s.is_empty()) {
-            clauses.push(format!("m.{column}=?"));
-            values.push(value.to_owned().into());
-        }
-    }
-    if let Some(value) = query.compliance_state.as_deref().filter(|s| !s.is_empty()) {
-        clauses.push(state_clause(value, &open, &mut values));
-    }
+    let (mut clauses, mut values) = match base_filter(&query, &opaque, &open) {
+        Ok(filter) => filter,
+        Err((code, message)) => return error(code, message, PATH),
+    };
     clauses.extend(selection_clauses(
-        query.hide.as_deref(),
-        &has_tokens(query.has.as_deref()),
+        &tokens(query.status.as_deref()),
+        &tokens(query.has.as_deref()),
         &open,
         &mut values,
     ));
-    if let Some(sidecar) = query.has_sidecar {
-        clauses.push(format!(
-            "{}EXISTS (SELECT 1 FROM sidecars s WHERE s.media_file_id=m.id)",
-            if sidecar { "" } else { "NOT " }
-        ));
-    }
-    for (op, value) in [(">=", &query.last_seen_from), ("<=", &query.last_seen_to)] {
-        if let Some(value) = value {
-            let Some(date) = db_datetime(value) else {
-                return error(StatusCode::UNPROCESSABLE_ENTITY, "invalid request", PATH);
-            };
-            clauses.push(format!("m.last_seen_at{op}?"));
-            values.push(date.into());
-        }
-    }
-    if let Some(value) = query.q.as_deref().filter(|s| !s.is_empty()) {
-        clauses.push("lower(m.relative_path) LIKE lower(?)".to_owned());
-        values.push(format!("%{value}%").into());
-    }
     if query.sort.is_none() && after > 0 {
         clauses.push("m.id>?".to_owned());
         values.push(after.into());

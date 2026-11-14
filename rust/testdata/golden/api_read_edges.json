@@ -2,7 +2,7 @@
   "cases": [
     {
       "expected": {
-        "completed": 64
+        "completed": 65
       },
       "input": {
         "steps": [
@@ -875,7 +875,7 @@
               "authenticated": true,
               "method": "GET",
               "origin": "http://testserver",
-              "path": "/api/v1/files?hide=bad"
+              "path": "/api/v1/files?status=bad"
             },
             "response": {
               "body": {
@@ -887,6 +887,31 @@
                 "instance": "/api/v1/files",
                 "status": 422,
                 "title": "unknown state",
+                "type": "about:blank"
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?hide=clean"
+            },
+            "response": {
+              "body": {
+                "detail": "hide is no longer accepted, use status",
+                "error": {
+                  "code": "invalid_request",
+                  "message": "hide is no longer accepted, use status"
+                },
+                "instance": "/api/v1/files",
+                "status": 422,
+                "title": "hide is no longer accepted, use status",
                 "type": "about:blank"
               },
               "headers": {
@@ -927,7 +952,7 @@
               "authenticated": true,
               "method": "GET",
               "origin": "http://testserver",
-              "path": "/api/v1/files?hide=embed_open"
+              "path": "/api/v1/files?status=clean"
             },
             "response": {
               "body": {
@@ -1382,7 +1407,7 @@
               "authenticated": true,
               "method": "GET",
               "origin": "http://testserver",
-              "path": "/api/v1/browse?hide=bad"
+              "path": "/api/v1/browse?status=bad"
             },
             "response": {
               "body": {
@@ -1407,7 +1432,7 @@
               "authenticated": true,
               "method": "GET",
               "origin": "http://testserver",
-              "path": "/api/v1/browse?root_id=<r:1>&path=Movie&hide=embed_open"
+              "path": "/api/v1/browse?root_id=<r:1>&path=Movie&status=clean"
             },
             "response": {
               "body": {

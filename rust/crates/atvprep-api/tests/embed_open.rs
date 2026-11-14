@@ -134,8 +134,11 @@ async fn the_ready_filter_leaves_out_open_embeds_and_a_filter_finds_them() {
         api.names("compliance_state=embed").await,
         ["open.mp4", "warn.mp4"]
     );
-    // Hiding "ready" hides only the truly ready files.
-    assert_eq!(api.names("hide=clean").await, ["open.mp4", "warn.mp4"]);
+    // Showing the other states leaves out only the truly ready files.
+    assert_eq!(
+        api.names("status=embed_open,warning").await,
+        ["open.mp4", "warn.mp4"]
+    );
 }
 
 impl Api {
@@ -172,45 +175,117 @@ async fn properties_show_only_files_that_have_all_of_them() {
     );
     // Two traits show the intersection (AND).
     assert_eq!(api.names("has=embed,encode_video").await, ["warn.mp4"]);
-    // Combined with hiding states.
-    assert_eq!(api.names("has=embed&hide=warning").await, ["open.mp4"]);
+    // Combined with chosen states.
+    assert_eq!(api.names("has=embed&status=embed_open").await, ["open.mp4"]);
     assert_eq!(
-        api.names("has=embed,encode_video&hide=warning").await,
+        api.names("has=embed,encode_video&status=clean,embed_open")
+            .await,
         Vec::<String>::new()
     );
 }
 
 #[tokio::test]
-async fn hide_takes_states_only_and_has_takes_properties_only() {
+async fn status_shows_only_the_chosen_states_and_nothing_chosen_shows_all() {
     let api = api();
-    assert_eq!(api.status("/api/v1/files?hide=embed").await, 422);
-    assert_eq!(api.status("/api/v1/files?hide=encode_video").await, 422);
-    assert_eq!(api.status("/api/v1/files?has=clean").await, 422);
-    assert_eq!(api.status("/api/v1/files?has=nonsense").await, 422);
-    assert_eq!(api.status("/api/v1/browse?hide=embed").await, 422);
-    assert_eq!(api.status("/api/v1/browse?has=clean").await, 422);
-    assert_eq!(api.status("/api/v1/browse?has=embed").await, 200);
+    assert_eq!(
+        api.names("status=").await,
+        ["done.mp4", "open.mp4", "ready.mp4", "warn.mp4"]
+    );
+    assert_eq!(api.names("status=clean").await, ["done.mp4", "ready.mp4"]);
+    // Several states are OR, in any order and with repeats.
+    assert_eq!(
+        api.names("status=warning,clean,warning").await,
+        ["done.mp4", "ready.mp4", "warn.mp4"]
+    );
+    assert_eq!(api.names("status=blocker").await, Vec::<String>::new());
 }
 
 #[tokio::test]
-async fn property_counts_follow_the_current_selection() {
+async fn status_takes_states_only_and_has_takes_properties_only() {
     let api = api();
-    let counts = |body: Value| {
-        let data = &body["data"];
-        ["convert", "encode_video", "embed", "converted"].map(|key| data[key].as_u64().unwrap())
-    };
-    // No selection: each trait on its own.
-    assert_eq!(counts(api.get("/api/v1/files/counts").await), [0, 2, 2, 0]);
-    // With "embed open" selected, each trait yields the intersection.
+    assert_eq!(api.status("/api/v1/files?status=embed").await, 422);
+    assert_eq!(api.status("/api/v1/files?status=encode_video").await, 422);
+    assert_eq!(api.status("/api/v1/files?has=clean").await, 422);
+    assert_eq!(api.status("/api/v1/files?has=nonsense").await, 422);
+    assert_eq!(api.status("/api/v1/browse?status=embed").await, 422);
+    assert_eq!(api.status("/api/v1/browse?has=clean").await, 422);
+    assert_eq!(api.status("/api/v1/browse?has=embed").await, 200);
+    assert_eq!(api.status("/api/v1/files/counts?status=embed").await, 422);
+}
+
+#[tokio::test]
+async fn hide_is_no_longer_accepted() {
+    let api = api();
+    assert_eq!(api.status("/api/v1/files?hide=clean").await, 422);
+    assert_eq!(api.status("/api/v1/browse?hide=clean").await, 422);
+    assert_eq!(api.status("/api/v1/files/counts?hide=clean").await, 422);
+}
+
+/// The facet counters: per state with every filter but the states, per property with every filter
+/// plus that property, and how many files match all filters out of how many there are.
+fn facets(body: &Value) -> (Vec<u64>, Vec<u64>, u64, u64) {
+    let data = &body["data"];
+    let states = STATES.map(|key| data["status"][key].as_u64().unwrap());
+    let traits = [
+        "convert",
+        "encode_audio",
+        "encode_video",
+        "embed",
+        "converted",
+    ]
+    .map(|key| data["has"][key].as_u64().unwrap());
+    (
+        states.to_vec(),
+        traits.to_vec(),
+        data["matched"].as_u64().unwrap(),
+        data["total"].as_u64().unwrap(),
+    )
+}
+
+#[tokio::test]
+async fn facet_counts_follow_the_other_filters() {
+    let api = api();
+    // Order of STATES: clean, embed_open, warning, blocker, unknown, probe_failed, missing.
     assert_eq!(
-        counts(api.get("/api/v1/files/counts?has=embed").await),
-        [0, 1, 2, 0]
+        facets(&api.get("/api/v1/files/counts").await),
+        (vec![2, 1, 1, 0, 0, 0, 0], vec![0, 0, 2, 2, 0], 4, 4)
     );
-    // Hiding states applies as well.
+    // A property narrows the state counters; each property yields the intersection.
     assert_eq!(
-        counts(api.get("/api/v1/files/counts?hide=warning").await),
-        [0, 1, 1, 0]
+        facets(&api.get("/api/v1/files/counts?has=encode_video").await),
+        (vec![1, 0, 1, 0, 0, 0, 0], vec![0, 0, 2, 1, 0], 2, 4)
     );
+    // The chosen states do not narrow their own counters, only the properties and the match.
+    assert_eq!(
+        facets(&api.get("/api/v1/files/counts?status=warning").await),
+        (vec![2, 1, 1, 0, 0, 0, 0], vec![0, 0, 1, 1, 0], 1, 4)
+    );
+    // The search narrows every counter but not the total.
+    assert_eq!(
+        facets(&api.get("/api/v1/files/counts?q=open").await),
+        (vec![0, 1, 0, 0, 0, 0, 0], vec![0, 0, 0, 1, 0], 1, 4)
+    );
+}
+
+#[tokio::test]
+async fn the_column_view_takes_the_same_status_list() {
+    let api = api();
+    let root = Opaque::new(SECRET.as_bytes()).encode("r", 1);
+    let body = api
+        .get(&format!(
+            "/api/v1/browse/below?root_id={root}&status=clean,warning&has=encode_video"
+        ))
+        .await;
+    let mut names: Vec<&str> = body["data"]["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|file| file["display_path"].as_str().unwrap())
+        .collect();
+    names.sort_unstable();
+    assert_eq!(names, ["done.mp4", "warn.mp4"]);
+    let tally = &api.get("/api/v1/browse?status=embed_open").await["data"]["folders"][0]["counts"];
+    assert_eq!(tally, &serde_json::json!({"embed_open": 1}));
 }
 
 #[tokio::test]
@@ -261,7 +336,7 @@ async fn embed_open_is_a_state_of_its_own_that_filters() {
     let api = api();
     assert_eq!(api.names("compliance_state=embed_open").await, ["open.mp4"]);
     assert_eq!(
-        api.names("hide=embed_open").await,
+        api.names("status=clean,warning").await,
         ["done.mp4", "ready.mp4", "warn.mp4"]
     );
     let root = Opaque::new(SECRET.as_bytes()).encode("r", 1);

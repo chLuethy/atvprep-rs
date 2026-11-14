@@ -2152,7 +2152,7 @@
     },
     "/api/v1/browse": {
       "get": {
-        "description": "One level of the library as folders and files, like a column in a file browser.\n\nWithout ``root_id`` the libraries are the folders. With one, the folders and files directly inside\n``path``. Every folder carries how many files below it are in each state; ``state`` keeps only\nthe files in that state, and the folders that still hold any. ``hide`` drops the files in any of\nthe comma-separated states.",
+        "description": "One level of the library as folders and files, like a column in a file browser.\n\nWithout ``root_id`` the libraries are the folders. With one, the folders and files directly inside\n``path``. Every folder carries how many files below it are in each state; ``state`` keeps only\nthe files in that state, and the folders that still hold any. ``status`` keeps the files in any of\nthe comma-separated states, ``has`` those with all the properties.",
         "operationId": "browse_api_v1_browse_get",
         "parameters": [
           {
@@ -2199,8 +2199,8 @@
           },
           {
             "in": "query",
-            "name": "hide",
-            "description": "Comma-separated states whose files are left out. States: ``clean`` (ready: no violations and nothing to embed), ``embed_open`` (no violations, but a subtitle file can still be embedded), ``warning``, ``blocker``, ``unknown``, ``probe_failed`` and ``missing``. Every file is in exactly one of them; a missing file is only ``missing``.",
+            "name": "status",
+            "description": "Comma-separated states; only the files in any of them are listed (OR). Nothing chosen lists every state. States: ``clean`` (ready: no violations and nothing to embed), ``embed_open`` (no violations, but a subtitle file can still be embedded), ``warning``, ``blocker``, ``unknown``, ``probe_failed`` and ``missing``. Every file is in exactly one of them; a missing file is only ``missing``. ``hide``, the old list of states to leave out, is refused with 422.",
             "required": false,
             "schema": {
               "anyOf": [
@@ -2211,7 +2211,24 @@
                   "type": "null"
                 }
               ],
-              "title": "Hide"
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "has",
+            "description": "Comma-separated properties a file must all have (AND): ``convert``, ``encode_audio``, ``encode_video``, ``embed`` (a subtitle file can still be embedded, whatever the state) and ``converted``.",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Has"
             }
           },
           {
@@ -2301,8 +2318,8 @@
           },
           {
             "in": "query",
-            "name": "hide",
-            "description": "Comma-separated states whose files are left out. States: ``clean`` (ready: no violations and nothing to embed), ``embed_open`` (no violations, but a subtitle file can still be embedded), ``warning``, ``blocker``, ``unknown``, ``probe_failed`` and ``missing``. Every file is in exactly one of them; a missing file is only ``missing``.",
+            "name": "status",
+            "description": "Comma-separated states; only the files in any of them are listed (OR). Nothing chosen lists every state. States: ``clean`` (ready: no violations and nothing to embed), ``embed_open`` (no violations, but a subtitle file can still be embedded), ``warning``, ``blocker``, ``unknown``, ``probe_failed`` and ``missing``. Every file is in exactly one of them; a missing file is only ``missing``. ``hide``, the old list of states to leave out, is refused with 422.",
             "required": false,
             "schema": {
               "anyOf": [
@@ -2313,7 +2330,24 @@
                   "type": "null"
                 }
               ],
-              "title": "Hide"
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "has",
+            "description": "Comma-separated properties a file must all have (AND): ``convert``, ``encode_audio``, ``encode_video``, ``embed`` (a subtitle file can still be embedded, whatever the state) and ``converted``.",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Has"
             }
           },
           {
@@ -2997,8 +3031,8 @@
           },
           {
             "in": "query",
-            "name": "hide",
-            "description": "Comma-separated states whose files are left out. States: ``clean`` (ready: no violations and nothing to embed), ``embed_open`` (no violations, but a subtitle file can still be embedded), ``warning``, ``blocker``, ``unknown``, ``probe_failed`` and ``missing``. Every file is in exactly one of them; a missing file is only ``missing``.",
+            "name": "status",
+            "description": "Comma-separated states; only the files in any of them are listed (OR). Nothing chosen lists every state. States: ``clean`` (ready: no violations and nothing to embed), ``embed_open`` (no violations, but a subtitle file can still be embedded), ``warning``, ``blocker``, ``unknown``, ``probe_failed`` and ``missing``. Every file is in exactly one of them; a missing file is only ``missing``. ``hide``, the old list of states to leave out, is refused with 422.",
             "required": false,
             "schema": {
               "anyOf": [
@@ -3009,7 +3043,24 @@
                   "type": "null"
                 }
               ],
-              "title": "Hide"
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "has",
+            "description": "Comma-separated properties a file must all have (AND): ``convert``, ``encode_audio``, ``encode_video``, ``embed`` (a subtitle file can still be embedded, whatever the state) and ``converted``.",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Has"
             }
           },
           {
@@ -3202,6 +3253,307 @@
           }
         },
         "summary": "Files",
+        "tags": [
+          "read"
+        ]
+      }
+    },
+    "/api/v1/files/counts": {
+      "get": {
+        "description": "The facet counters for the file list, with the same filters as ``/api/v1/files``.\n\n``status`` counts each state with every filter except the chosen states; ``has`` counts each property with every filter plus that property. ``matched`` is the number of files the list shows with all filters, ``total`` the number of files without any filter.",
+        "operationId": "file_counts_api_v1_files_counts_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "root_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Root Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "suffix",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Suffix"
+            }
+          },
+          {
+            "in": "query",
+            "name": "compliance_state",
+            "description": "Only the files in this state, or with this property (``convert``, ``encode_audio``, ``encode_video``, ``embed``, ``converted``). States: ``clean`` (ready: no violations and nothing to embed), ``embed_open`` (no violations, but a subtitle file can still be embedded), ``warning``, ``blocker``, ``unknown``, ``probe_failed`` and ``missing``. Every file is in exactly one of them; a missing file is only ``missing``.",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Compliance State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "description": "Comma-separated states; only the files in any of them are listed (OR). Nothing chosen lists every state. States: ``clean`` (ready: no violations and nothing to embed), ``embed_open`` (no violations, but a subtitle file can still be embedded), ``warning``, ``blocker``, ``unknown``, ``probe_failed`` and ``missing``. Every file is in exactly one of them; a missing file is only ``missing``. ``hide``, the old list of states to leave out, is refused with 422.",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "has",
+            "description": "Comma-separated properties a file must all have (AND): ``convert``, ``encode_audio``, ``encode_video``, ``embed`` (a subtitle file can still be embedded, whatever the state) and ``converted``.",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Has"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workflow_state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Workflow State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "discovery_state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Discovery State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "desired_action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desired Action"
+            }
+          },
+          {
+            "in": "query",
+            "name": "has_sidecar",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Has Sidecar"
+            }
+          },
+          {
+            "in": "query",
+            "name": "last_seen_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Seen From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "last_seen_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Seen To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "__Host-atvprep_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "  Host-Atvprep Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "has": {
+                          "additionalProperties": {
+                            "type": "integer"
+                          },
+                          "type": "object"
+                        },
+                        "matched": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "additionalProperties": {
+                            "type": "integer"
+                          },
+                          "type": "object"
+                        },
+                        "total": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "has",
+                        "matched",
+                        "total"
+                      ],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "File Counts",
         "tags": [
           "read"
         ]
