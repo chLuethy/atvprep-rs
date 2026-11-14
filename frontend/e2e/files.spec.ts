@@ -89,7 +89,7 @@ test.describe("files journey", () => {
     await row.getByRole("button", { name: "Extension", exact: true }).click();
     const extension = page.getByRole("dialog", { name: "Extension" });
     await extension.getByRole("searchbox", { name: "Search Extension" }).fill("mp");
-    await extension.getByRole("checkbox", { name: "mp4 4" }).check();
+    await extension.getByRole("checkbox", { name: "mp4, 4 files" }).check();
     await expect(page).toHaveURL(/\?suffix=\.mp4$/);
     await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
     await page.keyboard.press("Escape");
@@ -99,6 +99,7 @@ test.describe("files journey", () => {
     await page.getByRole("dialog", { name: "Subtitle files" }).getByRole("radio", { name: /^Yes/ }).check();
     await expect(page).toHaveURL(/\?suffix=\.mp4&has_sidecar=true$/);
     await expect(page.getByText("No files match the current filters")).toBeVisible();
+    await expect(page.getByRole("list", { name: "Active filters" }).getByRole("listitem")).toHaveText(["Extension: mp4", "Subtitle files: Yes"]);
     await page.keyboard.press("Escape");
     await expect(more).toBeDisabled();
 

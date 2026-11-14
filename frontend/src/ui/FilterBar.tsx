@@ -1,5 +1,6 @@
 import { createEffect, createSignal, createUniqueId, For, onCleanup, onMount, Show, untrack, type Component, type JSX } from "solid-js";
 import { t } from "../lib/i18n";
+import { Button } from "./Button";
 import { Icon } from "./icons";
 
 /**
@@ -59,6 +60,9 @@ export type FacetGroup = {
   searchable?: boolean;
 };
 
+/** From this many options on, a facet whose options vary (libraries, schedules) gets a search field. */
+export const MANY_OPTIONS = 8;
+
 /** A fixed filter one click away, as the page defines it; `active` while the filter is exactly it. */
 export type QuickChoice = { id: string; /** Already translated. */ label: string; active: boolean };
 
@@ -109,6 +113,37 @@ function chosenText(facet: Facet, value: FilterValue): string {
   return chosen.join(", ");
 }
 
+/** Each active facet as "Status: Blocker, Missing", every chosen value named, in facet order. */
+export function describeFilters(facets: ReadonlyArray<Facet>, value: FilterValue): string[] {
+  const labelOf = (options: ReadonlyArray<FacetOption>) => (entry: string) => options.find((option) => option.value === entry)?.label ?? entry;
+  return facets.filter((facet) => facetActive(facet, value)).map((facet) => {
+    const chosen = [
+      ...chosenOf(value, facet.key).map(labelOf(facet.options)),
+      ...(facet.group ? chosenOf(value, facet.group.key).map(labelOf(facet.group.options)) : []),
+    ];
+    return `${facet.title}: ${chosen.join(", ")}`;
+  });
+}
+
+/**
+ * The empty result of a filtered list: what found nothing (each active facet and the search, by name) and
+ * "Reset filters", the same words as in the bar.
+ */
+export const NoMatches: Component<{ title: string; facets: ReadonlyArray<Facet>; value: FilterValue; search?: string; onReset: () => void }> = (props) => {
+  const named = () => [...describeFilters(props.facets, props.value), ...(props.search ? [t("Search: “{text}”", { text: props.search })] : [])];
+  return (
+    <div class="empty fb-empty">
+      <b>{props.title}</b>
+      <Show when={named().length > 0}>
+        <ul class="plain fb-empty-list" aria-label={t("Active filters")}>
+          <For each={named()}>{(entry) => <li>{entry}</li>}</For>
+        </ul>
+      </Show>
+      <Button onClick={() => props.onReset()}>{t("Reset filters")}</Button>
+    </div>
+  );
+};
+
 /** A search field's text and the options whose label contains it. */
 function narrowing(options: () => ReadonlyArray<FacetOption>) {
   const [find, setFind] = createSignal("");
@@ -119,25 +154,41 @@ function narrowing(options: () => ReadonlyArray<FacetOption>) {
   return { find, setFind, shown };
 }
 
-/** One box with its label and count. */
-const OptionBox: Component<{ name: string; type: "checkbox" | "radio"; label: string; count: number | undefined; urgent?: boolean | undefined; checked: boolean; mixed?: boolean; onChange: () => void }> = (props) => {
+/** How a count is said: "2 files". Without one from the page, just the number. */
+type CountText = (count: number) => string;
+const plainCount: CountText = (count) => String(count);
+
+/**
+ * One box with its label and count. Its name says the count with its unit and, for an urgent hit, that it
+ * needs attention, as "Blocker, 1 file, needs attention"; on screen the urgent count also carries a symbol.
+ */
+const OptionBox: Component<{ name: string; type: "checkbox" | "radio"; label: string; count: number | undefined; countText: CountText; urgent?: boolean | undefined; checked: boolean; mixed?: boolean; onChange: () => void }> = (props) => {
   let input: HTMLInputElement | undefined;
   // A group partly chosen shows a dash; the state exists only as a property of the element.
   createEffect(() => { if (input) input.indeterminate = !!props.mixed && !props.checked; });
+  const urgent = () => !!props.urgent && (props.count ?? 0) > 0;
+  const spoken = () => {
+    if (props.count === undefined) return props.label;
+    return [props.label, props.countText(props.count), ...(urgent() ? [t("needs attention")] : [])].join(", ");
+  };
   return (
-    <label class="fb-option" data-empty={props.count === 0 ? "true" : undefined}>
-      <input ref={input} type={props.type} name={props.name} checked={props.checked} onChange={() => props.onChange()} />
+    <label class="fb-option" data-empty={props.count === 0 && !props.checked ? "true" : undefined}>
+      <input ref={input} type={props.type} name={props.name} checked={props.checked} aria-label={spoken()} onChange={() => props.onChange()} />
       <span class="box" aria-hidden="true"><Icon name="check" size={12} /></span>
-      <span class="name">{props.label}</span>
+      {/* The box's own name already says it, so it is not read twice. */}
+      <span class="name" aria-hidden="true">{props.label}</span>
       <Show when={props.count !== undefined}>
-        <span class="count" classList={{ urgent: !!props.urgent && (props.count ?? 0) > 0 }}>{props.count}</span>
+        <span class="count" classList={{ urgent: urgent() }} aria-hidden="true">
+          <Show when={urgent()}><Icon name="warn" size={11} /></Show>
+          {props.count}
+        </span>
       </Show>
     </label>
   );
 };
 
 /** The box for a whole group and below it the group's own options, with their search. */
-const GroupOptions: Component<{ facet: Facet; group: FacetGroup; label: string; value: FilterValue; counts: FacetCounts | null | undefined; onChange: (next: FilterValue) => void }> = (props) => {
+const GroupOptions: Component<{ facet: Facet; group: FacetGroup; label: string; value: FilterValue; counts: FacetCounts | null | undefined; countText: CountText; onChange: (next: FilterValue) => void }> = (props) => {
   const name = createUniqueId();
   const { find, setFind, shown } = narrowing(() => props.group.options);
   const whole = () => chosenOf(props.value, props.facet.key).includes(props.group.value);
@@ -149,6 +200,7 @@ const GroupOptions: Component<{ facet: Facet; group: FacetGroup; label: string; 
         type="checkbox"
         label={props.label}
         count={props.counts?.[props.facet.key]?.[props.group.value]}
+        countText={props.countText}
         checked={whole()}
         mixed={single().length > 0}
         onChange={() => props.onChange(toggledGroup(props.facet, props.group, props.value))}
@@ -174,6 +226,7 @@ const GroupOptions: Component<{ facet: Facet; group: FacetGroup; label: string; 
               type="checkbox"
               label={option().label}
               count={props.counts?.[props.group.key]?.[value]}
+              countText={props.countText}
               urgent={option().urgent}
               checked={whole() || single().includes(value)}
               onChange={() => props.onChange(toggledInGroup(props.facet, props.group, props.value, value))}
@@ -186,7 +239,7 @@ const GroupOptions: Component<{ facet: Facet; group: FacetGroup; label: string; 
 };
 
 /** The choices of one facet, as in the popover and in the panel with all filters. */
-const Options: Component<{ facet: Facet; value: FilterValue; counts: FacetCounts | null | undefined; onChange: (next: FilterValue) => void; ref?: (element: HTMLElement) => void }> = (props) => {
+const Options: Component<{ facet: Facet; value: FilterValue; counts: FacetCounts | null | undefined; countText: CountText; onChange: (next: FilterValue) => void; ref?: (element: HTMLElement) => void }> = (props) => {
   const name = createUniqueId();
   const count = (option: string) => props.counts?.[props.facet.key]?.[option];
   const { find, setFind, shown } = narrowing(() => props.facet.options);
@@ -224,12 +277,13 @@ const Options: Component<{ facet: Facet; value: FilterValue; counts: FacetCounts
               type={props.facet.multiple === false ? "radio" : "checkbox"}
               label={option().label}
               count={count(value)}
+              countText={props.countText}
               urgent={option().urgent}
               checked={chosenOf(props.value, props.facet.key).includes(value)}
               onChange={() => props.onChange(toggled(props.facet, props.value, value))}
             />
           )}>
-            {(inner) => <GroupOptions facet={props.facet} group={inner()} label={option().label} value={props.value} counts={props.counts} onChange={props.onChange} />}
+            {(inner) => <GroupOptions facet={props.facet} group={inner()} label={option().label} value={props.value} counts={props.counts} countText={props.countText} onChange={props.onChange} />}
           </Show>
         );
       }}</For>
@@ -244,6 +298,8 @@ export const FilterBar: Component<{
   value: FilterValue;
   /** Null or missing while unknown: no counts are shown and no facet is locked. */
   counts?: FacetCounts | null;
+  /** How a count is said to a screen reader, with its unit: "2 files". */
+  countText?: (count: number) => string;
   /** "X of Y files", already worded by the page; announced politely when it changes. */
   summary?: string | null;
   /** Something besides the facets narrows the list (the search), so "Reset filters" shows. */
@@ -272,6 +328,8 @@ export const FilterBar: Component<{
   let bar: HTMLDivElement | undefined;
 
   const active = () => activeCount(props.facets, props.value);
+  const countText: CountText = (count) => (props.countText ?? plainCount)(count);
+  const lockedHint = `${id}-locked`;
   const resettable = () => active() > 0 || !!props.dirty;
   const reset = () => (props.onReset ? props.onReset() : props.onChange({}));
   const clearFacet = (facet: Facet) => props.onChange({ ...props.value, [facet.key]: [], ...(facet.group ? { [facet.group.key]: [] } : {}) });
@@ -286,6 +344,15 @@ export const FilterBar: Component<{
     if (refocus && was) (was === "*" ? allButton : buttons.get(was))?.focus();
   };
   const toggle = (key: string) => (open() === key ? close() : setOpen(key));
+  /**
+   * The focus moved on from a facet (Tab past its last choice, or a click elsewhere): its popover closes
+   * and the focus stays where it went, so the full-screen popover on a phone never hides where one is.
+   */
+  const leave = (key: string, event: FocusEvent) => {
+    const next = event.relatedTarget as Node | null;
+    if (open() !== key || !next || (event.currentTarget as HTMLElement).contains(next)) return;
+    close(false);
+  };
   let allButton: HTMLButtonElement | undefined;
 
   // A click outside the bar closes the popover, as a menu does.
@@ -331,20 +398,22 @@ export const FilterBar: Component<{
     const isActive = () => facetActive(facet(), props.value);
     const popId = `${id}-${key}`;
     return (
-      <span class="fb-facet" data-active={isActive() ? "true" : undefined}>
+      <span class="fb-facet" data-active={isActive() ? "true" : undefined} onFocusOut={(event) => leave(key, event)}>
         <span class="fb-split">
           <button
             type="button"
             ref={(element) => buttons.set(key, element)}
             class="fb-button"
             data-active={isActive() ? "true" : undefined}
-            disabled={locked(facet())}
+            aria-disabled={locked(facet()) ? "true" : undefined}
+            aria-describedby={locked(facet()) ? lockedHint : undefined}
             aria-haspopup="dialog"
             aria-expanded={open() === key}
             aria-controls={popId}
-            onClick={() => toggle(key)}
+            onClick={() => { if (!locked(facet())) toggle(key); }}
           >
-            <span class="fb-title">{isActive() ? `${facet().title}: ${chosenText(facet(), props.value)}` : facet().title}</span>
+            {/* A long value (a library's name) is cut on screen; the title shows it whole, the name says it. */}
+            <span class="fb-title" title={isActive() ? describeFilters([facet()], props.value)[0] : undefined}>{isActive() ? `${facet().title}: ${chosenText(facet(), props.value)}` : facet().title}</span>
             <Show when={!isActive()}><Icon name="chevron" size={12} /></Show>
           </button>
           <Show when={isActive()}>
@@ -355,7 +424,7 @@ export const FilterBar: Component<{
         </span>
         <Show when={open() === key}>
           <Popover title={facet().title} id={popId} onReset={() => clearFacet(facet())}>
-            <Options facet={facet()} value={props.value} counts={props.counts} onChange={props.onChange} ref={focusFirst} />
+            <Options facet={facet()} value={props.value} counts={props.counts} countText={countText} onChange={props.onChange} ref={focusFirst} />
             {extraOf(key)}
           </Popover>
         </Show>
@@ -365,6 +434,7 @@ export const FilterBar: Component<{
 
   return (
     <div class="filterbar" ref={bar} role="search" aria-label={props.label}>
+      <span id={lockedHint} hidden>{t("Nothing to choose with the other filters")}</span>
       <div class="fb-head">
         <span class="fb-summary" aria-live="polite">{props.summary ?? ""}</span>
         <Show when={(props.quick?.length ?? 0) > 0}>
@@ -381,7 +451,7 @@ export const FilterBar: Component<{
       <div class="fb-row">
         <Show when={props.search}><div class="fb-search">{props.search}</div></Show>
         <div class="fb-facets">
-          <span class="fb-facet fb-all-wrap">
+          <span class="fb-facet fb-all-wrap" onFocusOut={(event) => leave("*", event)}>
             <button
               type="button"
               ref={allButton}
@@ -400,7 +470,7 @@ export const FilterBar: Component<{
                 <For each={keysOf(props.facets)}>{(key, index) => (
                   <section class="fb-all-facet">
                     <h3>{facetOf(key).title}</h3>
-                    <Options facet={facetOf(key)} value={props.value} counts={props.counts} onChange={props.onChange} ref={index() === 0 ? focusFirst : undefined} />
+                    <Options facet={facetOf(key)} value={props.value} counts={props.counts} countText={countText} onChange={props.onChange} ref={index() === 0 ? focusFirst : undefined} />
                     {extraOf(key)}
                   </section>
                 )}</For>

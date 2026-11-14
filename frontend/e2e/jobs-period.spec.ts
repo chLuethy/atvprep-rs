@@ -32,7 +32,7 @@ test.describe("activity period and library", () => {
 
     await bar.getByRole("button", { name: "More filters" }).click();
     await bar.getByRole("button", { name: "Library", exact: true }).click();
-    await page.getByRole("dialog", { name: "Library" }).getByRole("checkbox", { name: /^media \d+$/ }).check();
+    await page.getByRole("dialog", { name: "Library" }).getByRole("checkbox", { name: /^media, \d+ jobs?$/ }).check();
     await expect(page).toHaveURL(/\/jobs\?root_id=[^&]+$/);
     await expect(page.getByRole("link", { name: /Failed Movie/ }).first()).toBeVisible();
   });

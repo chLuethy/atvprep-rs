@@ -13,8 +13,9 @@ export const deActivity: Record<string, string | readonly [string, string]> = {
   "Newest first": "Neueste zuerst",
   "Oldest first": "Älteste zuerst",
   "{matched} of {count} job": ["{matched} von {count} Auftrag", "{matched} von {count} Aufträgen"],
-  "Hidden active jobs": "Ausgeblendete laufende Aufträge",
-  "{count} active job hidden": ["{count} laufender Auftrag ausgeblendet", "{count} laufende Aufträge ausgeblendet"],
+  "{count} job": ["{count} Auftrag", "{count} Aufträge"],
+  "Hidden active jobs": "Ausgeblendete aktive Aufträge",
+  "{count} active job hidden": ["{count} aktiver Auftrag ausgeblendet", "{count} aktive Aufträge ausgeblendet"],
   "Show them": "Einblenden",
   // Quick filters (#73); "Running" stands for every job not yet done.
   "Failed in 24 h": "Fehlgeschlagen in 24 h",

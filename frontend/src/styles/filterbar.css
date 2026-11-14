@@ -29,9 +29,11 @@
 .fb-split { display: inline-flex; align-items: stretch; }
 
 .fb-button { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--panel); color: var(--text); font-size: var(--text-sm); font-weight: 500; white-space: nowrap; }
-.fb-button:hover:not(:disabled) { background: var(--hover); }
-.fb-button:disabled { color: var(--faint); border-style: dashed; cursor: not-allowed; }
+.fb-button:hover:not([aria-disabled="true"]) { background: var(--hover); }
+/* Locked: nothing to choose with the other filters. It stays focusable so a screen reader hears why. */
+.fb-button[aria-disabled="true"] { color: var(--faint); border-style: dashed; cursor: not-allowed; }
 .fb-button > svg { color: var(--muted); transform: rotate(90deg); }
+.fb-title { max-width: 30ch; overflow: hidden; text-overflow: ellipsis; }
 .fb-button[aria-expanded="true"] { border-color: var(--accent-strong); }
 .fb-button[data-active="true"] { background: var(--accent-weak); border-color: var(--accent-strong); font-weight: 600; }
 .fb-facet[data-active="true"] .fb-button { border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 0; }
@@ -60,7 +62,12 @@
 .fb-option input:checked + .box { border-color: var(--accent-strong); background: var(--accent); color: var(--accent-ink); }
 .fb-option .name { flex: 1; }
 .fb-option .count { color: var(--muted); font-variant-numeric: tabular-nums; }
+.fb-option .count { display: inline-flex; align-items: center; gap: 3px; }
+/* Urgent hits: the symbol says it without colour, the name says it in words. */
 .fb-option .count.urgent { color: var(--bad); font-weight: 700; }
+/* The empty result of a filtered list names what found nothing. */
+.fb-empty-list { display: flex; flex-direction: column; gap: 2px; margin: 4px auto 12px; max-width: 60ch; }
+.fb-empty-list li { overflow-wrap: anywhere; }
 /* No hit with the other filters: dimmed, still choosable. */
 .fb-option[data-empty="true"] { color: var(--faint); }
 .fb-option[data-empty="true"] .count { color: var(--faint); }
@@ -75,11 +82,20 @@
 /* Narrow: search and tools share a row, the facets scroll sideways below with the filter symbol first and the
    active facets next; every popover is a full screen with Close. Targets are at least 44px high. */
 @media (max-width: 720px) {
-  .fb-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "search tools" "facets facets"; gap: 8px; }
-  .fb-search { grid-area: search; max-width: none; }
-  .fb-tools { grid-area: tools; margin-left: 0; }
+  /* Search and tools share the first line while the search keeps room to type (Activity); when the tools
+     need more (Files: sort and view), they take a line of their own instead of covering the search. */
+  .fb-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .fb-search { flex: 1 1 160px; max-width: none; min-width: 0; }
+  .fb-search .search { min-width: 0; }
+  .fb-search .input { min-height: 44px; padding-right: 8px; }
+  /* No keyboard to press "/" on; the hint only costs width. */
+  .fb-search .kbd { display: none; }
+  .fb-tools { flex: 0 0 auto; margin-left: auto; }
   .fb-tools .seg-label { display: none; }
-  .fb-facets { grid-area: facets; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; overscroll-behavior-x: contain; }
+  .fb-tools .seg button { min-width: 44px; min-height: 44px; }
+  .fb-tools .select, .fb-tools .lib-sort-dir { min-height: 44px; }
+  .fb-tools .lib-sort-dir { min-width: 44px; }
+  .fb-facets { flex: 1 1 100%; order: 3; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; overscroll-behavior-x: contain; }
   .fb-facets::-webkit-scrollbar { display: none; }
   .fb-all { display: inline-flex; }
   .fb-all-wrap { order: -2; }
@@ -92,4 +108,9 @@
   .fb-pop-body { flex: 1; padding: 0 10px 12px; }
   .fb-option { min-height: 44px; }
   .fb-pop-foot { padding: 8px 16px max(12px, env(safe-area-inset-bottom, 0px)); }
+}
+/* A touch screen at any width has no "/" to press either. */
+@media (hover: none) and (pointer: coarse) {
+  .fb-search .kbd { display: none; }
+  .fb-search .input { padding-right: 8px; }
 }

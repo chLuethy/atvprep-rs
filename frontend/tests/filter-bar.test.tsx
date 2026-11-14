@@ -12,7 +12,7 @@ const FACETS: Facet[] = [
 const COUNTS: FacetCounts = { status: { clean: 3, warning: 2, blocker: 1, missing: 0 }, has: { embed: 2, convert: 0 } };
 
 /** The bar as a page uses it: it reports a change, the page feeds the new value back in. */
-function show(initial: FilterValue = {}, over: { counts?: FacetCounts | null; facets?: Facet[]; onReset?: () => void; dirty?: boolean; quick?: QuickChoice[]; onQuick?: (id: string) => void } = {}) {
+function show(initial: FilterValue = {}, over: { counts?: FacetCounts | null; countText?: (count: number) => string; facets?: Facet[]; onReset?: () => void; dirty?: boolean; quick?: QuickChoice[]; onQuick?: (id: string) => void } = {}) {
   const [value, setValue] = createSignal<FilterValue>(initial);
   const onChange = vi.fn((next: FilterValue) => setValue(next));
   const view = render(() => (
@@ -27,6 +27,7 @@ function show(initial: FilterValue = {}, over: { counts?: FacetCounts | null; fa
       onReset={over.onReset}
       quick={over.quick}
       onQuick={over.onQuick}
+      countText={over.countText}
     />
   ));
   return { view, onChange, value, setValue };
@@ -88,15 +89,20 @@ describe("FilterBar: a facet button", () => {
     expect(onChange).toHaveBeenLastCalledWith({ status: [], has: ["embed"] });
   });
 
-  it("is locked when no option has a hit and nothing is chosen", () => {
+  it("is locked when no option has a hit and nothing is chosen, but stays in the tab order and says why", async () => {
     const { view } = show({}, { counts: { status: COUNTS.status!, has: { embed: 0, convert: 0 } } });
-    expect(view.getByRole("button", { name: "Properties" })).toBeDisabled();
-    expect(view.getByRole("button", { name: "Status" })).toBeEnabled();
+    const locked = view.getByRole("button", { name: "Properties" });
+    expect(locked).toHaveAttribute("aria-disabled", "true");
+    expect(locked).not.toBeDisabled();
+    expect(locked).toHaveAccessibleDescription("Nothing to choose with the other filters");
+    await fireEvent.click(locked);
+    expect(view.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(view.getByRole("button", { name: "Status" })).not.toHaveAttribute("aria-disabled");
   });
 
   it("is never locked while the counts are unknown", () => {
     const { view } = show({}, { counts: null });
-    expect(view.getByRole("button", { name: "Properties" })).toBeEnabled();
+    expect(view.getByRole("button", { name: "Properties" })).not.toHaveAttribute("aria-disabled");
   });
 });
 
@@ -107,15 +113,41 @@ describe("FilterBar: the popover", () => {
     expect(view.getByRole("button", { name: "Status" })).toHaveAttribute("aria-expanded", "true");
     expect(within(dialog).getByText("Any of these")).toBeInTheDocument();
 
-    await fireEvent.click(within(dialog).getByRole("checkbox", { name: "Warning 2" }));
+    await fireEvent.click(within(dialog).getByRole("checkbox", { name: "Warning, 2" }));
     expect(onChange).toHaveBeenLastCalledWith({ status: ["warning"] });
-    await fireEvent.click(within(dialog).getByRole("checkbox", { name: "Blocker 1" }));
+    await fireEvent.click(within(dialog).getByRole("checkbox", { name: "Blocker, 1" }));
     expect(onChange).toHaveBeenLastCalledWith({ status: ["warning", "blocker"] });
-    expect(within(dialog).getByRole("checkbox", { name: "Warning 2" })).toBeChecked();
+    expect(within(dialog).getByRole("checkbox", { name: "Warning, 2" })).toBeChecked();
     expect(view.getByRole("dialog", { name: "Status" })).toBeInTheDocument();
 
-    await fireEvent.click(within(dialog).getByRole("checkbox", { name: "Warning 2" }));
+    await fireEvent.click(within(dialog).getByRole("checkbox", { name: "Warning, 2" }));
     expect(onChange).toHaveBeenLastCalledWith({ status: ["blocker"] });
+  });
+
+  it("names each option with its count and unit, and marks an urgent count in words and with a symbol", async () => {
+    const facets = FACETS.map((facet) => ({ ...facet, options: facet.options.map((option) => ({ ...option, urgent: option.value === "blocker" || option.value === "missing" })) }));
+    const { view } = show({}, { facets, countText: (count) => (count === 1 ? "1 file" : `${count} files`) });
+    const dialog = await openFacet(view, /^Status/);
+    expect(within(dialog).getByRole("checkbox", { name: "Warning, 2 files" })).toBeInTheDocument();
+    const blocker = within(dialog).getByRole("checkbox", { name: "Blocker, 1 file, needs attention" });
+    expect(blocker.closest("label")?.querySelector(".count.urgent svg")).not.toBeNull();
+    // Nothing to attend to without a hit.
+    expect(within(dialog).getByRole("checkbox", { name: "Missing, 0 files" })).toBeInTheDocument();
+  });
+
+  it("closes once the focus leaves it for the rest of the page, without taking the focus back", async () => {
+    const { view } = show();
+    const outside = document.createElement("button");
+    document.body.append(outside);
+    const dialog = await openFacet(view, /^Status/);
+    const ready = within(dialog).getByRole("checkbox", { name: "Ready, 3" });
+    await fireEvent.focusOut(ready, { relatedTarget: within(dialog).getByRole("checkbox", { name: "Warning, 2" }) });
+    expect(view.getByRole("dialog", { name: "Status" })).toBeInTheDocument();
+    outside.focus();
+    await fireEvent.focusOut(ready, { relatedTarget: outside });
+    expect(view.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(outside).toHaveFocus();
+    outside.remove();
   });
 
   it("says that a file needs all chosen properties", async () => {
@@ -127,12 +159,18 @@ describe("FilterBar: the popover", () => {
   it("dims an option without hits, but it can still be chosen", async () => {
     const { view, onChange } = show();
     const dialog = await openFacet(view, /^Status/);
-    const missing = within(dialog).getByRole("checkbox", { name: "Missing 0" });
+    const missing = within(dialog).getByRole("checkbox", { name: "Missing, 0" });
     expect(missing).toBeEnabled();
     expect(missing.closest("label")).toHaveAttribute("data-empty", "true");
-    expect(within(dialog).getByRole("checkbox", { name: "Ready 3" }).closest("label")).not.toHaveAttribute("data-empty");
+    expect(within(dialog).getByRole("checkbox", { name: "Ready, 3" }).closest("label")).not.toHaveAttribute("data-empty");
     await fireEvent.click(missing);
     expect(onChange).toHaveBeenLastCalledWith({ status: ["missing"] });
+  });
+
+  it("does not dim a chosen option without hits, so the choice stays readable", async () => {
+    const { view } = show({ status: ["missing"] });
+    const dialog = await openFacet(view, /^Status/);
+    expect(within(dialog).getByRole("checkbox", { name: "Missing, 0" }).closest("label")).not.toHaveAttribute("data-empty");
   });
 
   it("resets its own facet and nothing else", async () => {
@@ -150,7 +188,7 @@ describe("FilterBar: the popover", () => {
     expect(view.getByRole("button", { name: "Status" })).toHaveFocus();
 
     const again = await openFacet(view, /^Status/);
-    await fireEvent.keyDown(within(again).getByRole("checkbox", { name: "Ready 3" }), { key: "Escape" });
+    await fireEvent.keyDown(within(again).getByRole("checkbox", { name: "Ready, 3" }), { key: "Escape" });
     expect(view.queryByRole("dialog")).not.toBeInTheDocument();
     expect(view.getByRole("button", { name: "Status" })).toHaveFocus();
 
@@ -163,14 +201,14 @@ describe("FilterBar: the popover", () => {
   it("moves between the options with the arrow keys, starting on the first", async () => {
     const { view } = show();
     const dialog = await openFacet(view, /^Status/);
-    const ready = within(dialog).getByRole("checkbox", { name: "Ready 3" });
+    const ready = within(dialog).getByRole("checkbox", { name: "Ready, 3" });
     expect(ready).toHaveFocus();
     await fireEvent.keyDown(ready, { key: "ArrowDown" });
-    expect(within(dialog).getByRole("checkbox", { name: "Warning 2" })).toHaveFocus();
-    await fireEvent.keyDown(within(dialog).getByRole("checkbox", { name: "Warning 2" }), { key: "ArrowUp" });
+    expect(within(dialog).getByRole("checkbox", { name: "Warning, 2" })).toHaveFocus();
+    await fireEvent.keyDown(within(dialog).getByRole("checkbox", { name: "Warning, 2" }), { key: "ArrowUp" });
     expect(ready).toHaveFocus();
     await fireEvent.keyDown(ready, { key: "ArrowUp" });
-    expect(within(dialog).getByRole("checkbox", { name: "Missing 0" })).toHaveFocus();
+    expect(within(dialog).getByRole("checkbox", { name: "Missing, 0" })).toHaveFocus();
   });
 
   it("offers a single choice as radio buttons that replace each other", async () => {
@@ -190,8 +228,8 @@ describe("FilterBar: all filters at once", () => {
     await fireEvent.click(view.getByRole("button", { name: "All filters (1 active)" }));
     const panel = view.getByRole("dialog", { name: "All filters" });
     expect(within(panel).getByRole("group", { name: "Status" })).toBeInTheDocument();
-    expect(within(panel).getByRole("checkbox", { name: "Subtitles embeddable 2" })).toBeChecked();
-    await fireEvent.click(within(panel).getByRole("checkbox", { name: "Blocker 1" }));
+    expect(within(panel).getByRole("checkbox", { name: "Subtitles embeddable, 2" })).toBeChecked();
+    await fireEvent.click(within(panel).getByRole("checkbox", { name: "Blocker, 1" }));
     expect(onChange).toHaveBeenLastCalledWith({ has: ["embed"], status: ["blocker"] });
     await fireEvent.click(within(panel).getByRole("button", { name: "Close" }));
     expect(view.queryByRole("dialog")).not.toBeInTheDocument();
@@ -212,7 +250,7 @@ describe("FilterBar: a page that builds its facets anew", () => {
     const facets = () => { void value(); return FACETS.map((facet) => ({ ...facet, options: facet.options.map((option) => ({ ...option })) })); };
     const view = render(() => <FilterBar label="Filter files" facets={facets()} value={value()} counts={COUNTS} onChange={setValue} />);
     await fireEvent.click(view.getByRole("button", { name: "Status" }));
-    const warning = within(view.getByRole("dialog", { name: "Status" })).getByRole("checkbox", { name: "Warning 2" });
+    const warning = within(view.getByRole("dialog", { name: "Status" })).getByRole("checkbox", { name: "Warning, 2" });
     warning.focus();
     await fireEvent.click(warning);
 
@@ -316,10 +354,10 @@ describe("FilterBar: a group of options", () => {
     const { view, onChange } = show({}, { facets: TRIGGER, counts });
     const dialog = await openFacet(view, /^Trigger/);
     const group = within(dialog).getByRole("group", { name: "Schedules" });
-    const all = within(group).getByRole("checkbox", { name: "Schedules 3" });
+    const all = within(group).getByRole("checkbox", { name: "Schedules, 3" });
     expect(within(group).getAllByRole("checkbox").map((box) => box.closest("label")?.textContent)).toEqual(["Schedules3", "Nightly2", "Weekend1"]);
 
-    await fireEvent.click(within(group).getByRole("checkbox", { name: "Nightly 2" }));
+    await fireEvent.click(within(group).getByRole("checkbox", { name: "Nightly, 2" }));
     expect(onChange).toHaveBeenLastCalledWith({ schedule: ["n1"] });
     expect(all).not.toBeChecked();
     expect((all as HTMLInputElement).indeterminate).toBe(true);
@@ -328,12 +366,12 @@ describe("FilterBar: a group of options", () => {
     await fireEvent.click(all);
     expect(onChange).toHaveBeenLastCalledWith({ schedule: [], trigger: ["schedule"] });
     expect(all).toBeChecked();
-    expect(within(group).getByRole("checkbox", { name: "Weekend 1" })).toBeChecked();
+    expect(within(group).getByRole("checkbox", { name: "Weekend, 1" })).toBeChecked();
 
     // Unticking one of them keeps the others.
-    await fireEvent.click(within(group).getByRole("checkbox", { name: "Weekend 1" }));
+    await fireEvent.click(within(group).getByRole("checkbox", { name: "Weekend, 1" }));
     expect(onChange).toHaveBeenLastCalledWith({ schedule: ["n1"], trigger: [] });
-    await fireEvent.click(within(dialog).getByRole("checkbox", { name: "By hand 1" }));
+    await fireEvent.click(within(dialog).getByRole("checkbox", { name: "By hand, 1" }));
     expect(onChange).toHaveBeenLastCalledWith({ schedule: ["n1"], trigger: ["manual"] });
   });
 

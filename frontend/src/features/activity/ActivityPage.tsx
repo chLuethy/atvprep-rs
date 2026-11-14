@@ -1,6 +1,6 @@
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, type Component } from "solid-js";
 import { Button, Icon, ProgressBar } from "../../ui";
-import { FilterBar, type Facet, type FilterValue } from "../../ui/FilterBar";
+import { FilterBar, NoMatches, type Facet, type FilterValue } from "../../ui/FilterBar";
 import { StatusChip } from "../../ui";
 import { JobDetail } from "./JobDetail";
 import { periodLibraryFacets } from "./PeriodLibrary";
@@ -331,6 +331,7 @@ export const ActivityPage: Component<{
             value={facetValue()}
             counts={counts()?.facets ?? null}
             summary={summaryText()}
+            countText={(count) => tn("{count} job", "{count} jobs", count)}
             dirty={isJobFiltered(filter())}
             onChange={onFacets}
             onReset={clearFilters}
@@ -363,7 +364,11 @@ export const ActivityPage: Component<{
             <Show when={phase() === "ready"} fallback={
               <div class="notice bad lib-notice" role="alert">
                 <p>{phase() === "session" ? t(SESSION_EXPIRED) : t("Unable to load jobs")}</p>
-                <Show when={phase() === "error"}><Button onClick={() => void load(true)}>{t("Retry")}</Button></Show>
+                <Show when={phase() === "error"}>
+                  <Button onClick={() => void load(true)}>{t("Retry")}</Button>
+                  {/* A link with a filter the server refuses fails every time; resetting gets out of it. */}
+                  <Show when={isJobFiltered(filter())}><Button variant="quiet" onClick={clearFilters}>{t("Reset filters")}</Button></Show>
+                </Show>
               </div>
             }>
               <Show when={hiddenActive() > 0}>
@@ -374,11 +379,7 @@ export const ActivityPage: Component<{
               </Show>
               <Show when={rows().length > 0} fallback={(
                 <Show when={noJobsYet()} fallback={(
-                  <div class="empty">
-                    <b>{t("No jobs match the current filters")}</b>
-                    {t("Change the filters or clear the search.")}
-                    <div><Button onClick={clearFilters}>{t("Reset filters")}</Button></div>
-                  </div>
+                  <NoMatches title={t("No jobs match the current filters")} facets={facets()} value={facetValue()} search={filter().q} onReset={clearFilters} />
                 )}>
                   <div class="empty"><b>{t("No jobs yet")}</b>{t("Select a file in Files and press V to verify it, or F to preview preparing it. The job shows up here.")}</div>
                 </Show>

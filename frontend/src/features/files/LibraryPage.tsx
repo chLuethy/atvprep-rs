@@ -1,6 +1,6 @@
 import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, onMount, Show, type Component } from "solid-js";
 import { Button, Icon, Kbd } from "../../ui";
-import { FilterBar, type Facet, type FilterValue } from "../../ui/FilterBar";
+import { FilterBar, MANY_OPTIONS, NoMatches, type Facet, type FilterValue } from "../../ui/FilterBar";
 import { N, t, tn } from "../../lib/i18n";
 import { autoDismiss } from "../../lib/autoDismiss";
 import { ColumnsView, type ColumnAction, type Picked } from "./ColumnsView";
@@ -267,7 +267,7 @@ export const LibraryPage: Component<{
   const facets = (): Facet[] => [
     { key: "status", title: t("Status"), logic: "or", options: STATE_FILTERS.map((entry) => ({ value: entry.token, label: t(entry.label), urgent: entry.urgent })) },
     { key: "has", title: t("Properties"), logic: "and", options: TRAIT_FILTERS.map((entry) => ({ value: entry.token, label: t(entry.label) })) },
-    { key: "root", title: t("Library"), logic: "or", options: withChosen(roots().map((root) => ({ value: root.id, label: root.name })), filter().root, (id) => id) },
+    { key: "root", title: t("Library"), logic: "or", searchable: roots().length > MANY_OPTIONS, options: withChosen(roots().map((root) => ({ value: root.id, label: root.name })), filter().root, (id) => id) },
     {
       key: "suffix", title: t("Extension"), logic: "or", placement: "more", searchable: true,
       options: withChosen(Object.keys(facetCounts()?.facets.suffix ?? {}).map((suffix) => ({ value: suffix, label: extensionLabel(suffix) })), filter().suffix, extensionLabel),
@@ -601,6 +601,7 @@ export const LibraryPage: Component<{
             value={facetValue()}
             counts={facetCounts()?.facets ?? null}
             summary={summaryText()}
+            countText={(count) => tn("{count} file", "{count} files", count)}
             dirty={isFiltered(filter())}
             onChange={onFacets}
             onReset={clearFilters}
@@ -660,7 +661,11 @@ export const LibraryPage: Component<{
             <Show when={phase() === "ready"} fallback={
               <div class="notice bad lib-notice" role="alert">
                 <p>{phase() === "session" ? t(SESSION_EXPIRED) : t("Unable to load files")}</p>
-                <Show when={phase() === "error"}><Button onClick={() => void load(true)}>{t("Retry")}</Button></Show>
+                <Show when={phase() === "error"}>
+                  <Button onClick={() => void load(true)}>{t("Retry")}</Button>
+                  {/* A link with a filter the server refuses fails every time; resetting gets out of it. */}
+                  <Show when={isFiltered(filter())}><Button variant="quiet" onClick={clearFilters}>{t("Reset filters")}</Button></Show>
+                </Show>
               </div>
             }>
               <Show
@@ -669,11 +674,7 @@ export const LibraryPage: Component<{
                   <Show
                     when={firstRun()}
                     fallback={(
-                      <div class="empty">
-                        <b>{t("No files match the current filters")}</b>
-                        {t("Change the filters or clear the search.")}
-                        <div><Button onClick={clearFilters}>{t("Reset filters")}</Button></div>
-                      </div>
+                      <NoMatches title={t("No files match the current filters")} facets={facets()} value={facetValue()} search={query()} onReset={clearFilters} />
                     )}
                   >
                     <div class="empty"><b>{t("No files yet")}</b>{t("A scan reads your libraries and checks which files Apple TV will play, and why. Use Scan above to start.")}</div>

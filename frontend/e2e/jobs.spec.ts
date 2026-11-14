@@ -11,7 +11,7 @@ test.describe("activity journey", () => {
     await expect(page.getByRole("region", { name: "Active" })).toBeVisible();
 
     await bar.getByRole("button", { name: "Status", exact: true }).click();
-    await page.getByRole("dialog", { name: "Status" }).getByRole("checkbox", { name: /^Failed \d+$/ }).check();
+    await page.getByRole("dialog", { name: "Status" }).getByRole("checkbox", { name: /^Failed, \d+ jobs?, needs attention$/ }).check();
     await page.keyboard.press("Escape");
     await expect(page).toHaveURL(/\/jobs\?status=failed$/);
     await expect(page.getByRole("region", { name: "History" }).getByRole("link", { name: /Failed Movie/ }).first()).toBeVisible();
@@ -73,19 +73,19 @@ test.describe("activity journey", () => {
     await bar.getByRole("button", { name: "Trigger", exact: true }).click();
     const popover = page.getByRole("dialog", { name: "Trigger" });
     const schedules = popover.getByRole("group", { name: "Schedules" });
-    await expect(schedules.getByRole("checkbox", { name: "Schedules 1" })).toBeVisible();
+    await expect(schedules.getByRole("checkbox", { name: "Schedules, 1 job" })).toBeVisible();
     // The schedule's job is stored as manual, yet it does not count as by hand.
-    await expect(popover.getByRole("checkbox", { name: /^By hand \d+$/ })).toBeVisible();
+    await expect(popover.getByRole("checkbox", { name: /^By hand, \d+ jobs?$/ })).toBeVisible();
 
     await schedules.getByRole("searchbox", { name: "Search Schedules" }).fill("weekly");
-    await schedules.getByRole("checkbox", { name: "E2E Weekly 1" }).check();
+    await schedules.getByRole("checkbox", { name: "E2E Weekly, 1 job" }).check();
     await expect(page).toHaveURL(/\/jobs\?schedule=sc_[\w-]+$/);
     const history = page.getByRole("region", { name: "History" });
     await expect(history.getByRole("link", { name: /Old Codec Movie/ })).toBeVisible();
     await expect(history.getByRole("link", { name: /Failed Movie/ })).toHaveCount(0);
     await expect(bar.getByText(/^1 of \d+ jobs$/)).toBeVisible();
 
-    await popover.getByRole("checkbox", { name: /^By hand \d+$/ }).check();
+    await popover.getByRole("checkbox", { name: /^By hand, \d+ jobs?$/ }).check();
     await expect(page).toHaveURL(/\/jobs\?trigger=manual&schedule=sc_[\w-]+$/);
     await page.keyboard.press("Escape");
     await page.reload();
