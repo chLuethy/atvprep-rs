@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/atvprep-core", "crates/atvprep", "crates/atvprep-testkit", "crates/atvprep-manager", "crates/atvprep-api", "crates/atvprep-deploy"]
 
 [workspace.package]
-version = "0.5.8"
+version = "0.5.9"
 edition = "2024"
 rust-version = "1.99"
 
