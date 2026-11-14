@@ -6,6 +6,15 @@ on:
   pull_request:
 
 jobs:
+  commits:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Commit subjects (docs/agents/language.md)
+        run: ./scripts/check-commit-msg.sh --range "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
   rust:
     runs-on: ubuntu-latest
     defaults:
@@ -38,12 +47,10 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           "$HOME/.cargo/bin/rustup" show
-      - name: Format
-        run: cargo fmt --all -- --check
-      - name: Clippy
-        run: cargo clippy --locked --workspace --all-targets -- -D warnings
-      - name: Test
-        run: cargo test --locked --workspace
+      - name: Install cargo-deny
+        run: cargo install --locked cargo-deny
+      - name: Rust gate (fmt, clippy, test, deny)
+        run: ./check.sh
   frontend:
     runs-on: ubuntu-latest
     defaults:
