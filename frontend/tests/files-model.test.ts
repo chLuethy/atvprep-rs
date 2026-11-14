@@ -53,7 +53,7 @@ describe("verdictOf for blockers", () => {
 
 describe("verdictOf for files with an open embed", () => {
   it("does not call a clean file ready while a subtitle file can still be embedded", () => {
-    expect(verdictOf({ compliance_state: "clean", discovery_state: "present", pending_sidecars: 1 })).toMatchObject({ kind: "warn", label: "Embed open" });
+    expect(verdictOf({ compliance_state: "clean", discovery_state: "present", pending_sidecars: 1 })).toMatchObject({ kind: "warn", label: "Embedding open" });
     expect(verdictOf({ compliance_state: "clean", discovery_state: "present", pending_sidecars: 0 })).toMatchObject({ kind: "ok", label: "Ready" });
   });
 

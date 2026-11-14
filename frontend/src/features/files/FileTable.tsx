@@ -2,11 +2,13 @@ import { For, onMount, Show, type Component } from "solid-js";
 import { flash } from "../../lib/flash";
 import { StatusChip } from "../../ui";
 import type { FileRow } from "./loaders";
+import type { FileSort } from "./filters";
 import { N, t } from "../../lib/i18n";
 import { baseName, formatSize, parseReason, verdictOf } from "./model";
 
+/** The keys a column header sorts by; "recently added" has no column. */
 export type SortKey = "title" | "status" | "size";
-export type Sort = { key: SortKey; dir: 1 | -1 } | null;
+export type Sort = FileSort;
 
 const COLUMNS: ReadonlyArray<{ key: SortKey; label: string; className?: string }> = [
   { key: "title", label: N("File") },

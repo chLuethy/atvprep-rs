@@ -1,5 +1,6 @@
 import { SessionError } from "../../lib/api";
 import type { EncodeNeed } from "../../lib/encode";
+import { jobListParams, type JobCounts, type JobFilter } from "./filters";
 
 /** Data loading for the activity view. UI-free; every loader normalises SessionError. */
 
@@ -20,10 +21,14 @@ export type JobRow = {
   cancelled_count: number;
   /** Display path of the first file, so a list can name it without a request per job. */
   subject?: string | null;
+  /** With a search that hit a later file than the first: the display path of that file. */
+  matched_path?: string;
   /** Whole percent across the job's items, as far as the server can tell. */
   progress?: number | null;
   /** The setting „Delete original“ was on when the job was queued. */
   delete_original?: boolean;
+  /** Only on a job from a schedule (`trigger` is then "schedule"); the name is null once it is deleted. */
+  schedule?: { id: string; name: string | null };
 };
 
 export type ItemRow = {
@@ -61,13 +66,49 @@ async function readPage<T>(api: Api, path: string): Promise<Page<T>> {
   }
 }
 
-/** Newest first; `status` is one parent status. Empty means every job except cancelled ones, which have their own filter. */
-export function loadJobs(api: Api, query: { status: string; cursor?: string | undefined }): Promise<Page<JobRow>> {
-  const parts = ["limit=50", "order=desc"];
-  if (query.status) parts.push(`status=${encodeURIComponent(query.status)}`);
-  else parts.push("exclude_status=cancelled");
-  if (query.cursor) parts.push(`cursor=${encodeURIComponent(query.cursor)}`);
-  return readPage<JobRow>(api, `/jobs?${parts.join("&")}`);
+/** One page of the job list for a filter; nothing chosen lists every job status, cancelled ones included. */
+export function loadJobs(api: Api, query: { filter: JobFilter; cursor?: string | undefined }): Promise<Page<JobRow>> {
+  const cursor = query.cursor ? `&cursor=${encodeURIComponent(query.cursor)}` : "";
+  return readPage<JobRow>(api, `/jobs?limit=50&${jobListParams(query.filter)}${cursor}`);
+}
+
+const tally = (value: unknown): Record<string, number> | null =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? Object.fromEntries(Object.entries(value).filter((entry): entry is [string, number] => typeof entry[1] === "number"))
+    : null;
+
+/** The schedules a job can come from, by name, as the counts name them. */
+const scheduleList = (value: unknown): Array<{ id: string; name: string }> =>
+  Array.isArray(value)
+    ? value.filter((entry): entry is { id: string; name: string } => !!entry && typeof entry.id === "string" && typeof entry.name === "string")
+      .map((entry) => ({ id: entry.id, name: entry.name }))
+    : [];
+
+/**
+ * What each status and action would show with every other filter as it is, how many jobs match of how many
+ * there are, and how many waiting or running jobs the filter hides. Null without a usable answer; the bar then
+ * shows no counts and no hint appears.
+ */
+export async function loadJobCounts(api: Api, filter: JobFilter): Promise<JobCounts | null> {
+  try {
+    const response = await api.request(`/jobs/counts?${jobListParams(filter)}`);
+    if (!response.ok) return null;
+    const data = ((await response.json()) as { data?: Record<string, unknown> }).data;
+    const status = tally(data?.status);
+    const action = tally(data?.action);
+    if (!data || !status || !action || typeof data.matched !== "number" || typeof data.total !== "number") return null;
+    const facets: Record<string, Record<string, number>> = { status, action };
+    const trigger = tally(data.trigger);
+    const schedule = tally(data.schedule);
+    // Per library (#71), under the facet key of the page; an older server without it shows no library counts.
+    const root = tally(data.root_id);
+    if (trigger) facets.trigger = trigger;
+    if (schedule) facets.schedule = schedule;
+    if (root) facets.root = root;
+    return { facets, matched: data.matched, total: data.total, hiddenActive: typeof data.hidden_active === "number" ? data.hidden_active : 0, schedules: scheduleList(data.schedules) };
+  } catch {
+    return null;
+  }
 }
 
 export type OneJob = { kind: "ok"; data: JobRow } | { kind: "error" } | { kind: "session" };

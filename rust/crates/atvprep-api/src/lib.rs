@@ -7,6 +7,8 @@ pub mod config;
 pub mod errors;
 pub mod extract;
 pub mod health;
+mod job_filter;
+mod job_trigger;
 pub mod mutation;
 pub mod opaque;
 pub mod random;
@@ -74,6 +76,7 @@ pub fn router(state: AppState) -> Router {
             "/api/v1/jobs",
             get(read_jobs::jobs).post(routes_jobs::create),
         )
+        .route("/api/v1/jobs/counts", get(read_jobs::job_counts))
         .route(
             "/api/v1/jobs/clear",
             axum::routing::post(routes_jobs::clear),
@@ -120,7 +123,7 @@ pub fn router(state: AppState) -> Router {
             "/api/v1/job-items/{item_id}/raise-encode",
             axum::routing::post(routes_jobs::raise_encode),
         )
-        .route("/api/v1/files/counts", get(read_files::trait_counts))
+        .route("/api/v1/files/counts", get(read_files::facet_counts))
         .route("/api/v1/files/{media_id}/jobs", get(read_jobs::file_jobs))
         .route("/api/v1/files", get(read_files::list))
         .route(
@@ -510,7 +513,9 @@ mod tests {
         assert_eq!(body["data"]["converted"], 1);
         assert_eq!(body["data"]["encode_video"], 1);
         assert_eq!(body["data"]["encode_audio"], 0);
-        assert_eq!(body["data"]["files"]["unknown"], 2);
+        // gone.mkv counts as missing only, so the state counts add up to the files shown.
+        assert_eq!(body["data"]["files"]["unknown"], 1);
+        assert_eq!(body["data"]["files"]["missing"], 1);
         assert_eq!(body["data"]["delete_original"], true);
         assert_eq!(body["data"]["jobs"]["queued"], 1);
         assert_eq!(body["data"]["scans"]["succeeded"], 1);

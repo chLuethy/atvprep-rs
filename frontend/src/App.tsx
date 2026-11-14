@@ -1,10 +1,12 @@
-import { A, Navigate, Router, Route, useLocation, useNavigate, useSearchParams } from "@solidjs/router";
-import { createSignal, onCleanup, onMount, Show, type ParentComponent } from "solid-js";
+import { A, Navigate, Router, Route, useLocation, useNavigate } from "@solidjs/router";
+import { createEffect, createMemo, createSignal, onCleanup, onMount, Show, type ParentComponent } from "solid-js";
 import "./styles/app.css";
 import type { ManagerApi } from "./lib/api";
 import type { SessionControls } from "./features/auth/AuthGate";
 import { ActivityPage } from "./features/activity/ActivityPage";
 import { LibraryPage } from "./features/files/LibraryPage";
+import { fileFilterQuery, fileSortQuery, parseFileFilter, parseFileSort, QUICK_FILTERS, sameFilter, type FileFilter, type FileSort } from "./features/files/filters";
+import { JOB_QUICK_FILTERS, jobFilterQuery, parseJobFilter, sameJobFilter } from "./features/activity/filters";
 import { OverviewPage } from "./features/overview/OverviewPage";
 import { SchedulesPage } from "./features/schedules/SchedulesPage";
 import { SettingsPage } from "./features/settings/SettingsPage";
@@ -19,36 +21,40 @@ import { dismissTip, tipPending } from "./lib/tips";
 import { Button, chooseTheme, CommandPalette, Icon, Kbd, LanguageSwitch, Logo, ThemeSwitch, type Command, type IconName, type Theme } from "./ui";
 
 const Dashboard: ParentComponent = () => <section>{t("Overview")}</section>;
-const Files: ParentComponent = () => <section>{t("Library")}</section>;
+const Files: ParentComponent = () => <section>{t("Files")}</section>;
 const Jobs: ParentComponent = () => <section>{t("Activity")}</section>;
 const Schedules: ParentComponent = () => <section>{t("Schedules")}</section>;
 const Settings: ParentComponent = () => <section>{t("Settings")}</section>;
 
-/** One route for the list and the open file, so choosing a file never remounts the list. */
+/**
+ * One route for the list and the open file, so choosing a file never remounts the list. The filter lives in
+ * the address: a chosen state or property is a new history entry (Back undoes it), a search replaces the entry,
+ * and an old or untidy address is rewritten to the canonical one. The order follows the filter (`sort`, `dir`);
+ * a new order is a history entry too.
+ */
 const Library: ParentComponent<{ api: ManagerApi | undefined; fileId: string | undefined }> = (props) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [params] = useSearchParams();
   const base = (id: string | undefined) => (id ? `/files/${encodeURIComponent(id)}` : "/files");
-  const status = () => (typeof params.status === "string" ? params.status : undefined);
-  const hide = () => (typeof params.hide === "string" ? params.hide : undefined);
-  const has = () => (typeof params.has === "string" ? params.has : undefined);
+  const query = (filter: FileFilter, sort: FileSort) => [fileFilterQuery(filter), fileSortQuery(sort)].filter(Boolean).join("&");
+  const at = (id: string | undefined, search: string) => `${base(id)}${search ? `?${search}` : ""}`;
+  const params = () => new URLSearchParams(location.search);
+  const filter = createMemo(() => parseFileFilter(params()), undefined, { equals: sameFilter });
+  const sort = createMemo(() => parseFileSort(params()), undefined, { equals: (a, b) => fileSortQuery(a) === fileSortQuery(b) });
+  createEffect(() => {
+    const canonical = query(filter(), sort());
+    if (location.search.replace(/^\?/, "") !== canonical) navigate(at(props.fileId, canonical), { replace: true });
+  });
   return (
     <Show when={props.api} fallback={<Files />}>
       {(api) => (
         <LibraryPage
           api={api()}
           activeId={props.fileId}
-          status={status()}
-          hide={hide()}
-          has={has()}
-          onFilter={(next) => {
-            const query = new URLSearchParams();
-            if (next.status) query.set("status", next.status);
-            if (next.hide) query.set("hide", next.hide);
-            if (next.has) query.set("has", next.has);
-            navigate(`${base(props.fileId)}${query.size > 0 ? `?${query}` : ""}`, { replace: true });
-          }}
+          filter={filter()}
+          sort={sort()}
+          onFilter={(next, how) => navigate(at(props.fileId, query(next, sort())), { replace: how.replace })}
+          onSort={(next) => navigate(at(props.fileId, query(filter(), next)))}
           onOpen={(id) => navigate(`${base(id)}${location.search}`)}
         />
       )}
@@ -56,16 +62,29 @@ const Library: ParentComponent<{ api: ManagerApi | undefined; fileId: string | u
   );
 };
 
-/** Same shape as the library: one route for the list and the open job. */
+/**
+ * Same shape as the files page: one route for the list and the open job, and the filter in the address. A chosen
+ * value or order is a new history entry, a search replaces the entry, and an untidy address is rewritten.
+ */
 const Activity: ParentComponent<{ api: ManagerApi | undefined; jobId: string | undefined }> = (props) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const base = (id: string | undefined) => (id ? `/jobs/${encodeURIComponent(id)}` : "/jobs");
+  const at = (id: string | undefined, query: string) => `${base(id)}${query ? `?${query}` : ""}`;
+  const filter = createMemo(() => parseJobFilter(new URLSearchParams(location.search)), undefined, { equals: sameJobFilter });
+  createEffect(() => {
+    const canonical = jobFilterQuery(filter());
+    if (location.search.replace(/^\?/, "") !== canonical) navigate(at(props.jobId, canonical), { replace: true });
+  });
   return (
     <Show when={props.api} fallback={<Jobs />}>
       {(api) => (
         <ActivityPage
           api={api()}
           activeId={props.jobId}
-          onOpen={(id) => navigate(id ? `/jobs/${encodeURIComponent(id)}` : "/jobs")}
+          filter={filter()}
+          onFilter={(next, how) => navigate(at(props.jobId, jobFilterQuery(next)), { replace: how.replace })}
+          onOpen={(id) => navigate(`${base(id)}${location.search}`)}
         />
       )}
     </Show>
@@ -82,7 +101,7 @@ const Overview: ParentComponent<{ api: ManagerApi | undefined }> = (props) => {
 };
 
 const NAV: ReadonlyArray<{ href: string; label: string; icon: IconName }> = [
-  { href: "/files", label: N("Library"), icon: "library" },
+  { href: "/files", label: N("Files"), icon: "library" },
   { href: "/jobs", label: N("Activity"), icon: "activity" },
   { href: "/schedules", label: N("Schedules"), icon: "clock" },
   { href: "/dashboard", label: N("Overview"), icon: "overview" },
@@ -133,10 +152,22 @@ const Shell: ParentComponent<{ session?: SessionControls; api?: ManagerApi }> = 
   const commands = (): Command[] => [
     ...NAV.map((item) => ({ id: `go-${item.label.toLowerCase()}`, label: t("Go to {page}", { page: t(item.label) }), hint: t("Page"), run: () => navigate(item.href) })),
     ...STATUS_COMMANDS.map((entry) => ({
-      id: `library-${entry.status || "all"}`,
-      label: t("Library: show {state}", { state: t(entry.label) }),
+      id: `files-${entry.status || "all"}`,
+      label: t("Files: show {state}", { state: t(entry.label) }),
       hint: t("Filter"),
       run: () => navigate(entry.status ? `/files?status=${entry.status}` : "/files"),
+    })),
+    ...QUICK_FILTERS.map((entry) => ({
+      id: `files-quick-${entry.id}`,
+      label: t("Files: {quick}", { quick: t(entry.label) }),
+      hint: t("Quick filter"),
+      run: () => navigate(`/files?${fileFilterQuery(entry.filter)}`),
+    })),
+    ...JOB_QUICK_FILTERS.map((entry) => ({
+      id: `jobs-quick-${entry.id}`,
+      label: t("Activity: {quick}", { quick: t(entry.label) }),
+      hint: t("Quick filter"),
+      run: () => navigate(`/jobs?${jobFilterQuery(entry.filter)}`),
     })),
     ...THEMES.map((theme) => ({ id: `theme-${theme.value}`, label: t("Theme: {theme}", { theme: t(theme.label) }), hint: t("Appearance"), run: () => chooseTheme(theme.value) })),
     { id: "help-shortcuts", label: t("Show keyboard shortcuts"), hint: t("Help"), run: openHelp },

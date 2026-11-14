@@ -5,26 +5,6 @@
 .lib-bar-top { display: flex; align-items: center; gap: 12px; }
 .lib-bar h1 { margin: 0; font-size: var(--text-lg); font-weight: 650; letter-spacing: var(--tracking-title); }
 .chips { display: flex; gap: 4px; flex-wrap: wrap; }
-/* The filter: tick boxes, a ticked one shows its files. State is the box and its tick, never colour alone. */
-.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
-.filter-group { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 2px; }
-.filter-title { margin-right: 4px; color: var(--muted); font-size: var(--text-sm); font-weight: 600; }
-.filter-check { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 2px 6px; border-radius: 6px; color: var(--text); font-size: var(--text-sm); font-weight: 500; cursor: pointer; user-select: none; }
-.filter-check:hover { background: var(--hover); }
-.filter-check input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
-.filter-check:has(input:focus-visible) { outline: 2px solid var(--accent-strong); outline-offset: 1px; }
-.filter-check .box { display: grid; place-items: center; width: 14px; height: 14px; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--panel); color: transparent; }
-.filter-check input:checked + .box { border-color: var(--accent-strong); background: var(--accent); color: var(--accent-ink); }
-.filter-check.off { color: var(--muted); font-weight: 400; }
-.filter-check.off .name { text-decoration: line-through; text-decoration-color: var(--faint); }
-.filter-check .count { color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
-.filter-check .count.urgent { color: var(--bad); font-weight: 700; }
-.filter-bulk { display: inline-flex; gap: 2px; margin-left: 4px; }
-.filter-bulk button, .filter-only { border: 0; background: none; padding: 2px 6px; border-radius: 6px; color: var(--accent-text); font-size: var(--text-sm); }
-.filter-bulk button:hover, .filter-only:hover { background: var(--hover); }
-.filter-only { display: inline-flex; align-items: center; gap: 4px; background: var(--accent-weak); color: var(--text); font-weight: 600; }
-.filter-only:hover { background: var(--accent-weak); filter: brightness(0.97); }
-.filter-reset { margin-left: auto; }
 .search { position: relative; margin-left: auto; flex: 1; min-width: 150px; max-width: 320px; display: flex; align-items: center; }
 .search > svg { position: absolute; left: 8px; color: var(--faint); pointer-events: none; }
 .search .input { width: 100%; padding-left: 28px; padding-right: 30px; }
@@ -117,6 +97,7 @@ details summary { cursor: pointer; color: var(--muted); }
 .change.none { color: var(--muted); }
 
 /* activity */
+.job-hidden { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 10px 16px 0; font-size: var(--text-sm); }
 .job-group { padding: 4px 0 8px; }
 .job-group h2 { margin: 10px 16px 6px; }
 .job-row { display: flex; align-items: center; gap: 10px; padding: 7px 16px; border-bottom: 1px solid var(--line); }
@@ -124,7 +105,7 @@ details summary { cursor: pointer; color: var(--muted); }
 .job-row[aria-current="true"] { background: var(--accent-weak); }
 .job-link { flex: 1; min-width: 0; display: flex; flex-direction: column; color: var(--text); text-decoration: none; }
 .job-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.job-meta { font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job-meta, .job-match { font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .job-summary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 2px; }
 .items { gap: 8px; }
 .item-row { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
@@ -226,6 +207,11 @@ details summary { cursor: pointer; color: var(--muted); }
 .crumb[aria-current="location"] { color: var(--text); font-weight: 500; }
 .statusbar { margin: 0; padding: 4px 12px 7px; text-align: center; font-size: var(--text-sm); border-top: 1px solid var(--line); min-height: 1.6em; }
 .view-switch { flex: none; }
+/* The sort control: the key, then one button that turns the direction; the column headers set the same. */
+.lib-sort { display: inline-flex; align-items: center; gap: 2px; flex: none; }
+.lib-sort .select { max-width: 13em; }
+.lib-sort-dir { min-width: 2em; padding: 3px 8px; }
+@media (max-width: 720px) { .lib-sort .select, .lib-sort-dir { min-height: 44px; } }
 .view-switch button { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; }
 .row-menu { position: fixed; z-index: 50; min-width: 210px; padding: 5px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--panel); box-shadow: var(--shadow); animation: rise var(--dur-base) var(--ease-out); }
 .row-menu-item { display: flex; align-items: center; justify-content: space-between; gap: 18px; width: 100%; padding: 5px 10px; border: 0; border-radius: 6px; background: none; color: var(--text); text-align: left; font-size: var(--text-base); }

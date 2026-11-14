@@ -1,6 +1,7 @@
 //! Read-only views of queued and completed jobs.
 use crate::{
     extract::AuthenticatedSession,
+    job_filter::{JobFilter, JobQuery},
     opaque::Opaque,
     read::{error, page_meta, timestamp},
     state::AppState,
@@ -17,12 +18,21 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 fn job_select() -> String {
+    job_select_with("NULL")
+}
+
+/// [`job_select`] with `extra` as a last column, the path of the item a search matched.
+fn job_select_with(extra: &str) -> String {
     format!(
         "SELECT j.id,j.action,j.status,j.trigger,j.origin_job_id,j.requested_at,j.started_at,j.finished_at,j.total_count,j.succeeded_count,j.failed_count,j.cancelled_count,j.settings_snapshot_json,
  (SELECT m.relative_path FROM job_items i JOIN media_files m ON m.id=i.media_file_id WHERE i.job_id=j.id ORDER BY i.position,i.id LIMIT 1),
- (SELECT CAST(SUM(CASE WHEN i.status IN {terminal} THEN 100 ELSE COALESCE(i.progress,0) END)*1.0/COUNT(*) AS INTEGER) FROM job_items i WHERE i.job_id=j.id)
+ (SELECT CAST(SUM(CASE WHEN i.status IN {terminal} THEN 100 ELSE COALESCE(i.progress,0) END)*1.0/COUNT(*) AS INTEGER) FROM job_items i WHERE i.job_id=j.id),
+ {extra},
+ {trigger},{schedule},(SELECT s.name FROM schedules s WHERE s.id={schedule})
  FROM jobs j",
-        terminal = ItemStatus::terminal_sql_list()
+        terminal = ItemStatus::terminal_sql_list(),
+        trigger = crate::job_trigger::trigger_of(),
+        schedule = crate::job_trigger::SCHEDULE_OF,
     )
 }
 
@@ -77,7 +87,7 @@ fn view(row: &rusqlite::Row<'_>, opaque: &Opaque) -> rusqlite::Result<(i64, Valu
     let snapshot: Value = serde_json::from_str(&snapshot).unwrap_or(Value::Null);
     let public_action = public_action(&action);
     let origin: Option<i64> = row.get(4)?;
-    let mut job = json!({"id":opaque.encode("j",id),"action":public_action,"status":row.get::<_,JobStatus>(2)?,"trigger":row.get::<_,String>(3)?,
+    let mut job = json!({"id":opaque.encode("j",id),"action":public_action,"status":row.get::<_,JobStatus>(2)?,"trigger":row.get::<_,String>(16)?,
         "origin_job_id":origin.map(|v|opaque.encode("j",v)),"requested_at":row.get::<_,Option<String>>(5)?.map(|v|timestamp(&v)),
         "started_at":row.get::<_,Option<String>>(6)?.map(|v|timestamp(&v)),"finished_at":row.get::<_,Option<String>>(7)?.map(|v|timestamp(&v)),
         "total_count":row.get::<_,i64>(8)?,"succeeded_count":row.get::<_,i64>(9)?,"failed_count":row.get::<_,i64>(10)?,"cancelled_count":row.get::<_,i64>(11)?,
@@ -87,25 +97,20 @@ fn view(row: &rusqlite::Row<'_>, opaque: &Opaque) -> rusqlite::Result<(i64, Valu
     if snapshot.get("delete_original").and_then(Value::as_bool) == Some(true) {
         job["delete_original"] = json!(true);
     }
+    // Only a job from a schedule names it; the name is gone once the schedule is deleted.
+    if let Some(schedule) = row.get::<_, Option<i64>>(17)? {
+        let name = row.get::<_, Option<String>>(18)?;
+        job["schedule"] =
+            json!({"id":opaque.encode("sc",schedule),"name":name.map(|name|safe_head(&name,2048))});
+    }
+    // A search hit in a later item names that item; a hit in the first file reads as before.
+    let matched = row
+        .get::<_, Option<String>>(15)?
+        .map(|value| subject(&value));
+    if let Some(matched) = matched.filter(|path| Some(path.as_str()) != job["subject"].as_str()) {
+        job["matched_path"] = json!(matched);
+    }
     Ok((id, job))
-}
-
-/// Parse an optional job-status query filter; an empty value means "no filter".
-fn parse_status_filter(
-    raw: Option<&str>,
-) -> Result<Option<JobStatus>, atvprep_manager::error::Error> {
-    raw.filter(|v| !v.is_empty()).map(str::parse).transpose()
-}
-
-#[derive(Deserialize)]
-pub struct JobQuery {
-    #[serde(default, deserialize_with = "crate::opaque::bounded_cursor")]
-    cursor: Option<String>,
-    limit: Option<usize>,
-    status: Option<String>,
-    action: Option<String>,
-    exclude_status: Option<String>,
-    order: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -321,7 +326,7 @@ pub async fn item_log(
     }
 }
 
-/// List jobs with stable, endpoint-bound cursors.
+/// List jobs with stable, endpoint-bound cursors, filtered as `JobFilter` describes.
 pub async fn jobs(
     State(state): State<AppState>,
     _session: AuthenticatedSession,
@@ -330,9 +335,6 @@ pub async fn jobs(
     const PATH: &str = "/api/v1/jobs";
     let limit = query.limit.unwrap_or(50);
     if !(1..=100).contains(&limit)
-        || [&query.status, &query.action, &query.exclude_status]
-            .iter()
-            .any(|s| s.as_ref().is_some_and(|v| v.chars().count() > 128))
         || query
             .order
             .as_deref()
@@ -340,13 +342,11 @@ pub async fn jobs(
     {
         return error(StatusCode::UNPROCESSABLE_ENTITY, "invalid request", PATH);
     }
-    let (Ok(status), Ok(exclude_status)) = (
-        parse_status_filter(query.status.as_deref()),
-        parse_status_filter(query.exclude_status.as_deref()),
-    ) else {
-        return error(StatusCode::UNPROCESSABLE_ENTITY, "invalid request", PATH);
-    };
     let opaque = Opaque::new(state.api_secret.as_bytes());
+    let filter = match JobFilter::parse(&query, &opaque) {
+        Ok(filter) => filter,
+        Err(message) => return error(StatusCode::UNPROCESSABLE_ENTITY, message, PATH),
+    };
     let after = match query.cursor.as_deref() {
         Some(v) => match opaque.decode(v, "cursor:jobs") {
             Ok(id) if id > 0 => Some(id),
@@ -356,17 +356,100 @@ pub async fn jobs(
     };
     let descending = query.order.as_deref() == Some("desc");
     let result = tokio::task::spawn_blocking(move || {
-        let conn=state.db.conn().map_err(|_|())?;
-        let sql=format!("{job_select} WHERE j.cleared_at IS NULL AND (?1 IS NULL OR j.status=?1) AND (?2 IS NULL OR j.status!=?2) AND (?3 IS NULL OR (j.action=?3 AND ?3 NOT IN ('fix','convert')) OR (?3='prepare' AND j.action IN ('fix','convert'))) AND (?4 IS NULL OR (CASE WHEN ?5 THEN j.id<?4 ELSE j.id>?4 END)) ORDER BY j.id {} LIMIT ?6", if descending {"DESC"} else {"ASC"},job_select=job_select());
-        let mut stmt=conn.raw().prepare(&sql).map_err(|_|())?;
-        let rows=stmt.query_map(params![status,exclude_status,query.action.filter(|v|!v.is_empty()),after,descending,i64::try_from(limit+1).map_err(|_|())?],|row|view(row,&opaque)).map_err(|_|())?;
-        let mut data=Vec::new(); let mut last=None; let mut used=0usize; let mut more=false; let mut truncated=false;
-        for row in rows { let (id,value)=row.map_err(|_|())?; if data.len()==limit {more=true;break;} let size=serde_json::to_vec(&value).map_err(|_|())?.len(); if size>crate::bounds::MAX_ELEMENT_BYTES || used.saturating_add(size).saturating_add(data.len()+256)>crate::bounds::MAX_RESPONSE_BYTES {more=true;truncated=true;break;} used+=size;last=Some(id);data.push(value); }
-        let next=if more {last.map(|id|opaque.encode("cursor:jobs",id))} else {None};
-        Ok::<_,()>(json!({"data":data,"meta":page_meta(Some(limit),next.as_deref(),truncated)}))
-    }).await;
+        let conn = state.db.conn().map_err(|_| ())?;
+        let (filter_sql, filter_values) = filter.sql();
+        let (matched, mut values) = match filter.matched() {
+            Some((column, pattern)) => (column, vec![pattern]),
+            None => ("NULL", Vec::new()),
+        };
+        values.extend(filter_values);
+        let mut sql = format!(
+            "{job_select} WHERE {filter_sql}",
+            job_select = job_select_with(matched)
+        );
+        if let Some(after) = after {
+            sql.push_str(if descending {
+                " AND j.id<?"
+            } else {
+                " AND j.id>?"
+            });
+            values.push(after.into());
+        }
+        sql.push_str(if descending {
+            " ORDER BY j.id DESC LIMIT ?"
+        } else {
+            " ORDER BY j.id ASC LIMIT ?"
+        });
+        values.push(i64::try_from(limit + 1).map_err(|_| ())?.into());
+        let mut stmt = conn.raw().prepare(&sql).map_err(|_| ())?;
+        let rows = stmt
+            .query_map(rusqlite::params_from_iter(values.iter()), |row| {
+                view(row, &opaque)
+            })
+            .map_err(|_| ())?;
+        let mut data = Vec::new();
+        let mut last = None;
+        let mut used = 0usize;
+        let mut more = false;
+        let mut truncated = false;
+        for row in rows {
+            let (id, value) = row.map_err(|_| ())?;
+            if data.len() == limit {
+                more = true;
+                break;
+            }
+            let size = serde_json::to_vec(&value).map_err(|_| ())?.len();
+            if size > crate::bounds::MAX_ELEMENT_BYTES
+                || used.saturating_add(size).saturating_add(data.len() + 256)
+                    > crate::bounds::MAX_RESPONSE_BYTES
+            {
+                more = true;
+                truncated = true;
+                break;
+            }
+            used += size;
+            last = Some(id);
+            data.push(value);
+        }
+        let next = if more {
+            last.map(|id| opaque.encode("cursor:jobs", id))
+        } else {
+            None
+        };
+        Ok::<_, ()>(json!({"data":data,"meta":page_meta(Some(limit),next.as_deref(),truncated)}))
+    })
+    .await;
     match result {
         Ok(Ok(body)) => Json(body).into_response(),
+        _ => error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "internal server error",
+            PATH,
+        ),
+    }
+}
+
+/// The facet counters of the job list with the same filters as `/jobs`: per status and per action
+/// with every other filter, the jobs that match all filters of all there are, and the waiting or
+/// running jobs the filter leaves out.
+pub async fn job_counts(
+    State(state): State<AppState>,
+    _session: AuthenticatedSession,
+    Query(query): Query<JobQuery>,
+) -> Response {
+    const PATH: &str = "/api/v1/jobs/counts";
+    let opaque = Opaque::new(state.api_secret.as_bytes());
+    let filter = match JobFilter::parse(&query, &opaque) {
+        Ok(filter) => filter,
+        Err(message) => return error(StatusCode::UNPROCESSABLE_ENTITY, message, PATH),
+    };
+    let result = tokio::task::spawn_blocking(move || {
+        let conn = state.db.conn().map_err(|_| ())?;
+        filter.counts(conn.raw(), &opaque).map_err(|_| ())
+    })
+    .await;
+    match result {
+        Ok(Ok(data)) => Json(json!({"data": data, "meta": {}})).into_response(),
         _ => error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "internal server error",

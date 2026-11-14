@@ -309,6 +309,7 @@
             "type": "integer"
           },
           "files": {
+            "description": "File count per state; the counts add up to all files shown. States: ``clean`` (ready: no violations and nothing to embed), ``embed_open`` (no violations, but a subtitle file can still be embedded), ``warning``, ``blocker``, ``unknown``, ``probe_failed`` and ``missing``. Every file is in exactly one of them; a missing file is only ``missing``.",
             "additionalProperties": {
               "type": "integer"
             },
@@ -1433,6 +1434,11 @@
             "title": "Id",
             "type": "string"
           },
+          "matched_path": {
+            "description": "Only with a search whose first match is not the job's first file: the display path of the first item, in job order, that matches.",
+            "title": "Matched Path",
+            "type": "string"
+          },
           "origin_job_id": {
             "anyOf": [
               {
@@ -1502,7 +1508,27 @@
             "title": "Total Count",
             "type": "integer"
           },
+          "schedule": {
+            "description": "Only on a job from a schedule: the schedule's opaque id and its name, null once the schedule is deleted.",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "type": "object"
+          },
           "trigger": {
+            "description": "The Auslöser as the server derives it: ``manual`` (by hand), ``schedule`` (from a schedule, although stored as ``manual``) or ``retry``; legacy jobs keep ``automatic``.",
             "title": "Trigger",
             "type": "string"
           }
@@ -2151,7 +2177,7 @@
     },
     "/api/v1/browse": {
       "get": {
-        "description": "One level of the library as folders and files, like a column in a file browser.\n\nWithout ``root_id`` the libraries are the folders. With one, the folders and files directly inside\n``path``. Every folder carries how many files below it are in each state; ``state`` keeps only\nthe files in that state, and the folders that still hold any. ``hide`` drops the files in any of\nthe comma-separated states.",
+        "description": "One level of the library as folders and files, like a column in a file browser.\n\nWithout ``root_id`` the libraries are the folders. With one, the folders and files directly inside\n``path``. Every folder carries how many files below it are in each state; ``state`` keeps only\nthe files in that state, and the folders that still hold any. ``status`` keeps the files in any of\nthe comma-separated states, ``has`` those with all the properties. ``suffix`` and ``has_sidecar`` filter as in the file list; a folder without a hit is left out.",
         "operationId": "browse_api_v1_browse_get",
         "parameters": [
           {
@@ -2198,7 +2224,8 @@
           },
           {
             "in": "query",
-            "name": "hide",
+            "name": "status",
+            "description": "Comma-separated states; only the files in any of them are listed (OR). Nothing chosen lists every state. States: ``clean`` (ready: no violations and nothing to embed), ``embed_open`` (no violations, but a subtitle file can still be embedded), ``warning``, ``blocker``, ``unknown``, ``probe_failed`` and ``missing``. Every file is in exactly one of them; a missing file is only ``missing``. ``hide``, the old list of states to leave out, is refused with 422.",
             "required": false,
             "schema": {
               "anyOf": [
@@ -2209,7 +2236,58 @@
                   "type": "null"
                 }
               ],
-              "title": "Hide"
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "has",
+            "description": "Comma-separated properties a file must all have (AND): ``convert``, ``encode_audio``, ``encode_video``, ``embed`` (a subtitle file can still be embedded, whatever the state) and ``converted``.",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Has"
+            }
+          },
+          {
+            "in": "query",
+            "name": "suffix",
+            "description": "Comma-separated extensions as stored, with the dot (``.mkv,.mp4``); only the files with any of them are listed (OR).",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Suffix"
+            }
+          },
+          {
+            "in": "query",
+            "name": "has_sidecar",
+            "description": "``true``: only files with a subtitle file beside them; ``false``: only files without one.",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Has Sidecar"
             }
           },
           {
@@ -2299,7 +2377,8 @@
           },
           {
             "in": "query",
-            "name": "hide",
+            "name": "status",
+            "description": "Comma-separated states; only the files in any of them are listed (OR). Nothing chosen lists every state. States: ``clean`` (ready: no violations and nothing to embed), ``embed_open`` (no violations, but a subtitle file can still be embedded), ``warning``, ``blocker``, ``unknown``, ``probe_failed`` and ``missing``. Every file is in exactly one of them; a missing file is only ``missing``. ``hide``, the old list of states to leave out, is refused with 422.",
             "required": false,
             "schema": {
               "anyOf": [
@@ -2310,7 +2389,58 @@
                   "type": "null"
                 }
               ],
-              "title": "Hide"
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "has",
+            "description": "Comma-separated properties a file must all have (AND): ``convert``, ``encode_audio``, ``encode_video``, ``embed`` (a subtitle file can still be embedded, whatever the state) and ``converted``.",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Has"
+            }
+          },
+          {
+            "in": "query",
+            "name": "suffix",
+            "description": "Comma-separated extensions as stored, with the dot (``.mkv,.mp4``); only the files with any of them are listed (OR).",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Suffix"
+            }
+          },
+          {
+            "in": "query",
+            "name": "has_sidecar",
+            "description": "``true``: only files with a subtitle file beside them; ``false``: only files without one.",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Has Sidecar"
             }
           },
           {
@@ -2930,6 +3060,7 @@
           {
             "in": "query",
             "name": "root_id",
+            "description": "Comma-separated library ids; only the files in any of these libraries are listed (OR).",
             "required": false,
             "schema": {
               "anyOf": [
@@ -2962,6 +3093,7 @@
           {
             "in": "query",
             "name": "suffix",
+            "description": "Comma-separated extensions as stored, with the dot (``.mkv,.mp4``); only the files with any of them are listed (OR).",
             "required": false,
             "schema": {
               "anyOf": [
@@ -2978,6 +3110,7 @@
           {
             "in": "query",
             "name": "compliance_state",
+            "description": "Only the files in this state, or with this property (``convert``, ``encode_audio``, ``encode_video``, ``embed``, ``converted``). States: ``clean`` (ready: no violations and nothing to embed), ``embed_open`` (no violations, but a subtitle file can still be embedded), ``warning``, ``blocker``, ``unknown``, ``probe_failed`` and ``missing``. Every file is in exactly one of them; a missing file is only ``missing``.",
             "required": false,
             "schema": {
               "anyOf": [
@@ -2993,7 +3126,8 @@
           },
           {
             "in": "query",
-            "name": "hide",
+            "name": "status",
+            "description": "Comma-separated states; only the files in any of them are listed (OR). Nothing chosen lists every state. States: ``clean`` (ready: no violations and nothing to embed), ``embed_open`` (no violations, but a subtitle file can still be embedded), ``warning``, ``blocker``, ``unknown``, ``probe_failed`` and ``missing``. Every file is in exactly one of them; a missing file is only ``missing``. ``hide``, the old list of states to leave out, is refused with 422.",
             "required": false,
             "schema": {
               "anyOf": [
@@ -3004,7 +3138,24 @@
                   "type": "null"
                 }
               ],
-              "title": "Hide"
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "has",
+            "description": "Comma-separated properties a file must all have (AND): ``convert``, ``encode_audio``, ``encode_video``, ``embed`` (a subtitle file can still be embedded, whatever the state) and ``converted``.",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Has"
             }
           },
           {
@@ -3058,6 +3209,7 @@
           {
             "in": "query",
             "name": "has_sidecar",
+            "description": "``true``: only files with a subtitle file beside them; ``false``: only files without one.",
             "required": false,
             "schema": {
               "anyOf": [
@@ -3124,6 +3276,7 @@
           {
             "in": "query",
             "name": "sort",
+            "description": "``status`` orders blocker, probe_failed, missing, warning, embed_open, unknown, clean; ``dir=desc`` reverses that order.",
             "required": false,
             "schema": {
               "anyOf": [
@@ -3145,6 +3298,7 @@
           {
             "in": "query",
             "name": "dir",
+            "description": "``asc`` or ``desc``. Without ``sort`` the files are in the order they were added (oldest first; ``desc`` lists the newest first).",
             "required": false,
             "schema": {
               "default": "asc",
@@ -3196,6 +3350,310 @@
           }
         },
         "summary": "Files",
+        "tags": [
+          "read"
+        ]
+      }
+    },
+    "/api/v1/files/counts": {
+      "get": {
+        "description": "The facet counters for the file list, with the same filters as ``/api/v1/files``.\n\n``status`` counts each state with every filter except the chosen states; ``has`` counts each property with every filter plus that property. ``root_id`` (every library, by id), ``suffix`` (every extension there is) and ``has_sidecar`` (``true``, ``false``) count each option with every filter except that facet's own choice, so an option without a hit shows 0. ``matched`` is the number of files the list shows with all filters, ``total`` the number of files without any filter.",
+        "operationId": "file_counts_api_v1_files_counts_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "root_id",
+            "description": "Comma-separated library ids; only the files in any of these libraries are listed (OR).",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Root Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "suffix",
+            "description": "Comma-separated extensions as stored, with the dot (``.mkv,.mp4``); only the files with any of them are listed (OR).",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Suffix"
+            }
+          },
+          {
+            "in": "query",
+            "name": "compliance_state",
+            "description": "Only the files in this state, or with this property (``convert``, ``encode_audio``, ``encode_video``, ``embed``, ``converted``). States: ``clean`` (ready: no violations and nothing to embed), ``embed_open`` (no violations, but a subtitle file can still be embedded), ``warning``, ``blocker``, ``unknown``, ``probe_failed`` and ``missing``. Every file is in exactly one of them; a missing file is only ``missing``.",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Compliance State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "description": "Comma-separated states; only the files in any of them are listed (OR). Nothing chosen lists every state. States: ``clean`` (ready: no violations and nothing to embed), ``embed_open`` (no violations, but a subtitle file can still be embedded), ``warning``, ``blocker``, ``unknown``, ``probe_failed`` and ``missing``. Every file is in exactly one of them; a missing file is only ``missing``. ``hide``, the old list of states to leave out, is refused with 422.",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "has",
+            "description": "Comma-separated properties a file must all have (AND): ``convert``, ``encode_audio``, ``encode_video``, ``embed`` (a subtitle file can still be embedded, whatever the state) and ``converted``.",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Has"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workflow_state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Workflow State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "discovery_state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Discovery State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "desired_action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desired Action"
+            }
+          },
+          {
+            "in": "query",
+            "name": "has_sidecar",
+            "description": "``true``: only files with a subtitle file beside them; ``false``: only files without one.",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Has Sidecar"
+            }
+          },
+          {
+            "in": "query",
+            "name": "last_seen_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Seen From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "last_seen_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Seen To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "__Host-atvprep_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "  Host-Atvprep Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "has": {
+                          "additionalProperties": {
+                            "type": "integer"
+                          },
+                          "type": "object"
+                        },
+                        "matched": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "additionalProperties": {
+                            "type": "integer"
+                          },
+                          "type": "object"
+                        },
+                        "total": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "has",
+                        "matched",
+                        "total"
+                      ],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "File Counts",
         "tags": [
           "read"
         ]
@@ -3671,6 +4129,7 @@
             }
           },
           {
+            "description": "Comma-separated job statuses; only the jobs in any of them are listed (OR). Nothing chosen lists every status, cancelled jobs included. Statuses: ``queued``, ``running``, ``cancel_requested``, ``succeeded``, ``partial_success``, ``failed`` and ``cancelled``; an unknown one is refused with 422.",
             "in": "query",
             "name": "status",
             "required": false,
@@ -3687,6 +4146,7 @@
             }
           },
           {
+            "description": "Comma-separated actions; only the jobs with any of them are listed (OR): ``verify``, ``prepare`` (also the history stored as ``fix`` or ``convert``) and ``inspect``. An unknown action, the former names included, is refused with 422.",
             "in": "query",
             "name": "action",
             "required": false,
@@ -3703,6 +4163,41 @@
             }
           },
           {
+            "description": "Comma-separated Auslöser as the server derives them: ``manual`` (by hand), ``schedule`` (a run of a schedule points at the job, or its snapshot names a deleted schedule) and ``retry``. Jobs from schedules are stored as ``manual`` but never count as ``manual``. Together with ``schedule`` the choices are alternatives (OR). An unknown value, also ``automatic``, is refused with 422.",
+            "in": "query",
+            "name": "trigger",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Trigger"
+            }
+          },
+          {
+            "description": "Comma-separated opaque schedule ids (at most 50); the jobs from any of these schedules are listed, as an alternative (OR) to ``trigger``. A value that is no schedule id is refused with 422.",
+            "in": "query",
+            "name": "schedule",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Schedule"
+            }
+          },
+          {
+            "description": "One job status to leave out, for example ``cancelled``.",
             "in": "query",
             "name": "exclude_status",
             "required": false,
@@ -3730,6 +4225,76 @@
               ],
               "title": "Order",
               "type": "string"
+            }
+          },
+          {
+            "description": "Search text, matched case-insensitively and literally against the display path of every item of a job; a job shows once however many items match. At most 128 characters.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "description": "Only jobs queued at or after this instant (RFC 3339 with an offset, for example ``2026-11-14T00:00:00+01:00``); another spelling is refused with 422.",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "description": "Only jobs queued before this instant (RFC 3339 with an offset); the instant itself is left out. Another spelling is refused with 422.",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "description": "Comma-separated opaque library ids; only the jobs with a file in any of them are listed (OR). A job with files in several libraries belongs to each. An id that cannot be read is refused with 422.",
+            "in": "query",
+            "name": "root_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Root Id"
             }
           },
           {
@@ -3850,6 +4415,286 @@
         "summary": "Clear Jobs",
         "tags": [
           "mutations"
+        ]
+      }
+    },
+    "/api/v1/jobs/counts": {
+      "get": {
+        "description": "The facet counters for the job list, with the same filters as ``/api/v1/jobs``.\n\n``status`` counts each job status with every filter except the chosen statuses; ``action`` counts each action with every filter except the chosen actions. ``trigger`` counts each Auslöser and ``schedule`` each schedule (keyed by its opaque id) with every filter except the chosen Auslöser and schedules; ``schedules`` lists the schedules a job can come from (every one but scans) with their names, ordered by name. ``matched`` is the number of jobs the list shows with all filters, ``total`` the number of jobs without any filter, and ``hidden_active`` the number of waiting or running jobs the filters leave out.",
+        "operationId": "job_counts_api_v1_jobs_counts_get",
+        "parameters": [
+          {
+            "description": "Comma-separated job statuses; only the jobs in any of them are listed (OR). Nothing chosen lists every status, cancelled jobs included. Statuses: ``queued``, ``running``, ``cancel_requested``, ``succeeded``, ``partial_success``, ``failed`` and ``cancelled``; an unknown one is refused with 422.",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "description": "Comma-separated actions; only the jobs with any of them are listed (OR): ``verify``, ``prepare`` (also the history stored as ``fix`` or ``convert``) and ``inspect``. An unknown action, the former names included, is refused with 422.",
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Action"
+            }
+          },
+          {
+            "description": "Comma-separated Auslöser as the server derives them: ``manual`` (by hand), ``schedule`` (a run of a schedule points at the job, or its snapshot names a deleted schedule) and ``retry``. Jobs from schedules are stored as ``manual`` but never count as ``manual``. Together with ``schedule`` the choices are alternatives (OR). An unknown value, also ``automatic``, is refused with 422.",
+            "in": "query",
+            "name": "trigger",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Trigger"
+            }
+          },
+          {
+            "description": "Comma-separated opaque schedule ids (at most 50); the jobs from any of these schedules are listed, as an alternative (OR) to ``trigger``. A value that is no schedule id is refused with 422.",
+            "in": "query",
+            "name": "schedule",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Schedule"
+            }
+          },
+          {
+            "description": "One job status to leave out, for example ``cancelled``.",
+            "in": "query",
+            "name": "exclude_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Exclude Status"
+            }
+          },
+          {
+            "description": "Search text, matched case-insensitively and literally against the display path of every item of a job; a job shows once however many items match. At most 128 characters.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "description": "Only jobs queued at or after this instant (RFC 3339 with an offset, for example ``2026-11-14T00:00:00+01:00``); another spelling is refused with 422.",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "description": "Only jobs queued before this instant (RFC 3339 with an offset); the instant itself is left out. Another spelling is refused with 422.",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "description": "Comma-separated opaque library ids; only the jobs with a file in any of them are listed (OR). A job with files in several libraries belongs to each. An id that cannot be read is refused with 422.",
+            "in": "query",
+            "name": "root_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Root Id"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "__Host-atvprep_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "  Host-Atvprep Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "action": {
+                          "additionalProperties": {
+                            "type": "integer"
+                          },
+                          "type": "object"
+                        },
+                        "hidden_active": {
+                          "type": "integer"
+                        },
+                        "matched": {
+                          "type": "integer"
+                        },
+                        "schedule": {
+                          "additionalProperties": {
+                            "type": "integer"
+                          },
+                          "type": "object"
+                        },
+                        "schedules": {
+                          "items": {
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "status": {
+                          "additionalProperties": {
+                            "type": "integer"
+                          },
+                          "type": "object"
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "trigger": {
+                          "additionalProperties": {
+                            "type": "integer"
+                          },
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "action",
+                        "trigger",
+                        "schedule",
+                        "schedules",
+                        "matched",
+                        "total",
+                        "hidden_active"
+                      ],
+                      "type": "object"
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Job Counts",
+        "tags": [
+          "read"
         ]
       }
     },

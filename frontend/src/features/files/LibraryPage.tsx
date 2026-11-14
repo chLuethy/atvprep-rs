@@ -1,12 +1,14 @@
-import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, type Component } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, onMount, Show, type Component } from "solid-js";
 import { Button, Icon, Kbd } from "../../ui";
+import { FilterBar, MANY_OPTIONS, NoMatches, type Facet, type FilterValue } from "../../ui/FilterBar";
 import { N, t, tn } from "../../lib/i18n";
 import { autoDismiss } from "../../lib/autoDismiss";
 import { ColumnsView, type ColumnAction, type Picked } from "./ColumnsView";
 import { RowMenu, type MenuItem } from "./RowMenu";
 import { additive, copyText, selectionMenu } from "./selection";
 import { loadBelow } from "./browse";
-import { hasSet, hiddenSet, knownState, normalizeHas, normalizeHidden, setGroupHidden, STATE_FILTERS, TRAIT_FILTERS, toggleHas, toggleHidden, type FilterEntry } from "./filters";
+import { activeQuickFilter, EMPTY_FILTER, fileSortQuery, isFiltered, QUICK_FILTERS, sameFilter, STATE_FILTERS, TRAIT_FILTERS, type FileFilter, type FileSort, type SortKey as FileSortKey } from "./filters";
+import { loadRoots } from "../scan/loaders";
 import { FileTable, type Sort, type SortKey } from "./FileTable";
 import { FixPreview } from "./FixPreview";
 import type { EncodeLevel } from "./EncodeChoice";
@@ -14,7 +16,7 @@ import { preparable } from "./preparePlan";
 import { isMp4Like } from "./container";
 import { Inspector } from "./Inspector";
 import { ScanControl } from "../scan/ScanControl";
-import { dismissMissing, loadFiles, rawId, loadSummary, loadTraitCounts, queueJob, type Api, type FileRow, type JobResult } from "./loaders";
+import { dismissMissing, loadFacetCounts, loadFiles, rawId, loadSummary, queueJob, type Api, type FileCounts, type FileRow, type JobResult } from "./loaders";
 import { formatSize, estimateMinutes, baseName, verdictOf } from "./model";
 import { isTyping } from "../../lib/keys";
 import { reuseUnchanged } from "../../lib/stable";
@@ -25,61 +27,35 @@ function readView(): "list" | "columns" {
 }
 
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
+/** The orders of the sort control; the column headers set the same ones. */
+const SORT_CHOICES: ReadonlyArray<{ key: "title" | "status" | "size" | "added"; label: string }> = [
+  { key: "title", label: N("Name") },
+  { key: "status", label: N("Status") },
+  { key: "size", label: N("Size") },
+  { key: "added", label: N("Recently added") },
+];
 const INSPECT_BATCH = 100;
-
-/**
- * One row of tick boxes. `ticked` says which boxes are ticked: for the states that is every box that is not
- * hidden, for the properties only the chosen ones.
- */
-const FilterGroup: Component<{
-  title: string;
-  entries: ReadonlyArray<FilterEntry>;
-  ticked: (token: string) => boolean;
-  count: (token: string) => number | null;
-  onToggle: (token: string) => void;
-  onAll?: () => void;
-  onNone?: () => void;
-}> = (props) => (
-  <div class="filter-group" role="group" aria-label={props.title}>
-    <span class="filter-title">{props.title}</span>
-    <For each={props.entries}>{(entry) => {
-      const shown = () => props.ticked(entry.token);
-      return (
-        <label class="filter-check" classList={{ off: !shown() }}>
-          <input type="checkbox" checked={shown()} onChange={() => props.onToggle(entry.token)} />
-          <span class="box" aria-hidden="true"><Icon name="check" size={12} /></span>
-          <span class="name">{t(entry.label)}</span>
-          <Show when={props.count(entry.token) !== null}>
-            <span class="count" classList={{ urgent: !!entry.urgent && (props.count(entry.token) ?? 0) > 0 }}>{props.count(entry.token)}</span>
-          </Show>
-        </label>
-      );
-    }}</For>
-    <Show when={props.onAll && props.onNone}>
-      <span class="filter-bulk">
-        <button type="button" onClick={() => props.onAll?.()}>{t("All")}</button>
-        <button type="button" onClick={() => props.onNone?.()}>{t("None")}</button>
-      </span>
-    </Show>
-  </div>
-);
 
 type Phase = "loading" | "ready" | "error" | "session";
 
 /**
- * The library: a dense list on the left, the inspector (or a fix preview) on the right.
+ * The files page: a dense list on the left, the inspector (or a fix preview) on the right.
  * Routing stays outside: the page reports which file was opened and shows the one it is given.
  */
 export const LibraryPage: Component<{
   api: Api;
   activeId?: string | undefined;
-  /** One state to show only, as a link carries it; unknown values mean none. */
-  status?: string | undefined;
-  /** The states left out, comma separated, as the address carries them. */
-  hide?: string | undefined;
-  /** The properties a file must all have, comma separated, as the address carries them. */
-  has?: string | undefined;
-  onFilter?: (filter: { status: string; hide: string; has: string }) => void;
+  /** The filter the address asks for; it is followed when it changes (Back). */
+  filter?: FileFilter | undefined;
+  /**
+   * A filter chosen here, for the address. `replace` is set for a search, so typing does not add a history
+   * entry per pause; a chosen state or property does add one, so Back undoes it.
+   */
+  onFilter?: (filter: FileFilter, how: { replace: boolean }) => void;
+  /** The order the address asks for; null is recently added, oldest first. Followed when it changes. */
+  sort?: FileSort | undefined;
+  /** An order chosen here (sort control or column header), for the address. */
+  onSort?: (sort: FileSort) => void;
   onOpen: (id: string | undefined) => void;
 }> = (props) => {
   const [rows, setRows] = createSignal<FileRow[]>([]);
@@ -88,15 +64,18 @@ export const LibraryPage: Component<{
   const [loadingMore, setLoadingMore] = createSignal(false);
   const [moreProblem, setMoreProblem] = createSignal<string | null>(null);
   const [counts, setCounts] = createSignal<Record<string, number> | null>(null);
-  const [state, setState] = createSignal(knownState(props.status));
-  const [hide, setHide] = createSignal(normalizeHidden(props.hide));
-  const hidden = createMemo(() => hiddenSet(hide()));
-  const [has, setHas] = createSignal(normalizeHas(props.has));
-  const chosen = createMemo(() => hasSet(has()));
-  const [traitCounts, setTraitCounts] = createSignal<Record<string, number> | null>(null);
-  const [query, setQuery] = createSignal("");
-  const [search, setSearch] = createSignal("");
-  const [sort, setSort] = createSignal<Sort>(null);
+  const [filter, setFilter] = createSignal<FileFilter>(props.filter ?? EMPTY_FILTER, { equals: sameFilter });
+  const [facetCounts, setFacetCounts] = createSignal<FileCounts | null>(null);
+  const query = () => filter().q;
+  /** What the search field shows; the filter takes it after a short pause. */
+  const [search, setSearch] = createSignal(filter().q);
+  const sameSort = (a: Sort, b: Sort) => fileSortQuery(a) === fileSortQuery(b);
+  const [sort, setSort] = createSignal<Sort>(props.sort ?? null, { equals: sameSort });
+  /** The libraries by name, for the library facet; without an answer the facet shows only what is chosen. */
+  const [roots] = createResource(async () => {
+    const answer = await loadRoots(props.api);
+    return answer.kind === "ok" ? answer.items : [];
+  }, { initialValue: [] });
   const [picked, setPicked] = createSignal<ReadonlySet<string>>(new Set());
   /** The files a fix preview is open for, kept as rows because ids differ between responses. */
   const [inspectorVersion, setInspectorVersion] = createSignal(0);
@@ -123,12 +102,7 @@ export const LibraryPage: Component<{
     try { localStorage.setItem(VIEW_KEY, next); } catch { /* the choice just is not remembered */ }
   };
   const [missing, setMissing] = createSignal(0);
-  const [convertible, setConvertible] = createSignal(0);
-  const [encodeAudioCount, setEncodeAudioCount] = createSignal(0);
-  const [encodeVideoCount, setEncodeVideoCount] = createSignal(0);
   const [deleteOriginal, setDeleteOriginal] = createSignal<boolean | null>(null);
-  const [embedCount, setEmbedCount] = createSignal(0);
-  const [convertedCount, setConvertedCount] = createSignal(0);
   const [removeOpen, setRemoveOpen] = createSignal(false);
   const [removeBusy, setRemoveBusy] = createSignal(false);
   const [removeError, setRemoveError] = createSignal<string | null>(null);
@@ -157,7 +131,7 @@ export const LibraryPage: Component<{
     } else {
       setLoadingMore(true);
     }
-    const page = await loadFiles(props.api, { q: query(), complianceState: state(), hide: hide(), has: has(), cursor, sort: sort() });
+    const page = await loadFiles(props.api, { ...filter(), cursor, sort: sort() });
     if (mine !== generation) return;
     setLoadingMore(false);
     if (page.error) {
@@ -186,7 +160,7 @@ export const LibraryPage: Component<{
     let cursor: string | null = null;
     const fresh: FileRow[] = [];
     for (let index = 0; index < pages; index += 1) {
-      const page = await loadFiles(props.api, { q: query(), complianceState: state(), hide: hide(), has: has(), cursor, sort: sort() });
+      const page = await loadFiles(props.api, { ...filter(), cursor, sort: sort() });
       if (mine !== generation || page.error) return;
       fresh.push(...page.items);
       cursor = page.nextCursor;
@@ -200,23 +174,20 @@ export const LibraryPage: Component<{
     setRows(reuseUnchanged(fresh, rows(), (row) => row.display_path));
     setNextCursor(cursor);
   };
-  /** What each property would show with the current selection; without an answer the whole-library counts stay. */
-  const refreshTraitCounts = async () => {
-    setTraitCounts(await loadTraitCounts(props.api, { state: state() || undefined, hide: hide() || undefined, has: has() || undefined }));
+  /** What each option would show with the other filters, and how many files match; without an answer no counts show. */
+  const refreshFacetCounts = async () => {
+    const asked = filter();
+    const answer = await loadFacetCounts(props.api, asked);
+    if (sameFilter(asked, filter())) setFacetCounts(answer);
   };
   const refreshSummary = async () => {
     const summary = await loadSummary(props.api);
     if (!summary) return;
     if (summary.counts) setCounts(summary.counts);
     setJobsActive(summary.jobsActive);
-    void refreshTraitCounts();
+    void refreshFacetCounts();
     setMissing(summary.missing);
-    setConvertible(summary.convert);
-    setEncodeAudioCount(summary.encodeAudio);
-    setEncodeVideoCount(summary.encodeVideo);
     setDeleteOriginal(summary.deleteOriginal);
-    setEmbedCount(summary.embed);
-    setConvertedCount(summary.converted);
   };
   const openRemove = () => { removeKey = crypto.randomUUID(); setRemoveError(null); setRemoveOpen(true); };
   const closeRemove = () => { setRemoveOpen(false); queueMicrotask(() => removeTrigger?.focus()); };
@@ -228,7 +199,7 @@ export const LibraryPage: Component<{
     setRemoveBusy(false);
     if (!result.ok) { setRemoveError(result.session ? t(SESSION_EXPIRED) : t("Unable to remove missing files. Try again.")); return; }
     setRemoveOpen(false);
-    setStatus(tn("Removed {count} missing file from the library. A file that turns up again in a scan is shown again.", "Removed {count} missing files from the library. A file that turns up again in a scan is shown again.", result.removed));
+    setStatus(tn("Removed {count} missing file from Files. A file that turns up again in a scan is shown again.", "Removed {count} missing files from Files. A file that turns up again in a scan is shown again.", result.removed));
     props.onOpen(undefined);
     await load(true);
     await refreshSummary();
@@ -251,11 +222,16 @@ export const LibraryPage: Component<{
     onCleanup(() => window.clearInterval(timer));
   });
 
-  createEffect(on(() => props.status, (next) => setState(knownState(next)), { defer: true }));
-  createEffect(on(() => props.hide, (next) => setHide(normalizeHidden(next)), { defer: true }));
-  createEffect(on(() => props.has, (next) => setHas(normalizeHas(next)), { defer: true }));
-  createEffect(on([state, hide, has, query], () => void load(true)));
-  createEffect(on([state, hide, has], () => void refreshTraitCounts()));
+  // The address changed from outside (Back, a link): follow it, search field included.
+  createEffect(on(() => props.filter, (next) => {
+    const wanted = next ?? EMPTY_FILTER;
+    if (sameFilter(wanted, filter())) return;
+    clearTimeout(searchTimer);
+    setSearch(wanted.q);
+    setFilter(wanted);
+  }, { defer: true }));
+  createEffect(on(() => props.sort, (next) => setSort(next ?? null), { defer: true }));
+  createEffect(on(filter, () => { void load(true); void refreshFacetCounts(); }));
   createEffect(on(sort, () => void load(true, null, true), { defer: true }));
   onMount(() => void refreshSummary());
 
@@ -271,26 +247,59 @@ export const LibraryPage: Component<{
   // Nothing found and nothing filtered out: the library has not been scanned, as opposed to a search with no hits.
   const firstRun = () => total() === 0 && !filtered() && query() === "";
   /** Anything is left out of the list besides what the search leaves out. */
-  const filtered = () => state() !== "" || hide() !== "" || has() !== "";
-  const changeFilter = (next: { status: string; hide: string; has: string }) => {
-    setState(next.status);
-    setHide(next.hide);
-    setHas(next.has);
-    props.onFilter?.(next);
+  const filtered = () => isFiltered({ ...filter(), q: "" });
+  const changeFilter = (next: FileFilter, replace = false) => {
+    if (sameFilter(next, filter())) return;
+    setFilter(next);
+    props.onFilter?.(next, { replace });
   };
   const clearFilters = () => {
-    changeFilter({ status: "", hide: "", has: "" });
+    clearTimeout(searchTimer);
     setSearch("");
-    setQuery("");
+    changeFilter(EMPTY_FILTER);
   };
-  const entryLabel = (token: string) => t([...STATE_FILTERS, ...TRAIT_FILTERS].find((entry) => entry.token === token)?.label ?? token);
-  // The unfiltered total of each trait; the faceted count (traitCounts) wins when the server sent one.
-  const traitTotal: Record<string, () => number> = { convert: convertible, encode_audio: encodeAudioCount, encode_video: encodeVideoCount, embed: embedCount, converted: convertedCount };
-  const chipCount = (filterState: string) => {
-    if (filterState === "") return total();
-    if (filterState === "missing") return missing();
-    if (TRAIT_FILTERS.some((entry) => entry.token === filterState)) return traitCounts()?.[filterState] ?? traitTotal[filterState]?.() ?? 0;
-    return counts()?.[filterState] ?? 0;
+  /** Options nobody lists in advance: what the server knows, plus what is chosen, so a choice never vanishes. */
+  const withChosen = (known: Array<{ value: string; label: string }>, chosen: string[], label: (value: string) => string) => {
+    const seen = new Set(known.map((option) => option.value));
+    return [...known, ...chosen.filter((value) => !seen.has(value)).map((value) => ({ value, label: label(value) }))];
+  };
+  const extensionLabel = (suffix: string) => suffix.replace(/^\./, "") || t("(none)");
+  const facets = (): Facet[] => [
+    { key: "status", title: t("Status"), logic: "or", options: STATE_FILTERS.map((entry) => ({ value: entry.token, label: t(entry.label), urgent: entry.urgent })) },
+    { key: "has", title: t("Properties"), logic: "and", options: TRAIT_FILTERS.map((entry) => ({ value: entry.token, label: t(entry.label) })) },
+    { key: "root", title: t("Library"), logic: "or", searchable: roots().length > MANY_OPTIONS, options: withChosen(roots().map((root) => ({ value: root.id, label: root.name })), filter().root, (id) => id) },
+    {
+      key: "suffix", title: t("Extension"), logic: "or", placement: "more", searchable: true,
+      options: withChosen(Object.keys(facetCounts()?.facets.suffix ?? {}).map((suffix) => ({ value: suffix, label: extensionLabel(suffix) })), filter().suffix, extensionLabel),
+    },
+    { key: "sidecar", title: t("Subtitle files"), logic: "or", multiple: false, placement: "more", options: [{ value: "true", label: t("Yes") }, { value: "false", label: t("No") }] },
+  ];
+  const facetValue = (): FilterValue => ({
+    status: filter().status, has: filter().has, root: filter().root, suffix: filter().suffix,
+    sidecar: filter().sidecar === null ? [] : [String(filter().sidecar)],
+  });
+  const onFacets = (value: FilterValue) => {
+    const sidecar = value.sidecar?.[0];
+    changeFilter({
+      ...filter(), status: [...(value.status ?? [])], has: [...(value.has ?? [])], root: [...(value.root ?? [])], suffix: [...(value.suffix ?? [])],
+      sidecar: sidecar === "true" ? true : sidecar === "false" ? false : null,
+    });
+  };
+  const quickChoices = () => {
+    const active = activeQuickFilter(filter());
+    return QUICK_FILTERS.map((entry) => ({ id: entry.id, label: t(entry.label), active: entry.id === active?.id }));
+  };
+  /** A quick filter replaces the whole filter, search included; the one in effect takes itself away again. */
+  const onQuick = (id: string) => {
+    const chosen = QUICK_FILTERS.find((entry) => entry.id === id);
+    if (!chosen) return;
+    clearTimeout(searchTimer);
+    setSearch("");
+    changeFilter(activeQuickFilter(filter())?.id === id ? EMPTY_FILTER : chosen.filter);
+  };
+  const summaryText = () => {
+    const answer = facetCounts();
+    return answer ? tn("{matched} of {count} file", "{matched} of {count} files", answer.total, { matched: answer.matched }) : null;
   };
 
   // Where a Shift-click or Shift-arrow range starts, like the Finder's anchor.
@@ -354,12 +363,20 @@ export const LibraryPage: Component<{
   const onSearchInput = (value: string) => {
     setSearch(value);
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => setQuery(value.trim()), 250);
+    searchTimer = setTimeout(() => changeFilter({ ...filter(), q: value.trim() }, true), 250);
   };
+  const changeSort = (next: Sort) => {
+    if (sameSort(next, sort())) return;
+    setSort(next);
+    props.onSort?.(next);
+  };
+  /** A column header: ascending, then descending, then back to the default order. */
   const toggleSort = (key: SortKey) => {
     const current = sort();
-    setSort(current?.key === key ? (current.dir === 1 ? { key, dir: -1 } : null) : { key, dir: 1 });
+    changeSort(current?.key === key ? (current.dir === 1 ? { key, dir: -1 } : null) : { key, dir: 1 });
   };
+  const sortKey = (): FileSortKey => sort()?.key ?? "added";
+  const sortDir = (): 1 | -1 => sort()?.dir ?? 1;
 
   /** Rows a preview or verification acts on: an explicit list, else the selection, else the open file. */
   const targets = (explicit?: string[]): FileRow[] => {
@@ -450,7 +467,7 @@ export const LibraryPage: Component<{
     let truncated = false;
     for (const folder of colPicked().folders) {
       if (!folder.rootId) continue;
-      const result = await loadBelow(props.api, { rootId: folder.rootId, path: folder.path, state: state() || undefined, hide: hide() || undefined, has: has() || undefined });
+      const result = await loadBelow(props.api, { rootId: folder.rootId, path: folder.path, filter: filter() });
       if (result.kind !== "ok") return { rows: found, truncated, error: result.kind };
       result.files.forEach(add);
       truncated ||= result.truncated;
@@ -557,27 +574,10 @@ export const LibraryPage: Component<{
 
   return (
     <div class="library" data-pane={props.activeId || previewRows() ? "detail" : "list"} onKeyDown={onKeyDown}>
-      <section class="lib-main" aria-label={t("Library")}>
+      <section class="lib-main" aria-label={t("Files")}>
         <div class="lib-bar">
           <div class="lib-bar-top">
-            <h1>{t("Library")}</h1>
-            <div class="search">
-              <Icon name="search" />
-              <input
-                ref={searchInput}
-                class="input"
-                type="search"
-                placeholder={t("Search files")}
-                aria-label={t("Search files")}
-                value={search()}
-                onInput={(event) => onSearchInput(event.currentTarget.value)}
-              />
-              <Kbd>/</Kbd>
-            </div>
-            <div class="seg view-switch" role="group" aria-label={t("Library view")}>
-              <button type="button" aria-pressed={view() === "list"} onClick={() => setView("list")}><Icon name="rows" size={14} /> {t("List")}</button>
-              <button type="button" aria-pressed={view() === "columns"} onClick={() => setView("columns")}><Icon name="columns" size={14} /> {t("Columns")}</button>
-            </div>
+            <h1>{t("Files")}</h1>
           </div>
           <div class="lib-tools">
             <ScanControl api={props.api} onFinished={() => { void load(true); void refreshSummary(); }} />
@@ -587,7 +587,7 @@ export const LibraryPage: Component<{
           </div>
           <Show when={removeOpen()}>
             <div class="confirm" role="region" aria-label={t("Remove missing files")} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); closeRemove(); } }}>
-              <p>{tn("Remove {count} missing file from the library? Nothing is deleted from disk, and its job history stays.", "Remove {count} missing files from the library? Nothing is deleted from disk, and their job history stays.", missing())}</p>
+              <p>{tn("Remove {count} missing file from Files? Nothing is deleted from disk, and its job history stays.", "Remove {count} missing files from Files? Nothing is deleted from disk, and their job history stays.", missing())}</p>
               <Show when={removeError()}><p class="notice bad" role="alert">{removeError()}</p></Show>
               <div class="insp-actions">
                 <Button variant="primary" disabled={removeBusy()} onClick={() => void submitRemove()}>{t("Confirm remove")}</Button>
@@ -595,46 +595,77 @@ export const LibraryPage: Component<{
               </div>
             </div>
           </Show>
-          <div class="filters" role="group" aria-label={t("Filter by status")}>
-            <Show when={state() !== ""}>
-              <button type="button" class="filter-only" aria-label={t("Remove filter: only {name}", { name: entryLabel(state()) })} onClick={() => changeFilter({ status: "", hide: hide(), has: has() })}>
-                {t("Only {name}", { name: entryLabel(state()) })} <Icon name="x" size={12} />
-              </button>
-            </Show>
-            <FilterGroup
-              title={t("Status")}
-              entries={STATE_FILTERS}
-              ticked={(token) => !hidden().has(token)}
-              count={chipCount}
-              onToggle={(token) => changeFilter({ status: state(), hide: toggleHidden(hide(), token), has: has() })}
-              onAll={() => changeFilter({ status: state(), hide: setGroupHidden(hide(), STATE_FILTERS, false), has: has() })}
-              onNone={() => changeFilter({ status: state(), hide: setGroupHidden(hide(), STATE_FILTERS, true), has: has() })}
-            />
-            <FilterGroup
-              title={t("Properties")}
-              entries={TRAIT_FILTERS}
-              ticked={(token) => chosen().has(token)}
-              count={chipCount}
-              onToggle={(token) => changeFilter({ status: state(), hide: hide(), has: toggleHas(has(), token) })}
-            />
-            <Show when={filtered()}>
-              <Button variant="quiet" class="filter-reset" onClick={clearFilters}>{t("Show all files")}</Button>
-            </Show>
-          </div>
+          <FilterBar
+            label={t("Filter files")}
+            facets={facets().filter((facet) => facet.options.length > 0)}
+            value={facetValue()}
+            counts={facetCounts()?.facets ?? null}
+            summary={summaryText()}
+            countText={(count) => tn("{count} file", "{count} files", count)}
+            dirty={isFiltered(filter())}
+            onChange={onFacets}
+            onReset={clearFilters}
+            quick={quickChoices()}
+            onQuick={onQuick}
+            search={(
+              <div class="search">
+                <Icon name="search" />
+                <input
+                  ref={searchInput}
+                  class="input"
+                  type="search"
+                  placeholder={t("Search files")}
+                  aria-label={t("Search files")}
+                  value={search()}
+                  onInput={(event) => onSearchInput(event.currentTarget.value)}
+                />
+                <Kbd>/</Kbd>
+              </div>
+            )}
+            tools={(
+              <>
+              <div class="lib-sort">
+                <select class="select" aria-label={t("Sort by")} value={sortKey()} onChange={(event) => {
+                  const key = event.currentTarget.value as FileSortKey;
+                  changeSort({ key, dir: sortDir() });
+                }}>
+                  <For each={SORT_CHOICES}>{(choice) => <option value={choice.key}>{t(choice.label)}</option>}</For>
+                </select>
+                <button
+                  type="button"
+                  class="btn quiet lib-sort-dir"
+                  aria-label={sortDir() === 1 ? t("Ascending") : t("Descending")}
+                  title={sortDir() === 1 ? t("Ascending") : t("Descending")}
+                  onClick={() => changeSort({ key: sortKey(), dir: sortDir() === 1 ? -1 : 1 })}
+                >
+                  <span aria-hidden="true">{sortDir() === 1 ? "↑" : "↓"}</span>
+                </button>
+              </div>
+              <div class="seg view-switch" role="group" aria-label={t("Files view")}>
+                <button type="button" aria-pressed={view() === "list"} aria-label={t("List")} onClick={() => setView("list")}><Icon name="rows" size={14} /> <span class="seg-label">{t("List")}</span></button>
+                <button type="button" aria-pressed={view() === "columns"} aria-label={t("Columns")} onClick={() => setView("columns")}><Icon name="columns" size={14} /> <span class="seg-label">{t("Columns")}</span></button>
+              </div>
+              </>
+            )}
+          />
         </div>
 
         <Show when={status()}><p class="notice ok lib-notice" role="status">{status()}</p></Show>
         <Show when={actionError()}><p class="notice bad lib-notice" role="alert">{actionError()}</p></Show>
 
         <Show when={showColumns()}>
-          <ColumnsView api={props.api} state={state()} hide={hide()} has={has()} version={inspectorVersion()} activeId={props.activeId} clearToken={clearToken()} onOpen={props.onOpen} onSelection={setColPicked} onAction={(action) => void actOnColumns(action)} />
+          <ColumnsView api={props.api} filter={filter()} version={inspectorVersion()} activeId={props.activeId} clearToken={clearToken()} onOpen={props.onOpen} onSelection={setColPicked} onAction={(action) => void actOnColumns(action)} />
         </Show>
         <div class="lib-scroll" hidden={showColumns()}>
           <Show when={phase() !== "loading"} fallback={<p class="muted pad">{t("Loading files")}</p>}>
             <Show when={phase() === "ready"} fallback={
               <div class="notice bad lib-notice" role="alert">
                 <p>{phase() === "session" ? t(SESSION_EXPIRED) : t("Unable to load files")}</p>
-                <Show when={phase() === "error"}><Button onClick={() => void load(true)}>{t("Retry")}</Button></Show>
+                <Show when={phase() === "error"}>
+                  <Button onClick={() => void load(true)}>{t("Retry")}</Button>
+                  {/* A link with a filter the server refuses fails every time; resetting gets out of it. */}
+                  <Show when={isFiltered(filter())}><Button variant="quiet" onClick={clearFilters}>{t("Reset filters")}</Button></Show>
+                </Show>
               </div>
             }>
               <Show
@@ -643,11 +674,7 @@ export const LibraryPage: Component<{
                   <Show
                     when={firstRun()}
                     fallback={(
-                      <div class="empty">
-                        <b>{t("No files match the current filters")}</b>
-                        {t("Change the status filter or clear the search.")}
-                        <div><Button onClick={clearFilters}>{t("Clear filters")}</Button></div>
-                      </div>
+                      <NoMatches title={t("No files match the current filters")} facets={facets()} value={facetValue()} search={query()} onReset={clearFilters} />
                     )}
                   >
                     <div class="empty"><b>{t("No files yet")}</b>{t("A scan reads your libraries and checks which files Apple TV will play, and why. Use Scan above to start.")}</div>

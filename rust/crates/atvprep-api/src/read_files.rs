@@ -35,7 +35,9 @@ pub struct FileQuery {
     kind: Option<String>,
     suffix: Option<String>,
     compliance_state: Option<String>,
+    /// Only refused: the states are chosen positively with `status` now.
     hide: Option<String>,
+    status: Option<String>,
     has: Option<String>,
     workflow_state: Option<String>,
     discovery_state: Option<String>,
@@ -54,8 +56,13 @@ pub struct BrowseQuery {
     root_id: Option<String>,
     path: Option<String>,
     state: Option<String>,
+    /// Only refused: the states are chosen positively with `status` now.
     hide: Option<String>,
+    status: Option<String>,
     has: Option<String>,
+    suffix: Option<String>,
+    #[serde(default, deserialize_with = "python_bool")]
+    has_sidecar: Option<bool>,
 }
 
 fn python_bool<'de, D: serde::Deserializer<'de>>(
@@ -71,12 +78,19 @@ fn python_bool<'de, D: serde::Deserializer<'de>>(
         .transpose()
 }
 
-/// States that can be hidden (`hide`).
+/// The states chosen with `status` (OR). Every file is in exactly one of them.
+const STATES: [&str; 7] = [
+    "clean",
+    "embed_open",
+    "warning",
+    "blocker",
+    "unknown",
+    "probe_failed",
+    "missing",
+];
+
 fn status_token(token: &str) -> bool {
-    matches!(
-        token,
-        "clean" | "warning" | "blocker" | "unknown" | "probe_failed" | "missing"
-    )
+    STATES.contains(&token)
 }
 
 /// Traits that overlap and are only selected positively (`has`, AND).
@@ -96,53 +110,168 @@ fn known_state(state: &str) -> bool {
     status_token(state) || trait_token(state)
 }
 
-/// `hide` takes only states, `has` only traits; both are comma-separated and bounded.
-fn list_input_error(hide: Option<&str>, has: Option<&str>) -> Option<&'static str> {
+/// `status` takes only states, `has` only traits; both are comma-separated and bounded, as is the
+/// list of extensions. `hide`, the old way of leaving states out, is refused so that no client
+/// silently gets every file.
+fn list_input_error(
+    hide: Option<&str>,
+    status: Option<&str>,
+    has: Option<&str>,
+    suffix: Option<&str>,
+) -> Option<&'static str> {
+    if hide.is_some() {
+        return Some("hide is no longer accepted, use status");
+    }
+    if suffix.is_some_and(|value| value.chars().count() > 128) {
+        return Some("suffix is too long");
+    }
     for (value, allowed, too_long) in [
-        (hide, status_token as fn(&str) -> bool, "hide is too long"),
+        (
+            status,
+            status_token as fn(&str) -> bool,
+            "status is too long",
+        ),
         (has, trait_token as fn(&str) -> bool, "has is too long"),
     ] {
         let Some(value) = value else { continue };
         if value.chars().count() > 128 {
             return Some(too_long);
         }
-        if value
-            .split(',')
-            .filter(|token| !token.is_empty())
-            .any(|token| !allowed(token))
-        {
+        if tokens(Some(value)).iter().any(|token| !allowed(token)) {
             return Some("unknown state");
         }
     }
     None
 }
 
-/// Clauses of the `hide` filter (one clause: none of the states) and `has` (one per trait, AND).
-/// The tokens were validated with `list_input_error` beforehand.
-fn selection_clauses(
-    hide: Option<&str>,
-    has: &[&str],
-    open: &str,
-    values: &mut Vec<rusqlite::types::Value>,
-) -> Vec<String> {
-    let mut clauses = Vec::new();
-    let hidden: Vec<String> = hide
-        .unwrap_or_default()
-        .split(',')
-        .filter(|token| !token.is_empty())
-        .map(|token| state_clause(token, open, values))
-        .collect();
-    if !hidden.is_empty() {
-        clauses.push(format!("NOT ({})", hidden.join(" OR ")));
-    }
-    for token in has {
-        clauses.push(state_clause(token, open, values));
-    }
-    clauses
+/// The facets the counters vary, as chosen: states (any of them), properties (all of them),
+/// libraries (any), extensions (any) and whether a subtitle file lies beside the file.
+#[derive(Clone, Default)]
+struct Facets {
+    status: Vec<String>,
+    has: Vec<String>,
+    roots: Vec<i64>,
+    suffix: Vec<String>,
+    sidecar: Option<bool>,
 }
 
-fn has_tokens(has: Option<&str>) -> Vec<&str> {
-    has.unwrap_or_default()
+/// A facet left out, so that its own counters show what each of its options would show.
+#[derive(Clone, Copy)]
+enum Facet {
+    Status,
+    Root,
+    Suffix,
+    Sidecar,
+}
+
+impl Facets {
+    /// The choices of a request; the lists were validated with `list_input_error` beforehand.
+    fn parse(
+        status: Option<&str>,
+        has: Option<&str>,
+        roots: Option<&str>,
+        suffix: Option<&str>,
+        sidecar: Option<bool>,
+        opaque: &Opaque,
+    ) -> Result<Self, (StatusCode, &'static str)> {
+        let once = |value: Option<&str>| -> Vec<String> {
+            let mut seen: Vec<String> = Vec::new();
+            for token in tokens(value) {
+                if !seen.iter().any(|known| known == token) {
+                    seen.push(token.to_owned());
+                }
+            }
+            seen
+        };
+        let mut ids = Vec::new();
+        for token in tokens(roots) {
+            match opaque.decode(token, "r") {
+                Ok(id) if id > 0 => ids.push(id),
+                _ => return Err((StatusCode::NOT_FOUND, "resource not found")),
+            }
+        }
+        Ok(Self {
+            status: once(status),
+            has: once(has),
+            roots: ids,
+            suffix: once(suffix),
+            sidecar,
+        })
+    }
+
+    /// Anything is chosen at all.
+    fn any(&self) -> bool {
+        !self.status.is_empty()
+            || !self.has.is_empty()
+            || !self.roots.is_empty()
+            || !self.suffix.is_empty()
+            || self.sidecar.is_some()
+    }
+
+    /// The same choices with one facet cleared.
+    fn without(&self, facet: Facet) -> Self {
+        let mut next = self.clone();
+        match facet {
+            Facet::Status => next.status.clear(),
+            Facet::Root => next.roots.clear(),
+            Facet::Suffix => next.suffix.clear(),
+            Facet::Sidecar => next.sidecar = None,
+        }
+        next
+    }
+
+    /// The clauses of the choices (the states as one OR clause, one per property, the libraries
+    /// and extensions as one IN each), with their values bound in order.
+    fn clauses(&self, open: &str, values: &mut Vec<rusqlite::types::Value>) -> Vec<String> {
+        let mut clauses = Vec::new();
+        let chosen: Vec<String> = self
+            .status
+            .iter()
+            .map(|token| state_clause(token, open, values))
+            .collect();
+        if !chosen.is_empty() {
+            clauses.push(format!("({})", chosen.join(" OR ")));
+        }
+        for token in &self.has {
+            clauses.push(state_clause(token, open, values));
+        }
+        if !self.roots.is_empty() {
+            clauses.push(format!(
+                "m.root_id IN ({})",
+                vec!["?"; self.roots.len()].join(",")
+            ));
+            values.extend(
+                self.roots
+                    .iter()
+                    .map(|id| rusqlite::types::Value::from(*id)),
+            );
+        }
+        if !self.suffix.is_empty() {
+            clauses.push(format!(
+                "m.suffix IN ({})",
+                vec!["?"; self.suffix.len()].join(",")
+            ));
+            values.extend(
+                self.suffix
+                    .iter()
+                    .cloned()
+                    .map(rusqlite::types::Value::from),
+            );
+        }
+        if let Some(sidecar) = self.sidecar {
+            clauses.push(format!("{}{SIDECAR}", if sidecar { "" } else { "NOT " }));
+        }
+        clauses
+    }
+}
+
+/// A subtitle file lies beside the file.
+const SIDECAR: &str = "EXISTS (SELECT 1 FROM sidecars s WHERE s.media_file_id=m.id)";
+
+/// The non-empty entries of a comma-separated list.
+fn tokens(value: Option<&str>) -> Vec<&str> {
+    value
+        .unwrap_or_default()
         .split(',')
         .filter(|token| !token.is_empty())
         .collect()
@@ -177,10 +306,12 @@ fn browse_input_error(query: &BrowseQuery, below: bool) -> Option<&'static str> 
     {
         return Some("unknown state");
     }
-    if let Some(message) = list_input_error(query.hide.as_deref(), query.has.as_deref()) {
-        return Some(message);
-    }
-    None
+    list_input_error(
+        query.hide.as_deref(),
+        query.status.as_deref(),
+        query.has.as_deref(),
+        query.suffix.as_deref(),
+    )
 }
 
 #[allow(clippy::too_many_lines)] // Keep validation and its parameterized query together.
@@ -230,15 +361,20 @@ async fn browse_inner(state: AppState, query: BrowseQuery, below: bool) -> Respo
     if let Some(value) = query.state.as_deref() {
         clauses.push(state_clause(value, &open, &mut values));
     }
-    let selection = selection_clauses(
-        query.hide.as_deref(),
-        &has_tokens(query.has.as_deref()),
-        &open,
-        &mut values,
-    );
-    let hidden = selection;
-    clauses.extend(hidden.iter().cloned());
-    let filtered = query.state.is_some() || !hidden.is_empty();
+    // The library facet is the column itself here: the page leaves out the libraries not chosen.
+    let selection = match Facets::parse(
+        query.status.as_deref(),
+        query.has.as_deref(),
+        None,
+        query.suffix.as_deref(),
+        query.has_sidecar,
+        &opaque,
+    ) {
+        Ok(selection) => selection,
+        Err((code, message)) => return error(code, message, PATH),
+    };
+    let filtered = query.state.is_some() || selection.any();
+    clauses.extend(selection.clauses(&open, &mut values));
     if let Some(root) = root {
         clauses.push("m.root_id=?".to_owned());
         values.push(root.into());
@@ -288,30 +424,21 @@ async fn browse_inner(state: AppState, query: BrowseQuery, below: bool) -> Respo
     }
 }
 
-#[derive(Deserialize)]
-pub struct CountsQuery {
-    compliance_state: Option<String>,
-    hide: Option<String>,
-    has: Option<String>,
-}
-
-/// How many files each trait would show if it were added to the current selection.
-pub async fn trait_counts(
+/// The facet counters for the list with the same filters as `/files`: each state with every filter
+/// but the states, each property with every filter plus that property, each library, extension and
+/// "has a subtitle file" with every filter but that facet's own choice, the files that match all
+/// filters and all files there are.
+#[allow(clippy::too_many_lines)] // One counter per facet, all over the same filter.
+pub async fn facet_counts(
     State(state): State<AppState>,
     _session: AuthenticatedSession,
-    Query(query): Query<CountsQuery>,
+    Query(query): Query<FileQuery>,
 ) -> Response {
     const PATH: &str = "/api/v1/files/counts";
-    if let Some(message) = list_input_error(query.hide.as_deref(), query.has.as_deref()) {
-        return error(StatusCode::UNPROCESSABLE_ENTITY, message, PATH);
+    if let Some(response) = filter_input_error(&query, PATH) {
+        return response;
     }
-    if query
-        .compliance_state
-        .as_deref()
-        .is_some_and(|state| !known_state(state))
-    {
-        return error(StatusCode::UNPROCESSABLE_ENTITY, "unknown state", PATH);
-    }
+    let opaque = Opaque::new(state.api_secret.as_bytes());
     let Some(open) = embed_open_json(&state).await else {
         return error(
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -319,40 +446,113 @@ pub async fn trait_counts(
             PATH,
         );
     };
+    let (base, base_values) = match base_filter(&query, &open) {
+        Ok(filter) => filter,
+        Err((code, message)) => return error(code, message, PATH),
+    };
+    let chosen = match facets_of(&query, &opaque) {
+        Ok(chosen) => chosen,
+        Err((code, message)) => return error(code, message, PATH),
+    };
     let result = tokio::task::spawn_blocking(move || {
         let conn = state.db.conn().map_err(|_| ())?;
         let conn = conn.raw();
-        let mut data = serde_json::Map::new();
-        for token in TRAITS {
-            let mut values: Vec<rusqlite::types::Value> = Vec::new();
-            let mut clauses =
-                vec!["NOT (m.discovery_state='missing' AND m.dismissed_at IS NOT NULL)".to_owned()];
-            if let Some(value) = query.compliance_state.as_deref().filter(|s| !s.is_empty()) {
-                clauses.push(state_clause(value, &open, &mut values));
-            }
-            let mut has = has_tokens(query.has.as_deref());
-            if !has.contains(&token) {
-                has.push(token);
-            }
-            clauses.extend(selection_clauses(
-                query.hide.as_deref(),
-                &has,
-                &open,
-                &mut values,
-            ));
-            let count: i64 = conn
-                .query_row(
-                    &format!(
-                        "SELECT count(*) FROM media_files m WHERE {}",
-                        clauses.join(" AND ")
-                    ),
-                    rusqlite::params_from_iter(values.iter()),
-                    |row| row.get(0),
-                )
+        // Files matching every filter and `facets`, counted per value of `key` (an SQL expression).
+        let grouped = |facets: &Facets, key: &str| -> Result<Vec<(rusqlite::types::Value, i64)>, ()> {
+            let mut clauses = base.clone();
+            let mut values = base_values.clone();
+            clauses.extend(facets.clauses(&open, &mut values));
+            let mut stmt = conn
+                .prepare(&format!(
+                    "SELECT {key}, count(*) FROM media_files m WHERE {} GROUP BY 1",
+                    clauses.join(" AND ")
+                ))
                 .map_err(|_| ())?;
-            data.insert(token.to_owned(), json!(count));
+            stmt.query_map(rusqlite::params_from_iter(values.iter()), |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+            .map_err(|_| ())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| ())
+        };
+        let count = |facets: &Facets| -> Result<i64, ()> {
+            Ok(grouped(facets, "1")?.first().map_or(0, |(_, n)| *n))
+        };
+        let mut by_status = serde_json::Map::new();
+        for token in STATES {
+            let mut with = chosen.without(Facet::Status);
+            with.status = vec![token.to_owned()];
+            by_status.insert(token.to_owned(), json!(count(&with)?));
         }
-        Ok::<_, ()>(json!({"data": data, "meta": {}}))
+        let mut by_trait = serde_json::Map::new();
+        for token in TRAITS {
+            let mut with = chosen.clone();
+            if !with.has.iter().any(|known| known == token) {
+                with.has.push(token.to_owned());
+            }
+            by_trait.insert(token.to_owned(), json!(count(&with)?));
+        }
+        // Every library and every extension there is, so an option without a hit still shows with 0.
+        let tally = |facet: Facet, key: &str| -> Result<std::collections::HashMap<String, i64>, ()> {
+            Ok(grouped(&chosen.without(facet), key)?
+                .into_iter()
+                .map(|(value, n)| (sql_text(value), n))
+                .collect())
+        };
+        let roots = tally(Facet::Root, "m.root_id")?;
+        let mut by_root = serde_json::Map::new();
+        let mut stmt = conn
+            .prepare("SELECT id FROM library_roots ORDER BY id")
+            .map_err(|_| ())?;
+        for id in stmt
+            .query_map([], |row| row.get::<_, i64>(0))
+            .map_err(|_| ())?
+        {
+            let id = id.map_err(|_| ())?;
+            let n = roots.get(&id.to_string()).copied().unwrap_or(0);
+            by_root.insert(opaque.encode("r", id), json!(n));
+        }
+        let suffixes = tally(Facet::Suffix, "m.suffix")?;
+        let mut known: Vec<String> = conn
+            .prepare(&format!(
+                "SELECT DISTINCT m.suffix FROM media_files m WHERE {LISTED} ORDER BY m.suffix LIMIT {SUFFIX_OPTIONS}"
+            ))
+            .map_err(|_| ())?
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|_| ())?
+            .collect::<Result<_, _>>()
+            .map_err(|_| ())?;
+        known.extend(chosen.suffix.iter().cloned());
+        let mut by_suffix = serde_json::Map::new();
+        for suffix in known {
+            let n = suffixes.get(&suffix).copied().unwrap_or(0);
+            by_suffix.insert(crate::read_jobs::safe_head(&suffix, 256), json!(n));
+        }
+        let sidecars = tally(Facet::Sidecar, SIDECAR)?;
+        let by_sidecar = json!({
+            "true": sidecars.get("1").copied().unwrap_or(0),
+            "false": sidecars.get("0").copied().unwrap_or(0),
+        });
+        let matched = count(&chosen)?;
+        let total: i64 = conn
+            .query_row(
+                &format!("SELECT count(*) FROM media_files m WHERE {LISTED}"),
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|_| ())?;
+        Ok::<_, ()>(json!({
+            "data": {
+                "status": by_status,
+                "has": by_trait,
+                "root_id": by_root,
+                "suffix": by_suffix,
+                "has_sidecar": by_sidecar,
+                "matched": matched,
+                "total": total
+            },
+            "meta": {}
+        }))
     })
     .await;
     match result {
@@ -377,14 +577,23 @@ async fn embed_open_json(state: &AppState) -> Option<String> {
     .flatten()
 }
 
-/// "Ready" is a clean file with nothing left to embed; "embed" is any file with an open embedding.
+/// "Ready" is a clean file with nothing left to embed and `embed_open` a clean one with an open
+/// embedding; the trait "embed" is any file with an open embedding, whatever its state.
+/// The states split the files without overlap: a missing file is only "missing".
 fn state_clause(state: &str, open: &str, values: &mut Vec<rusqlite::types::Value>) -> String {
     match state {
         "clean" => {
             values.push(open.to_owned().into());
             format!(
-                "(m.compliance_state='clean' AND {})",
+                "(m.discovery_state<>'missing' AND m.compliance_state='clean' AND {})",
                 media_sql::embed_not_open("?")
+            )
+        }
+        "embed_open" => {
+            values.push(open.to_owned().into());
+            format!(
+                "(m.discovery_state<>'missing' AND m.compliance_state='clean' AND {})",
+                media_sql::embed_open("?")
             )
         }
         "embed" => {
@@ -401,9 +610,21 @@ fn state_clause(state: &str, open: &str, values: &mut Vec<rusqlite::types::Value
         "encode_video" => format!("(m.discovery_state='present' AND {NEEDS_VIDEO})"),
         _ => {
             values.push(state.to_owned().into());
-            "m.compliance_state=?".to_owned()
+            "(m.discovery_state<>'missing' AND m.compliance_state=?)".to_owned()
         }
     }
+}
+
+/// Where a file's state lands in the status sort, given a bound JSON list of the open ids: blocker,
+/// inspection failed, missing, warning, embed open, not verified, ready.
+fn status_rank(param: &str) -> String {
+    format!(
+        "(CASE WHEN m.discovery_state='missing' THEN 2 \
+         WHEN m.compliance_state='clean' AND {} THEN 4 \
+         ELSE CASE m.compliance_state WHEN 'blocker' THEN 0 WHEN 'probe_failed' THEN 1 \
+         WHEN 'warning' THEN 3 WHEN 'unknown' THEN 5 WHEN 'clean' THEN 6 ELSE 9 END END)",
+        media_sql::embed_open(param)
+    )
 }
 
 fn db_datetime(value: &str) -> Option<String> {
@@ -418,6 +639,112 @@ fn db_datetime(value: &str) -> Option<String> {
                 .and_then(|date| date.and_hms_opt(0, 0, 0))
         })?;
     Some(date.format("%Y-%m-%d %H:%M:%S%.6f").to_string())
+}
+
+/// The files the list shows at all: a missing file the user removed is gone.
+const LISTED: &str = "NOT (m.discovery_state='missing' AND m.dismissed_at IS NOT NULL)";
+
+/// Bounds and token checks shared by the list and its counters.
+fn filter_input_error(query: &FileQuery, path: &str) -> Option<Response> {
+    // Several libraries make a long list of ids.
+    if query
+        .root_id
+        .as_ref()
+        .is_some_and(|value| value.chars().count() > 1024)
+    {
+        return Some(error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "root_id is too long",
+            path,
+        ));
+    }
+    for (name, value) in [
+        ("kind", &query.kind),
+        ("compliance_state", &query.compliance_state),
+        ("workflow_state", &query.workflow_state),
+        ("discovery_state", &query.discovery_state),
+        ("desired_action", &query.desired_action),
+        ("q", &query.q),
+    ] {
+        if value
+            .as_ref()
+            .is_some_and(|value| value.chars().count() > 128)
+        {
+            return Some(error(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                &format!("{name} is too long"),
+                path,
+            ));
+        }
+    }
+    list_input_error(
+        query.hide.as_deref(),
+        query.status.as_deref(),
+        query.has.as_deref(),
+        query.suffix.as_deref(),
+    )
+    .map(|message| error(StatusCode::UNPROCESSABLE_ENTITY, message, path))
+}
+
+/// SQL clauses joined with AND, and the values bound to them in order.
+type Filter = (Vec<String>, Vec<rusqlite::types::Value>);
+
+/// How many extensions the counters offer at most.
+const SUFFIX_OPTIONS: usize = 200;
+
+/// A grouping key read back from SQL, as the text the counters key it by.
+fn sql_text(value: rusqlite::types::Value) -> String {
+    match value {
+        rusqlite::types::Value::Integer(n) => n.to_string(),
+        rusqlite::types::Value::Text(text) => text,
+        _ => String::new(),
+    }
+}
+
+/// The facet choices of a list request.
+fn facets_of(query: &FileQuery, opaque: &Opaque) -> Result<Facets, (StatusCode, &'static str)> {
+    Facets::parse(
+        query.status.as_deref(),
+        query.has.as_deref(),
+        query.root_id.as_deref(),
+        query.suffix.as_deref(),
+        query.has_sidecar,
+        opaque,
+    )
+}
+
+/// Every filter of the list except the facets (`Facets`), which the counters vary.
+fn base_filter(query: &FileQuery, open: &str) -> Result<Filter, (StatusCode, &'static str)> {
+    let mut clauses = vec![LISTED.to_owned()];
+    let mut values: Vec<rusqlite::types::Value> = Vec::new();
+    for (column, value) in [
+        ("kind", &query.kind),
+        ("workflow_state", &query.workflow_state),
+        ("discovery_state", &query.discovery_state),
+        ("desired_action", &query.desired_action),
+    ] {
+        if let Some(value) = value.as_deref().filter(|s| !s.is_empty()) {
+            clauses.push(format!("m.{column}=?"));
+            values.push(value.to_owned().into());
+        }
+    }
+    if let Some(value) = query.compliance_state.as_deref().filter(|s| !s.is_empty()) {
+        clauses.push(state_clause(value, open, &mut values));
+    }
+    for (op, value) in [(">=", &query.last_seen_from), ("<=", &query.last_seen_to)] {
+        if let Some(value) = value {
+            let Some(date) = db_datetime(value) else {
+                return Err((StatusCode::UNPROCESSABLE_ENTITY, "invalid request"));
+            };
+            clauses.push(format!("m.last_seen_at{op}?"));
+            values.push(date.into());
+        }
+    }
+    if let Some(value) = query.q.as_deref().filter(|s| !s.is_empty()) {
+        clauses.push("lower(m.relative_path) LIKE lower(?)".to_owned());
+        values.push(format!("%{value}%").into());
+    }
+    Ok((clauses, values))
 }
 
 /// List library files with the reference filters, facets and ordering.
@@ -442,29 +769,8 @@ pub async fn list(
             PATH,
         );
     }
-    for (name, value) in [
-        ("root_id", &query.root_id),
-        ("kind", &query.kind),
-        ("suffix", &query.suffix),
-        ("compliance_state", &query.compliance_state),
-        ("workflow_state", &query.workflow_state),
-        ("discovery_state", &query.discovery_state),
-        ("desired_action", &query.desired_action),
-        ("q", &query.q),
-    ] {
-        if value
-            .as_ref()
-            .is_some_and(|value| value.chars().count() > 128)
-        {
-            return error(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                &format!("{name} is too long"),
-                PATH,
-            );
-        }
-    }
-    if let Some(message) = list_input_error(query.hide.as_deref(), query.has.as_deref()) {
-        return error(StatusCode::UNPROCESSABLE_ENTITY, message, PATH);
+    if let Some(response) = filter_input_error(&query, PATH) {
+        return response;
     }
     let opaque = Opaque::new(state.api_secret.as_bytes());
     let after = match query.cursor.as_deref() {
@@ -481,60 +787,24 @@ pub async fn list(
             PATH,
         );
     };
-    let mut clauses =
-        vec!["NOT (m.discovery_state='missing' AND m.dismissed_at IS NOT NULL)".to_owned()];
-    let mut values: Vec<rusqlite::types::Value> = Vec::new();
-    if let Some(root) = query.root_id.as_deref().filter(|s| !s.is_empty()) {
-        match opaque.decode(root, "r") {
-            Ok(id) if id > 0 => {
-                clauses.push("m.root_id=?".to_owned());
-                values.push(id.into());
-            }
-            _ => return error(StatusCode::NOT_FOUND, "resource not found", PATH),
-        }
+    let (mut clauses, mut values) = match base_filter(&query, &open) {
+        Ok(filter) => filter,
+        Err((code, message)) => return error(code, message, PATH),
+    };
+    match facets_of(&query, &opaque) {
+        Ok(chosen) => clauses.extend(chosen.clauses(&open, &mut values)),
+        Err((code, message)) => return error(code, message, PATH),
     }
-    for (column, value) in [
-        ("kind", &query.kind),
-        ("suffix", &query.suffix),
-        ("workflow_state", &query.workflow_state),
-        ("discovery_state", &query.discovery_state),
-        ("desired_action", &query.desired_action),
-    ] {
-        if let Some(value) = value.as_deref().filter(|s| !s.is_empty()) {
-            clauses.push(format!("m.{column}=?"));
-            values.push(value.to_owned().into());
-        }
-    }
-    if let Some(value) = query.compliance_state.as_deref().filter(|s| !s.is_empty()) {
-        clauses.push(state_clause(value, &open, &mut values));
-    }
-    clauses.extend(selection_clauses(
-        query.hide.as_deref(),
-        &has_tokens(query.has.as_deref()),
-        &open,
-        &mut values,
-    ));
-    if let Some(sidecar) = query.has_sidecar {
-        clauses.push(format!(
-            "{}EXISTS (SELECT 1 FROM sidecars s WHERE s.media_file_id=m.id)",
-            if sidecar { "" } else { "NOT " }
-        ));
-    }
-    for (op, value) in [(">=", &query.last_seen_from), ("<=", &query.last_seen_to)] {
-        if let Some(value) = value {
-            let Some(date) = db_datetime(value) else {
-                return error(StatusCode::UNPROCESSABLE_ENTITY, "invalid request", PATH);
-            };
-            clauses.push(format!("m.last_seen_at{op}?"));
-            values.push(date.into());
-        }
-    }
-    if let Some(value) = query.q.as_deref().filter(|s| !s.is_empty()) {
-        clauses.push("lower(m.relative_path) LIKE lower(?)".to_owned());
-        values.push(format!("%{value}%").into());
-    }
+    // Without a sort the list is in the order the files were added; the cursor is the last id.
     if query.sort.is_none() && after > 0 {
-        clauses.push("m.id>?".to_owned());
+        clauses.push(
+            if query.dir.as_deref() == Some("desc") {
+                "m.id<?"
+            } else {
+                "m.id>?"
+            }
+            .to_owned(),
+        );
         values.push(after.into());
     }
     let result=tokio::task::spawn_blocking(move || {
@@ -550,10 +820,10 @@ pub async fn list(
             if descending {rows.reverse();}
             rows.into_iter().skip(usize::try_from(after).unwrap_or(usize::MAX)).take(limit+1).map(|(id,_)|id).collect()
         }else {
-            let order=match query.sort.as_deref() {Some("size")=>format!("m.size {} ,lower(m.relative_path),m.id",if descending {"DESC"} else {"ASC"}),Some("status")=>format!("(CASE m.compliance_state WHEN 'blocker' THEN 0 WHEN 'probe_failed' THEN 1 WHEN 'warning' THEN 2 WHEN 'unknown' THEN 3 WHEN 'clean' THEN 4 ELSE 9 END) {},lower(m.relative_path),m.id",if descending {"DESC"} else {"ASC"}),_=>"m.id".to_owned()};
+            let order=match query.sort.as_deref() {Some("size")=>format!("m.size {} ,lower(m.relative_path),m.id",if descending {"DESC"} else {"ASC"}),Some("status")=>format!("{} {},lower(m.relative_path),m.id",status_rank("?"),if descending {"DESC"} else {"ASC"}),_=>if descending {"m.id DESC".to_owned()} else {"m.id".to_owned()}};
             let offset=if query.sort.is_some(){after}else{0};
             let mut stmt=conn.prepare(&format!("SELECT m.id FROM media_files m WHERE {filter} ORDER BY {order} LIMIT ? OFFSET ?")).map_err(|_|())?;
-            let mut bound=values.clone();bound.push(i64::try_from(limit+1).map_err(|_|())?.into());bound.push(offset.into());
+            let mut bound=values.clone();if query.sort.as_deref()==Some("status") {bound.push(open.clone().into());}bound.push(i64::try_from(limit+1).map_err(|_|())?.into());bound.push(offset.into());
             stmt.query_map(rusqlite::params_from_iter(bound.iter()),|row|row.get(0)).map_err(|_|())?.collect::<Result<Vec<_>,_>>().map_err(|_|())?
         };
         let mut data=Vec::new();let mut last=None;let mut used=0usize;let mut truncated=false;
