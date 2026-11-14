@@ -155,7 +155,9 @@ test.describe("files journey", () => {
     await openAndUnlock(page, "/files");
     await page.getByRole("button", { name: "Columns" }).click();
     const columns = page.getByRole("group", { name: /Files by folder/ });
-    await columns.getByRole("option", { name: /E2E Library/ }).click();
+    const library = columns.getByRole("listbox", { name: "Libraries" }).getByRole("option").first();
+    const libraryName = (await library.locator(".col-name").textContent()) ?? "";
+    await library.click();
     const names = columns.locator('.col[data-col="1"] [role=option] .col-name');
     // Recently added, newest first, as in the list.
     await expect(names).toHaveText(["Old Codec Movie.mp4", "Interrupted Movie.mp4", "Failed Movie.mp4", "Sample Movie.mp4"]);
@@ -168,7 +170,7 @@ test.describe("files journey", () => {
     await page.getByRole("button", { name: "Ascending" }).click();
     await expect(names).toHaveText(["Sample Movie.mp4", "Old Codec Movie.mp4", "Interrupted Movie.mp4", "Failed Movie.mp4"]);
     await expect(columns.getByRole("option", { name: /Interrupted Movie/ })).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("navigation", { name: "Location" })).toContainText("E2E Library");
+    await expect(page.getByRole("navigation", { name: "Location" })).toContainText(libraryName);
   });
 
   test("an old address with hide shows the same files as before, under the new address", async ({ page }) => {
