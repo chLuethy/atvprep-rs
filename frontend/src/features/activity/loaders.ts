@@ -86,7 +86,9 @@ export async function loadJobCounts(api: Api, filter: JobFilter): Promise<JobCou
     const status = tally(data?.status);
     const action = tally(data?.action);
     if (!data || !status || !action || typeof data.matched !== "number" || typeof data.total !== "number") return null;
-    return { facets: { status, action }, matched: data.matched, total: data.total, hiddenActive: typeof data.hidden_active === "number" ? data.hidden_active : 0 };
+    // Per library (#71), under the facet key of the page; an older server without it shows no library counts.
+    const root = tally(data.root_id);
+    return { facets: { status, action, ...(root ? { root } : {}) }, matched: data.matched, total: data.total, hiddenActive: typeof data.hidden_active === "number" ? data.hidden_active : 0 };
   } catch {
     return null;
   }

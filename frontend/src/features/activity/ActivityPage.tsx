@@ -3,6 +3,7 @@ import { Button, Icon, ProgressBar } from "../../ui";
 import { FilterBar, type Facet, type FilterValue } from "../../ui/FilterBar";
 import { StatusChip } from "../../ui";
 import { JobDetail } from "./JobDetail";
+import { periodLibraryFacets } from "./PeriodLibrary";
 import { flash } from "../../lib/flash";
 import { isTyping } from "../../lib/keys";
 import { reuseUnchanged } from "../../lib/stable";
@@ -182,6 +183,7 @@ export const ActivityPage: Component<{
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => changeFilter({ ...filter(), q: value.trim() }, true), 250);
   };
+  const periodLibrary = periodLibraryFacets({ api: props.api, filter, counts: () => counts()?.facets ?? null, onChange: (next) => changeFilter(next) });
   const showHidden = () => {
     const known = counts();
     if (!known) return;
@@ -192,9 +194,10 @@ export const ActivityPage: Component<{
   const facets = (): Facet[] => [
     { key: "status", title: t("Status"), logic: "or", options: JOB_STATUSES.map((entry) => ({ value: entry.token, label: t(entry.label), urgent: entry.urgent })) },
     { key: "action", title: t("Action"), logic: "or", options: JOB_ACTIONS.map((entry) => ({ value: entry.token, label: t(entry.label) })) },
+    ...periodLibrary.facets(),
   ];
-  const facetValue = (): FilterValue => ({ status: filter().status, action: filter().action });
-  const onFacets = (value: FilterValue) => changeFilter({ ...filter(), status: [...(value.status ?? [])], action: [...(value.action ?? [])] });
+  const facetValue = (): FilterValue => ({ status: filter().status, action: filter().action, ...periodLibrary.value() });
+  const onFacets = (value: FilterValue) => changeFilter(periodLibrary.apply(value, { ...filter(), status: [...(value.status ?? [])], action: [...(value.action ?? [])] }));
   const summaryText = () => {
     const answer = counts();
     return answer ? tn("{matched} of {count} job", "{matched} of {count} jobs", answer.total, { matched: answer.matched }) : null;
