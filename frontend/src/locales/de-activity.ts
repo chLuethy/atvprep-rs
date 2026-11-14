@@ -16,6 +16,10 @@ export const deActivity: Record<string, string | readonly [string, string]> = {
   "Hidden active jobs": "Ausgeblendete laufende Aufträge",
   "{count} active job hidden": ["{count} laufender Auftrag ausgeblendet", "{count} laufende Aufträge ausgeblendet"],
   "Show them": "Einblenden",
+  // Quick filters (#73); "Running" stands for every job not yet done.
+  "Failed in 24 h": "Fehlgeschlagen in 24 h",
+  "Schedules today": "Zeitpläne heute",
+  "Activity: {quick}": "Aktivität: {quick}",
   // Period (#71): when a job was queued.
   "Period": "Zeitraum",
   "Today": "Heute",

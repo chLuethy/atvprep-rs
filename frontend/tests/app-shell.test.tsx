@@ -145,6 +145,17 @@ describe("command palette in the shell", () => {
     expect(window.location.search).toBe("?status=blocker,probe_failed,missing");
   });
 
+  it("offers the quick filters of the activity through the same address", async () => {
+    const view = render(() => <App />);
+    const search = await openPalette(view);
+
+    await fireEvent.input(search, { target: { value: "failed in 24" } });
+    await fireEvent.keyDown(search, { key: "Enter" });
+
+    await waitFor(() => expect(window.location.pathname).toBe("/jobs"));
+    expect(window.location.search).toBe("?status=partial_success,failed&range=24h");
+  });
+
   it("changes the theme and keeps the appearance switch in step", async () => {
     const view = render(() => <App />);
     const search = await openPalette(view);
