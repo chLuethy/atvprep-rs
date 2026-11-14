@@ -19,7 +19,7 @@ import { dismissTip, tipPending } from "./lib/tips";
 import { Button, chooseTheme, CommandPalette, Icon, Kbd, LanguageSwitch, Logo, ThemeSwitch, type Command, type IconName, type Theme } from "./ui";
 
 const Dashboard: ParentComponent = () => <section>{t("Overview")}</section>;
-const Files: ParentComponent = () => <section>{t("Library")}</section>;
+const Files: ParentComponent = () => <section>{t("Files")}</section>;
 const Jobs: ParentComponent = () => <section>{t("Activity")}</section>;
 const Schedules: ParentComponent = () => <section>{t("Schedules")}</section>;
 const Settings: ParentComponent = () => <section>{t("Settings")}</section>;
@@ -56,7 +56,7 @@ const Library: ParentComponent<{ api: ManagerApi | undefined; fileId: string | u
   );
 };
 
-/** Same shape as the library: one route for the list and the open job. */
+/** Same shape as the files page: one route for the list and the open job. */
 const Activity: ParentComponent<{ api: ManagerApi | undefined; jobId: string | undefined }> = (props) => {
   const navigate = useNavigate();
   return (
@@ -82,7 +82,7 @@ const Overview: ParentComponent<{ api: ManagerApi | undefined }> = (props) => {
 };
 
 const NAV: ReadonlyArray<{ href: string; label: string; icon: IconName }> = [
-  { href: "/files", label: N("Library"), icon: "library" },
+  { href: "/files", label: N("Files"), icon: "library" },
   { href: "/jobs", label: N("Activity"), icon: "activity" },
   { href: "/schedules", label: N("Schedules"), icon: "clock" },
   { href: "/dashboard", label: N("Overview"), icon: "overview" },
@@ -133,8 +133,8 @@ const Shell: ParentComponent<{ session?: SessionControls; api?: ManagerApi }> = 
   const commands = (): Command[] => [
     ...NAV.map((item) => ({ id: `go-${item.label.toLowerCase()}`, label: t("Go to {page}", { page: t(item.label) }), hint: t("Page"), run: () => navigate(item.href) })),
     ...STATUS_COMMANDS.map((entry) => ({
-      id: `library-${entry.status || "all"}`,
-      label: t("Library: show {state}", { state: t(entry.label) }),
+      id: `files-${entry.status || "all"}`,
+      label: t("Files: show {state}", { state: t(entry.label) }),
       hint: t("Filter"),
       run: () => navigate(entry.status ? `/files?status=${entry.status}` : "/files"),
     })),

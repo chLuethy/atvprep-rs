@@ -379,7 +379,7 @@ export const ColumnsView: Component<{
 
   return (
     <div class="cols-wrap">
-      <div ref={scroller} class="cols" tabindex="0" role="group" aria-label={t("Library by folder. Arrow keys move, Shift extends the selection, right opens a folder, left goes back.")} onKeyDown={onKeyDown}>
+      <div ref={scroller} class="cols" tabindex="0" role="group" aria-label={t("Files by folder. Arrow keys move, Shift extends the selection, right opens a folder, left goes back.")} onKeyDown={onKeyDown}>
         <For each={Array.from({ length: count() }, (_, index) => index)}>{(index) => (
           <Column
             api={props.api}

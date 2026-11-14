@@ -1,11 +1,11 @@
-/** German texts of the library page: toolbar, filters, selection, menus and the empty states. */
+/** German texts of the files page: toolbar, filters, selection, menus and the empty states. */
 export const deLibrary: Record<string, string | readonly [string, string]> = {
   "All": "Alle",
   "Unable to load more files. Try again.": "Weitere Dateien konnten nicht geladen werden. Versuche es erneut.",
   "Unable to remove missing files. Try again.": "Fehlende Dateien konnten nicht entfernt werden. Versuche es erneut.",
-  "Removed {count} missing file from the library. A file that turns up again in a scan is shown again.": [
-    "{count} fehlende Datei aus der Mediathek entfernt. Taucht eine Datei bei einem Scan wieder auf, wird sie wieder angezeigt.",
-    "{count} fehlende Dateien aus der Mediathek entfernt. Taucht eine Datei bei einem Scan wieder auf, wird sie wieder angezeigt.",
+  "Removed {count} missing file from Files. A file that turns up again in a scan is shown again.": [
+    "{count} fehlende Datei aus „Dateien“ entfernt. Taucht eine Datei bei einem Scan wieder auf, wird sie wieder angezeigt.",
+    "{count} fehlende Dateien aus „Dateien“ entfernt. Taucht eine Datei bei einem Scan wieder auf, wird sie wieder angezeigt.",
   ],
   "Verification job queued. {count} file was left out because only MP4 files can be verified.": [
     "Prüfung eingereiht. {count} Datei wurde ausgelassen, weil nur MP4-Dateien geprüft werden können.",
@@ -22,14 +22,14 @@ export const deLibrary: Record<string, string | readonly [string, string]> = {
   "Nothing selected can be inspected: the files are missing.": "Nichts Ausgewähltes lässt sich analysieren: die Dateien fehlen.",
   "Unable to read the folders. Try again.": "Die Ordner konnten nicht gelesen werden. Versuche es erneut.",
   "Search files": "Suchen",
-  "Library view": "Ansicht der Mediathek",
+  "Files view": "Ansicht der Dateien",
   "List": "Liste",
   "Columns": "Spalten",
   "Remove missing ({count})": "Fehlende entfernen ({count})",
   "Remove missing files": "Fehlende Dateien entfernen",
-  "Remove {count} missing file from the library? Nothing is deleted from disk, and its job history stays.": [
-    "{count} fehlende Datei aus der Mediathek entfernen? Auf der Platte wird nichts gelöscht, und ihr Auftragsverlauf bleibt erhalten.",
-    "{count} fehlende Dateien aus der Mediathek entfernen? Auf der Platte wird nichts gelöscht, und ihr Auftragsverlauf bleibt erhalten.",
+  "Remove {count} missing file from Files? Nothing is deleted from disk, and its job history stays.": [
+    "{count} fehlende Datei aus „Dateien“ entfernen? Auf der Platte wird nichts gelöscht, und ihr Auftragsverlauf bleibt erhalten.",
+    "{count} fehlende Dateien aus „Dateien“ entfernen? Auf der Platte wird nichts gelöscht, und ihr Auftragsverlauf bleibt erhalten.",
   ],
   "Confirm remove": "Entfernen bestätigen",
   "Keep": "Behalten",
@@ -75,7 +75,7 @@ export const deColumns: Record<string, string | readonly [string, string]> = {
   "No files in this state": "Keine Dateien in diesem Zustand",
   "Empty folder": "Leerer Ordner",
   "Only the first files are listed. Use the search to find the rest.": "Nur die ersten Dateien sind aufgelistet. Den Rest mit der Suche finden.",
-  "Library by folder. Arrow keys move, Shift extends the selection, right opens a folder, left goes back.": "Mediathek nach Ordnern. Pfeiltasten bewegen, Shift erweitert die Auswahl, rechts öffnet einen Ordner, links geht zurück.",
+  "Files by folder. Arrow keys move, Shift extends the selection, right opens a folder, left goes back.": "Dateien nach Ordnern. Pfeiltasten bewegen, Shift erweitert die Auswahl, rechts öffnet einen Ordner, links geht zurück.",
   "Location": "Ort",
   "{count} item": ["{count} Objekt", "{count} Objekte"],
   "folder": "Ordner",

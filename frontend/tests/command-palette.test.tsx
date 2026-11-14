@@ -4,9 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 import { CommandPalette, type Command } from "../src/ui/CommandPalette";
 
 const make = () => {
-  const run = { library: vi.fn(), dark: vi.fn(), lock: vi.fn() };
+  const run = { files: vi.fn(), dark: vi.fn(), lock: vi.fn() };
   const commands: Command[] = [
-    { id: "library", label: "Go to Library", run: run.library },
+    { id: "files", label: "Go to Files", run: run.files },
     { id: "dark", label: "Theme: Dark", hint: "Appearance", run: run.dark },
     { id: "lock", label: "Lock manager", run: run.lock },
   ];
@@ -28,7 +28,7 @@ describe("CommandPalette", () => {
     expect(view.getByRole("dialog", { name: "Command palette" })).toBeInTheDocument();
     await waitFor(() => expect(document.activeElement).toBe(view.getByRole("combobox", { name: "Search commands" })));
     expect(view.getAllByRole("option").map((option) => option.textContent)).toEqual([
-      expect.stringContaining("Go to Library"),
+      expect.stringContaining("Go to Files"),
       expect.stringContaining("Theme: Dark"),
       expect.stringContaining("Lock manager"),
     ]);
@@ -50,7 +50,7 @@ describe("CommandPalette", () => {
 
   it("puts matches at the start of a word before matches in the middle of one", async () => {
     const commands: Command[] = [
-      { id: "blocker", label: "Library: show Blocker", run: vi.fn() },
+      { id: "blocker", label: "Files: show Blocker", run: vi.fn() },
       { id: "block", label: "Unblock a file", run: vi.fn() },
       { id: "lock", label: "Lock manager", run: vi.fn() },
       { id: "dark", label: "Appearance: Dark", run: vi.fn() },
@@ -61,21 +61,21 @@ describe("CommandPalette", () => {
 
     expect(view.getAllByRole("option").map((option) => option.textContent)).toEqual([
       "Lock manager",
-      "Library: show Blocker",
+      "Files: show Blocker",
       "Unblock a file",
     ]);
   });
 
   it("keeps the given order among equally good matches", async () => {
     const commands: Command[] = [
-      { id: "a", label: "Go to Library", run: vi.fn() },
+      { id: "a", label: "Go to Files", run: vi.fn() },
       { id: "b", label: "Go to Activity", run: vi.fn() },
     ];
     const view = render(() => <CommandPalette open commands={commands} onClose={vi.fn()} />);
 
     await fireEvent.input(view.getByRole("combobox", { name: "Search commands" }), { target: { value: "go" } });
 
-    expect(view.getAllByRole("option").map((option) => option.textContent)).toEqual(["Go to Library", "Go to Activity"]);
+    expect(view.getAllByRole("option").map((option) => option.textContent)).toEqual(["Go to Files", "Go to Activity"]);
   });
 
   it("runs the highlighted command on Enter and closes", async () => {
@@ -90,7 +90,7 @@ describe("CommandPalette", () => {
     await fireEvent.keyDown(search, { key: "Enter" });
 
     expect(run.dark).toHaveBeenCalledOnce();
-    expect(run.library).not.toHaveBeenCalled();
+    expect(run.files).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
   });
 
