@@ -1,6 +1,7 @@
 //! Human-readable output of the plan, the patch summary and the post-run checks (port of
 //! `atvprep/output.py`). Plain text: the facts are the same, the box drawing and colours are not.
 
+use std::fmt::Write as _;
 use std::path::Path;
 
 use serde_json::Value;
@@ -193,7 +194,11 @@ fn audio_section(plan: &Plan, track_links: &TrackLinks) -> Vec<String> {
             AudioAction::Copy => s("copy"),
             AudioAction::Downmix => s("downmix → AAC 2.0"),
             AudioAction::TranscodeEac3 => s("transcode → EAC3"),
+            AudioAction::TranscodeAac => s("transcode → AAC"),
         };
+        if let Some(rate) = t.target_sample_rate {
+            let _ = write!(action, " @ {} kHz", f64::from(rate) / 1000.0);
+        }
         if t.is_default {
             action.push_str(" (default)");
         }

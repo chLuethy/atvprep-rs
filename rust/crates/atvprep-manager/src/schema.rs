@@ -5,7 +5,7 @@ use crate::{Error, Result};
 
 /// Migration stages in order; stage `n` takes a database from version `n - 1` to `n`.
 /// To extend: add `000N_name.sql`, append it here and raise [`VERSION`].
-const STAGES: [&str; 12] = [
+const STAGES: [&str; 13] = [
     include_str!("migrations/0001_base.sql"),
     include_str!("migrations/0002_cron.sql"),
     include_str!("migrations/0003_scan_action.sql"),
@@ -18,10 +18,11 @@ const STAGES: [&str; 12] = [
     include_str!("migrations/0010_encode_need.sql"),
     include_str!("migrations/0011_schedule_encode.sql"),
     include_str!("migrations/0012_recheck_sdh_sidecar_plans.sql"),
+    include_str!("migrations/0013_recheck_sample_rate_plans.sql"),
 ];
 
 /// The version this build creates and understands.
-pub const VERSION: i64 = 12;
+pub const VERSION: i64 = 13;
 
 /// Every table of the current schema.
 pub const TABLES: [&str; 23] = [
@@ -753,15 +754,39 @@ mod tests {
     /// A file of a version 11 database with its stored plan, an optional sidecar and the finished
     /// background check of these bytes and this Zielprofil that stored the plan.
     fn seed_checked_file(conn: &Conn, id: i64, change: &str, sidecar: Option<&str>) {
+        seed_verdict(
+            conn,
+            id,
+            change,
+            sidecar,
+            ("clean", &["No compliance violations reported by verify."]),
+        );
+    }
+
+    /// [`seed_checked_file`] with the compliance state and reasons the check stored.
+    fn seed_verdict(
+        conn: &Conn,
+        id: i64,
+        change: &str,
+        sidecar: Option<&str>,
+        (state, reasons): (&str, &[&str]),
+    ) {
         let need = if change == "audio" { "audio" } else { "none" };
         conn.raw()
             .execute(
                 "INSERT INTO media_files(id, root_id, relative_path, kind, suffix, size, mtime_ns, fingerprint,
                    discovery_state, compliance_state, compliance_reasons, workflow_state, desired_action,
                    encode_need, planned_change)
-                 VALUES (?1, 1, ?2, 'video', '.mp4', 1, 1, ?3, 'present', 'clean',
-                         '[\"No compliance violations reported by verify.\"]', 'idle', 'none', ?4, ?5)",
-                params![id, format!("f{id}.mp4"), format!("fp{id}"), need, change],
+                 VALUES (?1, 1, ?2, 'video', '.mp4', 1, 1, ?3, 'present', ?6, ?7, 'idle', 'none', ?4, ?5)",
+                params![
+                    id,
+                    format!("f{id}.mp4"),
+                    format!("fp{id}"),
+                    need,
+                    change,
+                    state,
+                    serde_json::to_string(reasons).unwrap()
+                ],
             )
             .unwrap();
         if let Some(sidecar) = sidecar {
@@ -866,6 +891,81 @@ mod tests {
         assert_eq!(
             queued,
             [1, 5],
+            "the earlier check of the same bytes does not block"
+        );
+    }
+
+    /// Before #83 the planner copied AC-3/E-AC-3 and AAC at any rate, so the check of a file with
+    /// the `audio-sample-rate` warning stored no audio encode. Version 13 sends such a file back to
+    /// the background check, even though that check already ran on the same bytes and Zielprofil.
+    #[test]
+    fn a_version_12_database_checks_a_file_with_a_sample_rate_warning_again() {
+        let (_db, mut conn) = database_at(12);
+        exec(
+            &conn,
+            "INSERT INTO library_roots(name, canonical_path) VALUES ('r', '/r')",
+        )
+        .unwrap();
+        let rate =
+            "[warning] audio-sample-rate: ac-3 track id=2 sample rate 44100Hz (expected 48000)";
+        let other = "[warning] audio-language: track id=2 has no language";
+        seed_verdict(&conn, 1, "remux", None, ("warning", &[rate]));
+        seed_verdict(&conn, 2, "none", None, ("warning", &[other, rate]));
+        seed_verdict(&conn, 3, "remux", None, ("warning", &[other]));
+        seed_checked_file(&conn, 4, "none", None);
+        // Only the reason names the rule: a message quoting it is no match.
+        seed_verdict(
+            &conn,
+            5,
+            "patch",
+            None,
+            ("warning", &["[warning] x: audio-sample-rate"]),
+        );
+        migrate(&mut conn).unwrap();
+        assert_eq!(version(&conn).unwrap(), VERSION);
+
+        let rows: Vec<(i64, String, String)> = conn
+            .raw()
+            .prepare("SELECT id, encode_need, planned_change FROM media_files ORDER BY id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap();
+        let row = |id: i64, need: &str, change: &str| (id, need.to_owned(), change.to_owned());
+        assert_eq!(
+            rows,
+            [
+                row(1, "unknown", "unknown"),
+                row(2, "unknown", "unknown"),
+                row(3, "none", "remux"),
+                row(4, "none", "none"),
+                row(5, "none", "patch"),
+            ]
+        );
+
+        let clock = crate::clock::FixedClock(1_700_000_000_000_000);
+        crate::worker::runtime::queue_need_checks(
+            crate::repo::Ctx {
+                conn: conn.raw(),
+                clock: &clock,
+            },
+            0,
+        )
+        .unwrap();
+        let queued: Vec<i64> = conn
+            .raw()
+            .prepare(
+                "SELECT media_file_id FROM job_items WHERE status='queued' ORDER BY media_file_id",
+            )
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            queued,
+            [1, 2],
             "the earlier check of the same bytes does not block"
         );
     }
