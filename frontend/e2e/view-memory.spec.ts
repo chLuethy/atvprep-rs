@@ -43,4 +43,39 @@ test.describe("view memory journey", () => {
     await expect(page).toHaveURL(/\/files$/);
     await expect(page.getByRole("link", { name: "Sample Movie" })).toBeVisible();
   });
+
+  test("the column view keeps its choice and its open path across the page change and a reload", async ({ page }) => {
+    await openAndUnlock(page, "/files");
+    await page.getByRole("button", { name: "Columns" }).click();
+    const libraries = page.getByRole("listbox", { name: "Libraries" });
+    await libraries.getByRole("option", { name: /^media/ }).click();
+    const crumbs = page.getByRole("navigation", { name: "Location" });
+    await expect(crumbs.getByRole("button")).toHaveText(["Libraries", "media"]);
+    await expect(page.getByRole("listbox", { name: "Folder contents" }).getByRole("option", { name: /Sample Movie/ })).toBeVisible();
+
+    const nav = page.getByRole("navigation", { name: "Main" });
+    await nav.getByRole("link", { name: /Activity/ }).click();
+    await expect(page).toHaveURL(/\/jobs$/);
+    await nav.getByRole("link", { name: /Files/ }).click();
+    await expect(page.getByRole("button", { name: "Columns" })).toHaveAttribute("aria-pressed", "true");
+    await expect(crumbs.getByRole("button")).toHaveText(["Libraries", "media"]);
+    await expect(libraries.getByRole("option", { name: /^media/ })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("listbox", { name: "Folder contents" }).getByRole("option", { name: /Sample Movie/ })).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Columns" })).toHaveAttribute("aria-pressed", "true");
+    await expect(crumbs.getByRole("button")).toHaveText(["Libraries", "media"]);
+
+    // A new filter starts at the libraries again and the old path is not brought back.
+    await page.getByRole("search", { name: "Filter files" }).getByRole("button", { name: "Status", exact: true }).click();
+    await page.getByRole("dialog", { name: "Status" }).getByRole("checkbox", { name: /^Warning/ }).check();
+    await page.keyboard.press("Escape");
+    await expect(crumbs.getByRole("button")).toHaveText(["Libraries"]);
+    await page.getByRole("button", { name: "Reset filters" }).first().click();
+    await expect(page).toHaveURL(/\/files$/);
+    await expect(crumbs.getByRole("button")).toHaveText(["Libraries"]);
+
+    // Leave the list as the choice for the other journeys.
+    await page.getByRole("button", { name: "List" }).click();
+  });
 });

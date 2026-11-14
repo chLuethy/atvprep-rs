@@ -1,9 +1,10 @@
 /**
  * The view memory: the last canonical address query of a page (filter, search and order), kept in the browser so
  * the page shows it again after a page change, a reload or in a new tab. Without storage nothing is remembered
- * and the pages behave as if they had never been visited.
+ * and the pages behave as if they had never been visited. `columns` holds the folder path the column view of the
+ * files page has open.
  */
-export type ViewPage = "files" | "jobs";
+export type ViewPage = "files" | "jobs" | "columns";
 
 const slot = (page: ViewPage) => `atvprep.view.${page}`;
 

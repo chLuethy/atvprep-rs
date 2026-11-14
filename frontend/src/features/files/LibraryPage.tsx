@@ -4,6 +4,7 @@ import { FilterBar, MANY_OPTIONS, NoMatches, type Facet, type FilterValue } from
 import { N, t, tn } from "../../lib/i18n";
 import { autoDismiss } from "../../lib/autoDismiss";
 import { ColumnsView, type ColumnAction, type Picked } from "./ColumnsView";
+import { recallColumnPath, rememberColumnPath } from "./columnPath";
 import { RowMenu, type MenuItem } from "./RowMenu";
 import { additive, copyText, selectionMenu } from "./selection";
 import { loadBelow } from "./browse";
@@ -656,7 +657,8 @@ export const LibraryPage: Component<{
         <Show when={actionError()}><p class="notice bad lib-notice" role="alert">{actionError()}</p></Show>
 
         <Show when={showColumns()}>
-          <ColumnsView api={props.api} filter={filter()} version={inspectorVersion()} activeId={props.activeId} clearToken={clearToken()} onOpen={props.onOpen} onSelection={setColPicked} onAction={(action) => void actOnColumns(action)} />
+          <ColumnsView api={props.api} filter={filter()} version={inspectorVersion()} activeId={props.activeId} clearToken={clearToken()}
+            initialPath={recallColumnPath(filter())} onPath={(path) => rememberColumnPath(filter(), path)} onOpen={props.onOpen} onSelection={setColPicked} onAction={(action) => void actOnColumns(action)} />
         </Show>
         <div class="lib-scroll" hidden={showColumns()}>
           <Show when={phase() !== "loading"} fallback={<p class="muted pad">{t("Loading files")}</p>}>
