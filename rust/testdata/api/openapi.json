@@ -1434,6 +1434,11 @@
             "title": "Id",
             "type": "string"
           },
+          "matched_path": {
+            "description": "Only with a search whose first match is not the job's first file: the display path of the first item, in job order, that matches.",
+            "title": "Matched Path",
+            "type": "string"
+          },
           "origin_job_id": {
             "anyOf": [
               {
@@ -4169,7 +4174,7 @@
             }
           },
           {
-            "description": "Search text, matched case-insensitively and literally against the job's subject (the path of its first file). At most 128 characters.",
+            "description": "Search text, matched case-insensitively and literally against the display path of every item of a job; a job shows once however many items match. At most 128 characters.",
             "in": "query",
             "name": "q",
             "required": false,
@@ -4363,7 +4368,7 @@
             }
           },
           {
-            "description": "Search text, matched case-insensitively and literally against the job's subject (the path of its first file). At most 128 characters.",
+            "description": "Search text, matched case-insensitively and literally against the display path of every item of a job; a job shows once however many items match. At most 128 characters.",
             "in": "query",
             "name": "q",
             "required": false,

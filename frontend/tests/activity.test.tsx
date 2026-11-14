@@ -1037,6 +1037,19 @@ describe("ActivityPage: the filter bar", () => {
     expect(view.queryByRole("button", { name: "Reset filters" })).not.toBeInTheDocument();
   });
 
+  it("names the file a search found when it is not the job's first", async () => {
+    const api = filterApi([
+      job({ id: "j_2", total_count: 100, matched_path: "Serien/Lost/Lost S06E17.mkv" }),
+      job({ id: "j_1" }),
+    ]);
+    const view = render(() => <ActivityPage api={api} filter={{ ...EMPTY_JOB_FILTER, q: "Lost" }} onOpen={vi.fn()} />);
+
+    const row = (await view.findByText("Heat and 99 more")).closest("li")!;
+    expect(within(row).getByText("Match: Lost S06E17")).toHaveAttribute("title", "Serien/Lost/Lost S06E17.mkv");
+    // A job found by its first file needs no hint.
+    expect(view.getAllByText(/^Match:/)).toHaveLength(1);
+  });
+
   it("searches after a pause and reports it as a replacement of the address", async () => {
     const onFilter = vi.fn();
     const api = filterApi([job()]);
