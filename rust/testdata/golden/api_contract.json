@@ -320,8 +320,22 @@
                     "inspect": 0
                   },
                   "root_id": {
-                    "r_AAAAAAAAAAGkIst-MnzHmiT3_UsbhYTd": 0
+                    "<r:1>": 0
                   },
+                  "trigger": {
+                    "manual": 0,
+                    "schedule": 0,
+                    "retry": 0
+                  },
+                  "schedule": {
+                    "<sc:1>": 0
+                  },
+                  "schedules": [
+                    {
+                      "id": "<sc:1>",
+                      "name": "Weekly"
+                    }
+                  ],
                   "matched": 0,
                   "total": 1,
                   "hidden_active": 1

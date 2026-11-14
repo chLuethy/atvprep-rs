@@ -1112,3 +1112,58 @@ describe("ActivityPage: the filter bar", () => {
     expect(await none.findByText("No jobs yet")).toBeInTheDocument();
   });
 });
+
+describe("ActivityPage: the Auslöser", () => {
+  const withTriggers = {
+    ...jobCounts({ matched: 6, total: 6 }),
+    trigger: { manual: 1, retry: 1, schedule: 4 },
+    schedule: { sc_n: 3, sc_w: 1 },
+    schedules: [{ id: "sc_n", name: "Nachtlauf" }, { id: "sc_w", name: "Wochenende" }],
+  };
+
+  it("offers by hand, retries and the schedules as a group with their counts, and filters by them", async () => {
+    const onFilter = vi.fn();
+    const api = filterApi([job()], withTriggers);
+    const view = render(() => <ActivityPage api={api} onOpen={vi.fn()} onFilter={onFilter} />);
+    const trigger = await openFacet(view, "Trigger");
+    await trigger.findByRole("checkbox", { name: "Nachtlauf 3" });
+    expect(trigger.getAllByRole("checkbox").map((box) => box.closest("label")?.textContent)).toEqual(
+      ["By hand1", "Retried1", "Schedules4", "Nachtlauf3", "Wochenende1"]);
+
+    await fireEvent.click(trigger.getByRole("checkbox", { name: "Wochenende 1" }));
+    expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, schedule: ["sc_w"] }, { replace: false });
+    await waitFor(() => expect(listCalls(api).at(-1)).toBe("/jobs?limit=50&order=desc&schedule=sc_w"));
+    await fireEvent.click(trigger.getByRole("checkbox", { name: "By hand 1" }));
+    await waitFor(() => expect(listCalls(api).at(-1)).toBe("/jobs?limit=50&order=desc&trigger=manual&schedule=sc_w"));
+    expect(countsCalls(api).at(-1)).toBe("/jobs/counts?order=desc&trigger=manual&schedule=sc_w");
+    expect(view.getByRole("button", { name: "Trigger: By hand, Wochenende" })).toBeInTheDocument();
+
+    await fireEvent.click(trigger.getByRole("checkbox", { name: "Schedules 4" }));
+    await waitFor(() => expect(listCalls(api).at(-1)).toBe("/jobs?limit=50&order=desc&trigger=manual,schedule"));
+  });
+
+  it("finds a schedule by its name", async () => {
+    const view = render(() => <ActivityPage api={filterApi([job()], withTriggers)} onOpen={vi.fn()} />);
+    const trigger = await openFacet(view, "Trigger");
+    await trigger.findByRole("checkbox", { name: "Nachtlauf 3" });
+    await fireEvent.input(await trigger.findByRole("searchbox", { name: "Search Schedules" }), { target: { value: "nacht" } });
+    expect(trigger.getAllByRole("checkbox").map((box) => box.closest("label")?.textContent)).toEqual(["By hand1", "Retried1", "Schedules4", "Nachtlauf3"]);
+  });
+
+  it("keeps a chosen schedule that no longer exists, so it can be cleared", async () => {
+    const view = render(() => <ActivityPage api={filterApi([], withTriggers)} filter={{ ...EMPTY_JOB_FILTER, schedule: ["sc_gone"] }} onOpen={vi.fn()} />);
+    const trigger = await openFacet(view, "Trigger");
+    expect(await trigger.findByRole("checkbox", { name: "Deleted schedule" })).toBeChecked();
+  });
+});
+
+describe("JobDetail: the Auslöser", () => {
+  it("names the schedule a job came from, or that it was deleted", async () => {
+    const view = render(() => <JobDetail api={detailApi({ trigger: "schedule", schedule: { id: "sc_n", name: "Nachtlauf" } })} jobId="j_1" />);
+    expect(await view.findByText("Schedule „Nachtlauf“")).toBeInTheDocument();
+    view.unmount();
+
+    const gone = render(() => <JobDetail api={detailApi({ trigger: "schedule", schedule: { id: "sc_x", name: null } })} jobId="j_1" />);
+    expect(await gone.findByText("A deleted schedule")).toBeInTheDocument();
+  });
+});

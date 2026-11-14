@@ -303,3 +303,58 @@ describe("FilterBar: quick filters", () => {
     expect(view.queryByRole("group", { name: "Quick filters" })).not.toBeInTheDocument();
   });
 });
+
+describe("FilterBar: a group of options", () => {
+  const TRIGGER: Facet[] = [{
+    key: "trigger", title: "Trigger", logic: "or",
+    options: [{ value: "manual", label: "By hand" }, { value: "retry", label: "Retry" }, { value: "schedule", label: "Schedules" }],
+    group: { value: "schedule", key: "schedule", searchable: true, options: [{ value: "n1", label: "Nightly" }, { value: "w1", label: "Weekend" }] },
+  }];
+  const counts: FacetCounts = { trigger: { manual: 1, retry: 0, schedule: 3 }, schedule: { n1: 2, w1: 1 } };
+
+  it("has a box for the whole group and below it each of its options, under their own key", async () => {
+    const { view, onChange } = show({}, { facets: TRIGGER, counts });
+    const dialog = await openFacet(view, /^Trigger/);
+    const group = within(dialog).getByRole("group", { name: "Schedules" });
+    const all = within(group).getByRole("checkbox", { name: "Schedules 3" });
+    expect(within(group).getAllByRole("checkbox").map((box) => box.closest("label")?.textContent)).toEqual(["Schedules3", "Nightly2", "Weekend1"]);
+
+    await fireEvent.click(within(group).getByRole("checkbox", { name: "Nightly 2" }));
+    expect(onChange).toHaveBeenLastCalledWith({ schedule: ["n1"] });
+    expect(all).not.toBeChecked();
+    expect((all as HTMLInputElement).indeterminate).toBe(true);
+
+    // The whole group replaces the single choices and ticks them all.
+    await fireEvent.click(all);
+    expect(onChange).toHaveBeenLastCalledWith({ schedule: [], trigger: ["schedule"] });
+    expect(all).toBeChecked();
+    expect(within(group).getByRole("checkbox", { name: "Weekend 1" })).toBeChecked();
+
+    // Unticking one of them keeps the others.
+    await fireEvent.click(within(group).getByRole("checkbox", { name: "Weekend 1" }));
+    expect(onChange).toHaveBeenLastCalledWith({ schedule: ["n1"], trigger: [] });
+    await fireEvent.click(within(dialog).getByRole("checkbox", { name: "By hand 1" }));
+    expect(onChange).toHaveBeenLastCalledWith({ schedule: ["n1"], trigger: ["manual"] });
+  });
+
+  it("names the chosen options of the group on the button and clears them with the facet", async () => {
+    const { view, onChange } = show({ trigger: ["manual"], schedule: ["w1"] }, { facets: TRIGGER, counts });
+    expect(view.getByRole("button", { name: "Trigger: By hand, Weekend" })).toHaveAttribute("data-active", "true");
+    await fireEvent.click(view.getByRole("button", { name: "Clear Trigger" }));
+    expect(onChange).toHaveBeenLastCalledWith({ trigger: [], schedule: [] });
+    view.unmount();
+
+    const alone = show({ schedule: ["n1"] }, { facets: TRIGGER, counts });
+    expect(alone.view.getByRole("button", { name: "Trigger: Nightly" })).toHaveAttribute("data-active", "true");
+  });
+
+  it("searches only the options of the group", async () => {
+    const { view } = show({}, { facets: TRIGGER, counts });
+    const dialog = await openFacet(view, /^Trigger/);
+    const group = within(dialog).getByRole("group", { name: "Schedules" });
+    await fireEvent.input(within(group).getByRole("searchbox", { name: "Search Schedules" }), { target: { value: "week" } });
+    expect(within(dialog).getAllByRole("checkbox").map((box) => box.closest("label")?.textContent)).toEqual(["By hand1", "Retry0", "Schedules3", "Weekend1"]);
+    await fireEvent.input(within(group).getByRole("searchbox", { name: "Search Schedules" }), { target: { value: "xyz" } });
+    expect(within(group).getByText("Nothing matches")).toBeInTheDocument();
+  });
+});

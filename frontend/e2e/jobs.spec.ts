@@ -40,6 +40,36 @@ test.describe("activity journey", () => {
     await expect(page).toHaveURL(/\/jobs\?sort=oldest$/);
   });
 
+  test("the Auslöser tells jobs from a schedule apart from those by hand and keeps the choice in the address", async ({ page }) => {
+    await openAndUnlock(page, "/jobs");
+    const bar = page.getByRole("search", { name: "Filter jobs" });
+    await bar.getByRole("button", { name: "Trigger", exact: true }).click();
+    const popover = page.getByRole("dialog", { name: "Trigger" });
+    const schedules = popover.getByRole("group", { name: "Schedules" });
+    await expect(schedules.getByRole("checkbox", { name: "Schedules 1" })).toBeVisible();
+    // The schedule's job is stored as manual, yet it does not count as by hand.
+    await expect(popover.getByRole("checkbox", { name: /^By hand \d+$/ })).toBeVisible();
+
+    await schedules.getByRole("searchbox", { name: "Search Schedules" }).fill("weekly");
+    await schedules.getByRole("checkbox", { name: "E2E Weekly 1" }).check();
+    await expect(page).toHaveURL(/\/jobs\?schedule=sc_[\w-]+$/);
+    const history = page.getByRole("region", { name: "History" });
+    await expect(history.getByRole("link", { name: /Old Codec Movie/ })).toBeVisible();
+    await expect(history.getByRole("link", { name: /Failed Movie/ })).toHaveCount(0);
+    await expect(bar.getByText(/^1 of \d+ jobs$/)).toBeVisible();
+
+    await popover.getByRole("checkbox", { name: /^By hand \d+$/ }).check();
+    await expect(page).toHaveURL(/\/jobs\?trigger=manual&schedule=sc_[\w-]+$/);
+    await page.keyboard.press("Escape");
+    await page.reload();
+    await expect(bar.getByRole("button", { name: "Trigger: By hand, E2E Weekly" })).toBeVisible();
+    await expect(bar.getByText(/^\d+ of \d+ jobs$/)).toBeVisible();
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/jobs\?schedule=sc_[\w-]+$/);
+    await expect(bar.getByRole("button", { name: "Trigger: E2E Weekly" })).toBeVisible();
+  });
+
   test("names each job by its file, explains a failure, and cancels and retries inline", async ({ page }) => {
     await openAndUnlock(page, "/jobs");
     await expect(page.getByRole("heading", { name: "Activity" })).toBeVisible();

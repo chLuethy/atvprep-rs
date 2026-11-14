@@ -27,6 +27,8 @@ export type JobRow = {
   progress?: number | null;
   /** The setting „Delete original“ was on when the job was queued. */
   delete_original?: boolean;
+  /** Only on a job from a schedule (`trigger` is then "schedule"); the name is null once it is deleted. */
+  schedule?: { id: string; name: string | null };
 };
 
 export type ItemRow = {
@@ -75,6 +77,13 @@ const tally = (value: unknown): Record<string, number> | null =>
     ? Object.fromEntries(Object.entries(value).filter((entry): entry is [string, number] => typeof entry[1] === "number"))
     : null;
 
+/** The schedules a job can come from, by name, as the counts name them. */
+const scheduleList = (value: unknown): Array<{ id: string; name: string }> =>
+  Array.isArray(value)
+    ? value.filter((entry): entry is { id: string; name: string } => !!entry && typeof entry.id === "string" && typeof entry.name === "string")
+      .map((entry) => ({ id: entry.id, name: entry.name }))
+    : [];
+
 /**
  * What each status and action would show with every other filter as it is, how many jobs match of how many
  * there are, and how many waiting or running jobs the filter hides. Null without a usable answer; the bar then
@@ -88,9 +97,15 @@ export async function loadJobCounts(api: Api, filter: JobFilter): Promise<JobCou
     const status = tally(data?.status);
     const action = tally(data?.action);
     if (!data || !status || !action || typeof data.matched !== "number" || typeof data.total !== "number") return null;
+    const facets: Record<string, Record<string, number>> = { status, action };
+    const trigger = tally(data.trigger);
+    const schedule = tally(data.schedule);
     // Per library (#71), under the facet key of the page; an older server without it shows no library counts.
     const root = tally(data.root_id);
-    return { facets: { status, action, ...(root ? { root } : {}) }, matched: data.matched, total: data.total, hiddenActive: typeof data.hidden_active === "number" ? data.hidden_active : 0 };
+    if (trigger) facets.trigger = trigger;
+    if (schedule) facets.schedule = schedule;
+    if (root) facets.root = root;
+    return { facets, matched: data.matched, total: data.total, hiddenActive: typeof data.hidden_active === "number" ? data.hidden_active : 0, schedules: scheduleList(data.schedules) };
   } catch {
     return null;
   }

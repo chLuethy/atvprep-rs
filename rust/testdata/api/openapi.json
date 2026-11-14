@@ -1508,7 +1508,27 @@
             "title": "Total Count",
             "type": "integer"
           },
+          "schedule": {
+            "description": "Only on a job from a schedule: the schedule's opaque id and its name, null once the schedule is deleted.",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "type": "object"
+          },
           "trigger": {
+            "description": "The Auslöser as the server derives it: ``manual`` (by hand), ``schedule`` (from a schedule, although stored as ``manual``) or ``retry``; legacy jobs keep ``automatic``.",
             "title": "Trigger",
             "type": "string"
           }
@@ -4143,6 +4163,40 @@
             }
           },
           {
+            "description": "Comma-separated Auslöser as the server derives them: ``manual`` (by hand), ``schedule`` (a run of a schedule points at the job, or its snapshot names a deleted schedule) and ``retry``. Jobs from schedules are stored as ``manual`` but never count as ``manual``. Together with ``schedule`` the choices are alternatives (OR). An unknown value, also ``automatic``, is refused with 422.",
+            "in": "query",
+            "name": "trigger",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Trigger"
+            }
+          },
+          {
+            "description": "Comma-separated opaque schedule ids (at most 50); the jobs from any of these schedules are listed, as an alternative (OR) to ``trigger``. A value that is no schedule id is refused with 422.",
+            "in": "query",
+            "name": "schedule",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Schedule"
+            }
+          },
+          {
             "description": "One job status to leave out, for example ``cancelled``.",
             "in": "query",
             "name": "exclude_status",
@@ -4366,7 +4420,7 @@
     },
     "/api/v1/jobs/counts": {
       "get": {
-        "description": "The facet counters for the job list, with the same filters as ``/api/v1/jobs``.\n\n``status`` counts each job status with every filter except the chosen statuses; ``action`` counts each action with every filter except the chosen actions. ``matched`` is the number of jobs the list shows with all filters, ``total`` the number of jobs without any filter, and ``hidden_active`` the number of waiting or running jobs the filters leave out.",
+        "description": "The facet counters for the job list, with the same filters as ``/api/v1/jobs``.\n\n``status`` counts each job status with every filter except the chosen statuses; ``action`` counts each action with every filter except the chosen actions. ``trigger`` counts each Auslöser and ``schedule`` each schedule (keyed by its opaque id) with every filter except the chosen Auslöser and schedules; ``schedules`` lists the schedules a job can come from (every one but scans) with their names, ordered by name. ``matched`` is the number of jobs the list shows with all filters, ``total`` the number of jobs without any filter, and ``hidden_active`` the number of waiting or running jobs the filters leave out.",
         "operationId": "job_counts_api_v1_jobs_counts_get",
         "parameters": [
           {
@@ -4401,6 +4455,40 @@
                 }
               ],
               "title": "Action"
+            }
+          },
+          {
+            "description": "Comma-separated Auslöser as the server derives them: ``manual`` (by hand), ``schedule`` (a run of a schedule points at the job, or its snapshot names a deleted schedule) and ``retry``. Jobs from schedules are stored as ``manual`` but never count as ``manual``. Together with ``schedule`` the choices are alternatives (OR). An unknown value, also ``automatic``, is refused with 422.",
+            "in": "query",
+            "name": "trigger",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Trigger"
+            }
+          },
+          {
+            "description": "Comma-separated opaque schedule ids (at most 50); the jobs from any of these schedules are listed, as an alternative (OR) to ``trigger``. A value that is no schedule id is refused with 422.",
+            "in": "query",
+            "name": "schedule",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Schedule"
             }
           },
           {
@@ -4527,6 +4615,30 @@
                         "matched": {
                           "type": "integer"
                         },
+                        "schedule": {
+                          "additionalProperties": {
+                            "type": "integer"
+                          },
+                          "type": "object"
+                        },
+                        "schedules": {
+                          "items": {
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
                         "status": {
                           "additionalProperties": {
                             "type": "integer"
@@ -4535,11 +4647,20 @@
                         },
                         "total": {
                           "type": "integer"
+                        },
+                        "trigger": {
+                          "additionalProperties": {
+                            "type": "integer"
+                          },
+                          "type": "object"
                         }
                       },
                       "required": [
                         "status",
                         "action",
+                        "trigger",
+                        "schedule",
+                        "schedules",
                         "matched",
                         "total",
                         "hidden_active"

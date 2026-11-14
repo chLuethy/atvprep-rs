@@ -8,7 +8,7 @@ import { flash } from "../../lib/flash";
 import { isTyping } from "../../lib/keys";
 import { reuseUnchanged } from "../../lib/stable";
 import { clearJobs, loadJobCounts, loadJobs, type Api, type ClearStatus, type JobRow } from "./loaders";
-import { EMPTY_JOB_FILTER, isJobFiltered, JOB_ACTIONS, JOB_STATUSES, revealActive, sameJobFilter, type JobCounts, type JobFilter, type JobSort } from "./filters";
+import { EMPTY_JOB_FILTER, isJobFiltered, JOB_ACTIONS, JOB_STATUSES, JOB_TRIGGERS, revealActive, sameJobFilter, type JobCounts, type JobFilter, type JobSort } from "./filters";
 import { N, t, tn } from "../../lib/i18n";
 import { autoDismiss } from "../../lib/autoDismiss";
 import { useClock } from "../../lib/clock";
@@ -198,10 +198,27 @@ export const ActivityPage: Component<{
   const facets = (): Facet[] => [
     { key: "status", title: t("Status"), logic: "or", options: JOB_STATUSES.map((entry) => ({ value: entry.token, label: t(entry.label), urgent: entry.urgent })) },
     { key: "action", title: t("Action"), logic: "or", options: JOB_ACTIONS.map((entry) => ({ value: entry.token, label: t(entry.label) })) },
+    triggerFacet(),
     ...periodLibrary.facets(),
   ];
-  const facetValue = (): FilterValue => ({ status: filter().status, action: filter().action, ...periodLibrary.value() });
-  const onFacets = (value: FilterValue) => changeFilter(periodLibrary.apply(value, { ...filter(), status: [...(value.status ?? [])], action: [...(value.action ?? [])] }));
+  const facetValue = (): FilterValue => ({ status: filter().status, action: filter().action, trigger: filter().trigger ?? [], schedule: filter().schedule ?? [], ...periodLibrary.value() });
+  const onFacets = (value: FilterValue) => {
+    const { trigger: _trigger, schedule: _schedule, ...rest } = filter();
+    const next: JobFilter = { ...rest, status: [...(value.status ?? [])], action: [...(value.action ?? [])] };
+    if ((value.trigger?.length ?? 0) > 0) next.trigger = [...(value.trigger ?? [])];
+    if ((value.schedule?.length ?? 0) > 0) next.schedule = [...(value.schedule ?? [])];
+    changeFilter(periodLibrary.apply(value, next));
+  };
+  /** Auslöser: by hand, retries and the group of every schedule, each schedule by name; a chosen one since deleted stays. */
+  const triggerFacet = (): Facet => {
+    const known = (counts()?.schedules ?? []).map((schedule) => ({ value: schedule.id, label: schedule.name }));
+    const gone = (filter().schedule ?? []).filter((id) => !known.some((option) => option.value === id)).map((id) => ({ value: id, label: t("Deleted schedule") }));
+    return {
+      key: "trigger", title: t("Trigger"), logic: "or",
+      options: JOB_TRIGGERS.map((entry) => ({ value: entry.token, label: t(entry.label) })),
+      group: { value: "schedule", key: "schedule", searchable: true, options: [...known, ...gone] },
+    };
+  };
   const summaryText = () => {
     const answer = counts();
     return answer ? tn("{matched} of {count} job", "{matched} of {count} jobs", answer.total, { matched: answer.matched }) : null;

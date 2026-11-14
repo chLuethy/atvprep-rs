@@ -8,6 +8,7 @@ pub mod errors;
 pub mod extract;
 pub mod health;
 mod job_filter;
+mod job_trigger;
 pub mod mutation;
 pub mod opaque;
 pub mod random;
