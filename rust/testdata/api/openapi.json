@@ -4191,6 +4191,59 @@
             }
           },
           {
+            "description": "Only jobs queued at or after this instant (RFC 3339 with an offset, for example ``2026-11-14T00:00:00+01:00``); another spelling is refused with 422.",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "description": "Only jobs queued before this instant (RFC 3339 with an offset); the instant itself is left out. Another spelling is refused with 422.",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "description": "Comma-separated opaque library ids; only the jobs with a file in any of them are listed (OR). A job with files in several libraries belongs to each. An id that cannot be read is refused with 422.",
+            "in": "query",
+            "name": "root_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Root Id"
+            }
+          },
+          {
             "in": "cookie",
             "name": "__Host-atvprep_session",
             "required": false,
@@ -4382,6 +4435,59 @@
                 }
               ],
               "title": "Q"
+            }
+          },
+          {
+            "description": "Only jobs queued at or after this instant (RFC 3339 with an offset, for example ``2026-11-14T00:00:00+01:00``); another spelling is refused with 422.",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "description": "Only jobs queued before this instant (RFC 3339 with an offset); the instant itself is left out. Another spelling is refused with 422.",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "description": "Comma-separated opaque library ids; only the jobs with a file in any of them are listed (OR). A job with files in several libraries belongs to each. An id that cannot be read is refused with 422.",
+            "in": "query",
+            "name": "root_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Root Id"
             }
           },
           {

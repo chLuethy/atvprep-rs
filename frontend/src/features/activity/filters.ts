@@ -1,5 +1,6 @@
 import { N } from "../../lib/i18n";
 import type { FacetCounts } from "../../ui/FilterBar";
+import { parsePeriod, periodAddress, periodServer, type JobPeriod } from "./period";
 
 /**
  * The activity filter and its address. Status and action: nothing chosen shows every job, chosen values show
@@ -41,6 +42,10 @@ export type JobFilter = {
   /** Chosen actions in canonical order; none means every action. */
   action: string[];
   sort: JobSort;
+  /** When the jobs were queued; absent for any time. */
+  period?: JobPeriod | undefined;
+  /** Opaque library ids, sorted: jobs with a file in any of them; absent or empty for every library. */
+  root?: string[] | undefined;
 };
 
 export const EMPTY_JOB_FILTER: JobFilter = { q: "", status: [], action: [], sort: "newest" };
@@ -62,6 +67,7 @@ export function parseJobFilter(params: URLSearchParams): JobFilter {
     status: canonical(STATUS_ORDER, list(params.get("status"))),
     action: canonical(ACTION_ORDER, list(params.get("action"))),
     sort: params.get("sort") === "oldest" ? "oldest" : "newest",
+    ...parsePeriodLibrary(params),
   };
 }
 
@@ -78,18 +84,19 @@ function filterParts(filter: JobFilter): string[] {
 
 /** The canonical query string of a filter, without "?": `status`, `action`, `q`, then `sort`; "" for none. */
 export function jobFilterQuery(filter: JobFilter): string {
-  const parts = filterParts(filter);
+  const parts = [...filterParts(filter), ...periodLibraryAddress(filter)];
   if (filter.sort === "oldest") parts.push("sort=oldest");
   return parts.join("&");
 }
 
 /** The query of `/jobs` and `/jobs/counts` for a filter, without paging. */
-export function jobListParams(filter: JobFilter): string {
-  return [`order=${filter.sort === "oldest" ? "asc" : "desc"}`, ...filterParts(filter)].join("&");
+export function jobListParams(filter: JobFilter, now: Date = new Date()): string {
+  return [`order=${filter.sort === "oldest" ? "asc" : "desc"}`, ...filterParts(filter), ...periodLibraryServer(filter, now)].join("&");
 }
 
 /** Anything at all narrows the list; the order does not. */
-export const isJobFiltered = (filter: JobFilter): boolean => filter.q !== "" || filter.status.length > 0 || filter.action.length > 0;
+export const isJobFiltered = (filter: JobFilter): boolean =>
+  filter.q !== "" || filter.status.length > 0 || filter.action.length > 0 || !!filter.period || (filter.root?.length ?? 0) > 0;
 
 /** Two filters show the same jobs in the same order. */
 export const sameJobFilter = (a: JobFilter, b: JobFilter): boolean => jobFilterQuery(a) === jobFilterQuery(b);
@@ -111,3 +118,25 @@ export function revealActive(filter: JobFilter, counts: JobCounts): JobFilter {
   }
   return { ...EMPTY_JOB_FILTER, sort: filter.sort };
 }
+
+/*
+ * The period and the library (#71), after the search and before the order. The period is `range=<preset>` or
+ * `from`/`to` days in the address and absolute instants for the server (see period.ts); the libraries are
+ * `root_id`, sorted, as on the Files page. Both are left out of the filter when not chosen.
+ */
+function parsePeriodLibrary(params: URLSearchParams): Pick<JobFilter, "period" | "root"> {
+  const result: Pick<JobFilter, "period" | "root"> = {};
+  const period = parsePeriod(params);
+  if (period) result.period = period;
+  const root = [...new Set(list(params.get("root_id")))].sort();
+  if (root.length > 0) result.root = root;
+  return result;
+}
+
+function rootPart(filter: JobFilter): string[] {
+  const root = [...new Set(filter.root ?? [])].sort();
+  return root.length > 0 ? [`root_id=${root.map(encodeURIComponent).join(",")}`] : [];
+}
+
+const periodLibraryAddress = (filter: JobFilter): string[] => [...periodAddress(filter.period), ...rootPart(filter)];
+const periodLibraryServer = (filter: JobFilter, now: Date): string[] => [...periodServer(filter.period, now), ...rootPart(filter)];

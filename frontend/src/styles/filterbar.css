@@ -16,6 +16,10 @@
 .fb-more-toggle:disabled { color: var(--muted); cursor: default; }
 .fb-more { padding-top: 2px; }
 .fb-find { margin: 0 6px 6px; width: calc(100% - 12px); }
+/* The days of a custom period, under the period options (ActivityPage). */
+.fb-days { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 6px 2px; padding-top: 8px; border-top: 1px solid var(--line); }
+.fb-days label { display: flex; flex-direction: column; gap: 3px; color: var(--muted); font-size: var(--text-sm); }
+.fb-days .input { width: 100%; min-width: 0; }
 .fb-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
 .fb-search { flex: 1 1 220px; max-width: 320px; display: flex; }
 .fb-search .search { margin-left: 0; max-width: none; }

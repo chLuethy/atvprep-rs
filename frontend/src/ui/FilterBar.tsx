@@ -1,4 +1,4 @@
-import { createSignal, createUniqueId, For, onCleanup, onMount, Show, type Component, type JSX } from "solid-js";
+import { createSignal, createUniqueId, For, onCleanup, onMount, Show, untrack, type Component, type JSX } from "solid-js";
 import { t } from "../lib/i18n";
 import { Icon } from "./icons";
 
@@ -34,6 +34,11 @@ export type Facet = {
   placement?: "main" | "more";
   /** A search field above the options, for long lists; it narrows them by label. */
   searchable?: boolean;
+  /**
+   * The page's own controls under the options, e.g. the days of a custom period. Built once each time the
+   * facet is shown, so it should read the page's state itself rather than be rebuilt with the facets.
+   */
+  extra?: () => JSX.Element;
 };
 
 /** A fixed filter one click away, as the page defines it; `active` while the filter is exactly it. */
@@ -204,6 +209,8 @@ export const FilterBar: Component<{
    */
   const keysOf = (facets: ReadonlyArray<Facet>) => facets.map((facet) => facet.key);
   const facetOf = (key: string): Facet => props.facets.find((facet) => facet.key === key) ?? { key, title: key, options: [], logic: "or" };
+  /** A facet's own controls, built once where it is shown: facets handed in anew do not rebuild them. */
+  const extraOf = (key: string) => untrack(() => facetOf(key).extra?.());
 
   /** One facet button with its ✕ and popover, in either row. */
   const facetItem = (key: string) => {
@@ -236,6 +243,7 @@ export const FilterBar: Component<{
         <Show when={open() === key}>
           <Popover title={facet().title} id={popId} onReset={() => clearFacet(facet())}>
             <Options facet={facet()} value={props.value} counts={props.counts} onChange={props.onChange} ref={focusFirst} />
+            {extraOf(key)}
           </Popover>
         </Show>
       </span>
@@ -280,6 +288,7 @@ export const FilterBar: Component<{
                   <section class="fb-all-facet">
                     <h3>{facetOf(key).title}</h3>
                     <Options facet={facetOf(key)} value={props.value} counts={props.counts} onChange={props.onChange} ref={index() === 0 ? focusFirst : undefined} />
+                    {extraOf(key)}
                   </section>
                 )}</For>
               </Popover>

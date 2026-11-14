@@ -333,11 +333,11 @@ pub async fn jobs(
     {
         return error(StatusCode::UNPROCESSABLE_ENTITY, "invalid request", PATH);
     }
-    let filter = match JobFilter::parse(&query) {
+    let opaque = Opaque::new(state.api_secret.as_bytes());
+    let filter = match JobFilter::parse(&query, &opaque) {
         Ok(filter) => filter,
         Err(message) => return error(StatusCode::UNPROCESSABLE_ENTITY, message, PATH),
     };
-    let opaque = Opaque::new(state.api_secret.as_bytes());
     let after = match query.cursor.as_deref() {
         Some(v) => match opaque.decode(v, "cursor:jobs") {
             Ok(id) if id > 0 => Some(id),
@@ -429,13 +429,14 @@ pub async fn job_counts(
     Query(query): Query<JobQuery>,
 ) -> Response {
     const PATH: &str = "/api/v1/jobs/counts";
-    let filter = match JobFilter::parse(&query) {
+    let opaque = Opaque::new(state.api_secret.as_bytes());
+    let filter = match JobFilter::parse(&query, &opaque) {
         Ok(filter) => filter,
         Err(message) => return error(StatusCode::UNPROCESSABLE_ENTITY, message, PATH),
     };
     let result = tokio::task::spawn_blocking(move || {
         let conn = state.db.conn().map_err(|_| ())?;
-        filter.counts(conn.raw()).map_err(|_| ())
+        filter.counts(conn.raw(), &opaque).map_err(|_| ())
     })
     .await;
     match result {

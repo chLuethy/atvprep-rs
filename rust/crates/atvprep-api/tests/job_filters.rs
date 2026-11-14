@@ -1,5 +1,7 @@
 //! The job list filters (status and action as OR lists, the search) and their facet counters.
-use atvprep_api::{auth::AuthService, config::ManagerConfig, router, state::AppState};
+use atvprep_api::{
+    auth::AuthService, config::ManagerConfig, opaque::Opaque, router, state::AppState,
+};
 use atvprep_manager::{db::Db, repo::Ctx, schema};
 use axum::{
     body::{Body, to_bytes},
@@ -256,11 +258,13 @@ async fn unknown_tokens_and_long_values_are_refused() {
 async fn counts_vary_each_facet_with_the_other_filters() {
     let api = api();
     let body = api.get("/api/v1/jobs/counts").await;
+    let movies = Opaque::new(b"test-api-secret").encode("r", 1);
     assert_eq!(
         body["data"],
         json!({
             "status": {"queued":1,"running":1,"cancel_requested":1,"succeeded":1,"partial_success":1,"failed":1,"cancelled":1},
             "action": {"verify":3,"prepare":3,"inspect":1},
+            "root_id": {&movies: 7},
             "matched": 7, "total": 7, "hidden_active": 0
         })
     );
@@ -274,6 +278,7 @@ async fn counts_vary_each_facet_with_the_other_filters() {
         json!({
             "status": {"queued":0,"running":1,"cancel_requested":0,"succeeded":0,"partial_success":1,"failed":1,"cancelled":0},
             "action": {"verify":1,"prepare":2,"inspect":0},
+            "root_id": {&movies: 2},
             "matched": 2, "total": 7, "hidden_active": 3
         })
     );
