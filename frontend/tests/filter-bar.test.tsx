@@ -282,16 +282,80 @@ describe("FilterBar: more filters", () => {
     const { view } = show({ sidecar: ["true"] }, { facets: WITH_MORE, counts: null });
     const more = view.getByRole("button", { name: "More filters" });
     expect(more).toHaveAttribute("aria-expanded", "true");
-    expect(more).toBeDisabled();
+    // It cannot close then, but stays focusable so a screen reader hears why.
+    expect(more).toHaveAttribute("aria-disabled", "true");
+    expect(more).not.toBeDisabled();
+    await fireEvent.click(more);
+    expect(view.getByRole("group", { name: "More filters" })).toBeInTheDocument();
     const row = view.getByRole("group", { name: "More filters" });
     await fireEvent.click(within(row).getByRole("button", { name: "Clear Subtitle files" }));
     expect(view.queryByRole("group", { name: "More filters" })).not.toBeInTheDocument();
-    expect(view.getByRole("button", { name: "More filters" })).toBeEnabled();
+    expect(view.getByRole("button", { name: "More filters" })).not.toHaveAttribute("aria-disabled");
+    // The cleared facet is gone with its row; the focus lands on the toggle, not on the page.
+    expect(view.getByRole("button", { name: "More filters" })).toHaveFocus();
+  });
+
+  it("keeps the row and the popover while its last value is cleared in the popover, until the popover closes", async () => {
+    // Arrived by a link: the row is open only because the facet is active.
+    const { view } = show({ sidecar: ["true"] }, { facets: WITH_MORE, counts: null });
+    const dialog = await openFacet(view, /^Subtitle files/);
+    const yes = within(dialog).getByRole("radio", { name: "Yes" });
+    yes.focus();
+    await fireEvent.click(within(dialog).getByRole("button", { name: "Reset" }));
+
+    expect(view.getByRole("group", { name: "More filters" })).toBeInTheDocument();
+    expect(view.getByRole("dialog", { name: "Subtitle files" })).toBeInTheDocument();
+    expect(yes.isConnected).toBe(true);
+    expect(yes).toHaveFocus();
+
+    await fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    expect(view.queryByRole("group", { name: "More filters" })).not.toBeInTheDocument();
+    expect(view.getByRole("button", { name: "More filters" })).toHaveFocus();
   });
 
   it("does not offer the row when every facet is in the main row", () => {
     const { view } = show();
     expect(view.queryByRole("button", { name: "More filters" })).not.toBeInTheDocument();
+  });
+});
+
+describe("FilterBar: more filters on a narrow screen", () => {
+  /** The viewport below 720px, as a phone has it. */
+  const narrow = () => {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes("max-width: 720px"), media: query, onchange: null,
+      addEventListener: () => {}, removeEventListener: () => {}, addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia;
+    return () => { window.matchMedia = original; };
+  };
+  /** The scrolling row: the group that starts with the filter symbol. */
+  const scrollingRow = (view: ReturnType<typeof show>["view"]) => view.getByRole("button", { name: /^All filters/ }).closest(".fb-facets") as HTMLElement;
+
+  it("puts an active facet from More filters into the scrolling row with the filter symbol", () => {
+    const restore = narrow();
+    try {
+      const { view } = show({ sidecar: ["true"] }, { facets: WITH_MORE, counts: null });
+      const row = scrollingRow(view);
+      // Marked active, so the narrow layout puts it right after the filter symbol, before the rest.
+      const facet = within(row).getByRole("button", { name: "Subtitle files: Yes" }).closest(".fb-facet");
+      expect(facet).toHaveAttribute("data-active", "true");
+      expect(within(row).getByRole("button", { name: "Status" })).toBeInTheDocument();
+      expect(within(row).getByRole("group", { name: "More filters" })).toBeInTheDocument();
+    } finally {
+      restore();
+    }
+  });
+
+  it("opens the other facets of More filters in the same row", async () => {
+    const restore = narrow();
+    try {
+      const { view } = show({}, { facets: WITH_MORE, counts: null });
+      await fireEvent.click(view.getByRole("button", { name: "More filters" }));
+      expect(within(scrollingRow(view)).getByRole("button", { name: "Extension" })).toBeInTheDocument();
+    } finally {
+      restore();
+    }
   });
 });
 

@@ -54,7 +54,7 @@ describe("ActivityPage: period and library under More filters", () => {
 
     expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, period: { preset: "24h" } }, { replace: false });
     await waitFor(() => expect(lastList()).toMatch(/&from=\d{4}-\d{2}-\d{2}T[^&]+Z$/));
-    expect(filters.getByRole("button", { name: "More filters" })).toBeDisabled();
+    expect(filters.getByRole("button", { name: "More filters" })).toHaveAttribute("aria-disabled", "true");
     expect(filters.getByRole("button", { name: "Period: Last 24 hours" })).toBeInTheDocument();
   });
 

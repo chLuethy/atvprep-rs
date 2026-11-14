@@ -16,7 +16,7 @@ test.describe("activity period and library", () => {
     await expect(page).toHaveURL(/\/jobs\?range=today$/);
     // The fixture went in today.
     await expect(page.getByRole("link", { name: /Failed Movie/ }).first()).toBeVisible();
-    await expect(bar.getByRole("button", { name: "More filters" })).toBeDisabled();
+    await expect(bar.getByRole("button", { name: "More filters" })).toHaveAttribute("aria-disabled", "true");
 
     await period.getByRole("radio", { name: "Custom period" }).check();
     await period.getByLabel("From", { exact: true }).fill("2020-01-01");

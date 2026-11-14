@@ -5,7 +5,7 @@
 .fb-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-height: 18px; font-size: var(--text-sm); }
 .fb-summary { color: var(--muted); font-variant-numeric: tabular-nums; }
 .fb-link { border: 0; background: none; padding: 2px 4px; border-radius: 6px; color: var(--accent-text); font-size: var(--text-sm); font-weight: 500; }
-.fb-link:hover:not(:disabled) { background: var(--hover); }
+.fb-link:hover:not(:disabled, [aria-disabled="true"]) { background: var(--hover); }
 /* Quick filters: small toggles; one in effect is filled like an active facet. */
 .fb-quick { display: flex; flex-wrap: wrap; gap: 4px; }
 .fb-quick-button { padding: 1px 9px; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--muted); font-size: var(--text-sm); font-weight: 500; white-space: nowrap; }
@@ -13,8 +13,10 @@
 .fb-quick-button[aria-pressed="true"] { background: var(--accent-weak); border-color: var(--accent-strong); color: var(--text); font-weight: 600; }
 /* "More filters" opens a second row in place; it cannot close while a facet in it is active. */
 .fb-more-toggle { white-space: nowrap; }
-.fb-more-toggle:disabled { color: var(--muted); cursor: default; }
+.fb-more-toggle[aria-disabled="true"] { color: var(--muted); cursor: default; }
 .fb-more { padding-top: 2px; }
+/* Narrow: the second row's facets sit in the scrolling row, so the active ones move to its front too. */
+.fb-more-inline { display: contents; }
 .fb-find { margin: 0 6px 6px; width: calc(100% - 12px); }
 /* The days of a custom period, under the period options (ActivityPage). */
 .fb-days { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 6px 2px; padding-top: 8px; border-top: 1px solid var(--line); }

@@ -420,7 +420,7 @@ describe("LibraryPage: library, extension and subtitle files", () => {
 
     expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_FILTER, suffix: [".mkv"] }, { replace: false });
     await waitFor(() => expect(lastList()).toContain("suffix=.mkv"));
-    expect(bar.getByRole("button", { name: "More filters" })).toBeDisabled();
+    expect(bar.getByRole("button", { name: "More filters" })).toHaveAttribute("aria-disabled", "true");
 
     const sidecar = await openFacet(view, "Subtitle files");
     await fireEvent.click(sidecar.getByRole("radio", { name: "No, 3 files" }));

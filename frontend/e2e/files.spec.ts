@@ -101,14 +101,14 @@ test.describe("files journey", () => {
     await expect(page.getByText("No files match the current filters")).toBeVisible();
     await expect(page.getByRole("list", { name: "Active filters" }).getByRole("listitem")).toHaveText(["Extension: mp4", "Subtitle files: Yes"]);
     await page.keyboard.press("Escape");
-    await expect(more).toBeDisabled();
+    await expect(more).toHaveAttribute("aria-disabled", "true");
 
     await page.goBack();
     await expect(page).toHaveURL(/\?suffix=\.mp4$/);
     await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
     await bar.getByRole("button", { name: "Clear Extension" }).click();
     await expect(page).toHaveURL(/\/files$/);
-    await expect(more).toBeEnabled();
+    await expect(more).not.toHaveAttribute("aria-disabled");
   });
 
   test("a quick filter sets its states, shows as in effect and is also in the command palette", async ({ page }) => {
