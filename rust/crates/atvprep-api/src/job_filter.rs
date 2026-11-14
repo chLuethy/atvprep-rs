@@ -11,16 +11,15 @@
 //!
 //! The period (`from`/`to`) is a plain narrowing. The library (`root_id`) is a facet whose tokens are
 //! the configured libraries rather than fixed ones; it lives beside [`FACETS`] in [`Libraries`]. The
-//! facet Auslöser (`trigger` with single schedules as `schedule`) has tokens from the database too, so
+//! facet Auslöser (`trigger` with single schedules as `schedule_id`) has tokens from the database too, so
 //! it lives apart in [`crate::job_trigger`].
+use crate::filter_params::{MAX_ID_LIST, MAX_PARAM, placeholders, tokens};
 use crate::job_trigger::{self, TRIGGERS, TriggerChoice};
 use crate::opaque::Opaque;
 use atvprep_manager::state_machine::JobStatus;
+use axum::http::StatusCode;
 use rusqlite::types::Value;
 use serde::Deserialize;
-
-/// Longest accepted value of any filter parameter, in characters.
-const MAX_PARAM: usize = 128;
 
 #[derive(Deserialize)]
 pub struct JobQuery {
@@ -39,7 +38,8 @@ pub struct JobQuery {
     /// Opaque library ids: a job with a file in any of them.
     root_id: Option<String>,
     trigger: Option<String>,
-    schedule: Option<String>,
+    /// Opaque ids of single schedules, alternatives to `trigger`.
+    schedule_id: Option<String>,
 }
 
 impl JobQuery {
@@ -105,19 +105,6 @@ const FACETS: [FacetDef; 2] = [
     },
 ];
 
-fn placeholders(count: usize) -> String {
-    vec!["?"; count].join(",")
-}
-
-/// The non-empty entries of a comma-separated list.
-fn tokens(value: Option<&str>) -> Vec<&str> {
-    value
-        .unwrap_or_default()
-        .split(',')
-        .filter(|token| !token.is_empty())
-        .collect()
-}
-
 /// The jobs the list shows at all: cleared ones are gone from Activity.
 const LISTED: &str = "j.cleared_at IS NULL";
 
@@ -153,8 +140,23 @@ pub(crate) struct JobFilter {
 }
 
 impl JobFilter {
-    /// Check every filter parameter and build the filter; the error is the problem's detail.
-    pub(crate) fn parse(query: &JobQuery, opaque: &Opaque) -> Result<Self, &'static str> {
+    /// Check every filter parameter and build the filter; the error is the response status and the
+    /// problem's detail. An unknown library is not found, as on the file list; anything else
+    /// invalid is refused with 422.
+    pub(crate) fn parse(
+        query: &JobQuery,
+        opaque: &Opaque,
+    ) -> Result<Self, (StatusCode, &'static str)> {
+        let roots = Libraries::parse(query.root_id.as_deref(), opaque)?;
+        Self::parse_rest(query, opaque, roots)
+            .map_err(|message| (StatusCode::UNPROCESSABLE_ENTITY, message))
+    }
+
+    fn parse_rest(
+        query: &JobQuery,
+        opaque: &Opaque,
+        roots: Vec<i64>,
+    ) -> Result<Self, &'static str> {
         let too_long = [
             &query.status,
             &query.action,
@@ -204,13 +206,16 @@ impl JobFilter {
             narrowing_values.push(pattern.clone());
         }
         period_clauses(query, &mut narrowing, &mut narrowing_values)?;
-        let trigger =
-            TriggerChoice::parse(query.trigger.as_deref(), query.schedule.as_deref(), opaque)?;
+        let trigger = TriggerChoice::parse(
+            query.trigger.as_deref(),
+            query.schedule_id.as_deref(),
+            opaque,
+        )?;
         Ok(Self {
             chosen,
             narrowing,
             narrowing_values,
-            roots: Libraries::parse(query.root_id.as_deref(), opaque)?,
+            roots,
             trigger,
             search,
         })
@@ -302,7 +307,7 @@ impl JobFilter {
         Ok(data.into())
     }
 
-    /// The counters of the facet Auslöser (`trigger`, per schedule `schedule`) and the schedules a
+    /// The counters of the facet Auslöser (`trigger`, per schedule `schedule_id`) and the schedules a
     /// job can come from with their names (`schedules`), into `data`.
     fn trigger_counts(
         &self,
@@ -330,7 +335,7 @@ impl JobFilter {
             }));
         }
         data.insert("trigger".to_owned(), by_trigger.into());
-        data.insert("schedule".to_owned(), by_schedule.into());
+        data.insert("schedule_id".to_owned(), by_schedule.into());
         data.insert("schedules".to_owned(), schedules.into());
         Ok(())
     }
@@ -364,12 +369,10 @@ fn period_clauses(
 struct Libraries;
 
 impl Libraries {
-    /// Longest accepted `root_id` list, in characters: several libraries make a long list of ids.
-    const MAX_LIST: usize = 1024;
-
-    fn parse(value: Option<&str>, opaque: &Opaque) -> Result<Vec<i64>, &'static str> {
-        if value.is_some_and(|v| v.chars().count() > Self::MAX_LIST) {
-            return Err("invalid request");
+    /// The chosen libraries; a list too long is refused, an id that names no library is not found.
+    fn parse(value: Option<&str>, opaque: &Opaque) -> Result<Vec<i64>, (StatusCode, &'static str)> {
+        if value.is_some_and(|v| v.chars().count() > MAX_ID_LIST) {
+            return Err((StatusCode::UNPROCESSABLE_ENTITY, "invalid request"));
         }
         let mut ids = Vec::new();
         for token in tokens(value) {
@@ -379,7 +382,7 @@ impl Libraries {
                         ids.push(id);
                     }
                 }
-                _ => return Err("invalid request"),
+                _ => return Err((StatusCode::NOT_FOUND, "resource not found")),
             }
         }
         Ok(ids)

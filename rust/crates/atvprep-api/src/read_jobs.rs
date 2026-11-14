@@ -345,7 +345,7 @@ pub async fn jobs(
     let opaque = Opaque::new(state.api_secret.as_bytes());
     let filter = match JobFilter::parse(&query, &opaque) {
         Ok(filter) => filter,
-        Err(message) => return error(StatusCode::UNPROCESSABLE_ENTITY, message, PATH),
+        Err((status, message)) => return error(status, message, PATH),
     };
     let after = match query.cursor.as_deref() {
         Some(v) => match opaque.decode(v, "cursor:jobs") {
@@ -441,7 +441,7 @@ pub async fn job_counts(
     let opaque = Opaque::new(state.api_secret.as_bytes());
     let filter = match JobFilter::parse(&query, &opaque) {
         Ok(filter) => filter,
-        Err(message) => return error(StatusCode::UNPROCESSABLE_ENTITY, message, PATH),
+        Err((status, message)) => return error(status, message, PATH),
     };
     let result = tokio::task::spawn_blocking(move || {
         let conn = state.db.conn().map_err(|_| ())?;

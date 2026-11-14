@@ -327,7 +327,7 @@
                     "schedule": 0,
                     "retry": 0
                   },
-                  "schedule": {
+                  "schedule_id": {
                     "<sc:1>": 0
                   },
                   "schedules": [

@@ -165,22 +165,23 @@ async fn schedule_filters_by_single_schedules_and_adds_to_the_trigger() {
     let night = api.schedule("Nachtlauf").await;
     let weekend = api.schedule("Wochenende").await;
     assert_eq!(
-        api.subjects(&format!("schedule={night}")).await,
+        api.subjects(&format!("schedule_id={night}")).await,
         ["Night.mkv", "Night2.mkv"]
     );
     assert_eq!(
-        api.subjects(&format!("schedule={night},{weekend}")).await,
+        api.subjects(&format!("schedule_id={night},{weekend}"))
+            .await,
         ["Night.mkv", "Weekend.mkv", "Night2.mkv"]
     );
     // Within the facet Auslöser the choices are alternatives.
     assert_eq!(
-        api.subjects(&format!("trigger=manual&schedule={weekend}"))
+        api.subjects(&format!("trigger=manual&schedule_id={weekend}"))
             .await,
         ["Hand.mkv", "Weekend.mkv"]
     );
     // The other facets still narrow.
     assert_eq!(
-        api.subjects(&format!("schedule={night}&status=failed"))
+        api.subjects(&format!("schedule_id={night}&status=failed"))
             .await,
         ["Night.mkv"]
     );
@@ -195,7 +196,7 @@ async fn counts_per_trigger_and_per_schedule_follow_the_other_filters() {
     let data = &body["data"];
     assert_eq!(data["trigger"], json!({"manual":1,"schedule":4,"retry":1}));
     assert_eq!(
-        data["schedule"],
+        data["schedule_id"],
         json!({night.clone():2, weekend.clone():1})
     );
     // Schedules that queue jobs, by name; a scan schedule never does.
@@ -209,12 +210,12 @@ async fn counts_per_trigger_and_per_schedule_follow_the_other_filters() {
     // Auslöser.
     let body = api
         .get(&format!(
-            "/api/v1/jobs/counts?trigger=manual&schedule={night}&status=succeeded"
+            "/api/v1/jobs/counts?trigger=manual&schedule_id={night}&status=succeeded"
         ))
         .await;
     let data = &body["data"];
     assert_eq!(data["trigger"], json!({"manual":1,"schedule":3,"retry":1}));
-    assert_eq!(data["schedule"], json!({night.clone():1, weekend:1}));
+    assert_eq!(data["schedule_id"], json!({night.clone():1, weekend:1}));
     assert_eq!(data["status"]["succeeded"], 2);
     assert_eq!(data["status"]["failed"], 1);
     assert_eq!(data["matched"], 2);
@@ -254,9 +255,9 @@ async fn unknown_triggers_and_schedules_are_refused() {
     for query in [
         "trigger=automatic".to_owned(),
         "trigger=manual,bogus".to_owned(),
-        "schedule=bogus".to_owned(),
+        "schedule_id=bogus".to_owned(),
         // A job id is no schedule id.
-        format!("schedule={job}"),
+        format!("schedule_id={job}"),
         format!("trigger={}", "a".repeat(129)),
     ] {
         for list in ["jobs", "jobs/counts"] {

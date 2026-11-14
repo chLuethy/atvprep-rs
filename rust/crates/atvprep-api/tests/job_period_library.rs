@@ -204,11 +204,19 @@ async fn a_bad_period_or_library_is_refused() {
         "from=yesterday",
         "to=2026-11-14",
         "from=2026-11-14T25:00:00Z",
-        "root_id=nonsense",
     ] {
         for path in ["/api/v1/jobs", "/api/v1/jobs/counts"] {
             let (status, body) = api.call(&format!("{path}?{query}")).await;
             assert_eq!(status, 422, "{path}?{query}: {body}");
         }
+    }
+}
+
+#[tokio::test]
+async fn an_unknown_library_is_not_found_as_on_the_file_list() {
+    let api = api();
+    for path in ["/api/v1/jobs", "/api/v1/jobs/counts"] {
+        let (status, body) = api.call(&format!("{path}?root_id=nonsense")).await;
+        assert_eq!(status, 404, "{path}: {body}");
     }
 }

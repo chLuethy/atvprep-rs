@@ -6,9 +6,10 @@
 //! A retry (`retry`) stays a retry even though it keeps the snapshot of its origin. By hand
 //! (`manual`) is every other job stored as `manual`.
 //!
-//! The facet takes the Auslöser as `trigger` and single schedules as `schedule`, both comma lists;
-//! together they are alternatives (OR): `trigger=manual&schedule=…` shows the jobs by hand and those
+//! The facet takes the Auslöser as `trigger` and single schedules as `schedule_id`, both comma
+//! lists; together they are alternatives (OR): `trigger=manual&schedule_id=…` shows the jobs by hand and those
 //! from that schedule.
+use crate::filter_params::{MAX_PARAM, placeholders, tokens};
 use crate::opaque::Opaque;
 use rusqlite::types::Value;
 
@@ -17,7 +18,7 @@ pub(crate) const TRIGGERS: [&str; 3] = ["manual", "schedule", "retry"];
 
 /// Most single schedules one filter may name.
 const MAX_SCHEDULES: usize = 50;
-/// Longest accepted `schedule` list, in characters: an opaque id is well under 64.
+/// Longest accepted `schedule_id` list, in characters: an opaque id is well under 64.
 const MAX_SCHEDULE_PARAM: usize = MAX_SCHEDULES * 64;
 
 /// SQL: the schedule job `j` came from, NULL for any other job.
@@ -38,23 +39,23 @@ pub(crate) struct TriggerChoice {
 }
 
 impl TriggerChoice {
-    /// Check `trigger` and `schedule` from the query; unknown tokens and foreign ids are refused.
+    /// Check `trigger` and `schedule_id` from the query; unknown tokens and foreign ids are refused.
     pub(crate) fn parse(
         trigger: Option<&str>,
         schedule: Option<&str>,
         opaque: &Opaque,
     ) -> Result<Self, &'static str> {
-        let trigger = trigger.unwrap_or_default();
-        let schedule = schedule.unwrap_or_default();
-        if trigger.chars().count() > 128 || schedule.chars().count() > MAX_SCHEDULE_PARAM {
+        if trigger.is_some_and(|v| v.chars().count() > MAX_PARAM)
+            || schedule.is_some_and(|v| v.chars().count() > MAX_SCHEDULE_PARAM)
+        {
             return Err("invalid request");
         }
-        let asked: Vec<&str> = trigger.split(',').filter(|t| !t.is_empty()).collect();
+        let asked = tokens(trigger);
         if asked.iter().any(|token| !TRIGGERS.contains(token)) {
             return Err("invalid request");
         }
         let mut schedules = Vec::new();
-        for token in schedule.split(',').filter(|t| !t.is_empty()) {
+        for token in tokens(schedule) {
             let id = opaque
                 .decode(token, "sc")
                 .ok()
@@ -100,14 +101,14 @@ impl TriggerChoice {
             any.push(format!(
                 "{} IN ({})",
                 trigger_of(),
-                vec!["?"; self.triggers.len()].join(",")
+                placeholders(self.triggers.len())
             ));
         }
         if !self.schedules.is_empty() {
             values.extend(self.schedules.iter().map(|id| Value::from(*id)));
             any.push(format!(
                 "{SCHEDULE_OF} IN ({})",
-                vec!["?"; self.schedules.len()].join(",")
+                placeholders(self.schedules.len())
             ));
         }
         (!any.is_empty()).then(|| format!("({})", any.join(" OR ")))

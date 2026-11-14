@@ -4163,7 +4163,7 @@
             }
           },
           {
-            "description": "Comma-separated Auslöser as the server derives them: ``manual`` (by hand), ``schedule`` (a run of a schedule points at the job, or its snapshot names a deleted schedule) and ``retry``. Jobs from schedules are stored as ``manual`` but never count as ``manual``. Together with ``schedule`` the choices are alternatives (OR). An unknown value, also ``automatic``, is refused with 422.",
+            "description": "Comma-separated Auslöser as the server derives them: ``manual`` (by hand), ``schedule`` (a run of a schedule points at the job, or its snapshot names a deleted schedule) and ``retry``. Jobs from schedules are stored as ``manual`` but never count as ``manual``. Together with ``schedule_id`` the choices are alternatives (OR). An unknown value, also ``automatic``, is refused with 422.",
             "in": "query",
             "name": "trigger",
             "required": false,
@@ -4182,7 +4182,7 @@
           {
             "description": "Comma-separated opaque schedule ids (at most 50); the jobs from any of these schedules are listed, as an alternative (OR) to ``trigger``. A value that is no schedule id is refused with 422.",
             "in": "query",
-            "name": "schedule",
+            "name": "schedule_id",
             "required": false,
             "schema": {
               "anyOf": [
@@ -4193,7 +4193,7 @@
                   "type": "null"
                 }
               ],
-              "title": "Schedule"
+              "title": "Schedule Id"
             }
           },
           {
@@ -4281,7 +4281,7 @@
             }
           },
           {
-            "description": "Comma-separated opaque library ids; only the jobs with a file in any of them are listed (OR). A job with files in several libraries belongs to each. An id that cannot be read is refused with 422.",
+            "description": "Comma-separated opaque library ids; only the jobs with a file in any of them are listed (OR). A job with files in several libraries belongs to each. An id that names no library is not found (404), as on ``/api/v1/files``.",
             "in": "query",
             "name": "root_id",
             "required": false,
@@ -4420,7 +4420,7 @@
     },
     "/api/v1/jobs/counts": {
       "get": {
-        "description": "The facet counters for the job list, with the same filters as ``/api/v1/jobs``.\n\n``status`` counts each job status with every filter except the chosen statuses; ``action`` counts each action with every filter except the chosen actions. ``trigger`` counts each Auslöser and ``schedule`` each schedule (keyed by its opaque id) with every filter except the chosen Auslöser and schedules; ``schedules`` lists the schedules a job can come from (every one but scans) with their names, ordered by name. ``matched`` is the number of jobs the list shows with all filters, ``total`` the number of jobs without any filter, and ``hidden_active`` the number of waiting or running jobs the filters leave out.",
+        "description": "The facet counters for the job list, with the same filters as ``/api/v1/jobs``.\n\n``status`` counts each job status with every filter except the chosen statuses; ``action`` counts each action with every filter except the chosen actions. ``trigger`` counts each Auslöser and ``schedule_id`` each schedule (keyed by its opaque id) with every filter except the chosen Auslöser and schedules; ``schedules`` lists the schedules a job can come from (every one but scans) with their names, ordered by name. ``matched`` is the number of jobs the list shows with all filters, ``total`` the number of jobs without any filter, and ``hidden_active`` the number of waiting or running jobs the filters leave out.",
         "operationId": "job_counts_api_v1_jobs_counts_get",
         "parameters": [
           {
@@ -4458,7 +4458,7 @@
             }
           },
           {
-            "description": "Comma-separated Auslöser as the server derives them: ``manual`` (by hand), ``schedule`` (a run of a schedule points at the job, or its snapshot names a deleted schedule) and ``retry``. Jobs from schedules are stored as ``manual`` but never count as ``manual``. Together with ``schedule`` the choices are alternatives (OR). An unknown value, also ``automatic``, is refused with 422.",
+            "description": "Comma-separated Auslöser as the server derives them: ``manual`` (by hand), ``schedule`` (a run of a schedule points at the job, or its snapshot names a deleted schedule) and ``retry``. Jobs from schedules are stored as ``manual`` but never count as ``manual``. Together with ``schedule_id`` the choices are alternatives (OR). An unknown value, also ``automatic``, is refused with 422.",
             "in": "query",
             "name": "trigger",
             "required": false,
@@ -4477,7 +4477,7 @@
           {
             "description": "Comma-separated opaque schedule ids (at most 50); the jobs from any of these schedules are listed, as an alternative (OR) to ``trigger``. A value that is no schedule id is refused with 422.",
             "in": "query",
-            "name": "schedule",
+            "name": "schedule_id",
             "required": false,
             "schema": {
               "anyOf": [
@@ -4488,7 +4488,7 @@
                   "type": "null"
                 }
               ],
-              "title": "Schedule"
+              "title": "Schedule Id"
             }
           },
           {
@@ -4562,7 +4562,7 @@
             }
           },
           {
-            "description": "Comma-separated opaque library ids; only the jobs with a file in any of them are listed (OR). A job with files in several libraries belongs to each. An id that cannot be read is refused with 422.",
+            "description": "Comma-separated opaque library ids; only the jobs with a file in any of them are listed (OR). A job with files in several libraries belongs to each. An id that names no library is not found (404), as on ``/api/v1/files``.",
             "in": "query",
             "name": "root_id",
             "required": false,
@@ -4615,7 +4615,7 @@
                         "matched": {
                           "type": "integer"
                         },
-                        "schedule": {
+                        "schedule_id": {
                           "additionalProperties": {
                             "type": "integer"
                           },
@@ -4659,7 +4659,7 @@
                         "status",
                         "action",
                         "trigger",
-                        "schedule",
+                        "schedule_id",
                         "schedules",
                         "matched",
                         "total",
