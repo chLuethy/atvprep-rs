@@ -73,7 +73,7 @@ _Avoid_: Undo
 Die ausdrückliche Betreiberentscheidung, dass ein Release nach dem Releasefenster in Ordnung ist. Erst danach wird das Gate geöffnet.
 
 **Zeitplan**:
-Eine wiederkehrende Regel, die zu festen Zeitpunkten (Cron-Ausdruck, Serverzeit) eine Aktion auslöst: Prüfen, Vorbereiten oder Scannen. Die Aktion eines Zeitplans ändert sich nach dem Anlegen nicht mehr. Ein Zeitplan, der Dateien ändert (Vorbereiten), startet pausiert, braucht ein `max_files` und wird bewusst angeschaltet; das Anschalten erzeugt die Signatur des Betreibers (HMAC, gebunden an Zeitplan-ID, Aktion, Bibliothek, Filter, `max_files`, das Zielprofil, die Einstellung Original löschen und die Kodierfreigabe). Jede Änderung dieser Parameter oder ein Pausieren entzieht die Freigabe; erneutes Anschalten signiert neu. Ein Auftrag aus einem Zeitplan darf Dateien nur mit gültiger, zu den aktuellen Parametern passender Signatur ändern, sonst wird er abgelehnt (siehe ADR 0006 und 0008). Ein Zeitplan nimmt nur Dateien mit, deren Kodierbedarf innerhalb seiner Kodierfreigabe liegt (Standard: Nur kopieren). Verpasste Läufe von Vorbereiten werden nie nachgeholt. Für Prüfen und Scannen gilt: Nur der jüngste verpasste Slot wird nachgeholt, und nur innerhalb eines Fensters von 6 Stunden. Ein Slot vor dem Einschalten oder Ändern des Zeitplans läuft nie. Ein Slot, den der Manager nicht innerhalb des Fensters sah (2 Minuten bei Vorbereiten, 6 Stunden bei Prüfen und Scannen), wird genau einmal als „Verpasst“ (Slot, Grund) im Verlauf vermerkt, ohne Job; die Oberfläche rät, den Zeitplan anzupassen oder den Manager-Betrieb zu prüfen. Slots vor dem Einschalten, bei Pause oder geschlossenem Gate werden nicht vermerkt. Grenzen, die der Server beim Anlegen und Ändern prüft: Vorbereiten läuft höchstens alle 15 Minuten (kleinster Abstand zweier Slots, auch bei Listen wie `0,10 * * * *`); Prüfen und Scannen haben keinen Mindestabstand. `max_files` ist je Aktion begrenzt (Prüfen 500; Vorbereiten 12, mit Video in der Kodierfreigabe 6; Scannen hat keines). Ein bestehender Zeitplan über einer Grenze wird beim nächsten Speichern abgelehnt; ein eingeschalteter wird beim Auslösen pausiert und im Verlauf vermerkt (siehe ADR 0006).
+Eine wiederkehrende Regel, die zu festen Zeitpunkten (Cron-Ausdruck, Serverzeit) eine Aktion auslöst: Prüfen, Vorbereiten oder Scannen. Die Aktion eines Zeitplans ändert sich nach dem Anlegen nicht mehr. Ein Zeitplan, der Dateien ändert (Vorbereiten), startet pausiert, braucht ein `max_files` und wird bewusst angeschaltet; das Anschalten erzeugt die Signatur des Betreibers (HMAC, gebunden an Zeitplan-ID, Aktion, Mediathek, Filter, `max_files`, das Zielprofil, die Einstellung Original löschen und die Kodierfreigabe). Jede Änderung dieser Parameter oder ein Pausieren entzieht die Freigabe; erneutes Anschalten signiert neu. Ein Auftrag aus einem Zeitplan darf Dateien nur mit gültiger, zu den aktuellen Parametern passender Signatur ändern, sonst wird er abgelehnt (siehe ADR 0006 und 0008). Ein Zeitplan nimmt nur Dateien mit, deren Kodierbedarf innerhalb seiner Kodierfreigabe liegt (Standard: Nur kopieren). Verpasste Läufe von Vorbereiten werden nie nachgeholt. Für Prüfen und Scannen gilt: Nur der jüngste verpasste Slot wird nachgeholt, und nur innerhalb eines Fensters von 6 Stunden. Ein Slot vor dem Einschalten oder Ändern des Zeitplans läuft nie. Ein Slot, den der Manager nicht innerhalb des Fensters sah (2 Minuten bei Vorbereiten, 6 Stunden bei Prüfen und Scannen), wird genau einmal als „Verpasst“ (Slot, Grund) im Verlauf vermerkt, ohne Job; die Oberfläche rät, den Zeitplan anzupassen oder den Manager-Betrieb zu prüfen. Slots vor dem Einschalten, bei Pause oder geschlossenem Gate werden nicht vermerkt. Grenzen, die der Server beim Anlegen und Ändern prüft: Vorbereiten läuft höchstens alle 15 Minuten (kleinster Abstand zweier Slots, auch bei Listen wie `0,10 * * * *`); Prüfen und Scannen haben keinen Mindestabstand. `max_files` ist je Aktion begrenzt (Prüfen 500; Vorbereiten 12, mit Video in der Kodierfreigabe 6; Scannen hat keines). Ein bestehender Zeitplan über einer Grenze wird beim nächsten Speichern abgelehnt; ein eingeschalteter wird beim Auslösen pausiert und im Verlauf vermerkt (siehe ADR 0006).
 _Avoid_: Schedule, Cronjob
 
 **Lauf**:
@@ -92,6 +92,10 @@ _Avoid_: Parent-Status
 **Item-Status**:
 Der Zustand eines Items eines Jobs (`ItemStatus`): `queued`, `claimed`, `running`, `cancel_requested`, `cancelling`, `succeeded`, `failed`, `stale_input`, `cancelled`, `interrupted`. Terminal sind `succeeded`, `failed`, `stale_input`, `cancelled` und `interrupted`.
 _Avoid_: Child-Status
+
+**Auslöser**:
+Woher ein Job stammt: von Hand (ein Betreiber hat ihn in der Oberfläche angestoßen), Zeitplan (aus einem Lauf eines bestimmten Zeitplans) oder Wiederholung (er wiederholt die fehlgeschlagenen Items eines früheren Jobs).
+_Avoid_: Trigger, automatisch (kommt nur bei Altlasten vor)
 
 **Scan-Status**:
 Der Zustand eines Scan-Laufs (`ScanStatus`), getrennt vom Job-Lebenszyklus: `queued`, `claimed`, `running`, `succeeded`, `failed`, `cancelled`, `interrupted`. Terminal sind `succeeded`, `failed`, `cancelled` und `interrupted`.
@@ -136,15 +140,27 @@ Die Einstellung `delete_original`: Nach erfolgreichem Vorbereiten im Manager wir
 **Policy-Version**:
 Die Kennung, unter der ein Job eingereiht wurde. Der Worker führt nur Jobs der aktuellen Version aus; ältere werden abgewiesen („neu einreihen“). Die aktuelle Version trägt je Item die Kodierfreigabe, die in die Signatur eingeht.
 
-**Einbetten offen**:
-Eine Eigenschaft einer Datei, bei der mindestens eine Untertiteldatei daneben liegt, die sich noch einbetten lässt. Ändert den gespeicherten Zustand nicht, aber die Datei gilt dann nicht als bereit.
+**Mediathek**:
+Eine eingebundene Wurzel, unter der atvprep Dateien findet, zum Beispiel die Serien von Sonarr oder die Filme von Radarr. Ein Scan, ein Zeitplan oder ein Filter kann sich auf eine Mediathek oder auf alle beziehen.
+_Avoid_: Bibliothek, Library, Root (als Begriff in der Oberfläche)
+
+**Dateien**:
+Die Ansicht aller bekannten Dateien über alle Mediatheken hinweg, mit Inspector und Vorschau zum Vorbereiten.
+_Avoid_: Mediathek (meint eine Wurzel), Bibliothek, Library
+
+**Untertitel einbettbar**:
+Eine Eigenschaft einer Datei, bei der mindestens eine Untertiteldatei daneben liegt, die sich noch einbetten lässt, gleich welchen Zustand die Datei hat.
+_Avoid_: Einbetten offen
+
+**Einbettung offen**:
+Ein Zustand: Die Prüfung ergab keine Verstöße, aber die Datei ist untertitel einbettbar. Sie ist damit noch nicht bereit. Zusammen mit Bereit, Warnung, Blocker, Nicht geprüft, Prüfung fehlgeschlagen und Fehlt teilt er die Dateien lückenlos auf.
 
 **Bereit**:
 Eine Datei, deren Prüfung keine Verstöße ergab und bei der nichts mehr eingebettet werden kann.
 _Avoid_: Sauber, Clean (nur der interne Zustandsname)
 
 **Eigenschaften**:
-Merkmale einer Datei, die unabhängig vom Zustand gelten und sich überschneiden dürfen: zu konvertieren (Nicht-MP4-Container), Kodierbedarf, Einbetten offen, konvertiert (Original behalten). In der Bibliothek zeigen gewählte Eigenschaften nur Dateien, die alle gewählten haben.
+Merkmale einer Datei, die unabhängig vom Zustand gelten und sich überschneiden dürfen: zu konvertieren (Nicht-MP4-Container), Kodierbedarf, untertitel einbettbar, konvertiert (Original behalten). Gewählte Eigenschaften zeigen nur Dateien, die alle gewählten haben; gewählte Zustände dagegen jede Datei, die einen davon hat.
 
 **Verwaiste Teilüberarbeitung**:
 Eine halbfertige Arbeitsdatei, die nach einem Absturz oder Abbruch eines Vorbereitens neben der Quelle zurückbleibt. Ist nie ein Ergebnis und wird beim Start des Managers aufgeräumt. Was dabei stehen bleibt, weil es noch zu einem laufenden Vorgang gehören könnte, meldet der Scan; der Betreiber entfernt es dort nach Bestätigung mit Anzahl und Größe. Entfernt wird nur, wenn beides noch stimmt und die Datei nicht zu laufender Arbeit gehört. Jede Löschung steht im Verlauf.
