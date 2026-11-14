@@ -18,7 +18,7 @@ Servarr-Hook (einmalig je Anwendung; der Pfad endet auf `atvprep-hook` im `/conf
 curl -fsSL https://raw.githubusercontent.com/chLuethy/atvprep-rs/main/scripts/install.sh | sudo sh -s -- servarr sonarr /pfad/zu/sonarr-config/atvprep-hook
 ```
 
-Der Pfad wird in `/etc/atvprep/hooks` eingetragen; jeder weitere Lauf aktualisiert zuerst die Binary und danach alle eingetragenen Hooks. Ein fehlgeschlagener Hook beendet den Lauf mit Exitcode 1, die Binary bleibt neu.
+Der Pfad wird in `/etc/atvprep/hooks` eingetragen; jeder weitere Lauf aktualisiert zuerst die Binary und danach alle eingetragenen Hooks. Ein fehlgeschlagener Hook beendet den Lauf mit Exitcode 1, die Binary bleibt neu. Gehört das Verzeichnis des Hooks nicht root, installiert das Skript den Hook mit `setpriv` (util-linux) als dessen Eigentümer, weil `deploy servarr` nur in Verzeichnisse des Aufrufers oder von root schreibt. Das Verzeichnis darf für Gruppe und andere nicht beschreibbar sein.
 
 Umgebungsvariablen: `ATVPREP_VERSION` (feste Version), `ATVPREP_DEST`, `ATVPREP_TRUSTED_KEY`, `ATVPREP_KEY_FINGERPRINT`, `ATVPREP_HOOKS`, `ATVPREP_HOST` und `ATVPREP_REPO`.
 
