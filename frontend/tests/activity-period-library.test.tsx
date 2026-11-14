@@ -97,3 +97,38 @@ describe("ActivityPage: period and library under More filters", () => {
     expect(lastCounts()).toContain("root_id=r_shows");
   });
 });
+
+describe("ActivityPage: a relative period on a page left open", () => {
+  const since = (path: string) => decodeURIComponent(/[?&]from=([^&]+)/.exec(path)?.[1] ?? "");
+
+  it("moves Today on at midnight without a reload", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
+    try {
+      vi.setSystemTime(new Date(2026, 10, 14, 23, 59, 0));
+      const { lastList, lastCounts } = setup({ ...EMPTY_JOB_FILTER, period: { preset: "today" } });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(since(lastList())).toBe(new Date(2026, 10, 14).toISOString());
+
+      // Past midnight the list and the counters ask for the new day, though nothing was clicked.
+      await vi.advanceTimersByTimeAsync(2 * 60 * 1000);
+      expect(since(lastList())).toBe(new Date(2026, 10, 15).toISOString());
+      expect(since(lastCounts())).toBe(new Date(2026, 10, 15).toISOString());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("moves the last 24 hours on while the page stays open", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
+    try {
+      vi.setSystemTime(new Date(2026, 10, 14, 12, 0, 0));
+      const { lastList } = setup({ ...EMPTY_JOB_FILTER, period: { preset: "24h" } });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(since(lastList())).toBe(new Date(2026, 10, 13, 12, 0, 0).toISOString());
+      await vi.advanceTimersByTimeAsync(60 * 1000);
+      expect(since(lastList())).toBe(new Date(2026, 10, 13, 12, 1, 0).toISOString());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
