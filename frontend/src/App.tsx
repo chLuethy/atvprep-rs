@@ -1,10 +1,11 @@
-import { A, Navigate, Router, Route, useLocation, useNavigate, useSearchParams } from "@solidjs/router";
-import { createSignal, onCleanup, onMount, Show, type ParentComponent } from "solid-js";
+import { A, Navigate, Router, Route, useLocation, useNavigate } from "@solidjs/router";
+import { createEffect, createMemo, createSignal, onCleanup, onMount, Show, type ParentComponent } from "solid-js";
 import "./styles/app.css";
 import type { ManagerApi } from "./lib/api";
 import type { SessionControls } from "./features/auth/AuthGate";
 import { ActivityPage } from "./features/activity/ActivityPage";
 import { LibraryPage } from "./features/files/LibraryPage";
+import { fileFilterQuery, parseFileFilter, sameFilter } from "./features/files/filters";
 import { OverviewPage } from "./features/overview/OverviewPage";
 import { SchedulesPage } from "./features/schedules/SchedulesPage";
 import { SettingsPage } from "./features/settings/SettingsPage";
@@ -24,31 +25,29 @@ const Jobs: ParentComponent = () => <section>{t("Activity")}</section>;
 const Schedules: ParentComponent = () => <section>{t("Schedules")}</section>;
 const Settings: ParentComponent = () => <section>{t("Settings")}</section>;
 
-/** One route for the list and the open file, so choosing a file never remounts the list. */
+/**
+ * One route for the list and the open file, so choosing a file never remounts the list. The filter lives in
+ * the address: a chosen state or property is a new history entry (Back undoes it), a search replaces the entry,
+ * and an old or untidy address is rewritten to the canonical one.
+ */
 const Library: ParentComponent<{ api: ManagerApi | undefined; fileId: string | undefined }> = (props) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [params] = useSearchParams();
   const base = (id: string | undefined) => (id ? `/files/${encodeURIComponent(id)}` : "/files");
-  const status = () => (typeof params.status === "string" ? params.status : undefined);
-  const hide = () => (typeof params.hide === "string" ? params.hide : undefined);
-  const has = () => (typeof params.has === "string" ? params.has : undefined);
+  const at = (id: string | undefined, query: string) => `${base(id)}${query ? `?${query}` : ""}`;
+  const filter = createMemo(() => parseFileFilter(new URLSearchParams(location.search)), undefined, { equals: sameFilter });
+  createEffect(() => {
+    const canonical = fileFilterQuery(filter());
+    if (location.search.replace(/^\?/, "") !== canonical) navigate(at(props.fileId, canonical), { replace: true });
+  });
   return (
     <Show when={props.api} fallback={<Files />}>
       {(api) => (
         <LibraryPage
           api={api()}
           activeId={props.fileId}
-          status={status()}
-          hide={hide()}
-          has={has()}
-          onFilter={(next) => {
-            const query = new URLSearchParams();
-            if (next.status) query.set("status", next.status);
-            if (next.hide) query.set("hide", next.hide);
-            if (next.has) query.set("has", next.has);
-            navigate(`${base(props.fileId)}${query.size > 0 ? `?${query}` : ""}`, { replace: true });
-          }}
+          filter={filter()}
+          onFilter={(next, how) => navigate(at(props.fileId, fileFilterQuery(next)), { replace: how.replace })}
           onOpen={(id) => navigate(`${base(id)}${location.search}`)}
         />
       )}

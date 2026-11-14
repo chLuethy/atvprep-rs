@@ -1,6 +1,8 @@
 import type { EncodeLevel } from "./EncodeChoice";
 import type { EncodeNeed, PlannedChange } from "./preparePlan";
 import { SessionError } from "../../lib/api";
+import type { FacetCounts } from "../../ui/FilterBar";
+import type { FileFilter } from "./filters";
 
 /** Data loading for the library and the inspector. UI-free; every loader normalises SessionError. */
 
@@ -160,15 +162,19 @@ export async function loadSidecars(api: Api, mediaId: string): Promise<SidecarSt
   return loadSidecarsPage(api, mediaId);
 }
 
-export type FilesQuery = { q: string; complianceState: string; /** Comma separated states whose files are left out. */ hide?: string; /** Comma separated properties a file must all have. */ has?: string; cursor: string | null; sort?: { key: string; dir: 1 | -1 } | null };
+export type FilesQuery = FileFilter & { cursor: string | null; sort?: { key: string; dir: 1 | -1 } | null };
+
+/** The filter as the server takes it: `status` (any of the states), `has` (all of the properties) and `q`. */
+function filterParams(filter: FileFilter, params = new URLSearchParams()): URLSearchParams {
+  if (filter.status.length > 0) params.set("status", filter.status.join(","));
+  if (filter.has.length > 0) params.set("has", filter.has.join(","));
+  if (filter.q) params.set("q", filter.q);
+  return params;
+}
 export type FilePage = { items: FileRow[]; nextCursor: string | null; error: boolean; session: boolean };
 
 export async function loadFiles(api: Api, query: FilesQuery): Promise<FilePage> {
-  const params = new URLSearchParams({ limit: "50" });
-  if (query.q) params.set("q", query.q);
-  if (query.complianceState) params.set("compliance_state", query.complianceState);
-  if (query.hide) params.set("hide", query.hide);
-  if (query.has) params.set("has", query.has);
+  const params = filterParams(query, new URLSearchParams({ limit: "50" }));
   if (query.cursor) params.set("cursor", query.cursor);
   if (query.sort) {
     params.set("sort", query.sort.key);
@@ -215,21 +221,28 @@ export async function loadSummary(api: Api): Promise<Summary | null> {
   }
 }
 
-/** How many files each property shows with the current selection, keyed by property token. */
-export type TraitCounts = Record<string, number>;
+/** The facet counters of the files list: per facet (`status`, `has`) and option, plus "matched of total". */
+export type FileCounts = { facets: FacetCounts; matched: number; total: number };
 
-/** What each property box would show if it were ticked as well, for the current status and property selection. */
-export async function loadTraitCounts(api: Api, where: { state?: string; hide?: string; has?: string }): Promise<TraitCounts | null> {
-  const params = new URLSearchParams();
-  if (where.state) params.set("compliance_state", where.state);
-  if (where.hide) params.set("hide", where.hide);
-  if (where.has) params.set("has", where.has);
+const tally = (value: unknown): Record<string, number> | null =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? Object.fromEntries(Object.entries(value).filter((entry): entry is [string, number] => typeof entry[1] === "number"))
+    : null;
+
+/**
+ * What each option would show with every other filter as it is, and how many files match of how many there
+ * are. Null when the server gives no usable answer; the bar then shows no counts.
+ */
+export async function loadFacetCounts(api: Api, filter: FileFilter): Promise<FileCounts | null> {
+  const params = filterParams(filter);
   try {
     const response = await api.request(`/files/counts${params.size > 0 ? `?${params}` : ""}`);
     if (!response.ok) return null;
-    const data = ((await response.json()) as { data?: unknown }).data;
-    if (!data || typeof data !== "object" || Array.isArray(data)) return null;
-    return Object.fromEntries(Object.entries(data).filter((entry): entry is [string, number] => typeof entry[1] === "number"));
+    const data = ((await response.json()) as { data?: { status?: unknown; has?: unknown; matched?: unknown; total?: unknown } }).data;
+    const status = tally(data?.status);
+    const has = tally(data?.has);
+    if (!data || !status || !has || typeof data.matched !== "number" || typeof data.total !== "number") return null;
+    return { facets: { status, has }, matched: data.matched, total: data.total };
   } catch {
     return null;
   }

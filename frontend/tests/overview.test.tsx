@@ -97,8 +97,8 @@ describe("OverviewPage: the encoding counters", () => {
   it("shows how many files need video and audio encoding and links to them", async () => {
     const view = render(() => <OverviewPage api={api(base({ "/dashboard": { data: { files: { clean: 3, blocker: 2 }, scans: {}, jobs: {}, encode_video: 2, encode_audio: 3 } } })) as never} />);
 
-    expect(await view.findByRole("link", { name: "2 Need video encoding" })).toHaveAttribute("href", "/files?status=encode_video");
-    expect(await view.findByRole("link", { name: "3 Need audio encoding" })).toHaveAttribute("href", "/files?status=encode_audio");
+    expect(await view.findByRole("link", { name: "2 Need video encoding" })).toHaveAttribute("href", "/files?has=encode_video");
+    expect(await view.findByRole("link", { name: "3 Need audio encoding" })).toHaveAttribute("href", "/files?has=encode_audio");
   });
 });
 

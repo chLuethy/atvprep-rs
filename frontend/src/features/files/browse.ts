@@ -17,12 +17,11 @@ export type Browse = { folders: BrowseFolder[]; files: FileRow[]; truncated: boo
 export type BrowseResult = ({ kind: "ok" } & Browse) | { kind: "error" } | { kind: "session" };
 
 /** One level of the library. No root lists the libraries; a root and a path list that folder. */
-export async function loadBrowse(api: Api, where: { rootId?: string | null; path?: string; state?: string; hide?: string; has?: string }): Promise<BrowseResult> {
+export async function loadBrowse(api: Api, where: { rootId?: string | null; path?: string; status?: string; has?: string }): Promise<BrowseResult> {
   const query = new URLSearchParams();
   if (where.rootId) query.set("root_id", where.rootId);
   if (where.path) query.set("path", where.path);
-  if (where.state) query.set("state", where.state);
-  if (where.hide) query.set("hide", where.hide);
+  if (where.status) query.set("status", where.status);
   if (where.has) query.set("has", where.has);
   try {
     const response = await api.request(`/browse${query.size > 0 ? `?${query}` : ""}`);
@@ -70,11 +69,10 @@ export function describeCounts(counts: StateCounts): string {
 export type BelowResult = { kind: "ok"; files: FileRow[]; truncated: boolean } | { kind: "error" } | { kind: "session" };
 
 /** Every file below a folder, at any depth, so an action on a folder reaches its files. */
-export async function loadBelow(api: Api, where: { rootId: string; path?: string; state?: string; hide?: string; has?: string }): Promise<BelowResult> {
+export async function loadBelow(api: Api, where: { rootId: string; path?: string; status?: string; has?: string }): Promise<BelowResult> {
   const query = new URLSearchParams({ root_id: where.rootId });
   if (where.path) query.set("path", where.path);
-  if (where.state) query.set("state", where.state);
-  if (where.hide) query.set("hide", where.hide);
+  if (where.status) query.set("status", where.status);
   if (where.has) query.set("has", where.has);
   try {
     const response = await api.request(`/browse/below?${query}`);

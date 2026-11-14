@@ -38,7 +38,7 @@ const option = (view: ReturnType<typeof render>, name: string) =>
 
 const show = (api: Api, over: Partial<Parameters<typeof ColumnsView>[0]> = {}) => {
   const onOpen = vi.fn();
-  const view = render(() => <ColumnsView api={api} state="" version={0} onOpen={onOpen} {...over} />);
+  const view = render(() => <ColumnsView api={api} version={0} onOpen={onOpen} {...over} />);
   return { view, onOpen };
 };
 
@@ -127,14 +127,14 @@ describe("ColumnsView", () => {
 
   it("passes the state filter on to every column", async () => {
     const { api, calls } = makeApi();
-    show(api, { state: "blocker" });
+    show(api, { status: "blocker" });
 
-    await waitFor(() => expect(calls[0]).toBe("/browse?state=blocker"));
+    await waitFor(() => expect(calls[0]).toBe("/browse?status=blocker"));
   });
 
   it("says so when a folder has nothing in the chosen state", async () => {
     const api: Api = { request: vi.fn(async () => new Response(JSON.stringify({ data: { folders: [], files: [] }, meta: {} }))) };
-    const { view } = show(api, { state: "blocker" });
+    const { view } = show(api, { status: "blocker" });
 
     expect(await view.findByText("No files in this state")).toBeInTheDocument();
   });

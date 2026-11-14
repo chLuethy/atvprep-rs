@@ -34,7 +34,7 @@ async function load(api: OverviewApi): Promise<Overview> {
   };
 }
 
-const STATES: ReadonlyArray<{ state: string; label: string; bar: string; filter?: string }> = [
+const STATES: ReadonlyArray<{ state: string; label: string; bar: string }> = [
   { state: "clean", label: N("Ready"), bar: "ok" },
   { state: "embed_open", label: N("Embedding open"), bar: "warn" },
   { state: "warning", label: N("Warning"), bar: "warn" },
@@ -139,13 +139,13 @@ export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: str
                     </div>
                     <ul class="plain legend">
                       <For each={STATES.filter((entry) => (data().files[entry.state] ?? 0) > 0)}>{(entry) => (
-                        <li>{link(`/files?status=${entry.filter ?? entry.state}`, <><span class="count">{data().files[entry.state]}</span> {t(entry.label)}</>)}</li>
+                        <li>{link(`/files?status=${entry.state}`, <><span class="count">{data().files[entry.state]}</span> {t(entry.label)}</>)}</li>
                       )}</For>
                       <Show when={data().encodeVideo > 0}>
-                        <li>{link("/files?status=encode_video", <><span class="count">{data().encodeVideo}</span> {t("Need video encoding")}</>)}</li>
+                        <li>{link("/files?has=encode_video", <><span class="count">{data().encodeVideo}</span> {t("Need video encoding")}</>)}</li>
                       </Show>
                       <Show when={data().encodeAudio > 0}>
-                        <li>{link("/files?status=encode_audio", <><span class="count">{data().encodeAudio}</span> {t("Need audio encoding")}</>)}</li>
+                        <li>{link("/files?has=encode_audio", <><span class="count">{data().encodeAudio}</span> {t("Need audio encoding")}</>)}</li>
                       </Show>
                     </ul>
                   </Show>
