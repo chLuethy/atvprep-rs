@@ -202,7 +202,12 @@ if [ -s "$HOOKS" ]; then
     while read -r app path; do
         [ -n "$app" ] || continue
         [ "$MODE" = servarr ] && [ "$path" = "$HOOK_PATH" ] && continue
-        if install_hook "$app" "$path"; then
+        # deploy reports "installed" even for identical bytes, so compare first.
+        # Only hash the file: root never runs a binary from a user-owned /config.
+        if [ -f "$path" ] && [ ! -L "$path" ] \
+            && [ "$(sha256sum "$path" | awk '{print $1}')" = "$EXPECTED" ]; then
+            printf 'Hook %s (%s) ist bereits auf %s\n' "$path" "$app" "$VERSION"
+        elif install_hook "$app" "$path"; then
             printf 'Hook %s (%s) auf %s\n' "$path" "$app" "$VERSION"
         else
             printf 'Warnung: Hook %s (%s) konnte nicht aktualisiert werden\n' "$path" "$app" >&2
