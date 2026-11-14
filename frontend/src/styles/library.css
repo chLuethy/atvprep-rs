@@ -207,6 +207,11 @@ details summary { cursor: pointer; color: var(--muted); }
 .crumb[aria-current="location"] { color: var(--text); font-weight: 500; }
 .statusbar { margin: 0; padding: 4px 12px 7px; text-align: center; font-size: var(--text-sm); border-top: 1px solid var(--line); min-height: 1.6em; }
 .view-switch { flex: none; }
+/* The sort control: the key, then one button that turns the direction; the column headers set the same. */
+.lib-sort { display: inline-flex; align-items: center; gap: 2px; flex: none; }
+.lib-sort .select { max-width: 13em; }
+.lib-sort-dir { min-width: 2em; padding: 3px 8px; }
+@media (max-width: 720px) { .lib-sort .select, .lib-sort-dir { min-height: 44px; } }
 .view-switch button { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; }
 .row-menu { position: fixed; z-index: 50; min-width: 210px; padding: 5px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--panel); box-shadow: var(--shadow); animation: rise var(--dur-base) var(--ease-out); }
 .row-menu-item { display: flex; align-items: center; justify-content: space-between; gap: 18px; width: 100%; padding: 5px 10px; border: 0; border-radius: 6px; background: none; color: var(--text); text-align: left; font-size: var(--text-base); }

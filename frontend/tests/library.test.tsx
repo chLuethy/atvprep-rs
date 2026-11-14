@@ -2,6 +2,7 @@ import { fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LibraryPage } from "../src/features/files/LibraryPage";
+import { EMPTY_FILTER, type FileFilter } from "../src/features/files/filters";
 import { SessionError } from "../src/lib/api";
 import { setLanguage } from "../src/lib/i18n";
 
@@ -258,12 +259,12 @@ describe("LibraryPage: the filter bar", () => {
   it("resets every filter and the search with Reset filters", async () => {
     const onFilter = vi.fn();
     const { api } = makeApi({ counts: COUNTS });
-    const view = render(() => <LibraryPage api={api} filter={{ q: "Heat", status: ["blocker"], has: ["embed"] }} onOpen={open} onFilter={onFilter} />);
+    const view = render(() => <LibraryPage api={api} filter={{ ...EMPTY_FILTER, q: "Heat", status: ["blocker"], has: ["embed"] }} onOpen={open} onFilter={onFilter} />);
     expect(await view.findByRole("searchbox", { name: "Search files" })).toHaveValue("Heat");
 
     await fireEvent.click(view.getByRole("button", { name: "Reset filters" }));
 
-    expect(onFilter).toHaveBeenLastCalledWith({ q: "", status: [], has: [] }, { replace: false });
+    expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_FILTER, q: "", status: [], has: [] }, { replace: false });
     expect(view.getByRole("searchbox", { name: "Search files" })).toHaveValue("");
     await waitFor(() => expect(lastList()).not.toMatch(/status=|has=|q=/));
   });
@@ -296,7 +297,7 @@ describe("LibraryPage: the filter bar", () => {
 describe("LibraryPage: the filter lives in the address", () => {
   it("starts on the filter it is given and asks the server for exactly that", async () => {
     const { api } = makeApi({ counts: COUNTS });
-    const view = render(() => <LibraryPage api={api} filter={{ q: "", status: ["warning", "blocker"], has: ["embed"] }} onOpen={open} />);
+    const view = render(() => <LibraryPage api={api} filter={{ ...EMPTY_FILTER, q: "", status: ["warning", "blocker"], has: ["embed"] }} onOpen={open} />);
 
     expect(await view.findByRole("button", { name: "Status: Warning, Blocker" })).toBeInTheDocument();
     expect(view.getByRole("button", { name: "Properties: Subtitles embeddable" })).toBeInTheDocument();
@@ -306,11 +307,11 @@ describe("LibraryPage: the filter lives in the address", () => {
 
   it("follows the filter when the address changes, as Back does", async () => {
     const { api } = makeApi({ counts: COUNTS });
-    const [filter, setFilter] = createSignal({ q: "", status: ["blocker"], has: [] as string[] });
+    const [filter, setFilter] = createSignal<FileFilter>({ ...EMPTY_FILTER, status: ["blocker"] });
     const view = render(() => <LibraryPage api={api} filter={filter()} onOpen={open} />);
     await view.findByRole("button", { name: "Status: Blocker" });
 
-    setFilter({ q: "Heat", status: [], has: ["embed"] });
+    setFilter({ ...EMPTY_FILTER, q: "Heat", status: [], has: ["embed"] });
     expect(await view.findByRole("button", { name: "Properties: Subtitles embeddable" })).toBeInTheDocument();
     expect(view.getByRole("button", { name: "Status" })).toBeInTheDocument();
     expect(view.getByRole("searchbox", { name: "Search files" })).toHaveValue("Heat");
@@ -325,10 +326,123 @@ describe("LibraryPage: the filter lives in the address", () => {
     const status = await openFacet(view, "Status");
 
     await fireEvent.click(await status.findByRole("checkbox", { name: "Warning 1" }));
-    expect(onFilter).toHaveBeenLastCalledWith({ q: "", status: ["warning"], has: [] }, { replace: false });
+    expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_FILTER, q: "", status: ["warning"], has: [] }, { replace: false });
 
     await fireEvent.input(view.getByRole("searchbox", { name: "Search files" }), { target: { value: " Heat " } });
-    await waitFor(() => expect(onFilter).toHaveBeenLastCalledWith({ q: "Heat", status: ["warning"], has: [] }, { replace: true }), { timeout: 2000 });
+    await waitFor(() => expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_FILTER, q: "Heat", status: ["warning"], has: [] }, { replace: true }), { timeout: 2000 });
+  });
+});
+
+/** An API with two libraries whose counters cover every facet. */
+function facetApi() {
+  const made = makeApi();
+  const base = made.api.request;
+  made.api.request = vi.fn(async (path: string, init?: RequestInit) => {
+    if (path === "/roots") { lastCalls.push({ path }); return json([{ id: "r_1", name: "Movies", latest_scan: null }, { id: "r_2", name: "Shows", latest_scan: null }]); }
+    if (path.startsWith("/files/counts")) {
+      lastCalls.push({ path });
+      return json({ ...COUNTS, root_id: { r_1: 3, r_2: 1 }, suffix: { ".avi": 0, ".mkv": 2, ".mp4": 2 }, has_sidecar: { true: 1, false: 3 } });
+    }
+    return base(path, init);
+  });
+  return made;
+}
+
+describe("LibraryPage: library, extension and subtitle files", () => {
+  it("offers the libraries by name with their counts and filters by the chosen one", async () => {
+    const onFilter = vi.fn();
+    const { api } = facetApi();
+    const view = render(() => <LibraryPage api={api} onOpen={open} onFilter={onFilter} />);
+    const library = await openFacet(view, "Library");
+
+    await fireEvent.click(await library.findByRole("checkbox", { name: "Shows 1" }));
+    expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_FILTER, root: ["r_2"] }, { replace: false });
+    await waitFor(() => expect(lastList()).toContain("root_id=r_2"));
+    expect(lastCounts()).toContain("root_id=r_2");
+  });
+
+  it("keeps extension and subtitle files under More filters, which stays open while one is active", async () => {
+    const onFilter = vi.fn();
+    const { api } = facetApi();
+    const view = render(() => <LibraryPage api={api} onOpen={open} onFilter={onFilter} />);
+    const bar = within(await view.findByRole("search", { name: "Filter files" }));
+    expect(bar.queryByRole("button", { name: "Extension" })).not.toBeInTheDocument();
+
+    await fireEvent.click(bar.getByRole("button", { name: "More filters" }));
+    const extension = await openFacet(view, "Extension");
+    await fireEvent.input(extension.getByRole("searchbox", { name: "Search Extension" }), { target: { value: "mk" } });
+    await fireEvent.click(await extension.findByRole("checkbox", { name: "mkv 2" }));
+
+    expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_FILTER, suffix: [".mkv"] }, { replace: false });
+    await waitFor(() => expect(lastList()).toContain("suffix=.mkv"));
+    expect(bar.getByRole("button", { name: "More filters" })).toBeDisabled();
+
+    const sidecar = await openFacet(view, "Subtitle files");
+    await fireEvent.click(sidecar.getByRole("radio", { name: "No 3" }));
+    await waitFor(() => expect(lastList()).toContain("has_sidecar=false"));
+  });
+
+  it("shows the second row open when the address already filters there", async () => {
+    const { api } = facetApi();
+    const view = render(() => <LibraryPage api={api} filter={{ ...EMPTY_FILTER, sidecar: true }} onOpen={open} />);
+    expect(await view.findByRole("button", { name: "Subtitle files: Yes" })).toBeInTheDocument();
+    expect(view.getByRole("group", { name: "More filters" })).toBeInTheDocument();
+  });
+});
+
+describe("LibraryPage: the sort control", () => {
+  it("sorts by the chosen key and direction, and reports it for the address", async () => {
+    const onSort = vi.fn();
+    const { api } = makeApi();
+    const view = render(() => <LibraryPage api={api} onOpen={open} onSort={onSort} />);
+    const select = await view.findByRole("combobox", { name: "Sort by" });
+    expect(select).toHaveValue("added");
+
+    await fireEvent.change(select, { target: { value: "size" } });
+    expect(onSort).toHaveBeenLastCalledWith({ key: "size", dir: 1 });
+    await waitFor(() => expect(lastList()).toContain("sort=size"));
+    await fireEvent.click(view.getByRole("button", { name: "Ascending" }));
+    expect(onSort).toHaveBeenLastCalledWith({ key: "size", dir: -1 });
+    await waitFor(() => expect(lastList()).toContain("dir=desc"));
+    expect(await view.findByRole("columnheader", { name: /Size/ })).toHaveAttribute("aria-sort", "descending");
+  });
+
+  it("follows a column header, and the sort the address gives", async () => {
+    const { api } = makeApi();
+    const [sort, setSort] = createSignal<{ key: "added" | "title"; dir: 1 | -1 } | null>({ key: "added", dir: -1 });
+    const view = render(() => <LibraryPage api={api} sort={sort()} onOpen={open} />);
+    const select = await view.findByRole("combobox", { name: "Sort by" });
+    expect(select).toHaveValue("added");
+    expect(view.getByRole("button", { name: "Descending" })).toBeInTheDocument();
+    await waitFor(() => expect(lastList()).toContain("dir=desc"));
+    expect(lastList()).not.toContain("sort=");
+
+    await fireEvent.click(await view.findByRole("button", { name: "File" }));
+    expect(select).toHaveValue("title");
+
+    setSort(null);
+    await waitFor(() => expect(select).toHaveValue("added"));
+    expect(view.getByRole("button", { name: "Ascending" })).toBeInTheDocument();
+  });
+});
+
+describe("LibraryPage: quick filters", () => {
+  it("replaces the whole filter with one and shows it as in effect", async () => {
+    const onFilter = vi.fn();
+    const { api } = makeApi({ counts: COUNTS });
+    const view = render(() => <LibraryPage api={api} filter={{ ...EMPTY_FILTER, q: "Heat", has: ["embed"] }} onOpen={open} onFilter={onFilter} />);
+    const quick = within(await view.findByRole("group", { name: "Quick filters" }));
+    expect(quick.getByRole("button", { name: "Needs attention" })).toHaveAttribute("aria-pressed", "false");
+
+    await fireEvent.click(quick.getByRole("button", { name: "Needs attention" }));
+    expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_FILTER, status: ["blocker", "probe_failed", "missing"] }, { replace: false });
+    expect(quick.getByRole("button", { name: "Needs attention" })).toHaveAttribute("aria-pressed", "true");
+    expect(view.getByRole("searchbox", { name: "Search files" })).toHaveValue("");
+    await waitFor(() => expect(lastList()).toContain("status=blocker%2Cprobe_failed%2Cmissing"));
+
+    // A second click on the one in effect takes it away again.
+    await fireEvent.click(quick.getByRole("button", { name: "Needs attention" }));
+    expect(onFilter).toHaveBeenLastCalledWith(EMPTY_FILTER, { replace: false });
   });
 });
 

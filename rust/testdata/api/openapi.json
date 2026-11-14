@@ -2152,7 +2152,7 @@
     },
     "/api/v1/browse": {
       "get": {
-        "description": "One level of the library as folders and files, like a column in a file browser.\n\nWithout ``root_id`` the libraries are the folders. With one, the folders and files directly inside\n``path``. Every folder carries how many files below it are in each state; ``state`` keeps only\nthe files in that state, and the folders that still hold any. ``status`` keeps the files in any of\nthe comma-separated states, ``has`` those with all the properties.",
+        "description": "One level of the library as folders and files, like a column in a file browser.\n\nWithout ``root_id`` the libraries are the folders. With one, the folders and files directly inside\n``path``. Every folder carries how many files below it are in each state; ``state`` keeps only\nthe files in that state, and the folders that still hold any. ``status`` keeps the files in any of\nthe comma-separated states, ``has`` those with all the properties. ``suffix`` and ``has_sidecar`` filter as in the file list; a folder without a hit is left out.",
         "operationId": "browse_api_v1_browse_get",
         "parameters": [
           {
@@ -2229,6 +2229,40 @@
                 }
               ],
               "title": "Has"
+            }
+          },
+          {
+            "in": "query",
+            "name": "suffix",
+            "description": "Comma-separated extensions as stored, with the dot (``.mkv,.mp4``); only the files with any of them are listed (OR).",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Suffix"
+            }
+          },
+          {
+            "in": "query",
+            "name": "has_sidecar",
+            "description": "``true``: only files with a subtitle file beside them; ``false``: only files without one.",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Has Sidecar"
             }
           },
           {
@@ -2348,6 +2382,40 @@
                 }
               ],
               "title": "Has"
+            }
+          },
+          {
+            "in": "query",
+            "name": "suffix",
+            "description": "Comma-separated extensions as stored, with the dot (``.mkv,.mp4``); only the files with any of them are listed (OR).",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Suffix"
+            }
+          },
+          {
+            "in": "query",
+            "name": "has_sidecar",
+            "description": "``true``: only files with a subtitle file beside them; ``false``: only files without one.",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Has Sidecar"
             }
           },
           {
@@ -2967,6 +3035,7 @@
           {
             "in": "query",
             "name": "root_id",
+            "description": "Comma-separated library ids; only the files in any of these libraries are listed (OR).",
             "required": false,
             "schema": {
               "anyOf": [
@@ -2999,6 +3068,7 @@
           {
             "in": "query",
             "name": "suffix",
+            "description": "Comma-separated extensions as stored, with the dot (``.mkv,.mp4``); only the files with any of them are listed (OR).",
             "required": false,
             "schema": {
               "anyOf": [
@@ -3114,6 +3184,7 @@
           {
             "in": "query",
             "name": "has_sidecar",
+            "description": "``true``: only files with a subtitle file beside them; ``false``: only files without one.",
             "required": false,
             "schema": {
               "anyOf": [
@@ -3202,6 +3273,7 @@
           {
             "in": "query",
             "name": "dir",
+            "description": "``asc`` or ``desc``. Without ``sort`` the files are in the order they were added (oldest first; ``desc`` lists the newest first).",
             "required": false,
             "schema": {
               "default": "asc",
@@ -3260,12 +3332,13 @@
     },
     "/api/v1/files/counts": {
       "get": {
-        "description": "The facet counters for the file list, with the same filters as ``/api/v1/files``.\n\n``status`` counts each state with every filter except the chosen states; ``has`` counts each property with every filter plus that property. ``matched`` is the number of files the list shows with all filters, ``total`` the number of files without any filter.",
+        "description": "The facet counters for the file list, with the same filters as ``/api/v1/files``.\n\n``status`` counts each state with every filter except the chosen states; ``has`` counts each property with every filter plus that property. ``root_id`` (every library, by id), ``suffix`` (every extension there is) and ``has_sidecar`` (``true``, ``false``) count each option with every filter except that facet's own choice, so an option without a hit shows 0. ``matched`` is the number of files the list shows with all filters, ``total`` the number of files without any filter.",
         "operationId": "file_counts_api_v1_files_counts_get",
         "parameters": [
           {
             "in": "query",
             "name": "root_id",
+            "description": "Comma-separated library ids; only the files in any of these libraries are listed (OR).",
             "required": false,
             "schema": {
               "anyOf": [
@@ -3298,6 +3371,7 @@
           {
             "in": "query",
             "name": "suffix",
+            "description": "Comma-separated extensions as stored, with the dot (``.mkv,.mp4``); only the files with any of them are listed (OR).",
             "required": false,
             "schema": {
               "anyOf": [
@@ -3413,6 +3487,7 @@
           {
             "in": "query",
             "name": "has_sidecar",
+            "description": "``true``: only files with a subtitle file beside them; ``false``: only files without one.",
             "required": false,
             "schema": {
               "anyOf": [

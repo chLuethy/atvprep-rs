@@ -1,7 +1,7 @@
 import { fireEvent, render, within } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { describe, expect, it, vi } from "vitest";
-import { FilterBar, type Facet, type FacetCounts, type FilterValue } from "../src/ui/FilterBar";
+import { FilterBar, type Facet, type FacetCounts, type FilterValue, type QuickChoice } from "../src/ui/FilterBar";
 
 const FACETS: Facet[] = [
   { key: "status", title: "Status", logic: "or", options: [
@@ -12,7 +12,7 @@ const FACETS: Facet[] = [
 const COUNTS: FacetCounts = { status: { clean: 3, warning: 2, blocker: 1, missing: 0 }, has: { embed: 2, convert: 0 } };
 
 /** The bar as a page uses it: it reports a change, the page feeds the new value back in. */
-function show(initial: FilterValue = {}, over: { counts?: FacetCounts | null; facets?: Facet[]; onReset?: () => void; dirty?: boolean } = {}) {
+function show(initial: FilterValue = {}, over: { counts?: FacetCounts | null; facets?: Facet[]; onReset?: () => void; dirty?: boolean; quick?: QuickChoice[]; onQuick?: (id: string) => void } = {}) {
   const [value, setValue] = createSignal<FilterValue>(initial);
   const onChange = vi.fn((next: FilterValue) => setValue(next));
   const view = render(() => (
@@ -25,9 +25,11 @@ function show(initial: FilterValue = {}, over: { counts?: FacetCounts | null; fa
       dirty={over.dirty}
       onChange={onChange}
       onReset={over.onReset}
+      quick={over.quick}
+      onQuick={over.onQuick}
     />
   ));
-  return { view, onChange, value };
+  return { view, onChange, value, setValue };
 }
 
 const openFacet = async (view: ReturnType<typeof show>["view"], name: RegExp) => {
@@ -193,5 +195,111 @@ describe("FilterBar: all filters at once", () => {
     expect(onChange).toHaveBeenLastCalledWith({ has: ["embed"], status: ["blocker"] });
     await fireEvent.click(within(panel).getByRole("button", { name: "Close" }));
     expect(view.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+});
+
+const EXTENSIONS = [".avi", ".m4v", ".mkv", ".mov", ".mp4"].map((value) => ({ value, label: value.slice(1) }));
+const WITH_MORE: Facet[] = [
+  ...FACETS,
+  { key: "suffix", title: "Extension", logic: "or", placement: "more", searchable: true, options: EXTENSIONS },
+  { key: "sidecar", title: "Subtitle files", logic: "or", multiple: false, placement: "more", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+];
+
+describe("FilterBar: a page that builds its facets anew", () => {
+  it("keeps the popover and the focused option when the facets come back as new objects", async () => {
+    const [value, setValue] = createSignal<FilterValue>({});
+    // Like a page whose options depend on the counts: every change hands in fresh facet and option objects.
+    const facets = () => { void value(); return FACETS.map((facet) => ({ ...facet, options: facet.options.map((option) => ({ ...option })) })); };
+    const view = render(() => <FilterBar label="Filter files" facets={facets()} value={value()} counts={COUNTS} onChange={setValue} />);
+    await fireEvent.click(view.getByRole("button", { name: "Status" }));
+    const warning = within(view.getByRole("dialog", { name: "Status" })).getByRole("checkbox", { name: "Warning 2" });
+    warning.focus();
+    await fireEvent.click(warning);
+
+    expect(warning).toBeChecked();
+    expect(warning.isConnected).toBe(true);
+    expect(warning).toHaveFocus();
+  });
+});
+
+describe("FilterBar: more filters", () => {
+  it("keeps the rarer facets in a second row that opens in place", async () => {
+    const { view } = show({}, { facets: WITH_MORE, counts: null });
+    const more = view.getByRole("button", { name: "More filters" });
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    expect(view.queryByRole("button", { name: "Extension" })).not.toBeInTheDocument();
+    expect(view.getByRole("button", { name: "Status" })).toBeInTheDocument();
+
+    await fireEvent.click(more);
+    expect(more).toHaveAttribute("aria-expanded", "true");
+    const row = view.getByRole("group", { name: "More filters" });
+    expect(more).toHaveAttribute("aria-controls", row.id);
+    expect(within(row).getByRole("button", { name: "Extension" })).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: "Subtitle files" })).toBeInTheDocument();
+    await fireEvent.click(more);
+    expect(view.queryByRole("group", { name: "More filters" })).not.toBeInTheDocument();
+  });
+
+  it("stays open while a facet in it is active, and closes once that is cleared", async () => {
+    const { view } = show({ sidecar: ["true"] }, { facets: WITH_MORE, counts: null });
+    const more = view.getByRole("button", { name: "More filters" });
+    expect(more).toHaveAttribute("aria-expanded", "true");
+    expect(more).toBeDisabled();
+    const row = view.getByRole("group", { name: "More filters" });
+    await fireEvent.click(within(row).getByRole("button", { name: "Clear Subtitle files" }));
+    expect(view.queryByRole("group", { name: "More filters" })).not.toBeInTheDocument();
+    expect(view.getByRole("button", { name: "More filters" })).toBeEnabled();
+  });
+
+  it("does not offer the row when every facet is in the main row", () => {
+    const { view } = show();
+    expect(view.queryByRole("button", { name: "More filters" })).not.toBeInTheDocument();
+  });
+});
+
+describe("FilterBar: a searchable popover", () => {
+  it("narrows the options as one types and starts in the search field", async () => {
+    const { view, onChange } = show({}, { facets: WITH_MORE, counts: null });
+    await fireEvent.click(view.getByRole("button", { name: "More filters" }));
+    const dialog = await openFacet(view, /^Extension/);
+    const find = within(dialog).getByRole("searchbox", { name: "Search Extension" });
+    await Promise.resolve();
+    expect(find).toHaveFocus();
+    expect(within(dialog).getAllByRole("checkbox")).toHaveLength(5);
+
+    await fireEvent.input(find, { target: { value: "M4" } });
+    expect(within(dialog).getAllByRole("checkbox").map((box) => box.closest("label")?.textContent)).toEqual(["m4v"]);
+    await fireEvent.keyDown(find, { key: "ArrowDown" });
+    expect(within(dialog).getByRole("checkbox", { name: "m4v" })).toHaveFocus();
+    await fireEvent.click(within(dialog).getByRole("checkbox", { name: "m4v" }));
+    expect(onChange).toHaveBeenLastCalledWith({ suffix: [".m4v"] });
+
+    await fireEvent.input(find, { target: { value: "webm" } });
+    expect(within(dialog).queryAllByRole("checkbox")).toHaveLength(0);
+    expect(within(dialog).getByText("Nothing matches")).toBeInTheDocument();
+  });
+
+  it("has no search field unless the facet asks for one", async () => {
+    const { view } = show();
+    const dialog = await openFacet(view, /^Status/);
+    expect(within(dialog).queryByRole("searchbox")).not.toBeInTheDocument();
+  });
+});
+
+describe("FilterBar: quick filters", () => {
+  it("offers each as a toggle that shows whether it is in effect", async () => {
+    const onQuick = vi.fn();
+    const { view } = show({}, { quick: [{ id: "attention", label: "Needs attention", active: true }, { id: "unverified", label: "Not verified", active: false }], onQuick });
+    const group = view.getByRole("group", { name: "Quick filters" });
+    expect(within(group).getByRole("button", { name: "Needs attention" })).toHaveAttribute("aria-pressed", "true");
+    const unverified = within(group).getByRole("button", { name: "Not verified" });
+    expect(unverified).toHaveAttribute("aria-pressed", "false");
+    await fireEvent.click(unverified);
+    expect(onQuick).toHaveBeenCalledWith("unverified");
+  });
+
+  it("shows no group without quick filters", () => {
+    const { view } = show();
+    expect(view.queryByRole("group", { name: "Quick filters" })).not.toBeInTheDocument();
   });
 });
