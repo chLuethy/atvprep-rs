@@ -1001,8 +1001,8 @@ describe("ActivityPage: the filter bar", () => {
     expect(status.getAllByRole("checkbox").map((box) => box.closest("label")?.textContent)).toEqual(
       ["Queued0", "Running0", "Cancelling1", "Succeeded0", "Partly failed0", "Failed2", "Cancelled3"]);
     const action = await openFacet(view, "Action");
-    expect(action.getByRole("checkbox", { name: "Verify 4" })).toBeInTheDocument();
-    expect(action.getByRole("checkbox", { name: "Inspect 0" })).toBeInTheDocument();
+    expect(action.getByRole("checkbox", { name: "Verify, 4 jobs" })).toBeInTheDocument();
+    expect(action.getByRole("checkbox", { name: "Inspect, 0 jobs" })).toBeInTheDocument();
     expect(countsCalls(api)[0]).toBe("/jobs/counts?order=desc");
   });
 
@@ -1012,13 +1012,13 @@ describe("ActivityPage: the filter bar", () => {
     const view = render(() => <ActivityPage api={api} onOpen={vi.fn()} onFilter={onFilter} />);
     const status = await openFacet(view, "Status");
 
-    await fireEvent.click(await status.findByRole("checkbox", { name: "Failed 1" }));
-    await fireEvent.click(status.getByRole("checkbox", { name: "Partly failed 1" }));
+    await fireEvent.click(await status.findByRole("checkbox", { name: "Failed, 1 job, needs attention" }));
+    await fireEvent.click(status.getByRole("checkbox", { name: "Partly failed, 1 job, needs attention" }));
     expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, status: ["partial_success", "failed"] }, { replace: false });
     await waitFor(() => expect(listCalls(api).at(-1)).toBe("/jobs?limit=50&order=desc&status=partial_success,failed"));
 
     const action = await openFacet(view, "Action");
-    await fireEvent.click(action.getByRole("checkbox", { name: "Prepare 1" }));
+    await fireEvent.click(action.getByRole("checkbox", { name: "Prepare, 1 job" }));
     await waitFor(() => expect(listCalls(api).at(-1)).toBe("/jobs?limit=50&order=desc&status=partial_success,failed&action=prepare"));
     expect(countsCalls(api).at(-1)).toBe("/jobs/counts?order=desc&status=partial_success,failed&action=prepare");
     expect(view.getByRole("button", { name: "Status: Partly failed, Failed" })).toBeInTheDocument();
@@ -1102,10 +1102,22 @@ describe("ActivityPage: the filter bar", () => {
     expect(view.queryByRole("status", { name: "Hidden active jobs" })).not.toBeInTheDocument();
   });
 
+  it("offers to reset the filters when a filtered list cannot be loaded", async () => {
+    const onFilter = vi.fn();
+    const api = { request: vi.fn(async () => { throw new Error("422"); }) };
+    const view = render(() => <ActivityPage api={api} filter={{ ...EMPTY_JOB_FILTER, status: ["failed"] }} onOpen={vi.fn()} onFilter={onFilter} />);
+    const alert = await view.findByRole("alert");
+    await fireEvent.click(within(alert).getByRole("button", { name: "Reset filters" }));
+    expect(onFilter).toHaveBeenLastCalledWith(EMPTY_JOB_FILTER, { replace: false });
+  });
+
   it("tells an empty filter result apart from no jobs at all", async () => {
     const filtered = render(() => <ActivityPage api={filterApi([], jobCounts({ matched: 0, total: 4 }))} filter={{ ...EMPTY_JOB_FILTER, status: ["failed"] }} onOpen={vi.fn()} />);
     expect(await filtered.findByText("No jobs match the current filters")).toBeInTheDocument();
     expect(filtered.queryByText("No jobs yet")).not.toBeInTheDocument();
+    const named = filtered.getByRole("list", { name: "Active filters" });
+    expect(within(named).getAllByRole("listitem").map((item) => item.textContent)).toEqual(["Status: Failed"]);
+    expect(filtered.getAllByRole("button", { name: "Reset filters" }).length).toBeGreaterThan(0);
     filtered.unmount();
 
     const none = render(() => <ActivityPage api={filterApi([], jobCounts({ matched: 0, total: 0 }))} onOpen={vi.fn()} />);
@@ -1156,26 +1168,26 @@ describe("ActivityPage: the Auslöser", () => {
     const api = filterApi([job()], withTriggers);
     const view = render(() => <ActivityPage api={api} onOpen={vi.fn()} onFilter={onFilter} />);
     const trigger = await openFacet(view, "Trigger");
-    await trigger.findByRole("checkbox", { name: "Nachtlauf 3" });
+    await trigger.findByRole("checkbox", { name: "Nachtlauf, 3 jobs" });
     expect(trigger.getAllByRole("checkbox").map((box) => box.closest("label")?.textContent)).toEqual(
       ["By hand1", "Retried1", "Schedules4", "Nachtlauf3", "Wochenende1"]);
 
-    await fireEvent.click(trigger.getByRole("checkbox", { name: "Wochenende 1" }));
+    await fireEvent.click(trigger.getByRole("checkbox", { name: "Wochenende, 1 job" }));
     expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, schedule: ["sc_w"] }, { replace: false });
     await waitFor(() => expect(listCalls(api).at(-1)).toBe("/jobs?limit=50&order=desc&schedule=sc_w"));
-    await fireEvent.click(trigger.getByRole("checkbox", { name: "By hand 1" }));
+    await fireEvent.click(trigger.getByRole("checkbox", { name: "By hand, 1 job" }));
     await waitFor(() => expect(listCalls(api).at(-1)).toBe("/jobs?limit=50&order=desc&trigger=manual&schedule=sc_w"));
     expect(countsCalls(api).at(-1)).toBe("/jobs/counts?order=desc&trigger=manual&schedule=sc_w");
     expect(view.getByRole("button", { name: "Trigger: By hand, Wochenende" })).toBeInTheDocument();
 
-    await fireEvent.click(trigger.getByRole("checkbox", { name: "Schedules 4" }));
+    await fireEvent.click(trigger.getByRole("checkbox", { name: "Schedules, 4 jobs" }));
     await waitFor(() => expect(listCalls(api).at(-1)).toBe("/jobs?limit=50&order=desc&trigger=manual,schedule"));
   });
 
   it("finds a schedule by its name", async () => {
     const view = render(() => <ActivityPage api={filterApi([job()], withTriggers)} onOpen={vi.fn()} />);
     const trigger = await openFacet(view, "Trigger");
-    await trigger.findByRole("checkbox", { name: "Nachtlauf 3" });
+    await trigger.findByRole("checkbox", { name: "Nachtlauf, 3 jobs" });
     await fireEvent.input(await trigger.findByRole("searchbox", { name: "Search Schedules" }), { target: { value: "nacht" } });
     expect(trigger.getAllByRole("checkbox").map((box) => box.closest("label")?.textContent)).toEqual(["By hand1", "Retried1", "Schedules4", "Nachtlauf3"]);
   });

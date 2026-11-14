@@ -1,6 +1,6 @@
 import { createResource } from "solid-js";
 import { locale, N, t } from "../../lib/i18n";
-import type { Facet, FacetCounts, FilterValue } from "../../ui/FilterBar";
+import { MANY_OPTIONS, type Facet, type FacetCounts, type FilterValue } from "../../ui/FilterBar";
 import { loadRoots } from "../scan/loaders";
 import type { JobFilter } from "./filters";
 import type { Api } from "./loaders";
@@ -68,7 +68,7 @@ export function periodLibraryFacets(props: { api: Api; filter: () => JobFilter; 
           { value: CUSTOM, label: days ? `${dayText(days.from)} – ${dayText(days.to)}` : t(CUSTOM_LABEL) },
         ],
       },
-      { key: "root", title: t("Library"), logic: "or", placement: "more", options: [...known, ...chosen] },
+      { key: "root", title: t("Library"), logic: "or", placement: "more", searchable: known.length > MANY_OPTIONS, options: [...known, ...chosen] },
     ];
   };
   const value = (): FilterValue => {

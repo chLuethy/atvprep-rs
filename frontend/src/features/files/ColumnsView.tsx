@@ -107,7 +107,7 @@ const Column: Component<{
               <div class="col-note notice bad" role="alert"><p>{t("Unable to load this folder")}</p><Button onClick={() => void refetch()}>{t("Retry")}</Button></div>
             </Show>
             <Show when={value().kind === "ok" && entries().length === 0}>
-              <p class="col-note muted">{viewKey(props.filter) ? t("No files in this state") : t("Empty folder")}</p>
+              <p class="col-note muted">{viewKey(props.filter) ? t("Nothing here matches the filters") : t("Empty folder")}</p>
             </Show>
             <For each={entries()}>{(entry) => (
               <div

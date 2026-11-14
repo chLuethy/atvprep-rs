@@ -146,7 +146,7 @@ describe("ColumnsView", () => {
     const api: Api = { request: vi.fn(async () => new Response(JSON.stringify({ data: { folders: [], files: [] }, meta: {} }))) };
     const { view } = show(api, { filter: { ...EMPTY_FILTER, status: ["blocker"] } });
 
-    expect(await view.findByText("No files in this state")).toBeInTheDocument();
+    expect(await view.findByText("Nothing here matches the filters")).toBeInTheDocument();
   });
 
   it("offers a retry when a folder cannot be read", async () => {

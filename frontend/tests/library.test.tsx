@@ -199,9 +199,9 @@ describe("LibraryPage: the filter bar", () => {
     const view = renderLibrary(api);
     const status = await openFacet(view, "Status");
 
-    await fireEvent.click(await status.findByRole("checkbox", { name: "Warning 1" }));
+    await fireEvent.click(await status.findByRole("checkbox", { name: "Warning, 1 file" }));
     await waitFor(() => expect(lastList()).toContain("status=warning"));
-    await fireEvent.click(status.getByRole("checkbox", { name: "Blocker 1" }));
+    await fireEvent.click(status.getByRole("checkbox", { name: "Blocker, 1 file, needs attention" }));
     await waitFor(() => expect(lastList()).toContain("status=warning%2Cblocker"));
     expect(lastCounts()).toContain("status=warning%2Cblocker");
     expect(view.getByRole("button", { name: "Status: Warning, Blocker" })).toBeInTheDocument();
@@ -214,11 +214,11 @@ describe("LibraryPage: the filter bar", () => {
     const { api } = makeApi({ counts: facetCounts({ status: { clean: 1, embed_open: 2, missing: 1 } }) });
     const view = renderLibrary(api);
     const status = await openFacet(view, "Status");
-    expect(await status.findByRole("checkbox", { name: "Embedding open 2" })).not.toBeChecked();
-    expect(status.getByRole("checkbox", { name: "Ready 1" })).toBeInTheDocument();
-    expect(status.getByRole("checkbox", { name: "Missing 1" })).toBeInTheDocument();
+    expect(await status.findByRole("checkbox", { name: "Embedding open, 2 files" })).not.toBeChecked();
+    expect(status.getByRole("checkbox", { name: "Ready, 1 file" })).toBeInTheDocument();
+    expect(status.getByRole("checkbox", { name: "Missing, 1 file, needs attention" })).toBeInTheDocument();
     // No hit: dimmed, but it can still be chosen.
-    expect(status.getByRole("checkbox", { name: "Warning 0" })).toBeEnabled();
+    expect(status.getByRole("checkbox", { name: "Warning, 0 files" })).toBeEnabled();
   });
 
   it("shows only files with all chosen properties, as one has list", async () => {
@@ -247,13 +247,45 @@ describe("LibraryPage: the filter bar", () => {
     });
     const view = renderLibrary(api);
     const properties = await openFacet(view, "Properties");
-    expect(await properties.findByRole("checkbox", { name: "Needs video encoding 5" })).toBeInTheDocument();
+    expect(await properties.findByRole("checkbox", { name: "Needs video encoding, 5 files" })).toBeInTheDocument();
 
     await fireEvent.click(properties.getByRole("checkbox", { name: /^Subtitles embeddable/ }));
-    expect(await properties.findByRole("checkbox", { name: "Needs video encoding 2" })).toBeInTheDocument();
-    expect(properties.getByRole("checkbox", { name: "Subtitles embeddable 4" })).toBeChecked();
+    expect(await properties.findByRole("checkbox", { name: "Needs video encoding, 2 files" })).toBeInTheDocument();
+    expect(properties.getByRole("checkbox", { name: "Subtitles embeddable, 4 files" })).toBeChecked();
     const status = await openFacet(view, "Status");
-    expect(status.getByRole("checkbox", { name: "Warning 1" })).toBeInTheDocument();
+    expect(status.getByRole("checkbox", { name: "Warning, 1 file" })).toBeInTheDocument();
+  });
+
+  it("names the active filters and the search in an empty result, and resets them from there", async () => {
+    const onFilter = vi.fn();
+    const { api } = makeApi({ rows: [], counts: facetCounts({ matched: 0, total: 6 }) });
+    const view = render(() => <LibraryPage api={api} filter={{ ...EMPTY_FILTER, q: "Heat", status: ["blocker", "missing"], has: ["embed"] }} onOpen={open} onFilter={onFilter} />);
+    expect(await view.findByText("No files match the current filters")).toBeInTheDocument();
+    const named = view.getByRole("list", { name: "Active filters" });
+    expect(within(named).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "Status: Blocker, Missing",
+      "Properties: Subtitles embeddable",
+      "Search: “Heat”",
+    ]);
+    const resets = view.getAllByRole("button", { name: "Reset filters" });
+    await fireEvent.click(resets.at(-1)!);
+    expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_FILTER, q: "", status: [], has: [] }, { replace: false });
+  });
+
+  it("offers to reset the filters when a filtered list cannot be loaded, as a stale link would", async () => {
+    const onFilter = vi.fn();
+    const view = render(() => <LibraryPage api={makeApi({ fail: true }).api} filter={{ ...EMPTY_FILTER, root: ["gone"] }} onOpen={open} onFilter={onFilter} />);
+    const alert = await view.findByRole("alert");
+    expect(within(alert).getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    await fireEvent.click(within(alert).getByRole("button", { name: "Reset filters" }));
+    expect(onFilter).toHaveBeenLastCalledWith(EMPTY_FILTER, { replace: false });
+  });
+
+  it("names each option's count in files to a screen reader", async () => {
+    const { api } = makeApi({ counts: COUNTS });
+    const view = render(() => <LibraryPage api={api} onOpen={open} />);
+    const status = await openFacet(view, "Status");
+    expect(await status.findByRole("checkbox", { name: /^Warning, \d+ files?$/ })).toBeInTheDocument();
   });
 
   it("resets every filter and the search with Reset filters", async () => {
@@ -325,7 +357,7 @@ describe("LibraryPage: the filter lives in the address", () => {
     const view = render(() => <LibraryPage api={api} onOpen={open} onFilter={onFilter} />);
     const status = await openFacet(view, "Status");
 
-    await fireEvent.click(await status.findByRole("checkbox", { name: "Warning 1" }));
+    await fireEvent.click(await status.findByRole("checkbox", { name: "Warning, 1 file" }));
     expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_FILTER, q: "", status: ["warning"], has: [] }, { replace: false });
 
     await fireEvent.input(view.getByRole("searchbox", { name: "Search files" }), { target: { value: " Heat " } });
@@ -333,12 +365,12 @@ describe("LibraryPage: the filter lives in the address", () => {
   });
 });
 
-/** An API with two libraries whose counters cover every facet. */
-function facetApi() {
+/** An API with two libraries (or the ones given) whose counters cover every facet. */
+function facetApi(roots = [{ id: "r_1", name: "Movies", latest_scan: null }, { id: "r_2", name: "Shows", latest_scan: null }]) {
   const made = makeApi();
   const base = made.api.request;
   made.api.request = vi.fn(async (path: string, init?: RequestInit) => {
-    if (path === "/roots") { lastCalls.push({ path }); return json([{ id: "r_1", name: "Movies", latest_scan: null }, { id: "r_2", name: "Shows", latest_scan: null }]); }
+    if (path === "/roots") { lastCalls.push({ path }); return json(roots); }
     if (path.startsWith("/files/counts")) {
       lastCalls.push({ path });
       return json({ ...COUNTS, root_id: { r_1: 3, r_2: 1 }, suffix: { ".avi": 0, ".mkv": 2, ".mp4": 2 }, has_sidecar: { true: 1, false: 3 } });
@@ -349,13 +381,26 @@ function facetApi() {
 }
 
 describe("LibraryPage: library, extension and subtitle files", () => {
+  it("offers a search over the libraries once there are many, and none for a few", async () => {
+    const many = Array.from({ length: 12 }, (_, index) => ({ id: `r_${index + 1}`, name: `Library ${index + 1}`, latest_scan: null }));
+    const crowded = render(() => <LibraryPage api={facetApi(many).api} onOpen={open} />);
+    const crowdedLibrary = await openFacet(crowded, "Library");
+    expect(await crowdedLibrary.findByRole("searchbox", { name: "Search Library" })).toBeInTheDocument();
+    crowded.unmount();
+
+    const few = render(() => <LibraryPage api={facetApi().api} onOpen={open} />);
+    const library = await openFacet(few, "Library");
+    await library.findByRole("checkbox", { name: /^Shows/ });
+    expect(library.queryByRole("searchbox")).not.toBeInTheDocument();
+  });
+
   it("offers the libraries by name with their counts and filters by the chosen one", async () => {
     const onFilter = vi.fn();
     const { api } = facetApi();
     const view = render(() => <LibraryPage api={api} onOpen={open} onFilter={onFilter} />);
     const library = await openFacet(view, "Library");
 
-    await fireEvent.click(await library.findByRole("checkbox", { name: "Shows 1" }));
+    await fireEvent.click(await library.findByRole("checkbox", { name: "Shows, 1 file" }));
     expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_FILTER, root: ["r_2"] }, { replace: false });
     await waitFor(() => expect(lastList()).toContain("root_id=r_2"));
     expect(lastCounts()).toContain("root_id=r_2");
@@ -371,14 +416,14 @@ describe("LibraryPage: library, extension and subtitle files", () => {
     await fireEvent.click(bar.getByRole("button", { name: "More filters" }));
     const extension = await openFacet(view, "Extension");
     await fireEvent.input(extension.getByRole("searchbox", { name: "Search Extension" }), { target: { value: "mk" } });
-    await fireEvent.click(await extension.findByRole("checkbox", { name: "mkv 2" }));
+    await fireEvent.click(await extension.findByRole("checkbox", { name: "mkv, 2 files" }));
 
     expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_FILTER, suffix: [".mkv"] }, { replace: false });
     await waitFor(() => expect(lastList()).toContain("suffix=.mkv"));
     expect(bar.getByRole("button", { name: "More filters" })).toBeDisabled();
 
     const sidecar = await openFacet(view, "Subtitle files");
-    await fireEvent.click(sidecar.getByRole("radio", { name: "No 3" }));
+    await fireEvent.click(sidecar.getByRole("radio", { name: "No, 3 files" }));
     await waitFor(() => expect(lastList()).toContain("has_sidecar=false"));
   });
 

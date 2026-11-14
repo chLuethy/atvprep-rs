@@ -87,10 +87,10 @@ describe("ActivityPage: period and library under More filters", () => {
     const { view, onFilter, lastList, lastCounts } = setup();
     await fireEvent.click((await bar(view)).getByRole("button", { name: "More filters" }));
     const library = await openFacet(view, "Library");
-    expect(await library.findByRole("checkbox", { name: "Movies 3" })).toBeInTheDocument();
-    expect(library.getByRole("checkbox", { name: "Empty 0" })).toBeInTheDocument();
+    expect(await library.findByRole("checkbox", { name: "Movies, 3 jobs" })).toBeInTheDocument();
+    expect(library.getByRole("checkbox", { name: "Empty, 0 jobs" })).toBeInTheDocument();
 
-    await fireEvent.click(library.getByRole("checkbox", { name: "Shows 1" }));
+    await fireEvent.click(library.getByRole("checkbox", { name: "Shows, 1 job" }));
 
     expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, root: ["r_shows"] }, { replace: false });
     await waitFor(() => expect(lastList()).toContain("root_id=r_shows"));
