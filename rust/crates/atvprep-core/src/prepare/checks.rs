@@ -197,6 +197,7 @@ mod tests {
             action: AudioAction::Copy,
             is_transcoded: false,
             is_default: true,
+            target_sample_rate: None,
         }
     }
 
