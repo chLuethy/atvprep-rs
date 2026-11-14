@@ -1,17 +1,17 @@
 {
-  "version": "0.5.8",
+  "version": "0.5.9",
   "assets": [
     {
       "platform": "linux-x86_64",
-      "url": "https://git.ch-luethy.ch/chl/atvprep-rs/releases/download/v0.5.8/atvprep-linux-x86_64",
-      "sha256": "d9f1da611da6f824f4924d44ca1ad799998541e7b058e4cafbf8f995967ecef0",
-      "size": 19876640
+      "url": "https://github.com/chLuethy/atvprep-rs/releases/download/v0.5.9/atvprep-linux-x86_64",
+      "sha256": "151c76f5e2cc36abc7279ed85a70e5424a47bf93fb9cab9c8efde3c58a55e6d5",
+      "size": 19887448
     },
     {
       "platform": "linux-aarch64",
-      "url": "https://git.ch-luethy.ch/chl/atvprep-rs/releases/download/v0.5.8/atvprep-linux-aarch64",
-      "sha256": "03bf3fb7a92fd8494691a8489ff45127487015efa4aa1d08c37c09a5e82f3be4",
-      "size": 18923096
+      "url": "https://github.com/chLuethy/atvprep-rs/releases/download/v0.5.9/atvprep-linux-aarch64",
+      "sha256": "985993eb6fa5e5a1f9dfbb492416a98b1c7a95a960385055d1c7059b9b02af31",
+      "size": 18926008
     }
   ]
 }
