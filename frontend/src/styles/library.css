@@ -97,6 +97,7 @@ details summary { cursor: pointer; color: var(--muted); }
 .change.none { color: var(--muted); }
 
 /* activity */
+.job-hidden { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 10px 16px 0; font-size: var(--text-sm); }
 .job-group { padding: 4px 0 8px; }
 .job-group h2 { margin: 10px 16px 6px; }
 .job-row { display: flex; align-items: center; gap: 10px; padding: 7px 16px; border-bottom: 1px solid var(--line); }

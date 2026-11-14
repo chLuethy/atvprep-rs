@@ -1,6 +1,7 @@
 //! Read-only views of queued and completed jobs.
 use crate::{
     extract::AuthenticatedSession,
+    job_filter::{JobFilter, JobQuery},
     opaque::Opaque,
     read::{error, page_meta, timestamp},
     state::AppState,
@@ -88,24 +89,6 @@ fn view(row: &rusqlite::Row<'_>, opaque: &Opaque) -> rusqlite::Result<(i64, Valu
         job["delete_original"] = json!(true);
     }
     Ok((id, job))
-}
-
-/// Parse an optional job-status query filter; an empty value means "no filter".
-fn parse_status_filter(
-    raw: Option<&str>,
-) -> Result<Option<JobStatus>, atvprep_manager::error::Error> {
-    raw.filter(|v| !v.is_empty()).map(str::parse).transpose()
-}
-
-#[derive(Deserialize)]
-pub struct JobQuery {
-    #[serde(default, deserialize_with = "crate::opaque::bounded_cursor")]
-    cursor: Option<String>,
-    limit: Option<usize>,
-    status: Option<String>,
-    action: Option<String>,
-    exclude_status: Option<String>,
-    order: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -321,7 +304,7 @@ pub async fn item_log(
     }
 }
 
-/// List jobs with stable, endpoint-bound cursors.
+/// List jobs with stable, endpoint-bound cursors, filtered as `JobFilter` describes.
 pub async fn jobs(
     State(state): State<AppState>,
     _session: AuthenticatedSession,
@@ -330,9 +313,6 @@ pub async fn jobs(
     const PATH: &str = "/api/v1/jobs";
     let limit = query.limit.unwrap_or(50);
     if !(1..=100).contains(&limit)
-        || [&query.status, &query.action, &query.exclude_status]
-            .iter()
-            .any(|s| s.as_ref().is_some_and(|v| v.chars().count() > 128))
         || query
             .order
             .as_deref()
@@ -340,11 +320,9 @@ pub async fn jobs(
     {
         return error(StatusCode::UNPROCESSABLE_ENTITY, "invalid request", PATH);
     }
-    let (Ok(status), Ok(exclude_status)) = (
-        parse_status_filter(query.status.as_deref()),
-        parse_status_filter(query.exclude_status.as_deref()),
-    ) else {
-        return error(StatusCode::UNPROCESSABLE_ENTITY, "invalid request", PATH);
+    let filter = match JobFilter::parse(&query) {
+        Ok(filter) => filter,
+        Err(message) => return error(StatusCode::UNPROCESSABLE_ENTITY, message, PATH),
     };
     let opaque = Opaque::new(state.api_secret.as_bytes());
     let after = match query.cursor.as_deref() {
@@ -356,17 +334,91 @@ pub async fn jobs(
     };
     let descending = query.order.as_deref() == Some("desc");
     let result = tokio::task::spawn_blocking(move || {
-        let conn=state.db.conn().map_err(|_|())?;
-        let sql=format!("{job_select} WHERE j.cleared_at IS NULL AND (?1 IS NULL OR j.status=?1) AND (?2 IS NULL OR j.status!=?2) AND (?3 IS NULL OR (j.action=?3 AND ?3 NOT IN ('fix','convert')) OR (?3='prepare' AND j.action IN ('fix','convert'))) AND (?4 IS NULL OR (CASE WHEN ?5 THEN j.id<?4 ELSE j.id>?4 END)) ORDER BY j.id {} LIMIT ?6", if descending {"DESC"} else {"ASC"},job_select=job_select());
-        let mut stmt=conn.raw().prepare(&sql).map_err(|_|())?;
-        let rows=stmt.query_map(params![status,exclude_status,query.action.filter(|v|!v.is_empty()),after,descending,i64::try_from(limit+1).map_err(|_|())?],|row|view(row,&opaque)).map_err(|_|())?;
-        let mut data=Vec::new(); let mut last=None; let mut used=0usize; let mut more=false; let mut truncated=false;
-        for row in rows { let (id,value)=row.map_err(|_|())?; if data.len()==limit {more=true;break;} let size=serde_json::to_vec(&value).map_err(|_|())?.len(); if size>crate::bounds::MAX_ELEMENT_BYTES || used.saturating_add(size).saturating_add(data.len()+256)>crate::bounds::MAX_RESPONSE_BYTES {more=true;truncated=true;break;} used+=size;last=Some(id);data.push(value); }
-        let next=if more {last.map(|id|opaque.encode("cursor:jobs",id))} else {None};
-        Ok::<_,()>(json!({"data":data,"meta":page_meta(Some(limit),next.as_deref(),truncated)}))
-    }).await;
+        let conn = state.db.conn().map_err(|_| ())?;
+        let (filter_sql, mut values) = filter.sql();
+        let mut sql = format!("{job_select} WHERE {filter_sql}", job_select = job_select());
+        if let Some(after) = after {
+            sql.push_str(if descending {
+                " AND j.id<?"
+            } else {
+                " AND j.id>?"
+            });
+            values.push(after.into());
+        }
+        sql.push_str(if descending {
+            " ORDER BY j.id DESC LIMIT ?"
+        } else {
+            " ORDER BY j.id ASC LIMIT ?"
+        });
+        values.push(i64::try_from(limit + 1).map_err(|_| ())?.into());
+        let mut stmt = conn.raw().prepare(&sql).map_err(|_| ())?;
+        let rows = stmt
+            .query_map(rusqlite::params_from_iter(values.iter()), |row| {
+                view(row, &opaque)
+            })
+            .map_err(|_| ())?;
+        let mut data = Vec::new();
+        let mut last = None;
+        let mut used = 0usize;
+        let mut more = false;
+        let mut truncated = false;
+        for row in rows {
+            let (id, value) = row.map_err(|_| ())?;
+            if data.len() == limit {
+                more = true;
+                break;
+            }
+            let size = serde_json::to_vec(&value).map_err(|_| ())?.len();
+            if size > crate::bounds::MAX_ELEMENT_BYTES
+                || used.saturating_add(size).saturating_add(data.len() + 256)
+                    > crate::bounds::MAX_RESPONSE_BYTES
+            {
+                more = true;
+                truncated = true;
+                break;
+            }
+            used += size;
+            last = Some(id);
+            data.push(value);
+        }
+        let next = if more {
+            last.map(|id| opaque.encode("cursor:jobs", id))
+        } else {
+            None
+        };
+        Ok::<_, ()>(json!({"data":data,"meta":page_meta(Some(limit),next.as_deref(),truncated)}))
+    })
+    .await;
     match result {
         Ok(Ok(body)) => Json(body).into_response(),
+        _ => error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "internal server error",
+            PATH,
+        ),
+    }
+}
+
+/// The facet counters of the job list with the same filters as `/jobs`: per status and per action
+/// with every other filter, the jobs that match all filters of all there are, and the waiting or
+/// running jobs the filter leaves out.
+pub async fn job_counts(
+    State(state): State<AppState>,
+    _session: AuthenticatedSession,
+    Query(query): Query<JobQuery>,
+) -> Response {
+    const PATH: &str = "/api/v1/jobs/counts";
+    let filter = match JobFilter::parse(&query) {
+        Ok(filter) => filter,
+        Err(message) => return error(StatusCode::UNPROCESSABLE_ENTITY, message, PATH),
+    };
+    let result = tokio::task::spawn_blocking(move || {
+        let conn = state.db.conn().map_err(|_| ())?;
+        filter.counts(conn.raw()).map_err(|_| ())
+    })
+    .await;
+    match result {
+        Ok(Ok(data)) => Json(json!({"data": data, "meta": {}})).into_response(),
         _ => error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "internal server error",
