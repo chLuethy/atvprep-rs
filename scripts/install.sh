@@ -163,8 +163,27 @@ for alias in atvprep-manager atvprep-hook; do
     fi
 done
 
+# deploy servarr accepts only a target directory owned by the caller or root, so
+# a hook in a user-owned /config is installed as that owner, not as root. The
+# installed binary serves as the asset; deploy checks it against the manifest.
 install_hook() {
-    deploy servarr --application "$1" --destination "$2" >/dev/null
+    hook_dir=$(dirname "$2")
+    owner=$(stat -c %u "$hook_dir") || return 1
+    if [ "$owner" -eq 0 ] || [ "$owner" -eq "$(id -u)" ]; then
+        deploy servarr --application "$1" --destination "$2" >/dev/null
+        return
+    fi
+    command -v setpriv >/dev/null 2>&1 || {
+        printf 'install.sh: setpriv fehlt (util-linux), Hook %s gehört Benutzer %s\n' "$2" "$owner" >&2
+        return 1
+    }
+    # deploy opens every directory on the path with O_RDONLY, so search-only 0711 fails.
+    chmod 0755 "$WORK"
+    chmod 0644 "$WORK/release.json" "$WORK/release.json.sig"
+    setpriv --reuid="$owner" --regid="$(stat -c %g "$hook_dir")" --clear-groups \
+        "$DEST" deploy servarr --application "$1" --destination "$2" \
+        --manifest "$WORK/release.json" --signature "$WORK/release.json.sig" \
+        --trusted-key "$KEY" --asset-file "$DEST" >/dev/null
 }
 
 if [ "$MODE" = servarr ]; then
