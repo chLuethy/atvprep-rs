@@ -164,7 +164,7 @@ describe("LibraryPage: filtering and paging", () => {
     for (const name of [/^Ready/, /^Warning/, /^Not verified/, /^Inspection failed/, /^Missing/]) {
       expect(view.getByRole("checkbox", { name })).toBeChecked();
     }
-    for (const name of [/^To convert/, /^Needs video encoding/, /^Embed open/, /^Converted/]) {
+    for (const name of [/^To convert/, /^Needs video encoding/, /^Subtitles embeddable/, /^Converted/]) {
       expect(view.getByRole("checkbox", { name })).not.toBeChecked();
     }
     expect(view.queryByRole("button", { name: "Show all files" })).not.toBeInTheDocument();
@@ -181,7 +181,26 @@ describe("LibraryPage: filtering and paging", () => {
       return json([]);
     });
     const view = renderLibrary(api);
-    expect(await view.findByRole("checkbox", { name: "Embed open 3" })).not.toBeChecked();
+    expect(await view.findByRole("checkbox", { name: "Subtitles embeddable 3" })).not.toBeChecked();
+  });
+
+  it("shows Embedding open in the status group with its own count, and hides those files when unticked", async () => {
+    const { api } = makeApi();
+    (api.request as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
+      if (path === "/dashboard") return json({ files: { clean: 1, embed_open: 2, missing: 1 }, missing: 1, embed: 3, scans: {}, jobs: {} });
+      if (path.startsWith("/files?")) return json(ROWS, 200, { next_cursor: null });
+      return json([]);
+    });
+    const view = renderLibrary(api);
+    const states = within(await view.findByRole("group", { name: "Status" }));
+    const entry = await states.findByRole("checkbox", { name: "Embedding open 2" });
+    expect(entry).toBeChecked();
+    // The state counts add up to all files: 1 ready, 2 embedding open, 1 missing.
+    expect(states.getByRole("checkbox", { name: "Ready 1" })).toBeInTheDocument();
+    expect(states.getByRole("checkbox", { name: "Missing 1" })).toBeInTheDocument();
+
+    await fireEvent.click(entry);
+    await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("hide=embed_open")));
   });
 
   it("hides the files of a state when its box is unticked, and shows them again when it is ticked", async () => {
@@ -208,7 +227,7 @@ describe("LibraryPage: filtering and paging", () => {
 
     const states = within(view.getByRole("group", { name: "Status" }));
     await fireEvent.click(states.getByRole("button", { name: "None" }));
-    await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("hide=clean%2Cwarning%2Cblocker%2Cunknown%2Cprobe_failed%2Cmissing")));
+    await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("hide=clean%2Cembed_open%2Cwarning%2Cblocker%2Cunknown%2Cprobe_failed%2Cmissing")));
     expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=encode_video"));
 
     await fireEvent.click(states.getByRole("button", { name: "All" }));
@@ -220,13 +239,13 @@ describe("LibraryPage: filtering and paging", () => {
     const { api } = makeApi();
     const view = renderLibrary(api);
 
-    await fireEvent.click(await view.findByRole("checkbox", { name: /^Embed open/ }));
+    await fireEvent.click(await view.findByRole("checkbox", { name: /^Subtitles embeddable/ }));
     await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=embed")));
     await fireEvent.click(view.getByRole("checkbox", { name: /^Needs video encoding/ }));
     await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=encode_video%2Cembed")));
     expect(api.request).toHaveBeenLastCalledWith(expect.not.stringContaining("hide="));
 
-    await fireEvent.click(view.getByRole("checkbox", { name: /^Embed open/ }));
+    await fireEvent.click(view.getByRole("checkbox", { name: /^Subtitles embeddable/ }));
     await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.stringContaining("has=encode_video")));
     await fireEvent.click(view.getByRole("checkbox", { name: /^Needs video encoding/ }));
     await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.not.stringContaining("has=")));
@@ -237,7 +256,7 @@ describe("LibraryPage: filtering and paging", () => {
     const view = renderLibrary(api);
 
     await fireEvent.click(await view.findByRole("checkbox", { name: /^Warning/ }));
-    await fireEvent.click(view.getByRole("checkbox", { name: /^Embed open/ }));
+    await fireEvent.click(view.getByRole("checkbox", { name: /^Subtitles embeddable/ }));
     const lastList = () => calls(api).filter((call) => call.path.startsWith("/files?")).at(-1)?.path ?? "";
     await waitFor(() => expect(lastList()).toContain("has=embed"));
     expect(lastList()).toContain("hide=warning");
@@ -257,9 +276,9 @@ describe("LibraryPage: filtering and paging", () => {
     const view = renderLibrary(api);
     expect(await view.findByRole("checkbox", { name: "Needs video encoding 5" })).toBeInTheDocument();
 
-    await fireEvent.click(view.getByRole("checkbox", { name: /^Embed open/ }));
+    await fireEvent.click(view.getByRole("checkbox", { name: /^Subtitles embeddable/ }));
     expect(await view.findByRole("checkbox", { name: "Needs video encoding 2" })).toBeInTheDocument();
-    expect(view.getByRole("checkbox", { name: "Embed open 4" })).toBeChecked();
+    expect(view.getByRole("checkbox", { name: "Subtitles embeddable 4" })).toBeChecked();
   });
 
   it("searches by path after a short pause", async () => {
@@ -329,7 +348,7 @@ describe("LibraryPage: the status filter lives in the address", () => {
     const view = render(() => <LibraryPage api={api} has="embed,nonsense,embed" hide="reencode,clean" onOpen={open} />);
 
     await view.findByRole("link", { name: "Heat" });
-    expect(view.getByRole("checkbox", { name: /^Embed open/ })).toBeChecked();
+    expect(view.getByRole("checkbox", { name: /^Subtitles embeddable/ })).toBeChecked();
     expect(view.getByRole("checkbox", { name: /^Needs video encoding/ })).not.toBeChecked();
     expect(view.getByRole("checkbox", { name: /^Ready/ })).not.toBeChecked();
     const path = calls(api).find((call) => call.path.startsWith("/files?"))?.path ?? "";
@@ -347,7 +366,7 @@ describe("LibraryPage: the status filter lives in the address", () => {
     await fireEvent.click(await view.findByRole("button", { name: "Show all files" }));
 
     expect(onFilter).toHaveBeenLastCalledWith({ status: "", hide: "", has: "" });
-    expect(view.getByRole("checkbox", { name: /^Embed open/ })).not.toBeChecked();
+    expect(view.getByRole("checkbox", { name: /^Subtitles embeddable/ })).not.toBeChecked();
     await waitFor(() => expect(api.request).toHaveBeenLastCalledWith(expect.not.stringContaining("has=")));
   });
 

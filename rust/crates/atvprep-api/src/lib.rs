@@ -510,7 +510,9 @@ mod tests {
         assert_eq!(body["data"]["converted"], 1);
         assert_eq!(body["data"]["encode_video"], 1);
         assert_eq!(body["data"]["encode_audio"], 0);
-        assert_eq!(body["data"]["files"]["unknown"], 2);
+        // gone.mkv counts as missing only, so the state counts add up to the files shown.
+        assert_eq!(body["data"]["files"]["unknown"], 1);
+        assert_eq!(body["data"]["files"]["missing"], 1);
         assert_eq!(body["data"]["delete_original"], true);
         assert_eq!(body["data"]["jobs"]["queued"], 1);
         assert_eq!(body["data"]["scans"]["succeeded"], 1);

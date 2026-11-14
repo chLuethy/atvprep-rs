@@ -12,6 +12,7 @@ export type FilterEntry = { token: string; label: string; urgent?: boolean };
 /** What the checker decided about a file, plus whether it is still on disk. A file is in exactly one of these for its verdict. */
 export const STATE_FILTERS: ReadonlyArray<FilterEntry> = [
   { token: "clean", label: N("Ready") },
+  { token: "embed_open", label: N("Embedding open") },
   { token: "warning", label: N("Warning") },
   { token: "blocker", label: N("Blocker"), urgent: true },
   { token: "unknown", label: N("Not verified") },
@@ -24,7 +25,7 @@ export const TRAIT_FILTERS: ReadonlyArray<FilterEntry> = [
   { token: "convert", label: N("To convert") },
   { token: "encode_audio", label: N("Needs audio encoding") },
   { token: "encode_video", label: N("Needs video encoding") },
-  { token: "embed", label: N("Embed open") },
+  { token: "embed", label: N("Subtitles embeddable") },
   { token: "converted", label: N("Converted, original kept") },
 ];
 

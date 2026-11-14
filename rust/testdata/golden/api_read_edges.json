@@ -2,7 +2,7 @@
   "cases": [
     {
       "expected": {
-        "completed": 60
+        "completed": 64
       },
       "input": {
         "steps": [
@@ -900,6 +900,137 @@
               "authenticated": true,
               "method": "GET",
               "origin": "http://testserver",
+              "path": "/api/v1/files?compliance_state=embed_open"
+            },
+            "response": {
+              "body": {
+                "data": [],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {
+                    "suffix": []
+                  },
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?hide=embed_open"
+            },
+            "response": {
+              "body": {
+                "data": [
+                  {
+                    "compliance_reasons": [],
+                    "compliance_state": "clean",
+                    "converted_kept": false,
+                    "desired_action": "none",
+                    "discovery_state": "present",
+                    "display_path": "Movie/film.mp4",
+                    "embed_sidecars": [],
+                    "last_interrupted": false,
+                    "fix_status": null,
+                    "id": "<m:1>",
+                    "kind": "video",
+                    "last_seen_at": "<ts>",
+                    "mtime_ns": 4,
+                    "encode_need": "unknown",
+                    "planned_change": "unknown",
+                    "pending_sidecars": 0,
+                    "root_id": "<r:1>",
+                    "size": 123,
+                    "suffix": ".mp4",
+                    "workflow_state": "idle"
+                  }
+                ],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {
+                    "suffix": [
+                      ".mp4"
+                    ]
+                  },
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/files?sort=status&dir=asc"
+            },
+            "response": {
+              "body": {
+                "data": [
+                  {
+                    "compliance_reasons": [],
+                    "compliance_state": "clean",
+                    "converted_kept": false,
+                    "desired_action": "none",
+                    "discovery_state": "present",
+                    "display_path": "Movie/film.mp4",
+                    "embed_sidecars": [],
+                    "last_interrupted": false,
+                    "fix_status": null,
+                    "id": "<m:1>",
+                    "kind": "video",
+                    "last_seen_at": "<ts>",
+                    "mtime_ns": 4,
+                    "encode_need": "unknown",
+                    "planned_change": "unknown",
+                    "pending_sidecars": 0,
+                    "root_id": "<r:1>",
+                    "size": 123,
+                    "suffix": ".mp4",
+                    "workflow_state": "idle"
+                  }
+                ],
+                "meta": {
+                  "current_cursor": null,
+                  "current_sequence": null,
+                  "facets": {
+                    "suffix": [
+                      ".mp4"
+                    ]
+                  },
+                  "limit": 50,
+                  "next_cursor": null,
+                  "truncated": false
+                }
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
               "path": "/api/v1/files?q=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
             },
             "response": {
@@ -1269,6 +1400,53 @@
                 "cache-control": "no-store"
               },
               "status": 422
+            }
+          },
+          {
+            "request": {
+              "authenticated": true,
+              "method": "GET",
+              "origin": "http://testserver",
+              "path": "/api/v1/browse?root_id=<r:1>&path=Movie&hide=embed_open"
+            },
+            "response": {
+              "body": {
+                "data": {
+                  "files": [
+                    {
+                      "compliance_reasons": [],
+                      "compliance_state": "clean",
+                      "converted_kept": false,
+                      "desired_action": "none",
+                      "discovery_state": "present",
+                      "display_path": "Movie/film.mp4",
+                      "embed_sidecars": [],
+                      "last_interrupted": false,
+                      "fix_status": null,
+                      "id": "<m:1>",
+                      "kind": "video",
+                      "last_seen_at": "<ts>",
+                      "mtime_ns": 4,
+                      "encode_need": "unknown",
+                      "planned_change": "unknown",
+                      "pending_sidecars": 0,
+                      "root_id": "<r:1>",
+                      "size": 123,
+                      "suffix": ".mp4",
+                      "workflow_state": "idle"
+                    }
+                  ],
+                  "folders": [],
+                  "path": "Movie",
+                  "root_id": "<r:1>",
+                  "truncated": false
+                },
+                "meta": {}
+              },
+              "headers": {
+                "cache-control": "no-store"
+              },
+              "status": 200
             }
           },
           {

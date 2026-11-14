@@ -309,6 +309,7 @@
             "type": "integer"
           },
           "files": {
+            "description": "File count per state; the counts add up to all files shown. States: ``clean`` (ready: no violations and nothing to embed), ``embed_open`` (no violations, but a subtitle file can still be embedded), ``warning``, ``blocker``, ``unknown``, ``probe_failed`` and ``missing``. Every file is in exactly one of them; a missing file is only ``missing``.",
             "additionalProperties": {
               "type": "integer"
             },
@@ -2199,6 +2200,7 @@
           {
             "in": "query",
             "name": "hide",
+            "description": "Comma-separated states whose files are left out. States: ``clean`` (ready: no violations and nothing to embed), ``embed_open`` (no violations, but a subtitle file can still be embedded), ``warning``, ``blocker``, ``unknown``, ``probe_failed`` and ``missing``. Every file is in exactly one of them; a missing file is only ``missing``.",
             "required": false,
             "schema": {
               "anyOf": [
@@ -2300,6 +2302,7 @@
           {
             "in": "query",
             "name": "hide",
+            "description": "Comma-separated states whose files are left out. States: ``clean`` (ready: no violations and nothing to embed), ``embed_open`` (no violations, but a subtitle file can still be embedded), ``warning``, ``blocker``, ``unknown``, ``probe_failed`` and ``missing``. Every file is in exactly one of them; a missing file is only ``missing``.",
             "required": false,
             "schema": {
               "anyOf": [
@@ -2978,6 +2981,7 @@
           {
             "in": "query",
             "name": "compliance_state",
+            "description": "Only the files in this state, or with this property (``convert``, ``encode_audio``, ``encode_video``, ``embed``, ``converted``). States: ``clean`` (ready: no violations and nothing to embed), ``embed_open`` (no violations, but a subtitle file can still be embedded), ``warning``, ``blocker``, ``unknown``, ``probe_failed`` and ``missing``. Every file is in exactly one of them; a missing file is only ``missing``.",
             "required": false,
             "schema": {
               "anyOf": [
@@ -2994,6 +2998,7 @@
           {
             "in": "query",
             "name": "hide",
+            "description": "Comma-separated states whose files are left out. States: ``clean`` (ready: no violations and nothing to embed), ``embed_open`` (no violations, but a subtitle file can still be embedded), ``warning``, ``blocker``, ``unknown``, ``probe_failed`` and ``missing``. Every file is in exactly one of them; a missing file is only ``missing``.",
             "required": false,
             "schema": {
               "anyOf": [
@@ -3124,6 +3129,7 @@
           {
             "in": "query",
             "name": "sort",
+            "description": "``status`` orders blocker, probe_failed, missing, warning, embed_open, unknown, clean; ``dir=desc`` reverses that order.",
             "required": false,
             "schema": {
               "anyOf": [

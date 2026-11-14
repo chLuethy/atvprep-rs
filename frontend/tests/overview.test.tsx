@@ -29,8 +29,8 @@ describe("OverviewPage: file health", () => {
     const view = render(() => <OverviewPage api={api(base({ "/dashboard": summary({ clean: 10, embed_open: 3, warning: 1 }) })) as never} />);
 
     const health = await view.findByRole("region", { name: "File health" });
-    expect(within(health).getByRole("img")).toHaveAccessibleName("14 files: 10 ready, 3 embed open, 1 warning");
-    expect(within(health).getByRole("link", { name: "3 Embed open" })).toHaveAttribute("href", "/files?status=embed");
+    expect(within(health).getByRole("img")).toHaveAccessibleName("14 files: 10 ready, 3 embedding open, 1 warning");
+    expect(within(health).getByRole("link", { name: "3 Embedding open" })).toHaveAttribute("href", "/files?status=embed_open");
     expect(within(health).queryByText(/ready for Apple TV/)).not.toBeInTheDocument();
   });
 

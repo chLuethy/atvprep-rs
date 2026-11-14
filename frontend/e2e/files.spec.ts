@@ -42,7 +42,7 @@ test.describe("files journey", () => {
     await expect(page.getByRole("link", { name: "Failed Movie" })).toHaveCount(0);
 
     // A second property narrows further: no file here has both.
-    await page.getByRole("checkbox", { name: /^Embed open/ }).check();
+    await page.getByRole("checkbox", { name: /^Subtitles embeddable/ }).check();
     await expect(page).toHaveURL(/has=encode_video%2Cembed/);
     await expect(page.getByRole("link", { name: "Old Codec Movie" })).toHaveCount(0);
 

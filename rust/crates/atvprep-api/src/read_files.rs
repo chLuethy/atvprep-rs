@@ -71,11 +71,11 @@ fn python_bool<'de, D: serde::Deserializer<'de>>(
         .transpose()
 }
 
-/// States that can be hidden (`hide`).
+/// States that can be hidden (`hide`). Every file is in exactly one of them.
 fn status_token(token: &str) -> bool {
     matches!(
         token,
-        "clean" | "warning" | "blocker" | "unknown" | "probe_failed" | "missing"
+        "clean" | "embed_open" | "warning" | "blocker" | "unknown" | "probe_failed" | "missing"
     )
 }
 
@@ -377,14 +377,23 @@ async fn embed_open_json(state: &AppState) -> Option<String> {
     .flatten()
 }
 
-/// "Ready" is a clean file with nothing left to embed; "embed" is any file with an open embedding.
+/// "Ready" is a clean file with nothing left to embed and `embed_open` a clean one with an open
+/// embedding; the trait "embed" is any file with an open embedding, whatever its state.
+/// The states split the files without overlap: a missing file is only "missing".
 fn state_clause(state: &str, open: &str, values: &mut Vec<rusqlite::types::Value>) -> String {
     match state {
         "clean" => {
             values.push(open.to_owned().into());
             format!(
-                "(m.compliance_state='clean' AND {})",
+                "(m.discovery_state<>'missing' AND m.compliance_state='clean' AND {})",
                 media_sql::embed_not_open("?")
+            )
+        }
+        "embed_open" => {
+            values.push(open.to_owned().into());
+            format!(
+                "(m.discovery_state<>'missing' AND m.compliance_state='clean' AND {})",
+                media_sql::embed_open("?")
             )
         }
         "embed" => {
@@ -401,9 +410,21 @@ fn state_clause(state: &str, open: &str, values: &mut Vec<rusqlite::types::Value
         "encode_video" => format!("(m.discovery_state='present' AND {NEEDS_VIDEO})"),
         _ => {
             values.push(state.to_owned().into());
-            "m.compliance_state=?".to_owned()
+            "(m.discovery_state<>'missing' AND m.compliance_state=?)".to_owned()
         }
     }
+}
+
+/// Where a file's state lands in the status sort, given a bound JSON list of the open ids: blocker,
+/// inspection failed, missing, warning, embed open, not verified, ready.
+fn status_rank(param: &str) -> String {
+    format!(
+        "(CASE WHEN m.discovery_state='missing' THEN 2 \
+         WHEN m.compliance_state='clean' AND {} THEN 4 \
+         ELSE CASE m.compliance_state WHEN 'blocker' THEN 0 WHEN 'probe_failed' THEN 1 \
+         WHEN 'warning' THEN 3 WHEN 'unknown' THEN 5 WHEN 'clean' THEN 6 ELSE 9 END END)",
+        media_sql::embed_open(param)
+    )
 }
 
 fn db_datetime(value: &str) -> Option<String> {
@@ -550,10 +571,10 @@ pub async fn list(
             if descending {rows.reverse();}
             rows.into_iter().skip(usize::try_from(after).unwrap_or(usize::MAX)).take(limit+1).map(|(id,_)|id).collect()
         }else {
-            let order=match query.sort.as_deref() {Some("size")=>format!("m.size {} ,lower(m.relative_path),m.id",if descending {"DESC"} else {"ASC"}),Some("status")=>format!("(CASE m.compliance_state WHEN 'blocker' THEN 0 WHEN 'probe_failed' THEN 1 WHEN 'warning' THEN 2 WHEN 'unknown' THEN 3 WHEN 'clean' THEN 4 ELSE 9 END) {},lower(m.relative_path),m.id",if descending {"DESC"} else {"ASC"}),_=>"m.id".to_owned()};
+            let order=match query.sort.as_deref() {Some("size")=>format!("m.size {} ,lower(m.relative_path),m.id",if descending {"DESC"} else {"ASC"}),Some("status")=>format!("{} {},lower(m.relative_path),m.id",status_rank("?"),if descending {"DESC"} else {"ASC"}),_=>"m.id".to_owned()};
             let offset=if query.sort.is_some(){after}else{0};
             let mut stmt=conn.prepare(&format!("SELECT m.id FROM media_files m WHERE {filter} ORDER BY {order} LIMIT ? OFFSET ?")).map_err(|_|())?;
-            let mut bound=values.clone();bound.push(i64::try_from(limit+1).map_err(|_|())?.into());bound.push(offset.into());
+            let mut bound=values.clone();if query.sort.as_deref()==Some("status") {bound.push(open.clone().into());}bound.push(i64::try_from(limit+1).map_err(|_|())?.into());bound.push(offset.into());
             stmt.query_map(rusqlite::params_from_iter(bound.iter()),|row|row.get(0)).map_err(|_|())?.collect::<Result<Vec<_>,_>>().map_err(|_|())?
         };
         let mut data=Vec::new();let mut last=None;let mut used=0usize;let mut truncated=false;
