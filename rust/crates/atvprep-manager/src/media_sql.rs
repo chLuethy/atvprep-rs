@@ -82,14 +82,17 @@ pub fn embed_not_open(param: &str) -> String {
 ///
 /// Excludes converted originals; takes MP4-likes only when they have something to repair or
 /// embed; takes only files whose Kodierbedarf lies within the schedule's Kodierfreigabe, bound as
-/// its name (`copy`, `audio`, `all`) in `encode_param`. A need that is not known yet only fits
-/// the top level (ADR 0008).
+/// its name (`copy`, `audio`, `all`) in the placeholder `?encode`. A need that is not known yet only
+/// fits the top level (ADR 0008).
+///
+/// Both parameters are the `N` of a numbered placeholder `?N` (`?open_ids` holds the JSON list of the
+/// open embedding ids): the list is used more than once, which a bare `?` would bind each time.
 #[must_use]
-pub fn change_candidate(encode_param: &str, open_ids_param: &str) -> String {
+pub fn change_candidate(encode: u8, open_ids: u8) -> String {
     format!(
         "NOT {CONVERTED} AND ({NOT_MP4_LIKE} OR {preparable}) AND {within}",
-        preparable = crate::file_state::preparable_sql(open_ids_param),
-        within = need_within(encode_param)
+        preparable = crate::file_state::preparable_sql(open_ids),
+        within = need_within(&format!("?{encode}"))
     )
 }
 

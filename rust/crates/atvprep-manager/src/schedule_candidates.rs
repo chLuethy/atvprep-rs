@@ -94,7 +94,7 @@ pub fn candidate_count(
 /// (negative: none). Every parameter is bound, whether the action's condition uses it or not.
 fn select_sql(selection: &ScheduleSelection) -> String {
     let (condition, order) = if selection.action.changes_files() {
-        (media_sql::change_candidate("?3", "?4"), "m.id")
+        (media_sql::change_candidate(3, 4), "m.id")
     } else {
         (
             media_sql::MP4_LIKE.to_owned(),
