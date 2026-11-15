@@ -1,0 +1,27 @@
+{
+  "expected": {
+    "body": {
+      "data": {
+        "item_id": "<i:1>",
+        "log_tail": "processed",
+        "status": "queued"
+      },
+      "meta": {
+        "current_cursor": null,
+        "current_sequence": null,
+        "facets": {},
+        "limit": null,
+        "next_cursor": null,
+        "truncated": false
+      }
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "method": "GET",
+    "origin": "http://testserver",
+    "path": "/api/v1/job-items/<i:1>/log"
+  },
+  "name": "item_log"
+}

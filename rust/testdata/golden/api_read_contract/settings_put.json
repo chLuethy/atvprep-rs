@@ -1,0 +1,29 @@
+{
+  "expected": {
+    "body": {
+      "data": {
+        "default_value": 2,
+        "effective_revision": 3,
+        "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+        "key": "max_probe_workers",
+        "last_changed_revision": 3,
+        "read_only": false,
+        "restart_required": false,
+        "revision": 3,
+        "source": "db_override",
+        "value": 4
+      }
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "body_json": "{\"value\":4,\"expected_revision\":2}",
+    "csrf_action": "settings",
+    "idempotency_key": "settings_put",
+    "method": "PUT",
+    "origin": "http://testserver",
+    "path": "/api/v1/settings/max_probe_workers"
+  },
+  "name": "settings_put"
+}

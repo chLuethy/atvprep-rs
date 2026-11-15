@@ -1,0 +1,44 @@
+{
+  "expected": {
+    "body": {
+      "data": {
+        "jobs": [
+          {
+            "action": "verify",
+            "cancelled_count": 0,
+            "delete_confirmed": false,
+            "failed_count": 0,
+            "finished_at": null,
+            "id": "<j:1>",
+            "origin_job_id": null,
+            "progress": 0,
+            "requested_at": "<ts>",
+            "started_at": null,
+            "status": "queued",
+            "subject": "Movie/film.mp4",
+            "succeeded_count": 0,
+            "total_count": 1,
+            "trigger": "manual"
+          }
+        ],
+        "total": 1
+      },
+      "meta": {
+        "current_cursor": null,
+        "current_sequence": null,
+        "facets": {},
+        "limit": 10,
+        "next_cursor": null,
+        "truncated": false
+      }
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "method": "GET",
+    "origin": "http://testserver",
+    "path": "/api/v1/dashboard/queue"
+  },
+  "name": "queue"
+}

@@ -1342,3 +1342,82 @@ mod tests {
         assert!(!output.to_string().contains("private"));
     }
 }
+
+#[cfg(test)]
+mod http_tests {
+    use crate::router;
+    use crate::routes_auth;
+    use crate::test_support::state;
+    use atvprep_fixtures::Fixtures;
+    use axum::body::to_bytes;
+    use axum::http::StatusCode;
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn sidecars_classify_current_probes_and_page_backwards() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let file = fx
+            .file(fx.library_at("Movies", "/private"), "film.mp4")
+            .fingerprint("current")
+            .create();
+        let _ = fx.sidecar(file, "/secret/film.en.srt", "a");
+        let _ = fx.sidecar(file, "film.de.srt", "b");
+        let _ = fx.inspection(
+            file,
+            "ffprobe",
+            "current",
+            &serde_json::json!({"streams": []}),
+        );
+        let media = crate::opaque::Opaque::new(state.api_secret.as_bytes()).encode("m", 1);
+        let session = routes_auth::service(&state, &conn)
+            .unwrap()
+            .create()
+            .unwrap()
+            .token;
+        let app = router(state);
+        let get = |path: &str| {
+            axum::http::Request::get(path)
+                .header("origin", "http://localhost")
+                .header("cookie", format!("__Host-atvprep_session={session}"))
+                .body(axum::body::Body::empty())
+                .unwrap()
+        };
+        let response = app
+            .clone()
+            .oneshot(get(&format!("/api/v1/files/{media}/sidecars?limit=1")))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(body["data"][0]["name"], "film.de.srt");
+        assert_eq!(body["data"][0]["state"], "pending");
+        let cursor = body["meta"]["next_cursor"].as_str().unwrap();
+        let response = app
+            .clone()
+            .oneshot(get(&format!(
+                "/api/v1/files/{media}/sidecars?limit=1&cursor={cursor}"
+            )))
+            .await
+            .unwrap();
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(body["data"][0]["name"], "film.en.srt");
+        assert!(!body.to_string().contains("/secret"));
+        let _ = fx.job("fix", &[file]).status("running").create();
+        let response = app
+            .oneshot(get(&format!("/api/v1/files/{media}")))
+            .await
+            .unwrap();
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(body["data"]["fix_status"], "running");
+        assert_eq!(body["data"]["pending_sidecars"], 2);
+        assert_eq!(body["data"]["sidecar_count"], 2);
+        assert_eq!(body["data"]["inspection_available"], true);
+        assert!(!body.to_string().contains("/secret"));
+    }
+}

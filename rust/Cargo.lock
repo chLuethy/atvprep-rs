@@ -57,6 +57,7 @@ name = "atvprep-api"
 version = "0.6.0"
 dependencies = [
  "atvprep-core",
+ "atvprep-fixtures",
  "atvprep-manager",
  "axum",
  "base64 0.22.1",
@@ -106,6 +107,16 @@ dependencies = [
  "sha2",
  "ssh-key",
  "tempfile",
+]
+
+[[package]]
+name = "atvprep-fixtures"
+version = "0.6.0"
+dependencies = [
+ "atvprep-manager",
+ "chrono",
+ "rusqlite",
+ "serde_json",
 ]
 
 [[package]]

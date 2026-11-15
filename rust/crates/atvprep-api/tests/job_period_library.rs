@@ -3,6 +3,7 @@
 use atvprep_api::{
     auth::AuthService, config::ManagerConfig, opaque::Opaque, router, state::AppState,
 };
+use atvprep_fixtures::{Fixtures, Verdict};
 use atvprep_manager::{db::Db, repo::Ctx, schema};
 use axum::{
     body::{Body, to_bytes},
@@ -73,24 +74,39 @@ fn api() -> Api {
     let db = Db::memory().unwrap();
     let mut conn = db.conn().unwrap();
     schema::migrate(&mut conn).unwrap();
-    conn.raw()
-        .execute_batch(
-            "INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/movies'),(2,'Shows','/shows'),(3,'Empty','/empty');
-             INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES
-               (1,1,'a.mkv','video','.mkv',1,1,'f1','present','clean','idle','none'),
-               (2,1,'b.mkv','video','.mkv',1,1,'f2','present','clean','idle','none'),
-               (4,2,'d.mkv','video','.mkv',1,1,'f4','present','clean','idle','none'),
-               (5,2,'e.mkv','video','.mkv',1,1,'f5','present','clean','idle','none');
-             INSERT INTO jobs(id,action,status,requested_at) VALUES
-               (1,'verify','succeeded','2026-11-12 08:00:00'),
-               (2,'verify','failed','2026-11-13T23:30:00+00:00'),
-               (3,'verify','succeeded','2026-11-14 00:15:00.000000'),
-               (4,'verify','queued','2026-11-14T09:00:00Z');
-             INSERT INTO job_items(job_id,media_file_id,action,position,status) VALUES
-               (1,1,'verify',0,'succeeded'),(2,4,'verify',0,'failed'),
-               (3,2,'verify',0,'succeeded'),(3,5,'verify',1,'succeeded'),(4,5,'verify',0,'queued');",
-        )
-        .unwrap();
+    let fx = Fixtures::new(conn.raw());
+    let movies = fx.library("Movies");
+    let shows = fx.library("Shows");
+    let _ = fx.library("Empty");
+    let file = |root, path: &str, fingerprint: &str| {
+        fx.file(root, path)
+            .fingerprint(fingerprint)
+            .verdict(Verdict::Clean)
+            .create()
+    };
+    let a = file(movies, "a.mkv", "f1");
+    let b = file(movies, "b.mkv", "f2");
+    let d = file(shows, "d.mkv", "f4");
+    let e = file(shows, "e.mkv", "f5");
+    let _ = fx
+        .job("verify", &[a])
+        .status("succeeded")
+        .requested_at("2026-11-12 08:00:00")
+        .create();
+    let _ = fx
+        .job("verify", &[d])
+        .status("failed")
+        .requested_at("2026-11-13T23:30:00+00:00")
+        .create();
+    let _ = fx
+        .job("verify", &[b, e])
+        .status("succeeded")
+        .requested_at("2026-11-14 00:15:00.000000")
+        .create();
+    let _ = fx
+        .job("verify", &[e])
+        .requested_at("2026-11-14T09:00:00Z")
+        .create();
     let state = AppState::new(
         db,
         ManagerConfig {
