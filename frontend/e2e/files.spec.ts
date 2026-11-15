@@ -9,6 +9,11 @@ test.describe("files journey", () => {
     await expect(page.getByRole("heading", { name: "Files" })).toBeVisible();
     await expect(page.getByRole("table", { name: "Media files" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
+    // Scanning lives on Schedules; the title row holds the search and the view switch.
+    await expect(page.getByRole("button", { name: /^Scan/ })).toHaveCount(0);
+    const titleRow = page.getByRole("heading", { level: 1, name: "Files" }).locator("..");
+    await expect(titleRow.getByRole("searchbox", { name: "Search files" })).toBeVisible();
+    await expect(titleRow.getByRole("group", { name: "Files view" })).toBeVisible();
 
     await page.getByLabel("Search files").fill("Sample Movie");
     const sampleLink = page.getByRole("link", { name: "Sample Movie" });
@@ -151,6 +156,28 @@ test.describe("files journey", () => {
     await expect(page.getByRole("button", { name: "Descending" })).toBeVisible();
   });
 
+  test("the sort applies in every column of the columns view and keeps the selection", async ({ page }) => {
+    await openAndUnlock(page, "/files");
+    await page.getByRole("button", { name: "Columns" }).click();
+    const columns = page.getByRole("group", { name: /Files by folder/ });
+    const library = columns.getByRole("listbox", { name: "Libraries" }).getByRole("option").first();
+    const libraryName = (await library.locator(".col-name").textContent()) ?? "";
+    await library.click();
+    const names = columns.locator('.col[data-col="1"] [role=option] .col-name');
+    // Recently added, newest first, as in the list.
+    await expect(names).toHaveText(["Old Codec Movie.mp4", "Interrupted Movie.mp4", "Failed Movie.mp4", "Sample Movie.mp4"]);
+
+    const sortBy = page.getByRole("combobox", { name: "Sort by" });
+    await sortBy.selectOption("title");
+    await expect(names).toHaveText(["Failed Movie.mp4", "Interrupted Movie.mp4", "Old Codec Movie.mp4", "Sample Movie.mp4"]);
+    await columns.getByRole("option", { name: /Interrupted Movie/ }).click();
+
+    await page.getByRole("button", { name: "Ascending" }).click();
+    await expect(names).toHaveText(["Sample Movie.mp4", "Old Codec Movie.mp4", "Interrupted Movie.mp4", "Failed Movie.mp4"]);
+    await expect(columns.getByRole("option", { name: /Interrupted Movie/ })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("navigation", { name: "Location" })).toContainText(libraryName);
+  });
+
   test("an old address with hide shows the same files as before, under the new address", async ({ page }) => {
     await openAndUnlock(page, "/files?hide=clean");
     await expect(page).toHaveURL(/\?status=embed_open,warning,blocker,unknown,probe_failed,missing$/);
@@ -168,8 +195,19 @@ test.describe("files journey", () => {
     const left = async (name: string) => (await bar.getByRole("button", { name, exact: true }).boundingBox())!.x;
     expect(await left("Properties: Needs video encoding")).toBeLessThan(await left("Status"));
     await expect(facets.first()).toBeVisible();
-    // Search, view switch and the facet row fit the width; only the facet row scrolls.
+    // Sort and the facet row fit the width; only the facet row scrolls.
     expect(await bar.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    // The title row wraps instead of overlapping: title, search and view switch each keep their own room.
+    const heading = page.getByRole("heading", { level: 1, name: "Files" });
+    const titleRow = heading.locator("..");
+    expect(await titleRow.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    const boxes = await Promise.all([heading, titleRow.getByRole("searchbox", { name: "Search files" }), titleRow.getByRole("group", { name: "Files view" })]
+      .map(async (part) => (await part.boundingBox())!));
+    const apart = (a: typeof boxes[number], b: typeof boxes[number]) =>
+      a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y;
+    for (const [index, box] of boxes.entries()) {
+      for (const other of boxes.slice(index + 1)) expect(apart(box, other)).toBe(true);
+    }
 
     await bar.getByRole("button", { name: "Status", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Status" });

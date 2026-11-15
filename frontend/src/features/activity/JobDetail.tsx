@@ -7,8 +7,9 @@ import { N, t } from "../../lib/i18n";
 import { baseName } from "../files/model";
 import { loadItems, loadJob, mutateJob, type Api, type ItemRow, type JobRow, type OneJob } from "./loaders";
 import { LogViewer } from "./LogViewer";
+import { PlannedChange } from "./PlannedChange";
 import { RaiseEncode } from "./RaiseEncode";
-import { actionLabel, canCancel, canRetry, describeDetail, formatElapsed, isActive, itemTone, jobPercent, jobProgress, jobTitle, jobTone, runningFor } from "./model";
+import { actionLabel, canCancel, canRetry, describeDetail, formatElapsed, isActive, itemDuration, itemTone, jobPercent, jobProgress, jobTitle, jobTone, runningFor } from "./model";
 
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
 const FAILED_ITEM = new Set(["failed", "stale_input", "interrupted"]);
@@ -29,12 +30,12 @@ const sameRead = () => {
 const formatDate = (iso: string | null) => formatDateTime(iso);
 const itemName = (item: ItemRow) => baseName(item.display_path ?? "").title || t("Item {position}", { position: item.position });
 
-const ItemLog: Component<{ api: Api; itemId: string }> = (props) => {
+const ItemLog: Component<{ api: Api; itemId: string; status: string }> = (props) => {
   const [open, setOpen] = createSignal(false);
   return (
     <div class="item-log">
       <Button variant="quiet" aria-expanded={open()} onClick={() => setOpen((value) => !value)}>{t("Log")}</Button>
-      <Show when={open()}><LogViewer api={props.api} itemId={props.itemId} /></Show>
+      <Show when={open()}><LogViewer api={props.api} itemId={props.itemId} status={props.status} /></Show>
     </div>
   );
 };
@@ -310,12 +311,14 @@ export const JobDetail: Component<{
                                 <Show when={item().attempt > 1}><span class="muted">{t("attempt {attempt}", { attempt: item().attempt })}</span></Show>
                               </span>
                             </Show>
+                            <Show when={itemDuration(item(), now())}>{(duration) => <span class="item-duration muted num">{duration()}</span>}</Show>
                           </div>
+                          <PlannedChange change={item().planned_change} steps={item().planned_steps} />
                           <Show when={item().error_code === "encode_not_allowed"}>
                             <p class="notice warn" role="status" aria-label={t("Encoding not allowed")}>{t("Encoding not allowed: the file stays as it was. Prepare it again with a higher encoding allowance.")}</p>
                             <RaiseEncode api={props.api} item={item()} onRaised={(id) => { props.onChanged?.(); if (id) props.onRaised?.(id); }} />
                           </Show>
-                          <ItemLog api={props.api} itemId={item().id} />
+                          <ItemLog api={props.api} itemId={item().id} status={item().status} />
                         </li>
                       );
                     }}</Index></Show>

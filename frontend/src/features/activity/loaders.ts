@@ -1,5 +1,6 @@
 import { SessionError } from "../../lib/api";
 import type { EncodeNeed } from "../../lib/encode";
+import type { PlannedChange } from "../files/preparePlan";
 import { jobListParams, type JobCounts, type JobFilter } from "./filters";
 
 /** Data loading for the activity view. UI-free; every loader normalises SessionError. */
@@ -44,11 +45,16 @@ export type ItemRow = {
   encode?: string | null;
   /** The Kodierbedarf the server stores for the item's file. */
   encode_need?: EncodeNeed | null;
+  /** Only on a Vorbereiten item: the Änderungsart expected when it was queued. */
+  planned_change?: PlannedChange | null;
+  /** Together with `planned_change`: the planned steps when queued, in the short form the preview reads. */
+  planned_steps?: string[] | null;
   display_path?: string | null;
   error_code?: string | null;
   error_detail?: string | null;
   progress?: number | null;
   started_at?: string | null;
+  finished_at?: string | null;
 };
 
 export type Page<T> = { kind: "ok" | "error" | "session"; items: T[]; nextCursor?: string | undefined };

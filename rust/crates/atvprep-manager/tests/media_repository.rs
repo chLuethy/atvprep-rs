@@ -911,3 +911,66 @@ fn a_dismissed_missing_file_is_shown_again_when_a_scan_finds_it() {
     assert!(again.discovery_state == "missing" && again.dismissed_at.is_none());
     let _ = f.clock.now();
 }
+
+/// The `scan.finished` events of `root`, oldest first, as (status, trigger).
+fn scan_finished_events(f: &Fixture, root: i64) -> Vec<(String, String)> {
+    let mut statement = f
+        .conn
+        .raw()
+        .prepare(
+            "SELECT payload_json FROM events
+             WHERE topic='scan.finished' AND entity_type='library_root' AND entity_id=?1
+             ORDER BY id",
+        )
+        .unwrap();
+    statement
+        .query_map([root], |row| row.get::<_, String>(0))
+        .unwrap()
+        .map(|payload| {
+            let payload: Value = serde_json::from_str(&payload.unwrap()).unwrap();
+            (
+                payload["status"].as_str().unwrap().to_owned(),
+                payload["trigger"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn a_scan_that_ends_records_one_scan_finished_event() {
+    let f = Fixture::new();
+    let root = f.root();
+    let scans = Scans(f.ctx());
+    let first = scans.start(root, 1, "scheduled").unwrap();
+    scans.finish(first.id, ScanStatus::Succeeded, true).unwrap();
+    let second = scans.start(root, 2, "manual").unwrap();
+    scans.finish(second.id, ScanStatus::Failed, false).unwrap();
+    let third = scans.start(root, 3, "manual").unwrap();
+    scans.abandon(third.id).unwrap();
+    let pair = |status: &str, trigger: &str| (status.to_owned(), trigger.to_owned());
+    assert_eq!(
+        scan_finished_events(&f, root),
+        vec![
+            pair("succeeded", "scheduled"),
+            pair("failed", "manual"),
+            pair("interrupted", "manual"),
+        ]
+    );
+}
+
+#[test]
+fn a_stale_or_already_finished_scan_records_no_scan_finished_event() {
+    let f = Fixture::new();
+    let root = f.root();
+    let scans = Scans(f.ctx());
+    let older = scans.start(root, 1, "scheduled").unwrap();
+    let newer = scans.start(root, 2, "manual").unwrap();
+    scans.finish(older.id, ScanStatus::Succeeded, true).unwrap();
+    scans.finish(newer.id, ScanStatus::Succeeded, true).unwrap();
+    scans.finish(newer.id, ScanStatus::Succeeded, true).unwrap();
+    scans.abandon(newer.id).unwrap();
+    assert_eq!(
+        scan_finished_events(&f, root),
+        vec![("succeeded".to_owned(), "manual".to_owned())]
+    );
+}

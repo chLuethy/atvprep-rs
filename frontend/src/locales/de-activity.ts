@@ -65,4 +65,6 @@ export const deActivity: Record<string, string | readonly [string, string]> = {
   "The approved file changed.": "Die freigegebene Datei hat sich geändert.",
   "The approving session is no longer active.": "Die freigebende Sitzung ist nicht mehr aktiv.",
   "The original of another container is removed once its new MP4 passes verification.": "Bei anderen Containern wird das Original entfernt, sobald die neue MP4 die Prüfung bestanden hat.",
+  "Expected change": "Erwartete Änderung",
+  "Planned steps": "Geplante Schritte",
 };

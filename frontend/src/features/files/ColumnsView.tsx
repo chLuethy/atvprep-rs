@@ -1,12 +1,13 @@
-import { batch, createEffect, createMemo, createResource, createSignal, For, on, Show, type Component } from "solid-js";
+import { batch, createEffect, createMemo, createResource, createSignal, For, on, Show, untrack, type Component } from "solid-js";
 import { N, t, tn } from "../../lib/i18n";
 import { Button, Icon } from "../../ui";
 import { allReady, describeCounts, loadBrowse, worstIn, type Browse, type BrowseFolder, type StateCounts } from "./browse";
 import type { Api, FileRow } from "./loaders";
-import { EMPTY_FILTER, fileFilterQuery, type FileFilter } from "./filters";
+import { EMPTY_FILTER, fileFilterQuery, fileSortQuery, type FileFilter, type FileSort } from "./filters";
 import { verdictOf } from "./model";
 import { RowMenu, type MenuItem } from "./RowMenu";
 import { additive, copyText, selectionMenu, type SelectionAction } from "./selection";
+import type { ColumnPath } from "./columnPath";
 
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
 
@@ -25,6 +26,9 @@ export type ColumnAction = SelectionAction;
 
 /** What of the filter the column view follows (everything but the search), as one comparable string. */
 const viewKey = (filter: FileFilter) => fileFilterQuery({ ...filter, q: "" });
+
+/** The order a column asks for, as one comparable string; none given is the server's own order. */
+const sortKey = (sort: FileSort | undefined) => (sort === undefined ? "server" : fileSortQuery(sort));
 
 const lastName =(path: string | undefined) => (path ?? "").split("/").pop() || t("(unnamed)");
 const entriesOf = (data: Browse): Entry[] => [
@@ -61,6 +65,7 @@ const Column: Component<{
   index: number;
   place: Place;
   filter: FileFilter;
+  sort: FileSort | undefined;
   version: number;
   selected: (key: string) => boolean;
   focused: boolean;
@@ -70,8 +75,8 @@ const Column: Component<{
   onBackground: (index: number) => void;
 }> = (props) => {
   const [data, { refetch }] = createResource(
-    () => [props.place.rootId, props.place.path, viewKey(props.filter), props.version] as const,
-    ([rootId, path]) => loadBrowse(props.api, { rootId, path, filter: props.filter }),
+    () => [props.place.rootId, props.place.path, viewKey(props.filter), sortKey(props.sort), props.version] as const,
+    ([rootId, path]) => loadBrowse(props.api, { rootId, path, filter: props.filter, sort: props.sort }),
   );
   const loaded = () => data.latest;
   // The libraries are the first column, so the library facet leaves out the ones not chosen there.
@@ -162,12 +167,24 @@ export const ColumnsView: Component<{
   api: Api;
   /** The files filter; every column follows it except for the search. Folders without a hit are left out. */
   filter?: FileFilter;
+  /**
+   * The order of every column, folders first, then files; `null` is the default (recently added, newest first).
+   * A different order reads the columns again but keeps the path and the selection.
+   */
+  sort?: FileSort;
   /** Changes whenever the files may have changed under us (a job ended); columns read again. */
   version: number;
   /** The id of the file the inspector shows, if any. */
   activeId?: string | undefined;
   /** Raised to clear the selection from outside. */
   clearToken?: number;
+  /**
+   * A folder path to open again, column by column, when the view starts and after a filter change. It ends at
+   * the deepest folder still there and selects it.
+   */
+  initialPath?: ColumnPath | null;
+  /** Raised whenever the open folder path changes; null is the libraries. */
+  onPath?: (path: ColumnPath | null) => void;
   onOpen: (id: string | undefined) => void;
   onSelection?: (picked: Picked) => void;
   onAction?: (action: ColumnAction) => void;
@@ -178,6 +195,8 @@ export const ColumnsView: Component<{
   const [cursor, setCursor] = createSignal<string | null>(null);
   const [entries, setEntries] = createSignal<Record<number, Entry[]>>({});
   const [menu, setMenu] = createSignal<{ x: number; y: number } | null>(null);
+  /** A path being opened again: the column whose entries are awaited next, and the path to follow. */
+  const [restoring, setRestoring] = createSignal<{ at: number; path: ColumnPath } | null>(untrack(() => props.initialPath) ? { at: 0, path: untrack(() => props.initialPath)! } : null);
   let scroller: HTMLDivElement | undefined;
   let wantFirstIn = -1;
 
@@ -208,7 +227,8 @@ export const ColumnsView: Component<{
   const closeInspector = () => { if (props.activeId) props.onOpen(undefined); };
 
   /** Make `list` the selection of column `index`, dropping the columns to its right. */
-  const commit = (index: number, list: Entry[], anchorKey: string | null, cursorKey: string | null) => {
+  const commit = (index: number, list: Entry[], anchorKey: string | null, cursorKey: string | null, restored = false) => {
+    if (!restored) setRestoring(null);
     batch(() => {
       if (index !== active()) setTrail(chain().slice(0, index));
       setEntries((all) => Object.fromEntries(Object.entries(all).filter(([key]) => Number(key) <= index)));
@@ -217,7 +237,8 @@ export const ColumnsView: Component<{
       setCursor(cursorKey);
     });
     const only = list.length === 1 ? list[0] : undefined;
-    if (only?.kind === "file") props.onOpen(only.file.id); else closeInspector();
+    // Opening a path again only selects folders, and leaves an inspector the address opened alone.
+    if (only?.kind === "file") props.onOpen(only.file.id); else if (!restored) closeInspector();
     reveal();
   };
   const selectOnly = (index: number, entry: Entry) => commit(index, [entry], entry.key, entry.key);
@@ -238,6 +259,17 @@ export const ColumnsView: Component<{
 
   const onEntries = (index: number, list: Entry[]) => {
     setEntries((all) => ({ ...all, [index]: list }));
+    const wanted = restoring();
+    if (wanted && wanted.at === index) {
+      // The library by its id, then each folder by its name; a missing one ends the path at the folder before.
+      const name = wanted.path.folders[index - 1];
+      const entry = list.find((item) => item.kind === "folder" && (index === 0 ? item.folder.id === wanted.path.rootId : item.folder.name === name));
+      batch(() => {
+        if (entry) commit(index, [entry], entry.key, entry.key, true);
+        setRestoring(entry && index < wanted.path.folders.length ? { at: index + 1, path: wanted.path } : null);
+      });
+      return;
+    }
     if (wantFirstIn === index && list.length > 0 && active() === index) {
       wantFirstIn = -1;
       const first = list[0];
@@ -253,9 +285,17 @@ export const ColumnsView: Component<{
   const onBackground = (index: number) => { if (index !== active() || sel().length > 0) commit(index, [], null, null); };
 
   // A different state filter makes the folders it names a different set, so start from the libraries.
+  // A path given for the new filter (one remembered under it) is opened again from there.
   createEffect(on(() => viewKey(props.filter ?? EMPTY_FILTER), () => {
-    batch(() => { setTrail([]); setSel([]); setAnchor(null); setCursor(null); setEntries({}); });
+    const path = untrack(() => props.initialPath);
+    batch(() => { setTrail([]); setSel([]); setAnchor(null); setCursor(null); setEntries({}); setRestoring(path ? { at: 0, path } : null); });
   }, { defer: true }));
+  // Tell the page where the view is, once a path being opened again has got as far as it can.
+  const path = createMemo<ColumnPath | null>(() => {
+    const [root, ...folders] = chain();
+    return root?.id ? { rootId: root.id, folders: folders.map((step) => step.name) } : null;
+  }, null, { equals: (a, b) => JSON.stringify(a) === JSON.stringify(b) });
+  createEffect(on(path, (value) => { if (!restoring()) props.onPath?.(value); }, { defer: true }));
   // The inspector was closed from outside: a file that was open is no longer selected.
   createEffect(on(() => props.activeId, (id) => {
     if (!id && sel().length === 1 && sel()[0]?.kind === "file") batch(() => { setSel([]); setAnchor(null); setCursor(null); });
@@ -319,6 +359,8 @@ export const ColumnsView: Component<{
   const onKeyDown = (event: KeyboardEvent) => {
     const command = event.metaKey || event.ctrlKey;
     if (event.altKey) return;
+    // Walking by key takes over from a path still being opened again.
+    setRestoring(null);
     const handled = (() => {
       if (command && event.key.toLowerCase() === "a") { selectAll(); return true; }
       if (command) return false;
@@ -390,6 +432,7 @@ export const ColumnsView: Component<{
             index={index}
             place={placeOf(index)}
             filter={props.filter ?? EMPTY_FILTER}
+            sort={props.sort}
             version={props.version}
             selected={(key) => isSelected(index, key)}
             focused={active() === index}
