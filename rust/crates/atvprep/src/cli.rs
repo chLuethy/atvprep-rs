@@ -367,6 +367,7 @@ directory (without .mp4 suffix).",
             Err(error) => {
                 ctx.console
                     .print(&format!("Error processing {}: {error}", name_of(file)));
+                ctx.reporter.error(&error.to_string());
                 ctx.reporter.outcome(Outcome::Failed);
                 failed += 1;
                 continue;
@@ -448,6 +449,17 @@ pub(crate) fn report(ctx: &mut RunContext, result: &PrepareResult) {
         ctx.console.print("  original removed");
     } else if let Some(kept) = &result.source_kept {
         ctx.console.print(&format!("  ! {kept}"));
+    }
+    if let Some(report) = &result.report {
+        ctx.reporter.checked(report);
+    }
+    if !result.ok() {
+        ctx.reporter.error(
+            result
+                .error
+                .as_deref()
+                .unwrap_or("the file could not be prepared"),
+        );
     }
     ctx.reporter.outcome(result.outcome);
     if let Some(refusal) = result.encode_refusal {

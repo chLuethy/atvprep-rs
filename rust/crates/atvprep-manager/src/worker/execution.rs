@@ -1,6 +1,7 @@
 //! Execute claimed inspection and verification items under leases and gate permits.
 use super::{
     execution_output::ClaimedOutput,
+    prepare_log::PrepareReports,
     process::{
         PrepareMode, ProcessResult, StopReason, prepare_arguments, probe_arguments,
         run_pinned_prepare_observed, run_pinned_probe, run_pinned_verify, verify_arguments,
@@ -325,22 +326,43 @@ pub fn execute_claimed(
             output.step(&format!("Tool: atvprep {}", env!("CARGO_PKG_VERSION")))?;
         }
         output.step(&report_log::command(&config.executable, &arguments))?;
-        if !changing && !inspect {
+        if changing {
+            let yes = |set: bool| if set { "yes" } else { "no" };
+            output.step(&format!("Encode allowance: {}", mode.encode.as_str()))?;
+            output.step(&format!("Target profile: {}", mode.profile.summary()))?;
+            output.step(&format!("Delete original: {}", yes(mode.delete_original)))?;
+            if mode.force {
+                output.step("Force: yes")?;
+            }
+        } else if !inspect {
             output.step(&format!("Target profile: {}", verify_profile.summary()))?;
         }
+        let mut reports = PrepareReports::default();
         let process = if changing {
             let need = crate::media::Media(ctx)
                 .get(item.media_file_id)?
                 .and_then(|media| media.encode_need);
+            // The phase timing reports each phase on stderr, for the log.
+            let mut environment = config.environment.clone();
+            environment.insert(
+                atvprep_core::phase_timing::ENV_VAR.to_owned(),
+                "1".to_owned(),
+            );
             run_pinned_prepare_observed(
                 &config.executable,
                 &target,
                 mode,
-                &config.environment,
+                &environment,
                 prepare_timeout(config.timeout, mode, need),
                 config.grace,
                 &mut cancelled,
-                |chunk| output.feed(chunk, false),
+                |stream, chunk| {
+                    output.feed(chunk, false)?;
+                    for line in reports.take(stream, chunk, ctx.clock.now_micros()) {
+                        output.step(&line)?;
+                    }
+                    Ok(())
+                },
             )
         } else if item.action == "inspect" {
             run_pinned_probe(
@@ -525,6 +547,7 @@ pub fn execute_claimed(
                 code.unwrap_or("failed"),
                 match (process.reason, process.exit_code) {
                     (StopReason::TimedOut, _) => "the tool ran out of time".to_owned(),
+                    (_, Some(_)) if let Some(error) = reports.error() => error.to_owned(),
                     (_, Some(exit)) => format!("the tool exited with code {exit}"),
                     (_, None) => "the tool stopped without an exit code".to_owned(),
                 }

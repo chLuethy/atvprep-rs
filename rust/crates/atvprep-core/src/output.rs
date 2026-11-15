@@ -298,6 +298,92 @@ pub fn plan_table(plan: &Plan) -> Vec<String> {
     out
 }
 
+/// One line per stream of the input and per subtitle sidecar: what the plan does with it.
+///
+/// `stream 1 (audio dts): encode eac3 at 48000 Hz`, `stream 2 (audio ac3): copy + downmix to aac
+/// stereo`, `stream 3 (data bin_data): drop`, `sidecar 1 (subtitle subrip): convert to mov_text`.
+#[must_use]
+pub fn stream_plan(plan: &Plan, probe: &Value) -> Vec<String> {
+    let streams = probe
+        .get("streams")
+        .and_then(Value::as_array)
+        .map_or(&[][..], Vec::as_slice);
+    let first_video = streams
+        .iter()
+        .find(|s| s.get("codec_type").and_then(Value::as_str) == Some("video"))
+        .and_then(|s| s.get("index").and_then(Value::as_i64));
+    let subtitle = |track: &crate::models::SubTrack| match track.action {
+        SubAction::MovText => s("convert to mov_text"),
+        SubAction::Skip => s("drop"),
+    };
+    let mut lines: Vec<String> = streams
+        .iter()
+        .enumerate()
+        .map(|(position, stream)| {
+            let text = |key: &str| stream.get(key).and_then(Value::as_str).unwrap_or("unknown");
+            let index = stream
+                .get("index")
+                .and_then(Value::as_i64)
+                .unwrap_or(i64::try_from(position).unwrap_or_default());
+            let kind = text("codec_type");
+            let actions: Vec<String> = match kind {
+                "video" if Some(index) == first_video => plan
+                    .video_info
+                    .iter()
+                    .map(|video| match video.action {
+                        VideoAction::Copy => s("copy"),
+                        VideoAction::Transcode => s("encode hevc"),
+                    })
+                    .collect(),
+                "audio" => plan
+                    .audio_tracks
+                    .iter()
+                    .filter(|t| i64::from(t.index) == index)
+                    .map(|t| {
+                        let mut action = match t.action {
+                            AudioAction::Copy => s("copy"),
+                            AudioAction::Downmix => s("downmix to aac stereo"),
+                            AudioAction::TranscodeEac3 => s("encode eac3"),
+                            AudioAction::TranscodeAac => s("encode aac"),
+                        };
+                        if let Some(rate) = t.target_sample_rate {
+                            let _ = write!(action, " at {rate} Hz");
+                        }
+                        action
+                    })
+                    .collect(),
+                "subtitle" => plan
+                    .sub_tracks
+                    .iter()
+                    .filter(|t| t.source == SubSource::Internal && i64::from(t.stream_idx) == index)
+                    .map(subtitle)
+                    .collect(),
+                _ => Vec::new(),
+            };
+            let actions = if actions.is_empty() {
+                s("drop")
+            } else {
+                actions.join(" + ")
+            };
+            format!("stream {index} ({kind} {}): {actions}", text("codec_name"))
+        })
+        .collect();
+    lines.extend(
+        plan.sub_tracks
+            .iter()
+            .filter(|t| t.source == SubSource::External)
+            .map(|t| {
+                format!(
+                    "sidecar {} (subtitle {}): {}",
+                    t.input_idx,
+                    t.codec,
+                    subtitle(t)
+                )
+            }),
+    );
+    lines
+}
+
 fn file_name(path: &Path) -> String {
     path.file_name()
         .map_or_else(String::new, |n| n.to_string_lossy().into_owned())
@@ -430,6 +516,49 @@ mod tests {
             verify_atmos_in_output(out, 2, &script("two", one)),
             [
                 "Post-verify: 2 Atmos track(s) expected, only 1 found in output — JOC metadata may be lost."
+            ]
+        );
+    }
+
+    #[test]
+    fn the_stream_plan_names_every_input_stream_and_drops_what_the_plan_leaves_out() {
+        let plan: Plan = serde_json::from_value(json!({
+            "video_info": {"codec":"hevc","profile":"Main 10","width":1920,"height":1080,"hdr":false,
+                "dolby_vision":false,"pix_fmt":"yuv420p10le","action":"transcode","tag":"hvc1",
+                "color_transfer":"","color_primaries":""},
+            "audio_tracks": [
+                {"index":1,"codec":"eac3","channels":6,"lang":"ger","is_atmos":false,
+                 "action":"transcode_eac3","is_transcoded":true,"is_default":true,
+                 "target_sample_rate":48000},
+                {"index":1,"codec":"aac","channels":2,"lang":"ger","is_atmos":false,
+                 "action":"downmix","is_transcoded":true,"is_default":false}
+            ],
+            "sub_tracks": [
+                {"input_idx":0,"stream_idx":3,"codec":"hdmv_pgs_subtitle","lang":"eng","forced":false,
+                 "sdh":false,"source":"internal","action":"skip","is_default":false},
+                {"input_idx":1,"stream_idx":0,"codec":"subrip","lang":"ger","forced":false,
+                 "sdh":false,"source":"external","action":"mov_text","is_default":false}
+            ],
+            "ffmpeg_cmd": [], "warnings": [], "in_path": "in.mkv", "out_path": "out.mp4",
+            "duration_s": null
+        }))
+        .unwrap();
+        let probe = json!({"streams": [
+            {"index":0,"codec_type":"video","codec_name":"h264"},
+            {"index":1,"codec_type":"audio","codec_name":"dts"},
+            {"index":2,"codec_type":"audio","codec_name":"ac3"},
+            {"index":3,"codec_type":"subtitle","codec_name":"hdmv_pgs_subtitle"},
+            {"index":4,"codec_type":"attachment","codec_name":"ttf"}
+        ]});
+        assert_eq!(
+            stream_plan(&plan, &probe),
+            [
+                "stream 0 (video h264): encode hevc",
+                "stream 1 (audio dts): encode eac3 at 48000 Hz + downmix to aac stereo",
+                "stream 2 (audio ac3): drop",
+                "stream 3 (subtitle hdmv_pgs_subtitle): drop",
+                "stream 4 (attachment ttf): drop",
+                "sidecar 1 (subtitle subrip): convert to mov_text",
             ]
         );
     }
