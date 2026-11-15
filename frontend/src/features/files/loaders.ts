@@ -1,5 +1,6 @@
 import type { EncodeLevel } from "./EncodeChoice";
-import type { EncodeNeed, PlannedChange } from "./preparePlan";
+import type { EncodeNeed, PlannedChange } from "../../lib/encode";
+import type { PlanStep } from "./planSteps";
 import { SessionError } from "../../lib/api";
 import type { FacetCounts } from "../../ui/FilterBar";
 import type { FileFilter, FileSort } from "./filters";
@@ -19,6 +20,8 @@ export type FileRow = {
   discovery_state: string;
   compliance_state: string;
   compliance_reasons?: string[];
+  /** What the planner would do at the last check, apart from the reasons. */
+  planned_steps?: PlanStep[];
   workflow_state: string;
   desired_action: string;
   last_seen_at: string | null;

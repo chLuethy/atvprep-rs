@@ -1,15 +1,15 @@
 import { createSignal, For, Show, type Component } from "solid-js";
 import { Button, Icon } from "../../ui";
 import type { FileRow, JobResult } from "./loaders";
-import { expectedChanges, summarizeChanges, type ChangeKind } from "./fixPlan";
+import { expectedChanges, summarizeChanges } from "./fixPlan";
 import { isMp4Like } from "./container";
-import { changeLabel, needLabel, prepareConfirm, type EncodeNeed } from "./preparePlan";
+import type { EncodeNeed } from "../../lib/encode";
+import { changeLabel, needLabel, prepareConfirm } from "./preparePlan";
 import { createEncodeChoice, EncodeChoice, type EncodeLevel } from "./EncodeChoice";
 import { N, t, tn } from "../../lib/i18n";
 import { baseName, estimateMinutes, formatSize, languageName, parseReason, verdictOf } from "./model";
 
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
-const KIND_LABEL: Record<ChangeKind, string> = { patch: N("Patch"), remux: N("Remux"), encode: N("Encoding"), none: N("Unchanged") };
 const NEED_ORDER: ReadonlyArray<EncodeNeed> = ["video", "audio", "none", "unknown"];
 
 /**
@@ -73,7 +73,7 @@ export const FixPreview: Component<{
         <For each={props.files}>{(file) => {
           const name = baseName(file.display_path ?? "");
           const verdict = verdictOf(file);
-          const changes = expectedChanges((file.compliance_reasons ?? []).map(parseReason));
+          const changes = expectedChanges((file.compliance_reasons ?? []).map(parseReason), file.planned_steps ?? []);
           const summary = summarizeChanges(changes);
           return (
             <li class="pv-file">
@@ -99,7 +99,7 @@ export const FixPreview: Component<{
               >
                 <ul class="plain changes">
                   <For each={changes}>{(change) => (
-                    <li class={`change ${change.kind}`}><span class="kind">{t(KIND_LABEL[change.kind])}</span><span>{change.text}</span></li>
+                    <li class={`change ${change.kind}`}><span class="kind">{changeLabel(change.kind)}</span><span>{change.text}</span></li>
                   )}</For>
                 </ul>
                 <p class="muted">{summary.remux ? tn("{resolved} of {count} finding resolved, with a remux", "{resolved} of {count} findings resolved, with a remux", changes.length, { resolved: summary.resolved }) : tn("{resolved} of {count} finding resolved", "{resolved} of {count} findings resolved", changes.length, { resolved: summary.resolved })}</p>
