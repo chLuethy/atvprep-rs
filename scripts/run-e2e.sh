@@ -10,6 +10,10 @@ cd "$(dirname "$0")/.."
 # Build from rust/ so rustup picks up rust/rust-toolchain.toml (CI has no default toolchain).
 (cd rust && cargo build --locked -p atvprep)
 
+# A free port on 127.0.0.1 so parallel runs do not collide; ATVPREP_E2E_PORT overrides it.
+port=${ATVPREP_E2E_PORT:-$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')}
+export PLAYWRIGHT_BASE_URL="http://127.0.0.1:$port"
+
 work=$(mktemp -d)
 server=
 cleanup() {
@@ -26,8 +30,8 @@ printf '%s' "$token" > "$work/master-token"
 cat > "$work/config.toml" <<TOML
 [server]
 bind_host = "127.0.0.1"
-bind_port = 8765
-allowed_origins = ["http://127.0.0.1:8765"]
+bind_port = $port
+allowed_origins = ["$PLAYWRIGHT_BASE_URL"]
 [storage]
 database_path = "$work/manager.sqlite"
 [library]
@@ -44,7 +48,7 @@ start() {
   rust/target/debug/atvprep manager api --config "$work/config.toml" --web-dist frontend/dist &
   server=$!
   for _ in $(seq 100); do
-    curl -fsS http://127.0.0.1:8765/api/health/ready >/dev/null 2>&1 && return 0
+    curl -fsS "$PLAYWRIGHT_BASE_URL/api/health/ready" >/dev/null 2>&1 && return 0
     kill -0 "$server" 2>/dev/null || break
     sleep 0.2
   done

@@ -2,7 +2,7 @@
  * Playwright config for the atvprep-manager SPA journeys.
  *
  * Target: the Rust manager serving the built SPA (`atvprep manager api --web-dist dist`) on
- * http://127.0.0.1:8765, or PLAYWRIGHT_BASE_URL. The journeys need a seeded database and
+ * PLAYWRIGHT_BASE_URL (`scripts/run-e2e.sh` picks a free port), default http://127.0.0.1:8765. The journeys need a seeded database and
  * E2E_MASTER_TOKEN; `scripts/run-e2e.sh` builds, seeds, starts the server and runs them.
  * The tests exercise the server-served SPA, NOT the Vite dev server.
  *
