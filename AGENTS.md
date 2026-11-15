@@ -2,6 +2,8 @@
 
 Vor jedem Commit und Merge: `./scripts/check-all.sh` (Rust, Frontend, E2E; installiert fehlende `node_modules`, die E2E-Journeys starten ihren Server auf einem freien Port selbst). Commit-Betreffs prüft `.githooks/commit-msg`; Worktrees erben `core.hooksPath` vom Hauptklon, im Worktree setzt du nichts.
 
+Wegweiser durch den Code, auch zu Golden-Daten und Migrationen: `docs/agents/codemap.md`.
+
 ## Agent skills
 
 ### Issue tracker
