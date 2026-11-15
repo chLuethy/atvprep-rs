@@ -294,11 +294,11 @@ describe("LibraryPage: the filter bar", () => {
   it("keeps the search field in the title row inside a search landmark", async () => {
     const { api } = makeApi({ counts: COUNTS });
     const view = render(() => <LibraryPage api={api} onOpen={open} />);
-    const landmark = await view.findByRole("search", { name: "Search files" });
+    const landmark = await view.findByRole("search", { name: "File search" });
     expect(within(landmark).getByRole("searchbox", { name: "Search files" })).toBeInTheDocument();
     setLanguage("de");
     try {
-      expect(view.getByRole("search", { name: "Suchen" })).toBeInTheDocument();
+      expect(view.getByRole("search", { name: "Dateisuche" })).toBeInTheDocument();
     } finally {
       setLanguage("en");
     }

@@ -593,7 +593,7 @@ export const LibraryPage: Component<{
           <div class="lib-bar-top lib-title-row">
             <h1>{t("Files")}</h1>
             {/* The search sits in the title row, outside the filter bar's landmark, so it gets its own. */}
-            <div class="search" role="search" aria-label={t("Search files")}>
+            <div class="search" role="search" aria-label={t("File search")}>
               <Icon name="search" />
               <input
                 ref={searchInput}
