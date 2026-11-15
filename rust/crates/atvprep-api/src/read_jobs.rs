@@ -234,7 +234,8 @@ fn item_view(row: &rusqlite::Row<'_>, opaque: &Opaque) -> rusqlite::Result<((i64
         "finished_at":row.get::<_,Option<String>>(13)?.map(|v|timestamp(&v)),"display_path":row.get::<_,Option<String>>(14)?.map(|v|subject(&v))});
     // Only an item under the prepare policy has a Kodierfreigabe; every other item keeps its shape.
     // Next to it the file's stored Kodierbedarf, so a higher allowance can be offered to fit it.
-    if let Some(level) = atvprep_manager::approval::item_encode(&snapshot) {
+    let queued = atvprep_manager::prepare_snapshot::PrepareSnapshot::parse(&snapshot).ok();
+    if let Some(level) = queued.as_ref().and_then(|queued| queued.encode) {
         row_json["encode"] = json!(level.as_str());
         if let Some(need) = row.get::<_, Option<String>>(15)? {
             row_json["encode_need"] = json!(need);
@@ -242,15 +243,11 @@ fn item_view(row: &rusqlite::Row<'_>, opaque: &Opaque) -> rusqlite::Result<((i64
     }
     // The change a Vorbereiten item was queued with; an item without one (older entries, Prüfen,
     // Analysieren) keeps its shape.
-    if let Some(change) = snapshot.get("planned_change").and_then(Value::as_str) {
-        row_json["planned_change"] = json!(safe_head(change, 32));
-        let steps: Vec<String> = snapshot
-            .get("planned_steps")
-            .and_then(Value::as_array)
-            .map(Vec::as_slice)
-            .unwrap_or_default()
+    if let Some(planned) = queued.and_then(|queued| queued.planned) {
+        row_json["planned_change"] = json!(safe_head(&planned.change, 32));
+        let steps: Vec<String> = planned
+            .steps
             .iter()
-            .filter_map(Value::as_str)
             .take(atvprep_manager::jobs::MAX_PLANNED_STEPS)
             .map(|step| safe_head(step, atvprep_manager::jobs::MAX_PLANNED_STEP_BYTES))
             .collect();

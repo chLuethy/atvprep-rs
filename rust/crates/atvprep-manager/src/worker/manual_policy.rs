@@ -2,11 +2,10 @@
 use super::process::PrepareMode;
 use crate::{
     Error, Result,
-    approval::{
-        ApprovalItem, ApprovalVerifier, item_encode, item_force, item_profile, prepare_policy_block,
-    },
+    approval::{ApprovalItem, ApprovalVerifier},
     clock::format_micros,
     jobs::Jobs,
+    prepare_snapshot::{Origin, PrepareSnapshot},
     repo::Ctx,
     schedules::{ScheduleApproval, delete_original_setting},
     snapshots::InputSnapshots,
@@ -29,9 +28,8 @@ pub fn authorize_prepare(
         .get_item(item_id)?
         .ok_or_else(|| Error::Invalid("job item not found".to_owned()))?;
     let snapshot = &item.settings_snapshot;
-    if let Some(reason) = prepare_policy_block(snapshot) {
-        return Err(Error::Invalid(reason.to_owned()));
-    }
+    let parsed = PrepareSnapshot::parse(snapshot)
+        .map_err(|refusal| Error::Invalid(refusal.message().to_owned()))?;
     let recorded = InputSnapshots(ctx).get_for_item(item_id)?.ok_or_else(|| {
         Error::Invalid(
             "The job has no recorded file identity. Queue the preparation again.".to_owned(),
@@ -57,20 +55,22 @@ pub fn authorize_prepare(
             "The approved file changed. Queue the preparation again.".to_owned(),
         ));
     }
-    if snapshot.get("schedule_id").is_some_and(|id| !id.is_null()) {
+    if let Origin::Schedule {
+        schedule_id,
+        params,
+    } = &parsed.origin
+    {
         // A job from a schedule has no session behind it: the operator's signature on the
         // schedule, valid for the schedule as it is right now, is its approval.
-        return authorize_schedule_job(ctx, snapshot, verifier);
+        return authorize_schedule_job(ctx, &parsed, *schedule_id, params, verifier);
     }
-    let encode = item_encode(snapshot)
-        .ok_or_else(|| Error::Invalid("The job carries no encoding allowance.".to_owned()))?;
-    let profile = item_profile(snapshot)
-        .ok_or_else(|| Error::Invalid("The job carries no target profile.".to_owned()))?;
     let mode = PrepareMode {
-        encode,
-        delete_original: snapshot["delete_original"] == Value::Bool(true),
-        force: item_force(snapshot),
-        profile,
+        encode: parsed
+            .encode
+            .ok_or_else(|| Error::Invalid("The job carries no encoding allowance.".to_owned()))?,
+        delete_original: parsed.delete_original,
+        force: parsed.force,
+        profile: parsed.profile,
     };
     if let Some(reason) = verifier.check(
         snapshot,
@@ -106,14 +106,13 @@ pub fn authorize_prepare(
 /// job was queued under those same parameters.
 fn authorize_schedule_job(
     ctx: Ctx<'_>,
-    snapshot: &Value,
+    snapshot: &PrepareSnapshot,
+    schedule_id: i64,
+    recorded_params: &Value,
     verifier: &ApprovalVerifier,
 ) -> Result<PrepareMode> {
     let refuse = |reason: &str| Err(Error::Invalid(reason.to_owned()));
-    let Some(id) = snapshot["schedule_id"].as_i64() else {
-        return refuse("The job names no valid schedule.");
-    };
-    let Some(row) = ScheduleApproval::load(ctx.conn, id)? else {
+    let Some(row) = ScheduleApproval::load(ctx.conn, schedule_id)? else {
         return refuse("The schedule behind this job no longer exists.");
     };
     if !row.enabled {
@@ -131,25 +130,22 @@ fn authorize_schedule_job(
     ) {
         return refuse(reason);
     }
-    if snapshot.get("schedule_params") != Some(&params.to_json()) {
+    if recorded_params != &params.to_json() {
         return refuse("The schedule changed after this job was queued.");
     }
     // The item's own record is not signed; the schedule's parameters are. An item runs only with
     // exactly the signed Kodierfreigabe and Zielprofil.
-    let Some(encode) = item_encode(snapshot) else {
+    let Some(encode) = snapshot.encode else {
         return refuse("The job carries no encoding allowance.");
     };
     // A forced rebuild is a manual decision only; a schedule's signature never covers one.
-    if item_force(snapshot) {
+    if snapshot.force {
         return refuse("A schedule cannot force a rebuild.");
     }
     if encode != params.encode {
         return refuse("The item's encoding allowance is not the one the schedule signed.");
     }
-    let Some(profile) = item_profile(snapshot) else {
-        return refuse("The job carries no target profile.");
-    };
-    if profile != params.profile {
+    if snapshot.profile != params.profile {
         return refuse("The item's target profile is not the one the schedule signed.");
     }
     Ok(PrepareMode {

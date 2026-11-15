@@ -18,6 +18,7 @@ pub mod limits;
 pub mod media;
 pub mod media_sql;
 pub mod models;
+pub mod prepare_snapshot;
 pub mod procid;
 pub mod repo;
 pub mod scans;

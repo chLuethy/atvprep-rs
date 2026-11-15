@@ -9,69 +9,7 @@ use std::fmt::Write;
 type HmacSha256 = Hmac<Sha256>;
 const MAX_AGE: i64 = 24 * 3600;
 
-/// The policy name of every job that may change files. Version 3 carries a per-item Kodierfreigabe
-/// (`encode`, ADR 0008); jobs queued under an older version are refused.
-pub const PREPARE_POLICY: &str = "encode-v3";
-
-/// The Kodierfreigabe recorded on an item, if it is one the policy knows.
-#[must_use]
-pub fn item_encode(snapshot: &Value) -> Option<EncodeAllowance> {
-    snapshot
-        .get("encode")
-        .and_then(Value::as_str)
-        .and_then(EncodeAllowance::parse)
-}
-
-/// The Zielprofil recorded on an item, if it holds one.
-#[must_use]
-pub fn item_profile(snapshot: &Value) -> Option<TargetProfile> {
-    snapshot.get("profile").and_then(TargetProfile::from_json)
-}
-
-/// Whether an item records the decision to rebuild its file (`force`).
-#[must_use]
-pub fn item_force(snapshot: &Value) -> bool {
-    snapshot.get("force") == Some(&Value::Bool(true))
-}
-
-/// Explain why a snapshot cannot authorize a media-changing job.
-#[must_use]
-pub fn prepare_policy_block(snapshot: &Value) -> Option<&'static str> {
-    if snapshot.get("pipeline").and_then(Value::as_str) != Some("prepare")
-        || snapshot.get("policy").and_then(Value::as_str) != Some(PREPARE_POLICY)
-    {
-        return Some("This job predates the current policy. Queue the preparation again.");
-    }
-    if item_encode(snapshot).is_none() {
-        return Some("This job carries no encoding allowance. Queue the preparation again.");
-    }
-    if item_profile(snapshot).is_none() {
-        return Some("This job carries no target profile. Queue the preparation again.");
-    }
-    if let Some(schedule) = snapshot.get("schedule_id").filter(|v| !v.is_null()) {
-        // A job from a schedule carries no session approval; the schedule's own signature,
-        // checked against its current parameters, stands in for it (see `check_schedule`).
-        if schedule.as_i64().is_some_and(|id| id > 0)
-            && snapshot
-                .get("schedule_params")
-                .is_some_and(Value::is_object)
-        {
-            return None;
-        }
-        return Some("The schedule behind this job carries no approval. Turn it on again.");
-    }
-    if snapshot.get("manual_approval") != Some(&Value::Bool(true)) {
-        return Some("No explicit approval is recorded for this job.");
-    }
-    if snapshot
-        .get("approved_by")
-        .and_then(Value::as_i64)
-        .is_none_or(|id| id <= 0)
-    {
-        return Some("The approval is not bound to a signed-in session.");
-    }
-    None
-}
+pub use crate::prepare_snapshot::PREPARE_POLICY;
 
 /// The parameters an operator signs when turning on a schedule that changes files.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -329,11 +267,13 @@ impl ApprovalVerifier {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        ApprovalItem, ApprovalVerifier, EncodeAllowance, PREPARE_POLICY, ScheduleParams,
-        prepare_policy_block,
-    };
+    use super::{ApprovalItem, ApprovalVerifier, EncodeAllowance, PREPARE_POLICY, ScheduleParams};
+    use crate::prepare_snapshot::{PrepareSnapshot, Refusal};
     use serde_json::{Value, json};
+
+    fn prepare_policy_block(snapshot: &Value) -> Option<&'static str> {
+        PrepareSnapshot::parse(snapshot).err().map(Refusal::message)
+    }
 
     const PROFILE: crate::settings::TargetProfile = crate::settings::TargetProfile {
         crf: 18,

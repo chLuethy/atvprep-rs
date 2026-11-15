@@ -75,13 +75,7 @@ pub const MAX_PLANNED_STEPS: usize = 32;
 /// At most this many bytes are kept of one planned step.
 pub const MAX_PLANNED_STEP_BYTES: usize = 512;
 
-/// What Prepare is expected to do to one file when it is queued: the Änderungsart and the planned
-/// steps in the short form the preview builds its lines from (the stored verify reasons, then one
-/// `[embed] subtitles: n` step for the subtitle files still to merge).
-struct PlannedChange {
-    change: String,
-    steps: Vec<String>,
-}
+use crate::prepare_snapshot::{PlannedChange, PrepareSnapshot, is_prepare, with_item};
 
 fn bounded_step(step: &str) -> String {
     let mut end = step.len().min(MAX_PLANNED_STEP_BYTES);
@@ -120,26 +114,6 @@ fn planned_change(conn: &rusqlite::Connection, media: i64) -> Result<Option<Plan
     }
     steps.truncate(MAX_PLANNED_STEPS);
     Ok(Some(PlannedChange { change, steps }))
-}
-
-fn is_prepare_policy(settings: &Value) -> bool {
-    settings.get("policy").and_then(Value::as_str) == Some(crate::approval::PREPARE_POLICY)
-}
-
-/// The snapshot of one item: the job's, plus under the prepare policy its own Kodierfreigabe and
-/// the change expected when it was queued.
-fn item_settings(job: &Value, encode: EncodeAllowance, planned: Option<PlannedChange>) -> Value {
-    let mut settings = job.clone();
-    if is_prepare_policy(job)
-        && let Some(object) = settings.as_object_mut()
-    {
-        object.insert("encode".to_owned(), json!(encode.as_str()));
-        if let Some(planned) = planned {
-            object.insert("planned_change".to_owned(), json!(planned.change));
-            object.insert("planned_steps".to_owned(), json!(planned.steps));
-        }
-    }
-    settings
 }
 
 pub struct Jobs<'a>(pub Ctx<'a>);
@@ -217,7 +191,7 @@ impl Jobs<'_> {
     }
 
     fn insert_item(&self, seed: &ItemSeed<'_>) -> Result<i64> {
-        let planned = if is_prepare_policy(seed.settings) {
+        let planned = if is_prepare(seed.settings) {
             planned_change(self.0.conn, seed.media_file_id)?
         } else {
             None
@@ -233,7 +207,7 @@ impl Jobs<'_> {
                 seed.position,
                 seed.origin_item_id,
                 seed.input.to_string(),
-                item_settings(seed.settings, seed.encode, planned).to_string()
+                with_item(seed.settings, seed.encode, planned).to_string()
             ],
         )?;
         let id = self.0.conn.last_insert_rowid();
@@ -438,9 +412,9 @@ impl Jobs<'_> {
             // A retry is a new decision by the person who clicked it, about the file the job was for.
             let owned: Vec<JobItem> = retry_items.iter().map(|i| (*i).clone()).collect();
             self.require_same_files(&owned)?;
-            if crate::approval::item_profile(&snapshot)
-                != Some(crate::settings::target_profile(self.0.conn)?)
-            {
+            let queued = PrepareSnapshot::parse_job(&snapshot)
+                .map_err(|refusal| Error::Invalid(refusal.message().to_owned()))?;
+            if queued.profile != crate::settings::target_profile(self.0.conn)? {
                 return Err(Error::Invalid(
                     "the target profile changed since the job was queued; queue it again"
                         .to_owned(),
@@ -480,7 +454,9 @@ impl Jobs<'_> {
                 origin_item_id: Some(old.id),
                 input: &old.input_snapshot,
                 settings: &snapshot,
-                encode: crate::approval::item_encode(&old.settings_snapshot)
+                encode: PrepareSnapshot::parse(&old.settings_snapshot)
+                    .ok()
+                    .and_then(|parsed| parsed.encode)
                     .unwrap_or(EncodeAllowance::Copy),
             })?;
         }
