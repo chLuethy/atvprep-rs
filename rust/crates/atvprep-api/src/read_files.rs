@@ -81,29 +81,11 @@ fn python_bool<'de, D: serde::Deserializer<'de>>(
         .transpose()
 }
 
-/// The states chosen with `status` (OR). Every file is in exactly one of them.
-const STATES: [&str; 7] = [
-    "clean",
-    "embed_open",
-    "warning",
-    "blocker",
-    "unknown",
-    "probe_failed",
-    "missing",
-];
+use atvprep_manager::file_state::{self, STATES, TRAITS};
 
 fn status_token(token: &str) -> bool {
     STATES.contains(&token)
 }
-
-/// Traits that overlap and are only selected positively (`has`, AND).
-const TRAITS: [&str; 5] = [
-    "convert",
-    "encode_audio",
-    "encode_video",
-    "embed",
-    "converted",
-];
 
 fn trait_token(token: &str) -> bool {
     TRAITS.contains(&token)
@@ -316,22 +298,6 @@ fn sort_input_error(sort: Option<&str>, dir: Option<&str>) -> bool {
 
 /// How many files one column lists at most.
 const MAX_BROWSE_FILES: usize = 500;
-
-/// Where a file's state lands in the status sort, as `status_rank` puts it in SQL.
-fn file_rank(discovery: &str, compliance: &str, embed_open: bool) -> u8 {
-    if discovery == "missing" {
-        return 2;
-    }
-    match compliance {
-        "clean" if embed_open => 4,
-        "blocker" => 0,
-        "probe_failed" => 1,
-        "warning" => 3,
-        "unknown" => 5,
-        "clean" => 6,
-        _ => 9,
-    }
-}
 
 /// A file directly in the column, with what it sorts by.
 struct Listed {
@@ -575,18 +541,15 @@ async fn browse_inner(state: AppState, query: BrowseQuery, below: bool) -> Respo
         for row in rows {
             let (id, root_id, path, discovery, compliance, size) = row.map_err(|_| ())?;
             let open = open_ids.contains(&id);
-            let rank = file_rank(&discovery, &compliance, open);
+            let state = file_state::state_of(&discovery, &compliance, open);
+            let rank = file_state::rank(state);
             let key = if matches!(
                 query.state.as_deref(),
                 Some("convert" | "converted" | "encode_audio" | "encode_video" | "embed")
             ) {
                 query.state.clone().unwrap_or_default()
-            } else if discovery == "missing" {
-                "missing".to_owned()
-            } else if compliance == "clean" && open {
-                "embed_open".to_owned()
             } else {
-                compliance
+                state.to_owned()
             };
             let group = if root.is_none() {
                 Some(root_id.to_string())
@@ -816,9 +779,9 @@ async fn embed_open_json(state: &AppState) -> Option<String> {
     .flatten()
 }
 
-/// "Ready" is a clean file with nothing left to embed and `embed_open` a clean one with an open
-/// embedding; the trait "embed" is any file with an open embedding, whatever its state.
-/// The states split the files without overlap: a missing file is only "missing".
+/// The clause for one chosen token. The states split the files without overlap (`file_state`): a
+/// missing file is only "missing", "ready" has nothing left to embed and `embed_open` has. The trait
+/// "embed" is any present file with an open embedding, whatever its state.
 /// `open_embed_ids` is the JSON list of the ids of the files with an open embedding.
 fn state_clause(
     state: &str,
@@ -826,20 +789,6 @@ fn state_clause(
     values: &mut Vec<rusqlite::types::Value>,
 ) -> String {
     match state {
-        "clean" => {
-            values.push(open_embed_ids.to_owned().into());
-            format!(
-                "(m.discovery_state<>'missing' AND m.compliance_state='clean' AND {})",
-                media_sql::embed_not_open("?")
-            )
-        }
-        "embed_open" => {
-            values.push(open_embed_ids.to_owned().into());
-            format!(
-                "(m.discovery_state<>'missing' AND m.compliance_state='clean' AND {})",
-                media_sql::embed_open("?")
-            )
-        }
         "embed" => {
             values.push(open_embed_ids.to_owned().into());
             format!(
@@ -847,28 +796,16 @@ fn state_clause(
                 media_sql::embed_open("?")
             )
         }
-        "missing" => "m.discovery_state='missing'".to_owned(),
         "convert" => format!("(m.discovery_state='present' AND {TO_CONVERT})"),
         "converted" => format!("(m.discovery_state='present' AND {CONVERTED})"),
         "encode_audio" => format!("(m.discovery_state='present' AND {NEEDS_AUDIO})"),
         "encode_video" => format!("(m.discovery_state='present' AND {NEEDS_VIDEO})"),
         _ => {
+            values.push(open_embed_ids.to_owned().into());
             values.push(state.to_owned().into());
-            "(m.discovery_state<>'missing' AND m.compliance_state=?)".to_owned()
+            format!("{}=?", file_state::state_sql("?"))
         }
     }
-}
-
-/// Where a file's state lands in the status sort, given a bound JSON list of the open ids: blocker,
-/// inspection failed, missing, warning, embed open, not verified, ready.
-fn status_rank(param: &str) -> String {
-    format!(
-        "(CASE WHEN m.discovery_state='missing' THEN 2 \
-         WHEN m.compliance_state='clean' AND {} THEN 4 \
-         ELSE CASE m.compliance_state WHEN 'blocker' THEN 0 WHEN 'probe_failed' THEN 1 \
-         WHEN 'warning' THEN 3 WHEN 'unknown' THEN 5 WHEN 'clean' THEN 6 ELSE 9 END END)",
-        media_sql::embed_open(param)
-    )
 }
 
 fn db_datetime(value: &str) -> Option<String> {
@@ -1061,7 +998,7 @@ pub async fn list(
             if descending {rows.reverse();}
             rows.into_iter().skip(usize::try_from(after).unwrap_or(usize::MAX)).take(limit+1).map(|(id,_)|id).collect()
         }else {
-            let order=match query.sort.as_deref() {Some("size")=>format!("m.size {} ,lower(m.relative_path),m.id",if descending {"DESC"} else {"ASC"}),Some("status")=>format!("{} {},lower(m.relative_path),m.id",status_rank("?"),if descending {"DESC"} else {"ASC"}),_=>if descending {"m.id DESC".to_owned()} else {"m.id".to_owned()}};
+            let order=match query.sort.as_deref() {Some("size")=>format!("m.size {} ,lower(m.relative_path),m.id",if descending {"DESC"} else {"ASC"}),Some("status")=>format!("{} {},lower(m.relative_path),m.id",file_state::rank_sql("?"),if descending {"DESC"} else {"ASC"}),_=>if descending {"m.id DESC".to_owned()} else {"m.id".to_owned()}};
             let offset=if query.sort.is_some(){after}else{0};
             let mut stmt=conn.prepare(&format!("SELECT m.id FROM media_files m WHERE {filter} ORDER BY {order} LIMIT ? OFFSET ?")).map_err(|_|())?;
             let mut bound=values.clone();if query.sort.as_deref()==Some("status") {bound.push(open_embed_ids.clone().into());}bound.push(i64::try_from(limit+1).map_err(|_|())?.into());bound.push(offset.into());
@@ -1223,6 +1160,27 @@ fn load_file(
     let embedded:Vec<Value>=classified.iter().filter(|(_,_,_,status)|status=="pending").map(|(_,name,lang,_)|json!({"name":name,"language":lang,"kind":atvprep_core::sidecars::sidecar_kind(name)})).collect();
     data["pending_sidecars"] = json!(embedded.len());
     data["embed_sidecars"] = json!(embedded);
+    // Only present files with a pending subtitle file are open, as `embed::open_media_ids` has it.
+    let discovery = data["discovery_state"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    let compliance = data["compliance_state"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    let desired = data["desired_action"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    let open = discovery == "present" && !embedded.is_empty();
+    data["state"] = json!(file_state::state_of(&discovery, &compliance, open));
+    data["preparable"] = json!(file_state::is_preparable(
+        &discovery,
+        &compliance,
+        &desired,
+        open
+    ));
     let fix_status:Option<String>=conn.query_row(&format!("SELECT CASE WHEN max(CASE WHEN status='running' THEN 2 WHEN status IN ('cancel_requested','cancelling') THEN 1 ELSE 0 END)=2 THEN 'running' WHEN max(CASE WHEN status='running' THEN 2 WHEN status IN ('cancel_requested','cancelling') THEN 1 ELSE 0 END)=1 THEN 'cancelling' ELSE 'queued' END FROM job_items WHERE media_file_id=?1 AND action IN ('fix','convert') AND status NOT IN {} HAVING count(*)>0",ItemStatus::terminal_sql_list()),[media],|row|row.get(0)).optional().map_err(|_|())?;
     data["fix_status"] = json!(fix_status);
     // The newest item of the file that has started (any action) is an interrupted fix or convert, and no
@@ -1340,5 +1298,84 @@ mod tests {
         assert_eq!(output["nested"][0]["message"], "failed <path>");
         assert!(!output.to_string().contains("hidden"));
         assert!(!output.to_string().contains("private"));
+    }
+}
+
+#[cfg(test)]
+mod http_tests {
+    use crate::router;
+    use crate::routes_auth;
+    use crate::test_support::state;
+    use atvprep_fixtures::Fixtures;
+    use axum::body::to_bytes;
+    use axum::http::StatusCode;
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn sidecars_classify_current_probes_and_page_backwards() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let file = fx
+            .file(fx.library_at("Movies", "/private"), "film.mp4")
+            .fingerprint("current")
+            .create();
+        let _ = fx.sidecar(file, "/secret/film.en.srt", "a");
+        let _ = fx.sidecar(file, "film.de.srt", "b");
+        let _ = fx.inspection(
+            file,
+            "ffprobe",
+            "current",
+            &serde_json::json!({"streams": []}),
+        );
+        let media = crate::opaque::Opaque::new(state.api_secret.as_bytes()).encode("m", 1);
+        let session = routes_auth::service(&state, &conn)
+            .unwrap()
+            .create()
+            .unwrap()
+            .token;
+        let app = router(state);
+        let get = |path: &str| {
+            axum::http::Request::get(path)
+                .header("origin", "http://localhost")
+                .header("cookie", format!("__Host-atvprep_session={session}"))
+                .body(axum::body::Body::empty())
+                .unwrap()
+        };
+        let response = app
+            .clone()
+            .oneshot(get(&format!("/api/v1/files/{media}/sidecars?limit=1")))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(body["data"][0]["name"], "film.de.srt");
+        assert_eq!(body["data"][0]["state"], "pending");
+        let cursor = body["meta"]["next_cursor"].as_str().unwrap();
+        let response = app
+            .clone()
+            .oneshot(get(&format!(
+                "/api/v1/files/{media}/sidecars?limit=1&cursor={cursor}"
+            )))
+            .await
+            .unwrap();
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(body["data"][0]["name"], "film.en.srt");
+        assert!(!body.to_string().contains("/secret"));
+        let _ = fx.job("fix", &[file]).status("running").create();
+        let response = app
+            .oneshot(get(&format!("/api/v1/files/{media}")))
+            .await
+            .unwrap();
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(body["data"]["fix_status"], "running");
+        assert_eq!(body["data"]["pending_sidecars"], 2);
+        assert_eq!(body["data"]["sidecar_count"], 2);
+        assert_eq!(body["data"]["inspection_available"], true);
+        assert!(!body.to_string().contains("/secret"));
     }
 }

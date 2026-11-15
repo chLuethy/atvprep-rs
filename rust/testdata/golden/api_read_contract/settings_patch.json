@@ -1,0 +1,46 @@
+{
+  "expected": {
+    "body": {
+      "data": {
+        "revision": 2,
+        "settings": [
+          {
+            "default_value": 3600,
+            "effective_revision": 2,
+            "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+            "key": "scan_interval_seconds",
+            "last_changed_revision": 2,
+            "read_only": false,
+            "restart_required": false,
+            "revision": 2,
+            "source": "db_override",
+            "value": 600
+          },
+          {
+            "default_value": false,
+            "effective_revision": 2,
+            "guidance": "Editable runtime override; changes are audited and take effect without restart.",
+            "key": "delete_original",
+            "last_changed_revision": 2,
+            "read_only": false,
+            "restart_required": false,
+            "revision": 2,
+            "source": "db_override",
+            "value": true
+          }
+        ]
+      }
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "body_json": "{\"settings\":{\"scan_interval_seconds\":600,\"delete_original\":true},\"expected_revision\":1}",
+    "csrf_action": "settings",
+    "idempotency_key": "settings_patch",
+    "method": "PATCH",
+    "origin": "http://testserver",
+    "path": "/api/v1/settings"
+  },
+  "name": "settings_patch"
+}

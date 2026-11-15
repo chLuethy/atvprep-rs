@@ -150,7 +150,9 @@
                     "root_id": "<r:1>",
                     "size": 123,
                     "suffix": ".mp4",
-                    "workflow_state": "idle"
+                    "workflow_state": "idle",
+                    "state": "clean",
+                    "preparable": false
                   }
                 ],
                 "meta": {
@@ -203,7 +205,9 @@
                     "root_id": "<r:1>",
                     "size": 123,
                     "suffix": ".mp4",
-                    "workflow_state": "idle"
+                    "workflow_state": "idle",
+                    "state": "clean",
+                    "preparable": false
                   }
                 ],
                 "meta": {
@@ -283,7 +287,9 @@
                     "root_id": "<r:1>",
                     "size": 123,
                     "suffix": ".mp4",
-                    "workflow_state": "idle"
+                    "workflow_state": "idle",
+                    "state": "clean",
+                    "preparable": false
                   }
                 ],
                 "meta": {
@@ -417,7 +423,9 @@
                     "root_id": "<r:1>",
                     "size": 123,
                     "suffix": ".mp4",
-                    "workflow_state": "idle"
+                    "workflow_state": "idle",
+                    "state": "clean",
+                    "preparable": false
                   }
                 ],
                 "meta": {
@@ -470,7 +478,9 @@
                     "root_id": "<r:1>",
                     "size": 123,
                     "suffix": ".mp4",
-                    "workflow_state": "idle"
+                    "workflow_state": "idle",
+                    "state": "clean",
+                    "preparable": false
                   }
                 ],
                 "meta": {
@@ -523,7 +533,9 @@
                     "root_id": "<r:1>",
                     "size": 123,
                     "suffix": ".mp4",
-                    "workflow_state": "idle"
+                    "workflow_state": "idle",
+                    "state": "clean",
+                    "preparable": false
                   }
                 ],
                 "meta": {
@@ -576,7 +588,9 @@
                     "root_id": "<r:1>",
                     "size": 123,
                     "suffix": ".mp4",
-                    "workflow_state": "idle"
+                    "workflow_state": "idle",
+                    "state": "clean",
+                    "preparable": false
                   }
                 ],
                 "meta": {
@@ -629,7 +643,9 @@
                     "root_id": "<r:1>",
                     "size": 123,
                     "suffix": ".mp4",
-                    "workflow_state": "idle"
+                    "workflow_state": "idle",
+                    "state": "clean",
+                    "preparable": false
                   }
                 ],
                 "meta": {
@@ -986,7 +1002,9 @@
                     "root_id": "<r:1>",
                     "size": 123,
                     "suffix": ".mp4",
-                    "workflow_state": "idle"
+                    "workflow_state": "idle",
+                    "state": "clean",
+                    "preparable": false
                   }
                 ],
                 "meta": {
@@ -1039,7 +1057,9 @@
                     "root_id": "<r:1>",
                     "size": 123,
                     "suffix": ".mp4",
-                    "workflow_state": "idle"
+                    "workflow_state": "idle",
+                    "state": "clean",
+                    "preparable": false
                   }
                 ],
                 "meta": {
@@ -1297,7 +1317,9 @@
                       "root_id": "<r:1>",
                       "size": 123,
                       "suffix": ".mp4",
-                      "workflow_state": "idle"
+                      "workflow_state": "idle",
+                      "state": "clean",
+                      "preparable": false
                     }
                   ],
                   "folders": [],
@@ -1470,7 +1492,9 @@
                       "root_id": "<r:1>",
                       "size": 123,
                       "suffix": ".mp4",
-                      "workflow_state": "idle"
+                      "workflow_state": "idle",
+                      "state": "clean",
+                      "preparable": false
                     }
                   ],
                   "folders": [],

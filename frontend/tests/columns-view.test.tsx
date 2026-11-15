@@ -10,7 +10,7 @@ type Api = { request: (path: string, init?: RequestInit) => Promise<Response> };
 
 const file = (name: string, over: Partial<FileRow> = {}): FileRow => ({
   id: `m_${name}`, root_id: "r_1", display_path: `deutsch/Film A (2020)/${name}`, kind: "movie", suffix: ".mp4", size: 1, mtime_ns: 1,
-  discovery_state: "present", compliance_state: "clean", workflow_state: "idle", desired_action: "none", last_seen_at: null, ...over,
+  discovery_state: "present", compliance_state: "clean", state: "clean", preparable: false, workflow_state: "idle", desired_action: "none", last_seen_at: null, ...over,
 });
 
 const LEVELS: Record<string, unknown> = {

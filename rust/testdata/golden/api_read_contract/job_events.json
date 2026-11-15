@@ -1,0 +1,35 @@
+{
+  "expected": {
+    "body": {
+      "data": [
+        {
+          "created_at": "<ts>",
+          "entity_id": "<j:1>",
+          "entity_type": "job",
+          "id": "<e:1>",
+          "item_id": null,
+          "job_id": "<j:1>",
+          "payload": {},
+          "sequence": 1,
+          "topic": "job.created"
+        }
+      ],
+      "meta": {
+        "current_cursor": null,
+        "current_sequence": null,
+        "facets": {},
+        "limit": 100,
+        "next_cursor": null,
+        "truncated": false
+      }
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "method": "GET",
+    "origin": "http://testserver",
+    "path": "/api/v1/jobs/<j:1>/events"
+  },
+  "name": "job_events"
+}

@@ -3,7 +3,6 @@ import { N, t } from "../../lib/i18n";
 import { isMp4Like } from "./container";
 import type { PlanStep } from "./planSteps";
 import { fixesAnything } from "./fixPlan";
-import { isFixable } from "./model";
 
 
 const NEED_LABEL: Record<EncodeNeed, string> = { none: N("No encoding"), audio: N("Audio"), video: N("Video"), unknown: N("Unknown") };
@@ -61,8 +60,9 @@ export function preparable(file: {
   discovery_state: string;
   suffix: string;
   converted_kept?: boolean | undefined;
-  compliance_state: string;
-  desired_action: string;
+  /** From the server: Prepare would take the file by its state alone. */
+  preparable: boolean;
+  compliance_reasons?: string[] | undefined;
   pending_sidecars?: number | undefined;
   fix_status?: string | null | undefined;
   encode_need?: EncodeNeed | undefined;
@@ -71,5 +71,5 @@ export function preparable(file: {
   if (file.discovery_state !== "present" || file.fix_status || file.converted_kept) return false;
   if (!isMp4Like(file.suffix)) return true;
   if (file.encode_need === "audio" || file.encode_need === "video" || file.encode_need === "unknown") return true;
-  return isFixable(file) && fixesAnything(file);
+  return file.preparable && fixesAnything(file);
 }

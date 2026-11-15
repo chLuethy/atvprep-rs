@@ -29,5 +29,6 @@ workspace = true
 [dev-dependencies]
 futures-util = { version = "0.3.34", features = ["sink"] }
 tokio-tungstenite = "0.29.0"
+atvprep-fixtures = { path = "../atvprep-fixtures" }
 tempfile = "3"
 tower = { version = "0.5", features = ["util"] }
