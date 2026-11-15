@@ -304,7 +304,7 @@ impl Contract {
             job: opaque.encode("j", 1),
             item: opaque.encode("i", 1),
             app: router(state.clone()),
-            state: state,
+            state,
             conn,
             opaque,
             session,
