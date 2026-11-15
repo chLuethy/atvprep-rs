@@ -666,6 +666,7 @@ fn sdh_sidecars_embedded_from_an_mkv_count_as_embedded() {
 fn ac3_at_44_1_khz(dir: &Path) -> PathBuf {
     let path = dir.join("Film.mp4");
     let status = std::process::Command::new("ffmpeg")
+        .stdin(std::process::Stdio::null())
         .args([
             "-v",
             "error",

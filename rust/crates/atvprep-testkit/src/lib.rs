@@ -66,8 +66,12 @@ pub fn fixture_path(name: &str) -> PathBuf {
 /// # Panics
 ///
 /// Panics when ffmpeg is missing or fails; a missing tool must fail the test, not skip it.
+///
+/// Every ffmpeg a test starts gets a null stdin: with the terminal as stdin, ffmpeg switches it
+/// to raw mode, and overlapping runs from parallel tests can leave it that way after the tests.
 pub fn write_surround_only_mp4(path: &Path) {
     let status = Command::new("ffmpeg")
+        .stdin(std::process::Stdio::null())
         .args(["-y", "-hide_banner", "-loglevel", "error"])
         .args(["-f", "lavfi", "-i", "testsrc2=s=160x90:r=24:d=0.5"])
         .args(["-f", "lavfi", "-i", "anullsrc=r=48000:cl=5.1"])
@@ -91,6 +95,7 @@ pub fn write_surround_only_mp4(path: &Path) {
 /// Panics when ffmpeg is missing or fails.
 pub fn remux(input: &Path, output: &Path) {
     let status = Command::new("ffmpeg")
+        .stdin(std::process::Stdio::null())
         .args(["-y", "-hide_banner", "-loglevel", "error", "-i"])
         .arg(input)
         .args(["-map", "0", "-c", "copy"])
