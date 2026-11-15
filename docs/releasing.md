@@ -2,6 +2,8 @@
 
 Ein Release wird lokal gebaut und signiert; die GitHub-Action baut dieselben Bytes nach, veröffentlicht nur, wenn sie zum signierten Manifest passen, und überträgt das Release danach auf den Spiegel auf Gitea (ADR 0002, ADR 0005, ADR 0009). Details zu den Dateien: [release/README.md](../release/README.md). Die Beispiele verwenden `0.5.6`.
 
+Der Wizard `./scripts/release-wizard.sh` führt Schritt für Schritt durch die Schritte 1 bis 11: Er schlägt die Version aus den PRs seit dem letzten Release vor (in 0.x erhöht ein markierter Bruch die Minor-, alles andere die Patch-Version), entwirft `docs/release-notes/<version>.md` aus den Commits, prüft, baut, signiert, pusht und taggt nach Rückfrage, beobachtet die Action und übernimmt die Release-Hinweise auf Wunsch als Text ins GitHub-Release. Ein abgebrochener Lauf lässt sich neu starten. Ist die Claude-CLI installiert, prüft Haiku auf nicht markierte Brüche und Sonnet formuliert den Entwurf der Hinweise (höchstens Sonnet; `RELEASE_AI=0` schaltet das ab, `RELEASE_MODEL_CHECK` und `RELEASE_MODEL_NOTES` wählen ein anderes Modell innerhalb dieser Grenze).
+
 Der private Schlüssel `~/.ssh/atvprep-release-ed25519` verlässt den Rechner nie.
 
 ## Einmalig
