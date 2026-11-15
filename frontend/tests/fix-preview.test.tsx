@@ -64,6 +64,17 @@ describe("FixPreview: subtitles to embed", () => {
     expect(view.getByText("Merge 2 external subtitle files into the MP4")).toBeInTheDocument();
   });
 
+  it("shows the codec and rate change the planner sent as data", () => {
+    const view = show(row({
+      encode_need: "audio",
+      planned_change: "audio",
+      compliance_state: "warning",
+      compliance_reasons: ["[warning] audio-sample-rate: ac-3 track id=2 sample rate 44100Hz (expected 48000)"],
+      planned_steps: [{ kind: "sample_rate", stream: 1, from_codec: "ac3", to_codec: "eac3", from_hz: 44100, to_hz: 48000 }],
+    }));
+    expect(view.getByText("AC-3 44.1 kHz → EAC3 48 kHz")).toBeInTheDocument();
+  });
+
   it("mentions no subtitles when none are waiting", () => {
     const view = show(row({ compliance_state: "warning", compliance_reasons: ["[warning] apple-tags: 4 tracks lack an elng tag"] }));
     expect(view.queryByRole("list", { name: "Subtitles to embed" })).not.toBeInTheDocument();
@@ -130,8 +141,9 @@ describe("FixPreview: the encoding allowance", () => {
   it("shows the need and the change of each file from the server, and an AAC track is no remux", () => {
     const view = show(row({ encode_need: "audio", planned_change: "audio", compliance_state: "warning", compliance_reasons: ["[warning] stereo-twin: 1 language has surround only"] }));
 
-    expect(view.getByText("Audio encoding")).toBeInTheDocument();
-    expect(view.getByText(/Add an AAC stereo track/).previousElementSibling).toHaveTextContent("Encoding");
+    // Once as the file's change, once as the label of the finding it resolves.
+    expect(view.getAllByText("Audio encoding")).toHaveLength(2);
+    expect(view.getByText(/Add an AAC stereo track/).previousElementSibling).toHaveTextContent("Audio encoding");
     expect(view.queryByText("Remux")).not.toBeInTheDocument();
   });
 

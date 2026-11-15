@@ -101,17 +101,16 @@ describe("Inspector: what the file is and why", () => {
     expect(why).toHaveTextContent(/warning/i);
   });
 
-  it("keeps the planner's steps out of the reasons, as they are no findings", async () => {
+  it("lists only the findings as reasons, the planner's steps come apart from them", async () => {
     const planned = { ...detail, compliance_state: "warning", compliance_reasons: [
       "[warning] audio-sample-rate: ac-3 track id=2 sample rate 44100Hz (expected 48000)",
-      "[plan] audio stream #1 ac3 44100Hz -> eac3 48000Hz",
-    ] };
+    ], planned_steps: [{ kind: "sample_rate", stream: 1, from_codec: "ac3", to_codec: "eac3", from_hz: 44100, to_hz: 48000 }] };
     const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response(planned) })} fileId="m_f1" />);
     await view.findByRole("heading", { name: "Pretty Woman (1990)" });
 
     const why = view.getByRole("list", { name: "Why" });
     expect(within(why).getAllByRole("listitem")).toHaveLength(1);
-    expect(why).not.toHaveTextContent("[plan]");
+    expect(why).not.toHaveTextContent("kHz");
   });
 
   it("explains that an unverified file is not known to be fine", async () => {

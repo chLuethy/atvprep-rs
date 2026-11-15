@@ -1,15 +1,16 @@
-import { formatNumber, tn, t } from "../../lib/i18n";
-import { parseReason, planStep, type ParsedReason } from "./reasons";
+import { tn, t } from "../../lib/i18n";
+import type { PlannedChange } from "../../lib/encode";
+import { formatPlanStep, isSampleRate, isText, type PlanStep } from "./planSteps";
+import { parseReason, type ParsedReason } from "./reasons";
 
 /**
- * What `atvprep prepare` will do about each verify reason. Derived from the rules, not simulated:
- * the size-neutral postfix steps and the Apple tag patch change the file without re-encoding
- * ("patch"), layout problems need a remux, findings that need encoding are "encode" (whether that means
- * audio or video is the server's Kodierbedarf, not a guess from here), the encodings the planner names
- * itself (`[plan] …`) are "encode" in its words, and what nothing here can predict is "none".
+ * What `atvprep prepare` will do about each verify reason, in the words of the server's Änderungsart.
+ * Derived from the rules, not simulated: the size-neutral postfix steps and the Apple tag patch change
+ * the file without re-encoding ("patch"), layout problems need a remux, a rule that adds an audio track
+ * is "audio", the video re-encode is "reencode", the encodings the planner names are "audio" from its
+ * data, a step of a kind not known yet is "unknown", and what nothing here can predict is "none".
  */
-export type ChangeKind = "patch" | "remux" | "encode" | "none";
-export type Change = { kind: ChangeKind; rule: string | null; text: string };
+export type Change = { kind: PlannedChange; rule: string | null; text: string };
 
 const TAG_FINDINGS: ReadonlyArray<[RegExp, (n: number) => string]> = [
   [/^(\d+) tracks? lacks? an elng tag$/, (n) => tn("Write {count} elng language tag", "Write {count} elng language tags", n)],
@@ -30,19 +31,13 @@ function tagChange(message: string): Change {
   return { kind: "patch", rule: "apple-tags", text: message };
 }
 
-/** The codec names of a planner step, as the preview writes them. Naming only: codec and rate come from the planner. */
-const CODEC_NAMES: Readonly<Record<string, string>> = { ac3: "AC-3", eac3: "EAC3", aac: "AAC" };
-const RATE_STEP = /^audio stream #\d+ (\S+) (\d+)Hz -> (\S+) (\d+)Hz$/;
-const kHz = (hz: number) => formatNumber(hz / 1000, hz % 1000 === 0 ? 0 : 1);
-const codecName = (codec: string) => CODEC_NAMES[codec] ?? codec.toUpperCase();
-
-/** An encoding the planner names, in the short form of the preview; a step it cannot read stays as it came. */
-function planChange(step: string): Change {
-  const match = RATE_STEP.exec(step);
-  const text = match
-    ? `${codecName(match[1] ?? "")} ${kHz(Number(match[2]))} kHz → ${codecName(match[3] ?? "")} ${kHz(Number(match[4]))} kHz`
-    : step;
-  return { kind: "encode", rule: "audio-sample-rate", text };
+/**
+ * An encoding the planner names. Its codecs and rates are data, so the text is formatted, never read
+ * back: a step known only as text (an older result) stays as it came, and a kind this build does not
+ * know is shown by name.
+ */
+function planChange(step: PlanStep): Change {
+  return { kind: isSampleRate(step) || isText(step) ? "audio" : "unknown", rule: isSampleRate(step) || isText(step) ? "audio-sample-rate" : null, text: formatPlanStep(step) };
 }
 
 /** A rule that threw reports `rule crashed: ...`; that is a tool problem, not a defect of the file. */
@@ -65,9 +60,9 @@ function changeFor(reason: ParsedReason, planned: boolean): Change | null {
     case "default-track-selection": return { kind: "patch", rule, text: t("Enable the tracks Apple enables: stereo audio and its forced subtitle") };
     case "subtitle-handler-type": return { kind: "patch", rule, text: t("Mark subtitle tracks as subtitles (sbtl)") };
     case "apple-tags": return tagChange(reason.message);
-    case "stereo-twin": return { kind: "encode", rule, text: t("Add an AAC stereo track for the surround-only language") };
+    case "stereo-twin": return { kind: "audio", rule, text: t("Add an AAC stereo track for the surround-only language") };
     case "duplicate-audio": return { kind: "remux", rule, text: t("Drop the duplicate audio track") };
-    case "video-reencode": return { kind: "encode", rule, text: t("Re-encode the video to HEVC (lossy, needs confirmation)") };
+    case "video-reencode": return { kind: "reencode", rule, text: t("Re-encode the video to HEVC (lossy, needs confirmation)") };
     case "fast-start": return { kind: "remux", rule, text: t("Rewrite the file with the index at the front (faststart)") };
     case "no-fragments": return { kind: "remux", rule, text: t("Rewrite the fragmented file as a regular MP4") };
     // What Prepare does about it, the planner says in a step of its own; without one nothing here guesses.
@@ -81,8 +76,8 @@ function changeFor(reason: ParsedReason, planned: boolean): Change | null {
   }
 }
 
-export function expectedChanges(reasons: ParsedReason[]): Change[] {
-  const steps = reasons.flatMap((reason) => (reason.severity ? [] : [planStep(reason.message)].filter((step): step is string => step !== null)));
+/** What a fix does for the verify reasons of a file and the steps the planner named for it. */
+export function expectedChanges(reasons: ParsedReason[], steps: ReadonlyArray<PlanStep> = []): Change[] {
   return [
     ...reasons.flatMap((reason) => {
       const change = changeFor(reason, steps.length > 0);
@@ -95,18 +90,21 @@ export function expectedChanges(reasons: ParsedReason[]): Change[] {
 const EMBED_STEP = /^\[embed\] subtitles: (\d+)$/;
 
 /**
- * The planned steps a Vorbereiten item was queued with, in the words of the preview: the verify reasons
- * it resolves and the subtitle files it merges (`[embed] subtitles: n`). What it leaves unchanged is
- * not a step.
+ * The planned steps a Vorbereiten item was queued with, in the words of the preview: the planner's own
+ * steps, the verify reasons it resolves and the subtitle files it merges (`[embed] subtitles: n`). What
+ * it leaves unchanged is not a step; a text step that is none of these stays as it came.
  */
-export function plannedStepTexts(steps: ReadonlyArray<string>): string[] {
+export function plannedStepTexts(steps: ReadonlyArray<PlanStep>): string[] {
   return steps.flatMap((step) => {
-    const embed = EMBED_STEP.exec(step);
+    if (!isText(step)) return [formatPlanStep(step)];
+    const embed = EMBED_STEP.exec(step.text);
     if (embed) {
       const count = Number(embed[1]);
       return [tn("Merge {count} external subtitle file into the MP4", "Merge {count} external subtitle files into the MP4", count)];
     }
-    return expectedChanges([parseReason(step)]).filter((change) => change.kind !== "none").map((change) => change.text);
+    const reason = parseReason(step.text);
+    if (!reason.severity) return [step.text];
+    return expectedChanges([reason]).filter((change) => change.kind !== "none").map((change) => change.text);
   });
 }
 
@@ -130,8 +128,8 @@ export function summarizeChanges(changes: Change[]): { resolved: number; remaini
  * Whether queueing a fix for this file can change anything. Without a readable violation the
  * server's own request for a fix is trusted; with only unfixable ones it would be a pointless job.
  */
-export function fixesAnything(file: { compliance_reasons?: string[] | undefined; pending_sidecars?: number | undefined }): boolean {
+export function fixesAnything(file: { compliance_reasons?: string[] | undefined; planned_steps?: ReadonlyArray<PlanStep> | undefined; pending_sidecars?: number | undefined }): boolean {
   if ((file.pending_sidecars ?? 0) > 0) return true;
-  const changes = expectedChanges((file.compliance_reasons ?? []).map(parseReason));
+  const changes = expectedChanges((file.compliance_reasons ?? []).map(parseReason), file.planned_steps ?? []);
   return changes.length === 0 || changes.some((change) => change.kind !== "none");
 }

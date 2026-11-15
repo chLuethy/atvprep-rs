@@ -83,11 +83,12 @@ impl Inspections<'_> {
         };
         if let Some(verdict) = verdict {
             self.0.conn.execute(
-                "UPDATE media_files SET compliance_state=?2, compliance_reasons=?3 WHERE id=?1",
+                "UPDATE media_files SET compliance_state=?2, compliance_reasons=?3, planned_steps=?4 WHERE id=?1",
                 rusqlite::params![
                     inspection.media_file_id,
                     verdict.state,
                     serde_json::to_string(&verdict.reasons).unwrap_or_else(|_| "[]".to_owned()),
+                    serde_json::to_string(&verdict.steps).unwrap_or_else(|_| "[]".to_owned()),
                 ],
             )?;
         }
@@ -246,7 +247,7 @@ impl Inspections<'_> {
                 self.project(&inspection)?;
             } else {
                 self.0.conn.execute(
-                    "UPDATE media_files SET compliance_state='unknown', compliance_reasons=?2, encode_need='unknown', planned_change='unknown' WHERE id=?1",
+                    "UPDATE media_files SET compliance_state='unknown', compliance_reasons=?2, encode_need='unknown', planned_change='unknown', planned_steps='[]' WHERE id=?1",
                     rusqlite::params![
                         id,
                         serde_json::json!(["No inspection is available for this media file."])
