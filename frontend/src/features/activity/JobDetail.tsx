@@ -7,6 +7,7 @@ import { N, t } from "../../lib/i18n";
 import { baseName } from "../files/model";
 import { loadItems, loadJob, mutateJob, type Api, type ItemRow, type JobRow, type OneJob } from "./loaders";
 import { LogViewer } from "./LogViewer";
+import { PlannedChange } from "./PlannedChange";
 import { RaiseEncode } from "./RaiseEncode";
 import { actionLabel, canCancel, canRetry, describeDetail, formatElapsed, isActive, itemDuration, itemTone, jobPercent, jobProgress, jobTitle, jobTone, runningFor } from "./model";
 
@@ -312,6 +313,7 @@ export const JobDetail: Component<{
                             </Show>
                             <Show when={itemDuration(item(), now())}>{(duration) => <span class="item-duration muted num">{duration()}</span>}</Show>
                           </div>
+                          <PlannedChange change={item().planned_change} steps={item().planned_steps} />
                           <Show when={item().error_code === "encode_not_allowed"}>
                             <p class="notice warn" role="status" aria-label={t("Encoding not allowed")}>{t("Encoding not allowed: the file stays as it was. Prepare it again with a higher encoding allowance.")}</p>
                             <RaiseEncode api={props.api} item={item()} onRaised={(id) => { props.onChanged?.(); if (id) props.onRaised?.(id); }} />
