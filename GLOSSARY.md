@@ -124,6 +124,10 @@ _Avoid_: Re-Encode nötig
 Wie Vorbereiten eine Datei ändern würde, so wie „Prüfen“ es zusammen mit dem Kodierbedarf festhält: keine, Patch (nur Flags und Tags an Ort und Stelle), Remux (die Datei wird als MP4 neu geschrieben, alle Streams kopiert), Audio-Kodierung oder Re-Encode. Eine Kodierung geht dem Weg vor: Braucht ein Remux eine Audio-Kodierung, ist die Änderungsart Audio-Kodierung. Vorschau und Inspector zeigen sie, statt sie selbst vorherzusagen.
 _Avoid_: „Remux“ für jede Änderung
 
+**Planerschritt**:
+Eine einzelne Kodierung, die der Planer für eine Datei benennt, als Daten mit Art und Inhalt (heute: Abtastratenänderung mit Stream, Codec und Frequenz vorher und nachher). Prüfen speichert die Schritte in einem eigenen Feld, nicht unter den Gründen; Einreihen, API und Frontend reichen sie unverändert weiter, das Frontend formatiert sie nur. Ältere Ergebnisse tragen den Schritt als Text; er erscheint als Art „text“.
+_Avoid_: Plan-Text, `[plan]`-Grund
+
 **Kodierfreigabe**:
 Die vom Betreiber gesetzte Obergrenze, was ein Auftrag oder Zeitplan kodieren darf: Nur kopieren, Audio kodieren, Audio und Video kodieren.
 _Avoid_: Re-Encode erlaubt

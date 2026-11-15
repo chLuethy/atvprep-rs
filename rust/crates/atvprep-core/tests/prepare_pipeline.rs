@@ -11,7 +11,7 @@ use std::sync::LazyLock;
 
 use atvprep_core::compliance::SystemTools;
 use atvprep_core::console::{Console, SharedBuffer};
-use atvprep_core::encode::EncodeAllowance;
+use atvprep_core::encode::{EncodeAllowance, PlanStep};
 use atvprep_core::fd_fix_contract::FdFixTarget;
 use atvprep_core::ffprobe::Ffprobe;
 use atvprep_core::pipeline_postfix::RunContext;
@@ -730,7 +730,17 @@ fn ac3_at_44_1_khz_is_resampled_to_48_khz_and_then_passes_the_check() {
     // The planner names what it encodes, so nothing downstream has to guess codec or rate.
     assert_eq!(
         planned.steps,
-        ["audio stream #1 ac3 44100Hz -> eac3 48000Hz"]
+        [PlanStep::SampleRate {
+            stream: 1,
+            from_codec: "ac3".to_owned(),
+            to_codec: "eac3".to_owned(),
+            from_hz: 44100,
+            to_hz: 48000,
+        }]
+    );
+    assert_eq!(
+        planned.steps[0].text(),
+        "audio stream #1 ac3 44100Hz -> eac3 48000Hz"
     );
     drop(target);
 

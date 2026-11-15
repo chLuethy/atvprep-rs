@@ -6,6 +6,9 @@ export type EncodeLevel = (typeof ENCODE_LEVELS)[number];
 /** The Kodierbedarf the server stores for a file; „unknown“ until a check against the current Zielprofil. */
 export type EncodeNeed = "none" | "audio" | "video" | "unknown";
 
+/** The Änderungsart the server stores for a file: what Prepare would do to it. */
+export type PlannedChange = "none" | "patch" | "remux" | "audio" | "reencode" | "unknown";
+
 const REQUIRED: Partial<Record<string, EncodeLevel>> = { none: "copy", audio: "audio", video: "all" };
 
 /** The levels above `encode`, in rising order; empty for the highest or an unknown level. */

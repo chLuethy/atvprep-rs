@@ -5,7 +5,7 @@ use crate::{Error, Result};
 
 /// Migration stages in order; stage `n` takes a database from version `n - 1` to `n`.
 /// To extend: add `000N_name.sql`, append it here and raise [`VERSION`].
-const STAGES: [&str; 13] = [
+const STAGES: [&str; 14] = [
     include_str!("migrations/0001_base.sql"),
     include_str!("migrations/0002_cron.sql"),
     include_str!("migrations/0003_scan_action.sql"),
@@ -19,10 +19,11 @@ const STAGES: [&str; 13] = [
     include_str!("migrations/0011_schedule_encode.sql"),
     include_str!("migrations/0012_recheck_sdh_sidecar_plans.sql"),
     include_str!("migrations/0013_recheck_sample_rate_plans.sql"),
+    include_str!("migrations/0014_planned_steps.sql"),
 ];
 
 /// The version this build creates and understands.
-pub const VERSION: i64 = 13;
+pub const VERSION: i64 = 14;
 
 /// Every table of the current schema.
 pub const TABLES: [&str; 23] = [
@@ -241,7 +242,7 @@ mod tests {
     #[test]
     fn a_version_1_database_upgrades_and_keeps_every_weekday_combination_on_its_slots() {
         use crate::cron::CronExpr;
-        use crate::schedules::{LocalDateTime, TimeOfDay, latest_slot};
+        use crate::schedules::{LocalDateTime, TimeOfDay};
 
         let db = Db::memory().unwrap();
         let mut conn = db.conn().unwrap();
@@ -283,11 +284,24 @@ mod tests {
                     .with_time(TimeOfDay::parse(&format!("{:02}:30", step % 24)).unwrap());
                 assert_eq!(
                     cron.latest_slot(now),
-                    latest_slot(now, mask, time),
+                    weekly_latest_slot(now, mask, time),
                     "mask {mask} at {now:?}"
                 );
             }
         }
+    }
+
+    /// The latest slot of a weekday mask at one time of day, worked out the plain way.
+    fn weekly_latest_slot(
+        now: crate::schedules::LocalDateTime,
+        mask: u8,
+        time: crate::schedules::TimeOfDay,
+    ) -> Option<crate::schedules::LocalDateTime> {
+        (0..8).find_map(|back| {
+            let day = now.add_days(-back);
+            let slot = day.with_time(time);
+            (mask & (1 << day.weekday()) != 0 && slot <= now).then_some(slot)
+        })
     }
 
     fn database_at(version: usize) -> (Db, Conn) {

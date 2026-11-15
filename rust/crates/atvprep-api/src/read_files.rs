@@ -1005,15 +1005,15 @@ fn load_file(
     opaque: &Opaque,
     media: i64,
 ) -> Result<Option<Value>, ()> {
-    let row:Option<(Value,String,String)>=conn.query_row(&format!("SELECT m.root_id,m.relative_path,m.kind,m.suffix,m.size,m.mtime_ns,m.discovery_state,m.compliance_state,m.compliance_reasons,m.workflow_state,m.desired_action,m.last_seen_at,m.status_version,m.last_success_at,m.last_error,m.fingerprint, (SELECT count(*) FROM sidecars s WHERE s.media_file_id=m.id), EXISTS(SELECT 1 FROM inspections n WHERE n.media_file_id=m.id), {CONVERTED}, m.encode_need, m.planned_change FROM media_files m WHERE m.id=?1"),[media],|row|{
+    let row:Option<(Value,String,String)>=conn.query_row(&format!("SELECT m.root_id,m.relative_path,m.kind,m.suffix,m.size,m.mtime_ns,m.discovery_state,m.compliance_state,m.compliance_reasons,m.workflow_state,m.desired_action,m.last_seen_at,m.status_version,m.last_success_at,m.last_error,m.fingerprint, (SELECT count(*) FROM sidecars s WHERE s.media_file_id=m.id), EXISTS(SELECT 1 FROM inspections n WHERE n.media_file_id=m.id), {CONVERTED}, m.encode_need, m.planned_change, m.planned_steps FROM media_files m WHERE m.id=?1"),[media],|row|{
             let root:i64=row.get(0)?;let path:String=row.get(1)?;let reasons:String=row.get(8)?;let fingerprint:String=row.get(15)?;
-            let parsed:Value=serde_json::from_str(&reasons).unwrap_or_else(|_|json!([]));
-            let reasons:Vec<String>=parsed.as_array().map(|items|items.iter().filter_map(Value::as_str).map(str::to_owned).collect()).unwrap_or_default();
+            let steps:String=row.get(21)?;
+            let stored=atvprep_manager::evaluate::StoredResult::read(&reasons,&steps);
             let encode_need:String=row.get(19)?;let planned_change:String=row.get(20)?;
-            let safe_reasons:Vec<String>=reasons.iter().map(|reason|crate::read_jobs::safe_head(reason,2048)).collect();
+            let safe_reasons:Vec<String>=stored.reasons.iter().map(|reason|crate::read_jobs::safe_head(reason,2048)).collect();
             let data=json!({"id":opaque.encode("m",media),"root_id":opaque.encode("r",root),"display_path":crate::read_jobs::subject(&path),
                 "kind":row.get::<_,String>(2)?,"suffix":row.get::<_,String>(3)?,"size":row.get::<_,i64>(4)?,"mtime_ns":row.get::<_,i64>(5)?,
-                "discovery_state":row.get::<_,String>(6)?,"compliance_state":row.get::<_,String>(7)?,"compliance_reasons":safe_reasons,
+                "discovery_state":row.get::<_,String>(6)?,"compliance_state":row.get::<_,String>(7)?,"compliance_reasons":safe_reasons,"planned_steps":crate::read_jobs::safe_steps(stored.steps),
                 "workflow_state":row.get::<_,String>(9)?,"desired_action":row.get::<_,String>(10)?,"last_seen_at":row.get::<_,Option<String>>(11)?.map(|v|timestamp(&v)),
                 "encode_need":encode_need,"planned_change":planned_change,"converted_kept":row.get::<_,bool>(18)?,"fix_status":null,"pending_sidecars":0,"embed_sidecars":[],
                 "status_version":row.get::<_,i64>(12)?,"last_success_at":row.get::<_,Option<String>>(13)?.map(|v|timestamp(&v)),

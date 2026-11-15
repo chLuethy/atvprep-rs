@@ -1,6 +1,6 @@
 import { SessionError } from "../../lib/api";
-import type { EncodeNeed } from "../../lib/encode";
-import type { PlannedChange } from "../files/preparePlan";
+import type { EncodeNeed, PlannedChange } from "../../lib/encode";
+import type { PlanStep } from "../files/planSteps";
 import { jobListParams, type JobCounts, type JobFilter } from "./filters";
 import type { ItemStatus } from "./model";
 
@@ -48,8 +48,8 @@ export type ItemRow = {
   encode_need?: EncodeNeed | null;
   /** Only on a Vorbereiten item: the Änderungsart expected when it was queued. */
   planned_change?: PlannedChange | null;
-  /** Together with `planned_change`: the planned steps when queued, in the short form the preview reads. */
-  planned_steps?: string[] | null;
+  /** Together with `planned_change`: the planned steps when queued. */
+  planned_steps?: PlanStep[] | null;
   display_path?: string | null;
   error_code?: string | null;
   error_detail?: string | null;

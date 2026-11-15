@@ -4,7 +4,7 @@
 //! wrote, so signatures (ADR 0006/0007/0008) stay valid. Not to be confused with
 //! [`crate::snapshots`], the Input-Snapshot of a file's state.
 use crate::settings::TargetProfile;
-use atvprep_core::encode::EncodeAllowance;
+use atvprep_core::encode::{EncodeAllowance, PlanStep};
 use serde_json::{Value, json};
 
 /// The policy name of every job that may change files. Version 3 carries a per-item Kodierfreigabe
@@ -12,11 +12,11 @@ use serde_json::{Value, json};
 pub const PREPARE_POLICY: &str = "encode-v3";
 
 /// What Prepare is expected to do to one file when it is queued: the Änderungsart and the planned
-/// steps in the short form the preview builds its lines from.
+/// steps (the findings it resolves and the encodings the planner names).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PlannedChange {
     pub change: String,
-    pub steps: Vec<String>,
+    pub steps: Vec<PlanStep>,
 }
 
 /// The operator's explicit approval of a manual job.
@@ -185,8 +185,7 @@ impl PrepareSnapshot {
                     .map(Vec::as_slice)
                     .unwrap_or_default()
                     .iter()
-                    .filter_map(Value::as_str)
-                    .map(str::to_owned)
+                    .filter_map(PlanStep::from_stored)
                     .collect(),
             });
         let origin = if let Some(schedule) = snapshot.get("schedule_id").filter(|v| !v.is_null()) {
@@ -272,7 +271,18 @@ mod tests {
             force: true,
             planned: Some(PlannedChange {
                 change: "remux".to_owned(),
-                steps: vec!["[audio] aac".to_owned(), "[embed] subtitles: 2".to_owned()],
+                steps: vec![
+                    PlanStep::Text {
+                        text: "[audio] aac".to_owned(),
+                    },
+                    PlanStep::SampleRate {
+                        stream: 1,
+                        from_codec: "ac3".to_owned(),
+                        to_codec: "eac3".to_owned(),
+                        from_hz: 44100,
+                        to_hz: 48000,
+                    },
+                ],
             }),
             origin: Origin::Manual(ManualApproval {
                 approved_by: 7,
@@ -411,12 +421,17 @@ mod tests {
             EncodeAllowance::Audio,
             Some(PlannedChange {
                 change: "remux".to_owned(),
-                steps: vec!["a".to_owned()],
+                steps: vec![PlanStep::Text {
+                    text: "a".to_owned(),
+                }],
             }),
         );
         assert_eq!(item["encode"], "audio");
         assert_eq!(item["planned_change"], "remux");
-        assert_eq!(item["planned_steps"], json!(["a"]));
+        assert_eq!(
+            item["planned_steps"],
+            json!([{"kind": "text", "text": "a"}])
+        );
         let other = json!({"policy":"other"});
         assert_eq!(with_item(&other, EncodeAllowance::Copy, None), other);
     }
