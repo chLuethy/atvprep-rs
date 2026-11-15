@@ -9,8 +9,7 @@
 //! The facet takes the Auslöser as `trigger` and single schedules as `schedule_id`, both comma
 //! lists; together they are alternatives (OR): `trigger=manual&schedule_id=…` shows the jobs by hand and those
 //! from that schedule.
-use crate::filter_params::{MAX_PARAM, placeholders, tokens};
-use crate::opaque::Opaque;
+use crate::facets::{Alongside, Facet, Tokens, in_list};
 use rusqlite::types::Value;
 
 /// The Auslöser tokens in display order.
@@ -31,88 +30,38 @@ pub(crate) fn trigger_of() -> String {
     )
 }
 
-/// The chosen Auslöser and single schedules; both empty is every job.
-#[derive(Clone, Default)]
-pub(crate) struct TriggerChoice {
-    triggers: Vec<&'static str>,
-    schedules: Vec<i64>,
+fn trigger_tokens() -> Vec<&'static str> {
+    TRIGGERS.to_vec()
 }
 
-impl TriggerChoice {
-    /// Check `trigger` and `schedule_id` from the query; unknown tokens and foreign ids are refused.
-    pub(crate) fn parse(
-        trigger: Option<&str>,
-        schedule: Option<&str>,
-        opaque: &Opaque,
-    ) -> Result<Self, &'static str> {
-        if trigger.is_some_and(|v| v.chars().count() > MAX_PARAM)
-            || schedule.is_some_and(|v| v.chars().count() > MAX_SCHEDULE_PARAM)
-        {
-            return Err("invalid request");
-        }
-        let asked = tokens(trigger);
-        if asked.iter().any(|token| !TRIGGERS.contains(token)) {
-            return Err("invalid request");
-        }
-        let mut schedules = Vec::new();
-        for token in tokens(schedule) {
-            let id = opaque
-                .decode(token, "sc")
-                .ok()
-                .filter(|id| *id > 0)
-                .ok_or("invalid request")?;
-            if !schedules.contains(&id) {
-                schedules.push(id);
+/// The facet Auslöser of the job list: a job with any of the chosen Auslöser or single schedules
+/// shows. Unknown tokens and foreign schedule ids are refused.
+pub(crate) fn facet() -> Facet<'static> {
+    Facet::new(
+        "trigger",
+        Tokens::Fixed(trigger_tokens),
+        Box::new(|chosen, values| {
+            let (schedules, triggers): (Vec<Value>, Vec<Value>) = chosen
+                .iter()
+                .cloned()
+                .partition(|value| matches!(value, Value::Integer(_)));
+            let mut any = Vec::new();
+            if !triggers.is_empty() {
+                any.push(in_list(&trigger_of(), &triggers, values));
             }
-        }
-        if schedules.len() > MAX_SCHEDULES {
-            return Err("invalid request");
-        }
-        Ok(Self {
-            triggers: TRIGGERS
-                .into_iter()
-                .filter(|token| asked.contains(token))
-                .collect(),
-            schedules,
-        })
-    }
-
-    /// Only this one Auslöser, for its counter.
-    pub(crate) fn only_trigger(token: &'static str) -> Self {
-        Self {
-            triggers: vec![token],
-            schedules: Vec::new(),
-        }
-    }
-
-    /// Only this one schedule, for its counter.
-    pub(crate) fn only_schedule(id: i64) -> Self {
-        Self {
-            triggers: Vec::new(),
-            schedules: vec![id],
-        }
-    }
-
-    /// A clause true for a job with any of the choices, binding its values; None for no choice.
-    pub(crate) fn clause(&self, values: &mut Vec<Value>) -> Option<String> {
-        let mut any = Vec::new();
-        if !self.triggers.is_empty() {
-            values.extend(self.triggers.iter().map(|t| Value::from((*t).to_owned())));
-            any.push(format!(
-                "{} IN ({})",
-                trigger_of(),
-                placeholders(self.triggers.len())
-            ));
-        }
-        if !self.schedules.is_empty() {
-            values.extend(self.schedules.iter().map(|id| Value::from(*id)));
-            any.push(format!(
-                "{SCHEDULE_OF} IN ({})",
-                placeholders(self.schedules.len())
-            ));
-        }
-        (!any.is_empty()).then(|| format!("({})", any.join(" OR ")))
-    }
+            if !schedules.is_empty() {
+                any.push(in_list(SCHEDULE_OF, &schedules, values));
+            }
+            format!("({})", any.join(" OR "))
+        }),
+    )
+    .alongside(Alongside {
+        key: "schedule_id",
+        prefix: "sc",
+        options_sql: "SELECT id FROM schedules WHERE action!='scan' ORDER BY lower(name),id",
+        max_len: MAX_SCHEDULE_PARAM,
+        max_count: MAX_SCHEDULES,
+    })
 }
 
 /// The schedules a job can come from (every one but scans), by name: their ids and names.
