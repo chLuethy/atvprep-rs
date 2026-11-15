@@ -4,7 +4,7 @@ import type { FileRow, JobResult } from "./loaders";
 import { expectedChanges, summarizeChanges } from "./fixPlan";
 import { isMp4Like } from "./container";
 import type { EncodeNeed } from "../../lib/encode";
-import { changeLabel, needLabel, prepareConfirm } from "./preparePlan";
+import { changeLabel, findingLabel, needLabel, prepareConfirm } from "./preparePlan";
 import { createEncodeChoice, EncodeChoice, type EncodeLevel } from "./EncodeChoice";
 import { N, t, tn } from "../../lib/i18n";
 import { baseName, estimateMinutes, formatSize, languageName, parseReason, verdictOf } from "./model";
@@ -99,7 +99,7 @@ export const FixPreview: Component<{
               >
                 <ul class="plain changes">
                   <For each={changes}>{(change) => (
-                    <li class={`change ${change.kind}`}><span class="kind">{changeLabel(change.kind)}</span><span>{change.text}</span></li>
+                    <li class={`change ${change.kind}`}><span class="kind">{findingLabel(change.kind)}</span><span>{change.text}</span></li>
                   )}</For>
                 </ul>
                 <p class="muted">{summary.remux ? tn("{resolved} of {count} finding resolved, with a remux", "{resolved} of {count} findings resolved, with a remux", changes.length, { resolved: summary.resolved }) : tn("{resolved} of {count} finding resolved", "{resolved} of {count} findings resolved", changes.length, { resolved: summary.resolved })}</p>

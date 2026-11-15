@@ -7,6 +7,7 @@ export const dePreview: Record<string, string | readonly [string, string]> = {
   "Patch": "Patch",
   "Remux": "Remux",
   "Unchanged": "Unverändert",
+  "Encoding": "Kodierung",
   "No encoding": "Keine Kodierung",
   "Audio": "Audio",
   "Video": "Video",

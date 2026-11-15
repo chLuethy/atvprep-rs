@@ -9,6 +9,9 @@ const NEED_LABEL: Record<EncodeNeed, string> = { none: N("No encoding"), audio: 
 const CHANGE_LABEL: Record<PlannedChange, string> = { none: N("Unchanged"), patch: N("Patch"), remux: N("Remux"), audio: N("Audio encoding"), reencode: N("Re-encode"), unknown: N("Unknown") };
 
 export const needLabel = (need: EncodeNeed | undefined): string => t(NEED_LABEL[need ?? "unknown"]);
+/** What the preview calls one finding it resolves: every encoding is just "Encoding" there. */
+export const findingLabel = (change: PlannedChange): string =>
+  change === "audio" || change === "reencode" || change === "unknown" ? t(N("Encoding")) : changeLabel(change);
 export const changeLabel = (change: PlannedChange | undefined): string => t(CHANGE_LABEL[change ?? "unknown"]);
 
 export type PrepareConfirm = {

@@ -141,9 +141,9 @@ describe("FixPreview: the encoding allowance", () => {
   it("shows the need and the change of each file from the server, and an AAC track is no remux", () => {
     const view = show(row({ encode_need: "audio", planned_change: "audio", compliance_state: "warning", compliance_reasons: ["[warning] stereo-twin: 1 language has surround only"] }));
 
-    // Once as the file's change, once as the label of the finding it resolves.
-    expect(view.getAllByText("Audio encoding")).toHaveLength(2);
-    expect(view.getByText(/Add an AAC stereo track/).previousElementSibling).toHaveTextContent("Audio encoding");
+    // The file's change is named by the server; each finding it resolves keeps the preview's own label.
+    expect(view.getByText("Audio encoding")).toBeInTheDocument();
+    expect(view.getByText(/Add an AAC stereo track/).previousElementSibling).toHaveTextContent(/^Encoding$/);
     expect(view.queryByText("Remux")).not.toBeInTheDocument();
   });
 
