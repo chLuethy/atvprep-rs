@@ -157,13 +157,10 @@ pub fn execute_claimed(
         };
         if changing {
             // A job from an older policy can never become valid: refused for good, "queue it again".
-            if let Some(reason) = crate::approval::prepare_policy_block(&item.settings_snapshot) {
-                return Err(Error::Invalid(reason.to_owned()));
-            }
+            let queued = crate::prepare_snapshot::PrepareSnapshot::parse(&item.settings_snapshot)
+                .map_err(|refusal| Error::Invalid(refusal.message().to_owned()))?;
             // Signed for the profile it was queued under: a changed profile is a new decision.
-            if crate::approval::item_profile(&item.settings_snapshot)
-                != Some(crate::db::retry_busy(|| target_profile(ctx.conn))?)
-            {
+            if queued.profile != crate::db::retry_busy(|| target_profile(ctx.conn))? {
                 return Err(Error::Invalid(
                     "The target profile changed after this job was queued. Queue the preparation again."
                         .to_owned(),

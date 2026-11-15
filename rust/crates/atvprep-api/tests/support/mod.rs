@@ -121,8 +121,9 @@ impl Contract {
 
     pub fn assert_prepare_approvals(&self, expected: usize) {
         use atvprep_manager::{
-            approval::{ApprovalItem, ApprovalVerifier, prepare_policy_block},
+            approval::{ApprovalItem, ApprovalVerifier},
             jobs::Jobs,
+            prepare_snapshot::PrepareSnapshot,
             snapshots::InputSnapshots,
         };
         let conn = self.state.db.conn().unwrap();
@@ -151,19 +152,18 @@ impl Contract {
                     snapshot["file_ctime_ns"].clone(),
                     snapshot["sidecar_fingerprint"].clone(),
                 ];
+                let queued =
+                    PrepareSnapshot::parse(&item.settings_snapshot).expect("a valid snapshot");
                 let approval = ApprovalItem {
                     job_id: job,
                     media_id: item.media_file_id,
                     action: &item.action,
                     identity: &identity,
-                    encode: atvprep_manager::approval::item_encode(&item.settings_snapshot)
-                        .unwrap(),
-                    delete_original: item.settings_snapshot["delete_original"] == json!(true),
-                    force: atvprep_manager::approval::item_force(&item.settings_snapshot),
-                    profile: atvprep_manager::approval::item_profile(&item.settings_snapshot)
-                        .unwrap(),
+                    encode: queued.encode.unwrap(),
+                    delete_original: queued.delete_original,
+                    force: queued.force,
+                    profile: queued.profile,
                 };
-                assert_eq!(prepare_policy_block(&item.settings_snapshot), None);
                 assert_eq!(item.settings_snapshot["approved_by"], person);
                 assert!(item.settings_snapshot["approved_at"].as_i64().unwrap() > 0);
                 assert_eq!(

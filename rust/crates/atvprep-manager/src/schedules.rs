@@ -623,17 +623,19 @@ fn run_change_schedule(
     job.trigger = "manual";
     // Every item carries the signed Kodierfreigabe; the worker refuses one that differs.
     job.encode_media = media_ids.iter().map(|id| (*id, row.encode)).collect();
-    job.settings_snapshot = serde_json::json!({
-        "pipeline": "prepare",
-        "policy": crate::approval::PREPARE_POLICY,
-        "profile": profile.to_json(),
-
-        "delete_original": delete_original,
-        "delete_original_confirmed": false,
-        "manual_approval": false,
-        "schedule_id": schedule_id,
-        "schedule_params": params.to_json(),
-    });
+    job.settings_snapshot = crate::prepare_snapshot::PrepareSnapshot {
+        profile,
+        delete_original,
+        delete_original_confirmed: false,
+        encode: None,
+        force: false,
+        planned: None,
+        origin: crate::prepare_snapshot::Origin::Schedule {
+            schedule_id,
+            params: params.to_json(),
+        },
+    }
+    .to_json();
     let queued = Jobs(ctx).create(&job)?;
     let count = media_ids.len();
     finish(

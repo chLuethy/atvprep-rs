@@ -10,6 +10,7 @@ use atvprep_core::encode::EncodeAllowance;
 use atvprep_manager::{
     jobs::{Jobs, NewJob},
     media::Media,
+    prepare_snapshot::{ManualApproval, Origin, PrepareSnapshot},
     repo::Ctx,
     state_machine::JobStatus,
 };
@@ -111,19 +112,21 @@ fn queue_prepare(
     let profile =
         atvprep_manager::settings::target_profile(ctx.conn).map_err(|_| MutationError::Database)?;
     let approved_by = approver(ctx, state, decision.session_token)?;
-    new.settings_snapshot = json!({
-        "pipeline": "prepare",
-        "policy": atvprep_manager::approval::PREPARE_POLICY,
-        "profile": profile.to_json(),
-        "delete_original": delete_original,
-        "delete_original_confirmed": false,
-        "manual_approval": true,
-        "encode": decision.encode.as_str(),
-        "video_encode_confirmed": decision.video_confirmed,
-        "force": decision.force,
-        "approved_by": approved_by,
-        "approved_at": ctx.clock.now_micros() / 1_000_000,
-    });
+    new.settings_snapshot = PrepareSnapshot {
+        profile,
+        delete_original,
+        delete_original_confirmed: false,
+        encode: Some(decision.encode),
+        force: decision.force,
+        planned: None,
+        origin: Origin::Manual(ManualApproval {
+            approved_by,
+            approved_at: Some(ctx.clock.now_micros() / 1_000_000),
+            approval_mac: None,
+            video_encode_confirmed: decision.video_confirmed,
+        }),
+    }
+    .to_json();
     let job = Jobs(ctx).create(&new).map_err(creation_error)?;
     sign_job(ctx, state, job.id)?;
     Ok(job)
@@ -162,30 +165,26 @@ fn sign_job(ctx: Ctx<'_>, state: &AppState, job: i64) -> Result<(), MutationErro
             recorded["sidecar_fingerprint"].clone(),
         ];
         let mut snapshot = item.settings_snapshot;
-        let person = snapshot["approved_by"]
-            .as_i64()
-            .ok_or(MutationError::Database)?;
-        let time = snapshot["approved_at"]
-            .as_i64()
-            .ok_or(MutationError::Database)?;
-        snapshot["approval_mac"] = json!(
-            verifier.sign(
-                &ApprovalItem {
-                    job_id: job,
-                    media_id: item.media_file_id,
-                    action: &item.action,
-                    identity: &identity,
-                    encode: atvprep_manager::approval::item_encode(&snapshot)
-                        .ok_or(MutationError::Database)?,
-                    delete_original: snapshot["delete_original"] == json!(true),
-                    force: atvprep_manager::approval::item_force(&snapshot),
-                    profile: atvprep_manager::approval::item_profile(&snapshot)
-                        .ok_or(MutationError::Database)?,
-                },
-                person,
-                time
-            )
-        );
+        let queued = PrepareSnapshot::parse(&snapshot).map_err(|_| MutationError::Database)?;
+        let Origin::Manual(approval) = &queued.origin else {
+            return Err(MutationError::Database);
+        };
+        let person = approval.approved_by;
+        let time = approval.approved_at.ok_or(MutationError::Database)?;
+        snapshot["approval_mac"] = json!(verifier.sign(
+            &ApprovalItem {
+                job_id: job,
+                media_id: item.media_file_id,
+                action: &item.action,
+                identity: &identity,
+                encode: queued.encode.ok_or(MutationError::Database)?,
+                delete_original: queued.delete_original,
+                force: queued.force,
+                profile: queued.profile,
+            },
+            person,
+            time
+        ));
         ctx.conn
             .execute(
                 "UPDATE job_items SET settings_snapshot_json=?1 WHERE id=?2",
@@ -290,7 +289,7 @@ pub async fn raise_encode(
         body,
         move |ctx, state| {
             use atvprep_manager::{
-                approval::item_encode, state_machine::ItemStatus,
+                prepare_snapshot::PrepareSnapshot, state_machine::ItemStatus,
                 worker::execution::ENCODE_NOT_ALLOWED,
             };
             let opaque = Opaque::new(state.api_secret.as_bytes());
@@ -305,7 +304,11 @@ pub async fn raise_encode(
                 .ok_or(MutationError::NotFound)?;
             let refused = item.status == ItemStatus::Succeeded
                 && item.error_code.as_deref() == Some(ENCODE_NOT_ALLOWED);
-            let Some(current) = item_encode(&item.settings_snapshot).filter(|_| refused) else {
+            let Some(current) = PrepareSnapshot::parse(&item.settings_snapshot)
+                .ok()
+                .and_then(|queued| queued.encode)
+                .filter(|_| refused)
+            else {
                 return Err(MutationError::Rejected(
                     "only an item whose encoding was not allowed can be raised",
                 ));

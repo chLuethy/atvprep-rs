@@ -473,7 +473,7 @@ fn a_prepare_retry_needs_the_same_files_and_drops_the_old_approval() {
     let media = f.media(&["a.mp4"]);
     let jobs = Jobs(f.ctx());
     let mut new = NewJob::new("fix", &media);
-    new.settings_snapshot = json!({"pipeline": "prepare", "approval_mac": "abc", "approved_by": 1, "profile": atvprep_manager::settings::TargetProfile::default().to_json()});
+    new.settings_snapshot = json!({"pipeline": "prepare", "policy": atvprep_manager::approval::PREPARE_POLICY, "manual_approval": true, "encode": "copy", "approval_mac": "abc", "approved_by": 1, "profile": atvprep_manager::settings::TargetProfile::default().to_json()});
     let job = jobs.create(&new).unwrap();
     f.sql("UPDATE job_items SET status='failed'");
     let retry = jobs.retry(job.id, Some(42)).unwrap();

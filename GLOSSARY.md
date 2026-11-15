@@ -165,3 +165,7 @@ Merkmale einer Datei, die unabhängig vom Zustand gelten und sich überschneiden
 **Verwaiste Teilüberarbeitung**:
 Eine halbfertige Arbeitsdatei, die nach einem Absturz oder Abbruch eines Vorbereitens neben der Quelle zurückbleibt. Ist nie ein Ergebnis und wird beim Start des Managers aufgeräumt. Was dabei stehen bleibt, weil es noch zu einem laufenden Vorgang gehören könnte, meldet der Scan; der Betreiber entfernt es dort nach Bestätigung mit Anzahl und Größe. Entfernt wird nur, wenn beides noch stimmt und die Datei nicht zu laufender Arbeit gehört. Jede Löschung steht im Verlauf.
 _Avoid_: Temp-Datei, Leiche
+
+**Vorbereiten-Snapshot**:
+Die Einstellungen, unter denen ein Vorbereiten-Job und seine Items eingereiht wurden: Policy-Version, Zielprofil, Kodierfreigabe, Original löschen und entweder die Freigabe des Betreibers (manueller Auftrag) oder die signierten Parameter eines Zeitplans. Im Code `PrepareSnapshot` (`prepare_snapshot.rs`); die gespeicherte JSON-Form ist Teil der Signatur und darf sich nicht ändern. Nicht der Input-Snapshot, der den Dateistand festhält.
+_Avoid_: Settings-Snapshot (zu unscharf)
