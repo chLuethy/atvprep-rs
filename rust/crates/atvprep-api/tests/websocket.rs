@@ -366,3 +366,41 @@ async fn oversized_stored_payload_is_bounded_without_stopping_the_publisher() {
     assert_eq!(frame(&mut socket).await["sequence"], 3);
     socket.close(None).await.unwrap();
 }
+
+#[tokio::test]
+async fn a_scan_that_ends_reaches_the_socket_as_scan_finished() {
+    let fixture = Fixture::new().await;
+    let mut socket = fixture.connect("", Some("http://testserver"), true).await;
+    assert_eq!(frame(&mut socket).await["type"], "hello");
+    {
+        let conn = fixture.state.db.conn().unwrap();
+        let ctx = Ctx {
+            conn: conn.raw(),
+            clock: fixture.state.clock.as_ref(),
+        };
+        let root = atvprep_manager::library::LibraryRoots(ctx)
+            .create("Movies", "/movies")
+            .unwrap();
+        let scans = atvprep_manager::scans::Scans(ctx);
+        let scan = scans.start(root.id, 1, "scheduled").unwrap();
+        scans
+            .finish(
+                scan.id,
+                atvprep_manager::state_machine::ScanStatus::Succeeded,
+                true,
+            )
+            .unwrap();
+    }
+    let event = frame(&mut socket).await;
+    assert_eq!(event["type"], "event", "{event}");
+    assert_eq!(event["topic"], "scan.finished", "{event}");
+    assert_eq!(event["entity_type"], "library_root", "{event}");
+    assert!(
+        event["entity_id"].as_str().unwrap().starts_with("r_"),
+        "{event}"
+    );
+    assert_eq!(
+        event["payload"],
+        json!({"status":"succeeded","trigger":"scheduled"})
+    );
+}

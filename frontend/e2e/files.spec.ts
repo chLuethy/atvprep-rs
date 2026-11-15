@@ -9,6 +9,11 @@ test.describe("files journey", () => {
     await expect(page.getByRole("heading", { name: "Files" })).toBeVisible();
     await expect(page.getByRole("table", { name: "Media files" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
+    // Scanning lives on Schedules; the title row holds the search and the view switch.
+    await expect(page.getByRole("button", { name: /^Scan/ })).toHaveCount(0);
+    const titleRow = page.getByRole("heading", { level: 1, name: "Files" }).locator("..");
+    await expect(titleRow.getByRole("searchbox", { name: "Search files" })).toBeVisible();
+    await expect(titleRow.getByRole("group", { name: "Files view" })).toBeVisible();
 
     await page.getByLabel("Search files").fill("Sample Movie");
     const sampleLink = page.getByRole("link", { name: "Sample Movie" });
@@ -190,8 +195,19 @@ test.describe("files journey", () => {
     const left = async (name: string) => (await bar.getByRole("button", { name, exact: true }).boundingBox())!.x;
     expect(await left("Properties: Needs video encoding")).toBeLessThan(await left("Status"));
     await expect(facets.first()).toBeVisible();
-    // Search, view switch and the facet row fit the width; only the facet row scrolls.
+    // Sort and the facet row fit the width; only the facet row scrolls.
     expect(await bar.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    // The title row wraps instead of overlapping: title, search and view switch each keep their own room.
+    const heading = page.getByRole("heading", { level: 1, name: "Files" });
+    const titleRow = heading.locator("..");
+    expect(await titleRow.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    const boxes = await Promise.all([heading, titleRow.getByRole("searchbox", { name: "Search files" }), titleRow.getByRole("group", { name: "Files view" })]
+      .map(async (part) => (await part.boundingBox())!));
+    const apart = (a: typeof boxes[number], b: typeof boxes[number]) =>
+      a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y;
+    for (const [index, box] of boxes.entries()) {
+      for (const other of boxes.slice(index + 1)) expect(apart(box, other)).toBe(true);
+    }
 
     await bar.getByRole("button", { name: "Status", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Status" });
