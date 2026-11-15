@@ -69,6 +69,8 @@ pub(crate) struct Facet<'a> {
     /// `GROUP BY` instead of one query per option.
     group_key: Option<&'static str>,
     alongside: Option<Alongside>,
+    /// Its ids are resolved (and a missing one reported) before any other value is checked.
+    resolved_first: bool,
     clause: Clause<'a>,
 }
 
@@ -83,6 +85,7 @@ impl<'a> Facet<'a> {
             unknown: "invalid request",
             group_key: None,
             alongside: None,
+            resolved_first: false,
             clause,
         }
     }
@@ -109,6 +112,13 @@ impl<'a> Facet<'a> {
     /// Count the options with one `GROUP BY` on this SQL expression.
     pub(crate) fn grouped_by(mut self, group_key: &'static str) -> Self {
         self.group_key = Some(group_key);
+        self
+    }
+
+    /// Resolve this facet's ids, and report one that names nothing (404), before any other value is
+    /// checked. Without it every invalid value (422) is reported before an id that names nothing.
+    pub(crate) fn resolved_first(mut self) -> Self {
+        self.resolved_first = true;
         self
     }
 
@@ -184,12 +194,22 @@ impl<'a> FacetSet<'a> {
     }
 
     /// Check the address (`raw` gives the value of a key) and read the choices. Every length and
-    /// token is checked before an id is decoded, so that invalid input is reported before not found.
+    /// token is checked before an id is decoded, so that invalid input is reported before not found;
+    /// a facet that is [`Facet::resolved_first`] goes ahead of that, after its own length check.
     pub(crate) fn parse<'v>(
         &self,
         raw: &dyn Fn(&str) -> Option<&'v str>,
         opaque: &Opaque,
     ) -> Result<Selection, FacetError> {
+        let mut early: Vec<Option<Vec<Value>>> = vec![None; self.facets.len()];
+        for (index, facet) in self.facets.iter().enumerate() {
+            if facet.resolved_first {
+                if raw(facet.key).is_some_and(|v| v.chars().count() > facet.max_len) {
+                    return Err(FacetError::Invalid(facet.too_long));
+                }
+                early[index] = Some(Self::read(facet, raw, opaque)?);
+            }
+        }
         for facet in &self.facets {
             let value = raw(facet.key);
             if value.is_some_and(|v| v.chars().count() > facet.max_len) {
@@ -208,8 +228,11 @@ impl<'a> FacetSet<'a> {
             }
         }
         let mut chosen = Vec::with_capacity(self.facets.len());
-        for facet in &self.facets {
-            chosen.push(Self::read(facet, raw, opaque)?);
+        for (facet, resolved) in self.facets.iter().zip(early) {
+            chosen.push(match resolved {
+                Some(resolved) => resolved,
+                None => Self::read(facet, raw, opaque)?,
+            });
         }
         Ok(Selection { chosen })
     }
