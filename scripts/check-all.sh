@@ -2,7 +2,7 @@
 # The full gate before a commit or merge: Rust, frontend and the Playwright journeys.
 # Runs from any worktree; installs the frontend dependencies when they are missing.
 # `--no-e2e` skips the Playwright journeys (they build the SPA and the server, then start the
-# server on 127.0.0.1:8765 themselves).
+# server on a free port on 127.0.0.1 themselves).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
