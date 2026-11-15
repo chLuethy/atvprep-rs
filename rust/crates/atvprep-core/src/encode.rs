@@ -211,6 +211,16 @@ impl PlanStep {
         }
     }
 
+    /// The step with its text, if it is a text step, passed through `f`; any other step is data and
+    /// stays as it is.
+    #[must_use]
+    pub fn map_text(self, f: impl FnOnce(String) -> String) -> Self {
+        match self {
+            Self::Text { text } => Self::Text { text: f(text) },
+            data @ Self::SampleRate { .. } => data,
+        }
+    }
+
     /// The prefix older results put before a planner step they stored as text.
     pub const LEGACY_PREFIX: &'static str = "[plan] ";
 

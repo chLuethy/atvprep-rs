@@ -314,7 +314,7 @@ async fn an_item_of_an_older_job_shows_its_text_steps_as_text() {
     h.exec(
         "INSERT INTO jobs(id,action,status,trigger) VALUES(1,'fix','succeeded','manual');
          INSERT INTO job_items(id,job_id,media_file_id,action,position,status,settings_snapshot_json)
-           VALUES(1,1,1,'fix',0,'succeeded','{\"pipeline\":\"prepare\",\"policy\":\"encode-v3\",\"encode\":\"audio\",\"profile\":{\"crf\":18,\"fix_dts\":false,\"keep_av1\":false,\"prefer_hevc10\":false},\"planned_change\":\"audio\",\"planned_steps\":[\"[warning] fast-start: x\",\"[plan] audio stream #1 ac3 44100Hz -> eac3 48000Hz\"]}');",
+           VALUES(1,1,1,'fix',0,'succeeded','{\"pipeline\":\"prepare\",\"policy\":\"encode-v3\",\"encode\":\"audio\",\"profile\":{\"crf\":18,\"fix_dts\":false,\"keep_av1\":false,\"prefer_hevc10\":false},\"manual_approval\":true,\"approved_by\":1,\"planned_change\":\"audio\",\"planned_steps\":[\"[warning] fast-start: x\",\"[plan] audio stream #1 ac3 44100Hz -> eac3 48000Hz\"]}');",
     );
     let items = h
         .items(&Opaque::new(SECRET.as_bytes()).encode("j", 1))

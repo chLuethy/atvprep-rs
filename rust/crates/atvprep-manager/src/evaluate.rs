@@ -124,7 +124,7 @@ fn verify_verdict(result: &Value) -> Evaluation {
     }
     found.sort_by_key(|(severity, rule, message)| (*severity != "blocker", *rule, *message));
     let blocker = found.iter().any(|(severity, _, _)| *severity == "blocker");
-    let mut reasons: Vec<String> = found
+    let reasons: Vec<String> = found
         .iter()
         .map(|(severity, rule, message)| format!("[{severity}] {rule}: {message}"))
         .collect();
@@ -151,12 +151,7 @@ fn planned_steps(result: &Value) -> Vec<PlanStep> {
         .flatten()
         .filter_map(PlanStep::from_stored)
         .take(MAX_PLAN_STEPS)
-        .map(|step| match step {
-            PlanStep::Text { text } => PlanStep::Text {
-                text: text.chars().take(MAX_PLAN_STEP_CHARS).collect(),
-            },
-            other => other,
-        })
+        .map(|step| step.map_text(|text| text.chars().take(MAX_PLAN_STEP_CHARS).collect()))
         .collect()
 }
 

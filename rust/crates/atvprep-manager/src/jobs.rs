@@ -81,16 +81,13 @@ use atvprep_core::encode::PlanStep;
 
 /// A step of the planner's own is kept as it is; a step given as text is bounded.
 fn bounded_step(step: PlanStep) -> PlanStep {
-    let PlanStep::Text { text } = step else {
-        return step;
-    };
-    let mut end = text.len().min(MAX_PLANNED_STEP_BYTES);
-    while !text.is_char_boundary(end) {
-        end -= 1;
-    }
-    PlanStep::Text {
-        text: text[..end].to_owned(),
-    }
+    step.map_text(|text| {
+        let mut end = text.len().min(MAX_PLANNED_STEP_BYTES);
+        while !text.is_char_boundary(end) {
+            end -= 1;
+        }
+        text[..end].to_owned()
+    })
 }
 
 fn planned_change(conn: &rusqlite::Connection, media: i64) -> Result<Option<PlannedChange>> {

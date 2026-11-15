@@ -255,15 +255,11 @@ fn item_view(row: &rusqlite::Row<'_>, opaque: &Opaque) -> rusqlite::Result<((i64
 pub fn safe_steps(
     steps: Vec<atvprep_core::encode::PlanStep>,
 ) -> Vec<atvprep_core::encode::PlanStep> {
-    use atvprep_core::encode::PlanStep;
     steps
         .into_iter()
         .take(atvprep_manager::jobs::MAX_PLANNED_STEPS)
-        .map(|step| match step {
-            PlanStep::Text { text } => PlanStep::Text {
-                text: safe_head(&text, atvprep_manager::jobs::MAX_PLANNED_STEP_BYTES),
-            },
-            other => other,
+        .map(|step| {
+            step.map_text(|text| safe_head(&text, atvprep_manager::jobs::MAX_PLANNED_STEP_BYTES))
         })
         .collect()
 }
