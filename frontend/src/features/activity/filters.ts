@@ -1,6 +1,7 @@
 import { N } from "../../lib/i18n";
-import { canonical, list, sorted, type FilterEntry, type QuickFilter } from "../../ui/filterAddress";
-import type { FacetCounts } from "../../ui/FilterBar";
+import { canonical, list, sorted, type FacetFilterSpec, type FilterEntry, type QuickFilter } from "../../lib/facetFilter";
+import type { FacetCounts, FilterValue } from "../../ui/FilterBar";
+import { ACTIVE_STATUSES } from "./model";
 import { parsePeriod, periodAddress, periodServer, type JobPeriod } from "./period";
 
 /**
@@ -35,9 +36,6 @@ export const JOB_TRIGGERS: ReadonlyArray<FilterEntry> = [
   { token: "retry", label: N("Retried") },
   { token: "schedule", label: N("Schedules") },
 ];
-
-/** The statuses of a job that still waits or runs. */
-export const ACTIVE_STATUSES: ReadonlyArray<string> = ["queued", "running", "cancel_requested"];
 
 export type JobSort = "newest" | "oldest";
 
@@ -189,3 +187,28 @@ export const JOB_QUICK_FILTERS: ReadonlyArray<QuickFilter<JobFilter>> = [
 /** The quick filter the filter is exactly, the order aside, if any. */
 export const activeJobQuickFilter = (filter: JobFilter): QuickFilter<JobFilter> | undefined =>
   JOB_QUICK_FILTERS.find((entry) => sameJobFilter(entry.filter, { ...filter, sort: entry.filter.sort }));
+
+/**
+ * How the activity filter relates to its filter bar. The bar's period and library facets are the page's own
+ * (they need the libraries by name); it hands their value and their way back in as `period`.
+ */
+export const jobFilterSpec = (period?: {
+  value: () => FilterValue;
+  apply: (value: FilterValue, next: JobFilter) => JobFilter;
+}): FacetFilterSpec<JobFilter> => ({
+  empty: EMPTY_JOB_FILTER,
+  same: sameJobFilter,
+  isFiltered: isJobFiltered,
+  keep: (filter) => ({ sort: filter.sort }),
+  quick: JOB_QUICK_FILTERS,
+  searchOf: (filter) => filter.q,
+  withSearch: (filter, q) => ({ ...filter, q }),
+  toValue: (filter) => ({ status: filter.status, action: filter.action, trigger: filter.trigger ?? [], schedule: filter.schedule ?? [], ...period?.value() }),
+  fromValue: (value, current) => {
+    const { trigger: _trigger, schedule: _schedule, ...rest } = current;
+    const next: JobFilter = { ...rest, status: [...(value.status ?? [])], action: [...(value.action ?? [])] };
+    if ((value.trigger?.length ?? 0) > 0) next.trigger = [...(value.trigger ?? [])];
+    if ((value.schedule?.length ?? 0) > 0) next.schedule = [...(value.schedule ?? [])];
+    return period ? period.apply(value, next) : next;
+  },
+});

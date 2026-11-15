@@ -15,6 +15,8 @@ import {
   stateChoices, WEEKDAYS, weeklyCron, type ListFilter, type SortKey,
 } from "./model";
 import { ListToolbar } from "./ListToolbar";
+import { isScheduleFiltered, SCHEDULE_FILTER_SPEC, type ScheduleView } from "./filters";
+import { createFacetFilter } from "../../lib/facetFilter";
 
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
 type Phase = "loading" | "ready" | "error" | "session";
@@ -26,7 +28,13 @@ const blank = (): ScheduleInput => ({ name: "", action: "verify", rootId: null, 
 const problem = (detail: string | undefined, fallback: string) => (detail ? t("{fallback} The server said: {detail}.", { fallback, detail: describeProblem(detail) }) : fallback);
 
 /** Timetables that verify or prepare the files that match a filter, or scan the libraries. */
-export const SchedulesPage: Component<{ api: Api }> = (props) => {
+export const SchedulesPage: Component<{
+  api: Api;
+  /** The filter and order the address asks for; it is followed when it changes (Back). */
+  filter?: ScheduleView | undefined;
+  /** A filter or order chosen here, for the address. */
+  onFilter?: (view: ScheduleView, how: { replace: boolean }) => void;
+}> = (props) => {
   const [rows, setRows] = createSignal<Schedule[]>([]);
   /** What the server allows; null until it says (an older server never does). */
   const [limits, setLimits] = createSignal<Limits | null>(null);
@@ -43,11 +51,12 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
   const [guideOpen, setGuideOpen] = createSignal(false);
   /** What the server said about the cron text as it stands; null while that is not known yet. */
   const [preview, setPreview] = createSignal<CronPreview | null>(null);
-  const [sort, setSort] = createSignal<SortKey>("next");
-  const [filter, setFilter] = createSignal<ListFilter>({ actions: [], statuses: [] });
-  const shown = () => sortSchedules(filterSchedules(rows(), filter()), sort());
-  const filtered = () => filter().actions.length + filter().statuses.length > 0;
-  const resetFilters = () => setFilter({ actions: [], statuses: [] });
+  // The list is filtered and sorted here, as there are few schedules; the facet filter keeps the choice.
+  const facet = createFacetFilter(SCHEDULE_FILTER_SPEC, { filter: () => props.filter, onFilter: (next, how) => props.onFilter?.(next, how) });
+  const view = facet.filter;
+  const shown = () => sortSchedules(filterSchedules(rows(), view()), view().sort);
+  const filtered = () => isScheduleFiltered(view());
+  const resetFilters = facet.reset;
   let key = crypto.randomUUID();
   let newButton: HTMLButtonElement | undefined;
   let nameInput: HTMLInputElement | undefined;
@@ -505,7 +514,12 @@ export const SchedulesPage: Component<{ api: Api }> = (props) => {
               </div>
             }
           >
-            <ListToolbar sort={sort()} filter={filter()} filtered={filtered() && shown().length > 0} onSort={setSort} onFilter={setFilter} onReset={resetFilters} />
+            <ListToolbar
+              sort={view().sort} filter={view()} filtered={filtered() && shown().length > 0}
+              onSort={(sort: SortKey) => facet.change({ ...view(), sort })}
+              onFilter={(chosen: ListFilter) => facet.change({ ...view(), ...chosen })}
+              onReset={resetFilters}
+            />
             <Show
               when={shown().length > 0}
               fallback={
