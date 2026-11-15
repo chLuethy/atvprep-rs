@@ -325,6 +325,7 @@ describe("JobDetail: what happened", () => {
         "[warning] audio-sample-rate: ac-3 track id=2 sample rate 44100Hz (expected 48000)",
         "[warning] fast-start: moov atom appears after mdat",
         "[warning] avc-level-atv-limit: H.264 level 6.0 exceeds 5.2",
+        "[plan] audio stream #1 ac3 44100Hz -> eac3 48000Hz",
         "[embed] subtitles: 2",
       ],
     });
@@ -334,8 +335,8 @@ describe("JobDetail: what happened", () => {
     expect(within(plan).getByText("Audio encoding")).toBeInTheDocument();
     const steps = within(within(plan).getByRole("list", { name: "Planned steps" })).getAllByRole("listitem").map((step) => step.textContent);
     expect(steps).toEqual([
-      "AC-3 44.1 kHz → EAC3 48 kHz",
       "Rewrite the file with the index at the front (faststart)",
+      "AC-3 44.1 kHz → EAC3 48 kHz",
       "Merge 2 external subtitle files into the MP4",
     ]);
   });

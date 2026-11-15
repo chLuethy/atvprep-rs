@@ -101,13 +101,13 @@ impl TargetProfile {
     /// The profile in words, for an item's log.
     #[must_use]
     pub fn summary(self) -> String {
-        let yes = |set: bool| if set { "yes" } else { "no" };
+        use crate::worker::report_log::yes_no;
         format!(
             "crf {}, prefer HEVC 10-bit {}, keep AV1 {}, fix DTS {}",
             self.crf,
-            yes(self.prefer_hevc10),
-            yes(self.keep_av1),
-            yes(self.fix_dts)
+            yes_no(self.prefer_hevc10),
+            yes_no(self.keep_av1),
+            yes_no(self.fix_dts)
         )
     }
 

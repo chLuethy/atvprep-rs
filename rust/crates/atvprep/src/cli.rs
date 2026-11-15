@@ -482,6 +482,9 @@ struct JsonReport<'a> {
     /// The Änderungsart, alongside the need.
     #[serde(skip_serializing_if = "Option::is_none")]
     planned_change: Option<&'static str>,
+    /// The encodings the planner names, in its own words; left out when there are none.
+    #[serde(skip_serializing_if = "<[String]>::is_empty")]
+    planned_steps: &'a [String],
 }
 
 #[derive(Serialize)]
@@ -513,13 +516,14 @@ fn json_document(reports: &[VerifyReport], planned: Option<&[Option<PlannedChang
             .iter()
             .enumerate()
             .map(|(index, r)| {
-                let plan = planned.map(|all| all.get(index).copied().flatten());
+                let plan = planned.map(|all| all.get(index).and_then(Option::as_ref));
                 JsonReport {
                     path: r.path.to_string_lossy().into_owned(),
                     passed: r.passed(),
                     violations: &r.violations,
                     encode_need: plan.map(|p| need_name(p.map(|p| p.need))),
                     planned_change: plan.map(|p| p.map_or(UNKNOWN, |p| p.change.as_str())),
+                    planned_steps: plan.flatten().map_or(&[], |p| p.steps.as_slice()),
                 }
             })
             .collect(),

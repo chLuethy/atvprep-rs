@@ -2,6 +2,7 @@ import { SessionError } from "../../lib/api";
 import type { EncodeNeed } from "../../lib/encode";
 import type { PlannedChange } from "../files/preparePlan";
 import { jobListParams, type JobCounts, type JobFilter } from "./filters";
+import type { ItemStatus } from "./model";
 
 /** Data loading for the activity view. UI-free; every loader normalises SessionError. */
 
@@ -38,7 +39,7 @@ export type ItemRow = {
   media_id: string;
   action: string;
   position: number;
-  status: string;
+  status: ItemStatus;
   attempt: number;
   output_media_id: string | null;
   /** The Kodierfreigabe this item ran with. */

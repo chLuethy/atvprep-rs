@@ -29,7 +29,7 @@ use crate::mp4::tags::{PatchSummary, SubInfo};
 use crate::output::{patch_summary_lines, plan_table, stream_plan, verify_atmos_in_output};
 use crate::phase_timing::phase;
 use crate::pipeline_postfix::{RunContext, finalize_output};
-use crate::planner::{PlanOptions, build_plan};
+use crate::planner::{PlanOptions, RateChange, build_plan, rate_changes};
 use crate::postfix::bring_into_compliance;
 use crate::probe_helpers::{ProbeContext, is_atmos_audio, subtitle_infos};
 use crate::stages::Stage;
@@ -816,6 +816,10 @@ fn planned(ctx: &mut RunContext, run: &mut Run, target: &FdFixTarget) -> Step<Pl
     Ok(PlannedChange {
         need,
         change: ChangeKind::of(analysis.assessment.level, need),
+        steps: rate_changes(&analysis.probe, &analysis.assessment.duplicates)
+            .iter()
+            .map(RateChange::step)
+            .collect(),
     })
 }
 

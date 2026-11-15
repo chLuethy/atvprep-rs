@@ -4,6 +4,7 @@
 //! `ATVPREP_TRACE_PHASES=1` the phase timing writes one JSON line per phase on stderr. Both pipes
 //! are read line by line on their own, so output of one never breaks a line of the other.
 use super::{process::Stream, report_log};
+use atvprep_core::stages::{ERROR_MARKER, PLAN_MARKER, VERIFY_MARKER};
 use std::time::Duration;
 
 /// Reads the CLI's reports out of its output, chunk by chunk.
@@ -15,8 +16,14 @@ pub(super) struct PrepareReports {
 }
 
 impl PrepareReports {
-    /// The step lines the complete lines of `chunk` add, at `now_micros` (epoch microseconds).
-    pub fn take(&mut self, stream: Stream, chunk: &[u8], now_micros: i64) -> Vec<String> {
+    /// The step lines the complete lines of `chunk` add, at `now_micros` (epoch microseconds),
+    /// keeping the error the CLI reports among them for [`Self::error`].
+    pub fn step_lines_keeping_error(
+        &mut self,
+        stream: Stream,
+        chunk: &[u8],
+        now_micros: i64,
+    ) -> Vec<String> {
         let buffer = match stream {
             Stream::Stdout => &mut self.stdout,
             Stream::Stderr => &mut self.stderr,
@@ -46,7 +53,7 @@ impl PrepareReports {
     }
 
     fn machine(&mut self, line: &str) -> Option<String> {
-        if let Some(plan) = line.strip_prefix("ATVPREP-PLAN ") {
+        if let Some(plan) = line.strip_prefix(PLAN_MARKER) {
             return Some(format!("Plan {plan}"));
         }
         if line == "ATVPREP-SOURCE removed" {
@@ -60,10 +67,10 @@ impl PrepareReports {
                 format!("Original: kept ({why})")
             });
         }
-        if let Some(checked) = line.strip_prefix("ATVPREP-VERIFY ") {
+        if let Some(checked) = line.strip_prefix(VERIFY_MARKER) {
             return Some(format!("Check after prepare: {checked}"));
         }
-        if let Some(error) = line.strip_prefix("ATVPREP-ERROR ") {
+        if let Some(error) = line.strip_prefix(ERROR_MARKER) {
             self.error = Some(error.to_owned());
         }
         None

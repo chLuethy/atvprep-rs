@@ -76,10 +76,18 @@ export function runningFor(start: string | null | undefined, now: Date = new Dat
   return start ? formatElapsed(start, now.toISOString()) : "";
 }
 
-const ENDED_ITEM = new Set(["succeeded", "failed", "cancelled", "interrupted", "stale_input"]);
-const WAITING_ITEM = new Set(["queued", "claimed"]);
+/** The status of one job item, as the server names it. */
+export type ItemStatus =
+  | "queued" | "claimed" | "running" | "cancel_requested" | "cancelling"
+  | "succeeded" | "failed" | "cancelled" | "interrupted" | "stale_input";
+
+const ENDED_ITEM: ReadonlySet<ItemStatus> = new Set(["succeeded", "failed", "cancelled", "interrupted", "stale_input"]);
+const WAITING_ITEM: ReadonlySet<ItemStatus> = new Set(["queued", "claimed"]);
+const FAILED_ITEM: ReadonlySet<ItemStatus> = new Set(["failed", "stale_input", "interrupted"]);
 /** An item in one of these states will not change again. */
-export const isItemTerminal = (status: string) => ENDED_ITEM.has(status);
+export const isItemTerminal = (status: ItemStatus) => ENDED_ITEM.has(status);
+/** An item that ended without doing its work: what „Warum es fehlschlug“ lists. */
+export const isItemFailed = (status: ItemStatus) => FAILED_ITEM.has(status);
 
 /** How long an item has taken, as text: running for a while, took a while once it ended, nothing while it waits. */
 export function itemDuration(item: Pick<ItemRow, "status" | "started_at" | "finished_at">, now: Date): string {

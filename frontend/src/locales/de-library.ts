@@ -21,6 +21,7 @@ export const deLibrary: Record<string, string | readonly [string, string]> = {
   "Nothing selected can be inspected: the files are missing.": "Nichts Ausgewähltes lässt sich analysieren: die Dateien fehlen.",
   "Unable to read the folders. Try again.": "Die Ordner konnten nicht gelesen werden. Versuche es erneut.",
   "Search files": "Suchen",
+  "File search": "Dateisuche",
   "Files view": "Ansicht der Dateien",
   "List": "Liste",
   "Columns": "Spalten",

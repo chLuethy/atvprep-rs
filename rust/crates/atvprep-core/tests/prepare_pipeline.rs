@@ -727,6 +727,11 @@ fn ac3_at_44_1_khz_is_resampled_to_48_khz_and_then_passes_the_check() {
         (planned.need.as_str(), planned.change.as_str()),
         ("audio", "audio")
     );
+    // The planner names what it encodes, so nothing downstream has to guess codec or rate.
+    assert_eq!(
+        planned.steps,
+        ["audio stream #1 ac3 44100Hz -> eac3 48000Hz"]
+    );
     drop(target);
 
     // „Nur kopieren“ refuses and leaves the file as it was.

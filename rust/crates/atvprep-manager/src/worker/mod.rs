@@ -10,7 +10,7 @@ pub mod orphans;
 mod prepare_log;
 pub mod process;
 pub mod recovery;
-mod report_log;
+pub(crate) mod report_log;
 pub mod runtime;
 pub mod scan_service;
 pub mod scanner;

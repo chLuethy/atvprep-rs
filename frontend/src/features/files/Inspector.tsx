@@ -10,6 +10,7 @@ import {
   formatSize,
   languageName,
   parseReason,
+  planStep,
   summarizeInspection,
   verdictOf,
   wasJustFixed,
@@ -186,7 +187,8 @@ export const Inspector: Component<{
   const reasonTexts = createMemo(() => file()?.compliance_reasons ?? [], [], {
     equals: (a, b) => a.length === b.length && a.every((text, index) => text === b[index]),
   });
-  const reasons = createMemo(() => reasonTexts().map(parseReason));
+  // The planner's own steps follow the findings; they are no reason, the preview shows them.
+  const reasons = createMemo(() => reasonTexts().filter((text) => planStep(text) === null).map(parseReason));
   // Tracks come from the newest ffprobe inspection: a verify report is newer after a verify
   // but carries only violations, no streams.
   const latest = () => {

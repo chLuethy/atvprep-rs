@@ -166,10 +166,13 @@ impl ChangeKind {
 }
 
 /// What `prepare` would do to one file, as the planner sees it right now.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlannedChange {
     pub need: EncodeNeed,
     pub change: ChangeKind,
+    /// The encodings the plan names in its own words (`audio stream #1 ac3 44100Hz -> eac3
+    /// 48000Hz`), so no reader has to guess codec or rate.
+    pub steps: Vec<String>,
 }
 
 /// „Kodierung nicht freigegeben“: the plan needs more than the run was allowed.

@@ -5,6 +5,7 @@ import { N, t, tn } from "../../lib/i18n";
 import { autoDismiss } from "../../lib/autoDismiss";
 import { ColumnsView, type ColumnAction, type Picked } from "./ColumnsView";
 import { recallColumnPath, rememberColumnPath } from "./columnPath";
+import { recall, remember } from "../../lib/viewMemory";
 import { RowMenu, type MenuItem } from "./RowMenu";
 import { additive, copyText, selectionMenu } from "./selection";
 import { loadBelow } from "./browse";
@@ -22,10 +23,7 @@ import { isTyping } from "../../lib/keys";
 import { reuseUnchanged } from "../../lib/stable";
 import { realtimeState } from "../../lib/realtime";
 
-const VIEW_KEY = "atvprep.library.view";
-function readView(): "list" | "columns" {
-  try { return localStorage.getItem(VIEW_KEY) === "columns" ? "columns" : "list"; } catch { return "list"; }
-}
+const readView = (): "list" | "columns" => (recall("layout") === "columns" ? "columns" : "list");
 
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
 /** The orders of the sort control; the column headers set the same ones. */
@@ -100,7 +98,7 @@ export const LibraryPage: Component<{
   const setView = (next: "list" | "columns") => {
     setViewState(next);
     setPicked(new Set<string>());
-    try { localStorage.setItem(VIEW_KEY, next); } catch { /* the choice just is not remembered */ }
+    remember("layout", next);
   };
   const [missing, setMissing] = createSignal(0);
   const [deleteOriginal, setDeleteOriginal] = createSignal<boolean | null>(null);
@@ -594,7 +592,8 @@ export const LibraryPage: Component<{
         <div class="lib-bar">
           <div class="lib-bar-top lib-title-row">
             <h1>{t("Files")}</h1>
-            <div class="search">
+            {/* The search sits in the title row, outside the filter bar's landmark, so it gets its own. */}
+            <div class="search" role="search" aria-label={t("File search")}>
               <Icon name="search" />
               <input
                 ref={searchInput}
@@ -665,7 +664,6 @@ export const LibraryPage: Component<{
         <Show when={showColumns()}>
           <ColumnsView api={props.api} filter={filter()} sort={sort()} version={inspectorVersion()} activeId={props.activeId} clearToken={clearToken()}
             initialPath={recallColumnPath(filter())} onPath={(path) => rememberColumnPath(filter(), path)} onOpen={props.onOpen} onSelection={setColPicked} onAction={(action) => void actOnColumns(action)} />
-
         </Show>
         <div class="lib-scroll" hidden={showColumns()}>
           <Show when={phase() !== "loading"} fallback={<p class="muted pad">{t("Loading files")}</p>}>

@@ -310,11 +310,10 @@ pub fn execute_claimed(
         // „Prüfen“ runs against the profile of this moment; what it stored is checked again below.
         let verify_profile = crate::db::retry_busy(|| target_profile(ctx.conn))?;
         let inspect = !changing && item.action == "inspect";
-        output.step(&format!(
-            "Start: {}",
-            if changing { "prepare" } else { &item.action }
-        ))?;
-        output.step(&format!("File: {relative}"))?;
+        for line in report_log::opening(if changing { "prepare" } else { &item.action }, &relative)
+        {
+            output.step(&line)?;
+        }
         let arguments = if changing {
             prepare_arguments(target.leaf_name(), target.identity(), mode)
         } else if inspect {
@@ -327,12 +326,8 @@ pub fn execute_claimed(
         }
         output.step(&report_log::command(&config.executable, &arguments))?;
         if changing {
-            let yes = |set: bool| if set { "yes" } else { "no" };
-            output.step(&format!("Encode allowance: {}", mode.encode.as_str()))?;
-            output.step(&format!("Target profile: {}", mode.profile.summary()))?;
-            output.step(&format!("Delete original: {}", yes(mode.delete_original)))?;
-            if mode.force {
-                output.step("Force: yes")?;
+            for line in report_log::prepare_frame(mode) {
+                output.step(&line)?;
             }
         } else if !inspect {
             output.step(&format!("Target profile: {}", verify_profile.summary()))?;
@@ -358,7 +353,9 @@ pub fn execute_claimed(
                 &mut cancelled,
                 |stream, chunk| {
                     output.feed(chunk, false)?;
-                    for line in reports.take(stream, chunk, ctx.clock.now_micros()) {
+                    for line in
+                        reports.step_lines_keeping_error(stream, chunk, ctx.clock.now_micros())
+                    {
                         output.step(&line)?;
                     }
                     Ok(())
@@ -465,21 +462,16 @@ pub fn execute_claimed(
                 for line in report_log::rules(report) {
                     output.step(&line)?;
                 }
-                let (state, need, change): (String, Option<String>, Option<String>) =
-                    crate::db::retry_busy(|| {
-                        Ok(ctx.conn.query_row(
-                            "SELECT compliance_state,encode_need,planned_change FROM media_files WHERE id=?1",
-                            [item.media_file_id],
-                            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-                        )?)
-                    })?;
-                let unknown = || "unknown".to_owned();
-                output.step(&format!("State: {state}"))?;
-                output.step(&format!("Encode need: {}", need.unwrap_or_else(unknown)))?;
-                output.step(&format!(
-                    "Planned change: {}",
-                    change.unwrap_or_else(unknown)
-                ))?;
+                let stored = crate::db::retry_busy(|| {
+                    crate::media::Media(ctx).stored_verdict(item.media_file_id)
+                })?;
+                for line in report_log::stored_verdict(
+                    &stored.state,
+                    stored.encode_need.as_deref(),
+                    stored.planned_change.as_deref(),
+                ) {
+                    output.step(&line)?;
+                }
             }
         }
         if changing {
@@ -529,32 +521,16 @@ pub fn execute_claimed(
             StopReason::Exited => None,
         };
         // The log is written while the item still runs: its last line comes before its end.
-        output.step(&format!(
-            "Exit code: {}",
-            process
-                .exit_code
-                .map_or_else(|| "none".to_owned(), |code| code.to_string())
-        ))?;
-        output.step(&format!(
-            "Duration: {}",
-            report_log::duration(started.elapsed())
-        ))?;
-        let closing = match terminal {
-            ItemStatus::Interrupted => Some("Interrupted: the manager is shutting down".to_owned()),
-            ItemStatus::Cancelled => Some("Cancelled".to_owned()),
-            ItemStatus::Failed => Some(format!(
-                "Failed: {}: {}",
-                code.unwrap_or("failed"),
-                match (process.reason, process.exit_code) {
-                    (StopReason::TimedOut, _) => "the tool ran out of time".to_owned(),
-                    (_, Some(_)) if let Some(error) = reports.error() => error.to_owned(),
-                    (_, Some(exit)) => format!("the tool exited with code {exit}"),
-                    (_, None) => "the tool stopped without an exit code".to_owned(),
-                }
-            )),
-            _ => refusal.clone(),
-        };
-        if let Some(closing) = closing {
+        for line in report_log::ending(process.exit_code, started.elapsed()) {
+            output.step(&line)?;
+        }
+        if let Some(closing) = report_log::closing(
+            terminal,
+            code,
+            &process,
+            reports.error(),
+            refusal.as_deref(),
+        ) {
             output.step(&closing)?;
         }
         output.finish()?;
@@ -581,10 +557,7 @@ pub fn execute_claimed(
         }
         Err(error) => {
             // The cause is the last line; without authority or a running item nothing lands.
-            let _ = output.step(&format!(
-                "Failed: {}: {error}",
-                report_log::error_code(&error)
-            ));
+            let _ = output.step(&report_log::failed_by(&error));
             let _ = output.finish();
             // The permit must go back whatever the cleanup does, or the gate never quiesces.
             let cleanup = (|| -> Result<()> {
