@@ -1,7 +1,83 @@
 //! Step lines for an item's log, made from what a tool was given and what it reported.
-use crate::Error;
+use super::process::{PrepareMode, ProcessResult, StopReason};
+use crate::{Error, state_machine::ItemStatus};
 use serde_json::Value;
 use std::{path::Path, time::Duration};
+
+/// `yes` or `no`, as a log line spells a setting.
+pub(crate) const fn yes_no(set: bool) -> &'static str {
+    if set { "yes" } else { "no" }
+}
+
+/// The opening lines of an item: what runs and on which file.
+pub(super) fn opening(action: &str, relative: &str) -> [String; 2] {
+    [format!("Start: {action}"), format!("File: {relative}")]
+}
+
+/// The frame of a Vorbereiten run: Kodierfreigabe, Zielprofil, Original löschen and a forced rebuild.
+pub(super) fn prepare_frame(mode: PrepareMode) -> Vec<String> {
+    let mut lines = vec![
+        format!("Encode allowance: {}", mode.encode.as_str()),
+        format!("Target profile: {}", mode.profile.summary()),
+        format!("Delete original: {}", yes_no(mode.delete_original)),
+    ];
+    if mode.force {
+        lines.push("Force: yes".to_owned());
+    }
+    lines
+}
+
+/// What a check stored for the file: state, Kodierbedarf and Änderungsart, `unknown` where unset.
+pub(super) fn stored_verdict(state: &str, need: Option<&str>, change: Option<&str>) -> [String; 3] {
+    [
+        format!("State: {state}"),
+        format!("Encode need: {}", need.unwrap_or("unknown")),
+        format!("Planned change: {}", change.unwrap_or("unknown")),
+    ]
+}
+
+/// How the tool ended and how long the item took.
+pub(super) fn ending(exit_code: Option<i32>, elapsed: Duration) -> [String; 2] {
+    [
+        format!(
+            "Exit code: {}",
+            exit_code.map_or_else(|| "none".to_owned(), |code| code.to_string())
+        ),
+        format!("Duration: {}", duration(elapsed)),
+    ]
+}
+
+/// The last line of an item that ended as `terminal`: why it stopped, failed (`code` and the
+/// `error` the CLI reported, or what the process tells), or the `refusal` of a file above its
+/// Kodierfreigabe. `None` when nothing more is to be said.
+pub(super) fn closing(
+    terminal: ItemStatus,
+    code: Option<&str>,
+    process: &ProcessResult,
+    error: Option<&str>,
+    refusal: Option<&str>,
+) -> Option<String> {
+    match terminal {
+        ItemStatus::Interrupted => Some("Interrupted: the manager is shutting down".to_owned()),
+        ItemStatus::Cancelled => Some("Cancelled".to_owned()),
+        ItemStatus::Failed => Some(format!(
+            "Failed: {}: {}",
+            code.unwrap_or("failed"),
+            match (process.reason, process.exit_code) {
+                (StopReason::TimedOut, _) => "the tool ran out of time".to_owned(),
+                (_, Some(_)) if let Some(error) = error => error.to_owned(),
+                (_, Some(exit)) => format!("the tool exited with code {exit}"),
+                (_, None) => "the tool stopped without an exit code".to_owned(),
+            }
+        )),
+        _ => refusal.map(str::to_owned),
+    }
+}
+
+/// The last line of an item an error ended.
+pub(super) fn failed_by(error: &Error) -> String {
+    format!("Failed: {}: {error}", error_code(error))
+}
 
 /// `Command: <tool> <arguments>`, the tool named by its file name alone.
 pub(super) fn command(executable: &Path, arguments: &[String]) -> String {

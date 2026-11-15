@@ -25,6 +25,13 @@ use std::io::Write;
 
 use crate::encode::EncodeRefusal;
 
+/// The start of the line that says what the plan does with one stream.
+pub const PLAN_MARKER: &str = "ATVPREP-PLAN ";
+/// The start of the line that says how the check after the run ended.
+pub const VERIFY_MARKER: &str = "ATVPREP-VERIFY ";
+/// The start of the line that says why a file failed.
+pub const ERROR_MARKER: &str = "ATVPREP-ERROR ";
+
 /// Share of the whole run, as `(start, end)` percent. Without an encode the file is only patched.
 const WITH_ENCODE: [(Stage, u32, u32); 3] = [
     (Stage::Encode, 0, 90),
@@ -198,14 +205,14 @@ impl StageReporter {
 
     /// Say what the plan does with one stream (see `output::stream_plan`).
     pub fn plan(&mut self, stream: &str) {
-        self.line(&format!("ATVPREP-PLAN {}", one_line(stream)));
+        self.line(&format!("{PLAN_MARKER}{}", one_line(stream)));
     }
 
     /// Say how the check after the run ended.
     pub fn checked(&mut self, report: &crate::verify::VerifyReport) {
         let count = |n: usize, what: &str| format!("{n} {what}{}", if n == 1 { "" } else { "s" });
         self.line(&format!(
-            "ATVPREP-VERIFY {}, {}, {}",
+            "{VERIFY_MARKER}{}, {}, {}",
             if report.passed() { "passed" } else { "failed" },
             count(report.blockers().len(), "blocker"),
             count(report.warnings().len(), "warning")
@@ -214,7 +221,7 @@ impl StageReporter {
 
     /// Say why a file failed.
     pub fn error(&mut self, message: &str) {
-        self.line(&format!("ATVPREP-ERROR {}", one_line(message)));
+        self.line(&format!("{ERROR_MARKER}{}", one_line(message)));
     }
 
     /// End the current file's display. Nothing is shown on a terminal yet, so this only keeps the
