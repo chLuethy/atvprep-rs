@@ -22,7 +22,7 @@ Einstiegspunkte nach Modul und Konzept, nicht nach Funktion. Suche den Namen im 
 
 ## Manager (`rust/crates/atvprep-manager/src`)
 
-- **Worker-Ausführung.** `worker/execution.rs` führt beanspruchte Items aus, `worker/process.rs` startet die Prozesse.
+- **Worker-Ausführung.** `worker/execution.rs` ist die Hülle (Lease, Fencing, Permit, Zustandsübergänge des Items). `worker/action.rs` hält je Aktion (Vorbereiten, Prüfen, Analysieren) Argumente, Deutung des Prozessergebnisses und Protokollzeilen; Seams sind `ProcessAdapter` (echter Kindprozess oder festes Ergebnis), `Sink` und `Shell`. `worker/process.rs` startet die Prozesse.
 - **Item-Protokoll.** `worker/logs.rs` (`ItemLog`, begrenzt, Schrittzeilen bleiben ganz), `worker/report_log.rs` und `worker/prepare_log.rs` (Schrittzeilen aus dem, was das Werkzeug meldet).
 - **Migrationen.** `schema.rs` führt `migrations/000N_name.sql` der Reihe nach aus; `PRAGMA user_version` ist die Version. Neu: Datei anlegen, in `STAGES` anhängen, `VERSION` erhöhen.
 
