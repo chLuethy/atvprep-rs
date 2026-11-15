@@ -454,10 +454,28 @@ impl<'f> NewJobSpec<'f, '_> {
     /// Panics when a repository refuses the data; this is test tooling.
     #[must_use]
     pub fn create(self) -> i64 {
-        let mut new = NewJob::new(self.action, self.files);
+        let action: atvprep_manager::state_machine::JobAction = self.action.parse().unwrap();
+        let mut new = NewJob::new(action, self.files);
         new.trigger = self.trigger;
         new.settings_snapshot = self.settings;
         let job = Jobs(self.fx.ctx()).create(&new).unwrap().id;
+        // A historical stored form (ADR 0008) is laid down as asked, the repository writes the new one.
+        if self.action != action.stored() {
+            self.fx
+                .conn
+                .execute(
+                    "UPDATE jobs SET action=?2 WHERE id=?1",
+                    rusqlite::params![job, self.action],
+                )
+                .unwrap();
+            self.fx
+                .conn
+                .execute(
+                    "UPDATE job_items SET action=?2 WHERE job_id=?1",
+                    rusqlite::params![job, self.action],
+                )
+                .unwrap();
+        }
         if let Some(status) = self.status {
             self.fx
                 .conn

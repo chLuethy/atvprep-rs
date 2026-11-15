@@ -81,7 +81,9 @@ impl Library {
                 },
             )
             .unwrap();
-        let job = Jobs(ctx).create(&NewJob::new(action, &[media.id])).unwrap();
+        let job = Jobs(ctx)
+            .create(&NewJob::new(action.parse().unwrap(), &[media.id]))
+            .unwrap();
         let mut lease = MediaExecutorLease::new(ctx);
         assert!(lease.acquire("worker", 30).unwrap());
         let fence = lease.fencing_token.unwrap();

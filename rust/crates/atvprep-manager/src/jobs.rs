@@ -13,15 +13,14 @@ use crate::events::Events;
 use crate::models::{Job, JobItem};
 use crate::repo::Ctx;
 use crate::snapshots::{InputSnapshot, InputSnapshots, build_for_media, compare_snapshot};
-use crate::state_machine::{ItemStatus, JobStatus};
+use crate::state_machine::{ItemStatus, JobAction, JobStatus};
 use crate::{Error, Result};
 
-const ACTIONS: [&str; 4] = ["inspect", "verify", "fix", "convert"];
 const TRIGGERS: [&str; 3] = ["automatic", "manual", "retry"];
 
 /// What a new job is made of.
 pub struct NewJob<'a> {
-    pub action: &'a str,
+    pub action: JobAction,
     pub media_ids: &'a [i64],
     pub trigger: &'a str,
     pub settings_revision: i64,
@@ -35,7 +34,7 @@ pub struct NewJob<'a> {
 
 impl<'a> NewJob<'a> {
     #[must_use]
-    pub fn new(action: &'a str, media_ids: &'a [i64]) -> Self {
+    pub fn new(action: JobAction, media_ids: &'a [i64]) -> Self {
         Self {
             action,
             media_ids,
@@ -177,9 +176,10 @@ impl Jobs<'_> {
 
     fn active_mutation_exists(&self, media_ids: &[i64]) -> Result<bool> {
         let sql = format!(
-            "SELECT 1 FROM job_items WHERE media_file_id IN ({}) AND action IN ('fix','convert')
+            "SELECT 1 FROM job_items WHERE media_file_id IN ({}) AND action IN {}
              AND status NOT IN {} LIMIT 1",
             item_columns_in(media_ids),
+            JobAction::Prepare.stored_sql_list(),
             ItemStatus::terminal_sql_list()
         );
         Ok(self
@@ -230,10 +230,10 @@ impl Jobs<'_> {
                 "job must contain at least one media item".to_owned(),
             ));
         }
-        if !ACTIONS.contains(&new.action) || !TRIGGERS.contains(&new.trigger) {
+        if new.action == JobAction::Scan || !TRIGGERS.contains(&new.trigger) {
             return Err(Error::Invalid("invalid job action or trigger".to_owned()));
         }
-        if matches!(new.action, "fix" | "convert") && self.active_mutation_exists(new.media_ids)? {
+        if new.action.changes_files() && self.active_mutation_exists(new.media_ids)? {
             return Err(Error::Invalid(
                 "active job item already exists for media".to_owned(),
             ));
@@ -261,7 +261,7 @@ impl Jobs<'_> {
             self.insert_item(&ItemSeed {
                 job_id,
                 media_file_id: *media_id,
-                action: new.action,
+                action: new.action.stored(),
                 position,
                 origin_item_id: None,
                 input: &input,
@@ -278,7 +278,7 @@ impl Jobs<'_> {
             "job.created",
             "job",
             job_id,
-            &json!({"action": new.action, "item_count": new.media_ids.len()}),
+            &json!({"action": new.action.stored(), "item_count": new.media_ids.len()}),
             None,
         )?;
         self.require(job_id)
@@ -400,7 +400,7 @@ impl Jobs<'_> {
             ));
         }
         let media_ids: Vec<i64> = retry_items.iter().map(|i| i.media_file_id).collect();
-        if matches!(original.action.as_str(), "fix" | "convert")
+        if original.action.parse::<JobAction>()?.changes_files()
             && self.active_mutation_exists(&media_ids)?
         {
             return Err(Error::Invalid(

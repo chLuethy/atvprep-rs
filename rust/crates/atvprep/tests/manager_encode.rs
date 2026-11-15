@@ -197,7 +197,7 @@ fn world_profiled(
         )
         .unwrap();
     let ids: Vec<i64> = media.iter().map(|(_, id)| *id).collect();
-    let mut new = NewJob::new("fix", &ids);
+    let mut new = NewJob::new(atvprep_manager::state_machine::JobAction::Prepare, &ids);
     new.trigger = "manual";
     new.settings_snapshot = json!({"pipeline":"prepare","policy":PREPARE_POLICY,
         "delete_original":delete_original,"force":force,"manual_approval":true,"approved_by":1,
@@ -298,7 +298,12 @@ impl World {
         let ctx = self.ctx(&clock);
         let media = self.media[0].1;
         let ids = [media];
-        let job = Jobs(ctx).create(&NewJob::new("verify", &ids)).unwrap();
+        let job = Jobs(ctx)
+            .create(&NewJob::new(
+                atvprep_manager::state_machine::JobAction::Verify,
+                &ids,
+            ))
+            .unwrap();
         let (item, result) = self.run_item_of(job.id);
         result.unwrap();
         self.assert_checked(item);
@@ -1116,7 +1121,10 @@ impl World {
         let clock = SystemClock;
         let ids: Vec<i64> = self.media.iter().map(|(_, id)| *id).collect();
         let job = Jobs(self.ctx(&clock))
-            .create(&NewJob::new("verify", &ids))
+            .create(&NewJob::new(
+                atvprep_manager::state_machine::JobAction::Verify,
+                &ids,
+            ))
             .unwrap();
         for _ in &ids {
             let (item, result) = self.run_item_of(job.id);

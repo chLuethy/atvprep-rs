@@ -89,7 +89,7 @@ fn parent_and_items_persist_with_snapshots_and_a_created_event() {
     let f = Fixture::new();
     let media = f.media(&["a.mp4", "b.mp4"]);
     let jobs = Jobs(f.ctx());
-    let mut new = NewJob::new("fix", &media);
+    let mut new = NewJob::new(atvprep_manager::state_machine::JobAction::Prepare, &media);
     new.trigger = "manual";
     new.settings_revision = 4;
     new.settings_snapshot = json!({"media_limit": 1});
@@ -127,14 +127,20 @@ fn invalid_jobs_are_refused() {
     let media = f.media(&["a.mp4"]);
     let jobs = Jobs(f.ctx());
     assert_eq!(
-        error_text(jobs.create(&NewJob::new("fix", &[]))),
+        error_text(jobs.create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Prepare,
+            &[]
+        ))),
         "job must contain at least one media item"
     );
     assert_eq!(
-        error_text(jobs.create(&NewJob::new("bogus", &media))),
+        error_text(jobs.create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Scan,
+            &media
+        ))),
         "invalid job action or trigger"
     );
-    let mut bad = NewJob::new("fix", &media);
+    let mut bad = NewJob::new(atvprep_manager::state_machine::JobAction::Prepare, &media);
     bad.trigger = "bogus";
     assert_eq!(
         error_text(jobs.create(&bad)),
@@ -147,9 +153,17 @@ fn mutating_items_are_unique_while_unfinished_and_a_retry_keeps_its_origin() {
     let f = Fixture::new();
     let media = f.media(&["a.mp4"]);
     let jobs = Jobs(f.ctx());
-    let first = jobs.create(&NewJob::new("convert", &media)).unwrap();
+    let first = jobs
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Prepare,
+            &media,
+        ))
+        .unwrap();
     assert_eq!(
-        error_text(jobs.create(&NewJob::new("fix", &media))),
+        error_text(jobs.create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Prepare,
+            &media
+        ))),
         "active job item already exists for media"
     );
     f.sql("UPDATE job_items SET status='failed'");
@@ -177,11 +191,26 @@ fn inspect_items_can_share_media_and_the_schema_guards_hold() {
     let f = Fixture::new();
     let media = f.media(&["a.mp4"]);
     let jobs = Jobs(f.ctx());
-    let first = jobs.create(&NewJob::new("inspect", &media)).unwrap();
-    let second = jobs.create(&NewJob::new("inspect", &media)).unwrap();
+    let first = jobs
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Inspect,
+            &media,
+        ))
+        .unwrap();
+    let second = jobs
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Inspect,
+            &media,
+        ))
+        .unwrap();
     assert_ne!(first.id, second.id);
     assert_eq!(
-        jobs.create(&NewJob::new("fix", &media)).unwrap().action,
+        jobs.create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Prepare,
+            &media
+        ))
+        .unwrap()
+        .action,
         "fix"
     );
     let item = jobs.items(first.id).unwrap()[0].id;
@@ -205,7 +234,12 @@ fn a_plain_claim_takes_the_first_queued_item_once_and_never_from_a_finished_pare
     let f = Fixture::new();
     let media = f.media(&["a.mp4"]);
     let jobs = Jobs(f.ctx());
-    let job = jobs.create(&NewJob::new("inspect", &media)).unwrap();
+    let job = jobs
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Inspect,
+            &media,
+        ))
+        .unwrap();
     let claimed = jobs
         .claim_item(job.id, "worker-a", 7, 30, &ClaimLimits::default())
         .unwrap()
@@ -236,7 +270,12 @@ fn a_plain_claim_takes_the_first_queued_item_once_and_never_from_a_finished_pare
     );
 
     let other = f.media_second();
-    let second = jobs.create(&NewJob::new("inspect", &other)).unwrap();
+    let second = jobs
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Inspect,
+            &other,
+        ))
+        .unwrap();
     f.sql(&format!(
         "UPDATE jobs SET status='cancelled' WHERE id={}",
         second.id
@@ -273,7 +312,12 @@ fn a_media_claim_needs_the_current_lease_and_respects_the_live_limit() {
     Settings(f.ctx())
         .set("max_ffmpeg_workers", &json!(1), "test", None)
         .unwrap();
-    let job = jobs.create(&NewJob::new("fix", &media)).unwrap();
+    let job = jobs
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Prepare,
+            &media,
+        ))
+        .unwrap();
 
     // No lease yet, or the wrong token: nothing is claimed.
     assert!(
@@ -332,8 +376,18 @@ fn verifies_are_limited_by_the_probe_setting_among_verifies_only() {
     Settings(f.ctx())
         .set("max_probe_workers", &json!(1), "test", None)
         .unwrap();
-    let heavy = jobs.create(&NewJob::new("fix", &media[..1])).unwrap();
-    let verify = jobs.create(&NewJob::new("verify", &media)).unwrap();
+    let heavy = jobs
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Prepare,
+            &media[..1],
+        ))
+        .unwrap();
+    let verify = jobs
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Verify,
+            &media,
+        ))
+        .unwrap();
     assert!(
         jobs.claim_media_item(heavy.id, "w", 3, 30, 1)
             .unwrap()
@@ -357,7 +411,12 @@ fn heartbeat_progress_and_log_belong_to_the_fenced_owner() {
     let f = Fixture::new();
     let media = f.media(&["a.mp4"]);
     let jobs = Jobs(f.ctx());
-    let job = jobs.create(&NewJob::new("fix", &media)).unwrap();
+    let job = jobs
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Prepare,
+            &media,
+        ))
+        .unwrap();
     f.lease(7);
     let item = jobs
         .claim_media_item(job.id, "w", 7, 30, 1)
@@ -406,7 +465,14 @@ fn clear_finished_hides_only_the_requested_finished_statuses() {
     let jobs = Jobs(f.ctx());
     let ids: Vec<i64> = media
         .iter()
-        .map(|m| jobs.create(&NewJob::new("verify", &[*m])).unwrap().id)
+        .map(|m| {
+            jobs.create(&NewJob::new(
+                atvprep_manager::state_machine::JobAction::Verify,
+                &[*m],
+            ))
+            .unwrap()
+            .id
+        })
         .collect();
     f.sql(&format!(
         "UPDATE jobs SET status='failed' WHERE id={}",
@@ -441,7 +507,12 @@ fn a_retry_copies_only_the_retryable_items_of_a_mixed_result() {
     let f = Fixture::new();
     let media = f.media(&["succeeded.mp4", "failed.mp4", "cancelled.mp4"]);
     let jobs = Jobs(f.ctx());
-    let job = jobs.create(&NewJob::new("verify", &media)).unwrap();
+    let job = jobs
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Verify,
+            &media,
+        ))
+        .unwrap();
     f.sql("UPDATE job_items SET status='succeeded' WHERE position=0");
     f.sql("UPDATE job_items SET status='failed' WHERE position=1");
     f.sql("UPDATE job_items SET status='cancelled' WHERE position=2");
@@ -472,7 +543,7 @@ fn a_prepare_retry_needs_the_same_files_and_drops_the_old_approval() {
     let f = Fixture::new();
     let media = f.media(&["a.mp4"]);
     let jobs = Jobs(f.ctx());
-    let mut new = NewJob::new("fix", &media);
+    let mut new = NewJob::new(atvprep_manager::state_machine::JobAction::Prepare, &media);
     new.settings_snapshot = json!({"pipeline": "prepare", "policy": atvprep_manager::approval::PREPARE_POLICY, "manual_approval": true, "encode": "copy", "approval_mac": "abc", "approved_by": 1, "profile": atvprep_manager::settings::TargetProfile::default().to_json()});
     let job = jobs.create(&new).unwrap();
     f.sql("UPDATE job_items SET status='failed'");
@@ -500,7 +571,10 @@ fn events_are_ordered_and_an_unknown_job_is_rejected() {
     let f = Fixture::new();
     let media = f.media(&["a.mp4"]);
     let job = Jobs(f.ctx())
-        .create(&NewJob::new("verify", &media))
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Verify,
+            &media,
+        ))
         .unwrap();
     let events = Events(f.ctx());
     let event = events
@@ -536,7 +610,12 @@ fn the_input_snapshot_is_stored_once_and_detects_divergence() {
         .unwrap();
     let media = f.media(&["a.mp4"]);
     let jobs = Jobs(f.ctx());
-    let job = jobs.create(&NewJob::new("verify", &media)).unwrap();
+    let job = jobs
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Verify,
+            &media,
+        ))
+        .unwrap();
     let item = jobs.items(job.id).unwrap()[0].id;
     let snapshots = InputSnapshots(f.ctx());
     let stored = snapshots.get_for_item(item).unwrap().unwrap();
@@ -584,7 +663,12 @@ fn a_retry_takes_a_fresh_snapshot() {
     let f = Fixture::new();
     let media = f.media(&["a.mp4"]);
     let jobs = Jobs(f.ctx());
-    let first = jobs.create(&NewJob::new("convert", &media)).unwrap();
+    let first = jobs
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Prepare,
+            &media,
+        ))
+        .unwrap();
     f.sql("UPDATE job_items SET status='failed'");
     f.sql("UPDATE media_files SET size=555");
     let retry = jobs.retry(first.id, None).unwrap();
@@ -615,7 +699,12 @@ fn a_stored_status_that_is_not_known_is_an_error_naming_the_value() {
     let f = Fixture::new();
     let media = f.media(&["a.mp4"]);
     let jobs = Jobs(f.ctx());
-    let job = jobs.create(&NewJob::new("fix", &media)).unwrap();
+    let job = jobs
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Prepare,
+            &media,
+        ))
+        .unwrap();
     let item = jobs.items(job.id).unwrap()[0].id;
     f.sql("PRAGMA ignore_check_constraints=ON");
     f.sql(&format!(
@@ -633,7 +722,7 @@ fn a_prepare_item_carries_its_own_allowance_through_a_retry() {
     let f = Fixture::new();
     let media = f.media(&["copy.mp4", "encode.mp4"]);
     let jobs = Jobs(f.ctx());
-    let mut new = NewJob::new("fix", &media);
+    let mut new = NewJob::new(atvprep_manager::state_machine::JobAction::Prepare, &media);
     new.trigger = "manual";
     new.settings_snapshot = json!({"pipeline":"prepare","policy":atvprep_manager::approval::PREPARE_POLICY,"profile":atvprep_manager::settings::TargetProfile::default().to_json(),"manual_approval":true,"approved_by":1,"approved_at":1});
     new.encode_media
@@ -664,7 +753,12 @@ fn a_job_without_the_prepare_policy_gets_no_allowance() {
     let f = Fixture::new();
     let media = f.media(&["a.mp4"]);
     let jobs = Jobs(f.ctx());
-    let job = jobs.create(&NewJob::new("verify", &media)).unwrap();
+    let job = jobs
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Verify,
+            &media,
+        ))
+        .unwrap();
     assert!(
         jobs.items(job.id).unwrap()[0]
             .settings_snapshot

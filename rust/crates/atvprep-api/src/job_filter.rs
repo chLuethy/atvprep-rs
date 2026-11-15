@@ -16,7 +16,7 @@
 use crate::filter_params::{MAX_ID_LIST, MAX_PARAM, placeholders, tokens};
 use crate::job_trigger::{self, TRIGGERS, TriggerChoice};
 use crate::opaque::Opaque;
-use atvprep_manager::state_machine::JobStatus;
+use atvprep_manager::state_machine::{JobAction, JobStatus};
 use axum::http::StatusCode;
 use rusqlite::types::Value;
 use serde::Deserialize;
@@ -83,9 +83,9 @@ fn action_tokens() -> Vec<&'static str> {
 fn action_clause(chosen: &[&str], values: &mut Vec<Value>) -> String {
     let stored: Vec<&str> = chosen
         .iter()
-        .flat_map(|token| match *token {
-            "prepare" => vec!["prepare", "fix", "convert"],
-            other => vec![other],
+        .flat_map(|token| match JobAction::from_public(token) {
+            Some(action) => action.stored_forms().to_vec(),
+            None => vec![*token],
         })
         .collect();
     values.extend(stored.iter().map(|token| Value::from((*token).to_owned())));

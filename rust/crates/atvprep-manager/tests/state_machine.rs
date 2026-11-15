@@ -13,7 +13,7 @@ use atvprep_manager::repo::Ctx;
 use atvprep_manager::schema::migrate;
 use atvprep_manager::snapshots::InputSnapshots;
 use atvprep_manager::state_machine::{
-    ItemStatus, JobStateMachine, JobStatus, aggregate_parent_status,
+    ItemStatus, JobAction, JobStateMachine, JobStatus, aggregate_parent_status,
 };
 use atvprep_testkit::load_golden;
 use serde_json::{Value, json};
@@ -75,7 +75,7 @@ impl Fixture {
     }
 
     /// A job of `count` files and its first item.
-    fn job(&self, action: &str, count: usize) -> (i64, i64) {
+    fn job(&self, action: JobAction, count: usize) -> (i64, i64) {
         let names: Vec<String> = (0..count).map(|i| format!("{i}.mp4")).collect();
         let refs: Vec<&str> = names.iter().map(String::as_str).collect();
         let media = self.media(&refs);
@@ -246,7 +246,7 @@ fn an_unknown_status_string_is_an_error_naming_the_value() {
 #[test]
 fn transitions_store_the_same_status_strings_as_before() {
     let f = Fixture::new();
-    let (job, item) = f.job("verify", 1);
+    let (job, item) = f.job(JobAction::Verify, 1);
     f.machine()
         .transition_item(item, ItemStatus::Claimed, 0, Some(7), None)
         .unwrap();
@@ -265,7 +265,7 @@ fn transitions_store_the_same_status_strings_as_before() {
 #[test]
 fn an_item_transition_bumps_the_version_starts_the_job_and_emits_an_event() {
     let f = Fixture::new();
-    let (job, item) = f.job("verify", 1);
+    let (job, item) = f.job(JobAction::Verify, 1);
     let result = f
         .machine()
         .transition_item(item, ItemStatus::Claimed, 0, Some(7), None)
@@ -298,7 +298,7 @@ fn an_item_transition_bumps_the_version_starts_the_job_and_emits_an_event() {
 #[test]
 fn a_stale_writer_is_rejected_without_a_second_update() {
     let f = Fixture::new();
-    let (job, item) = f.job("verify", 1);
+    let (job, item) = f.job(JobAction::Verify, 1);
     f.machine()
         .transition_item(item, ItemStatus::Claimed, 0, Some(7), None)
         .unwrap();
@@ -316,7 +316,7 @@ fn a_stale_writer_is_rejected_without_a_second_update() {
 #[test]
 fn a_worker_transition_needs_the_current_fencing_token_even_on_replay() {
     let f = Fixture::new();
-    let (_, item) = f.job("verify", 1);
+    let (_, item) = f.job(JobAction::Verify, 1);
     f.machine()
         .transition_item(item, ItemStatus::Claimed, 0, Some(7), None)
         .unwrap();
@@ -338,7 +338,7 @@ fn a_worker_transition_needs_the_current_fencing_token_even_on_replay() {
 #[test]
 fn the_executor_lease_guards_worker_transitions_once_it_is_in_use() {
     let f = Fixture::new();
-    let (_, item) = f.job("fix", 1);
+    let (_, item) = f.job(JobAction::Prepare, 1);
     f.sql(&format!(
         "UPDATE media_executor_leases SET owner_id='w', fencing_token=7, lease_expires_at='{}'",
         format_micros(T0 + 30_000_000)
@@ -383,7 +383,7 @@ fn the_executor_lease_guards_worker_transitions_once_it_is_in_use() {
 #[test]
 fn an_item_transition_keeps_a_cancel_requested_parent() {
     let f = Fixture::new();
-    let (job, item) = f.job("verify", 1);
+    let (job, item) = f.job(JobAction::Verify, 1);
     f.machine()
         .transition_item(item, ItemStatus::Claimed, 0, Some(7), None)
         .unwrap();
@@ -403,7 +403,7 @@ fn an_item_transition_keeps_a_cancel_requested_parent() {
 #[test]
 fn an_illegal_transition_is_rejected() {
     let f = Fixture::new();
-    let (_, item) = f.job("verify", 1);
+    let (_, item) = f.job(JobAction::Verify, 1);
     let error = f
         .machine()
         .transition_item(item, ItemStatus::Succeeded, 0, None, None)
@@ -422,7 +422,7 @@ fn an_illegal_transition_is_rejected() {
 #[test]
 fn a_terminal_parent_cannot_regress_and_a_repeat_is_stable() {
     let f = Fixture::new();
-    let (job, _) = f.job("verify", 1);
+    let (job, _) = f.job(JobAction::Verify, 1);
     let machine = f.machine();
     let first = machine
         .transition_job(job, JobStatus::Running, 0, None)
@@ -453,7 +453,7 @@ fn a_terminal_parent_cannot_regress_and_a_repeat_is_stable() {
 #[test]
 fn start_and_finish_times_are_recorded_once_for_the_item_and_its_job() {
     let f = Fixture::new();
-    let (job, item) = f.job("verify", 1);
+    let (job, item) = f.job(JobAction::Verify, 1);
     let jobs = Jobs(f.ctx());
     f.machine()
         .transition_item(item, ItemStatus::Claimed, 0, Some(7), None)
@@ -488,7 +488,7 @@ fn start_and_finish_times_are_recorded_once_for_the_item_and_its_job() {
 #[test]
 fn the_parent_counts_follow_a_mixed_result() {
     let f = Fixture::new();
-    let (job, first) = f.job("verify", 1);
+    let (job, first) = f.job(JobAction::Verify, 1);
     // A second item for the same job, from the same fixture's second file.
     let extra = f.media(&["second.mp4"]);
     f.conn.raw().execute(
@@ -528,7 +528,7 @@ fn the_parent_counts_follow_a_mixed_result() {
 #[test]
 fn an_item_marked_stale_fails_closed_with_the_reasons() {
     let f = Fixture::new();
-    let (job, item) = f.job("verify", 1);
+    let (job, item) = f.job(JobAction::Verify, 1);
     let snapshots = InputSnapshots(f.ctx());
     assert!(snapshots.check_item_not_stale(item).unwrap().is_empty());
     f.sql("UPDATE media_files SET size=999");
@@ -556,10 +556,16 @@ fn cancelling_queued_automatic_jobs_leaves_manual_work_alone() {
     let f = Fixture::new();
     let media = f.media(&["auto-fix.mp4", "manual-verify.mp4"]);
     let jobs = Jobs(f.ctx());
-    let mut auto = NewJob::new("fix", &media[..1]);
+    let mut auto = NewJob::new(
+        atvprep_manager::state_machine::JobAction::Prepare,
+        &media[..1],
+    );
     auto.trigger = "automatic";
     let automatic = jobs.create(&auto).unwrap();
-    let mut by_hand = NewJob::new("verify", &media[1..]);
+    let mut by_hand = NewJob::new(
+        atvprep_manager::state_machine::JobAction::Verify,
+        &media[1..],
+    );
     by_hand.trigger = "manual";
     let manual = jobs.create(&by_hand).unwrap();
     assert_eq!(f.machine().cancel_queued_automatic_jobs().unwrap(), 1);
@@ -584,9 +590,22 @@ fn items_left_queued_under_terminal_automatic_jobs_are_settled() {
     let f = Fixture::new();
     let media = f.media(&["stranded.mp4", "failed.mp4", "live.mp4"]);
     let jobs = Jobs(f.ctx());
-    let stranded = jobs.create(&NewJob::new("fix", &media[..1])).unwrap();
-    let failed = jobs.create(&NewJob::new("fix", &media[1..2])).unwrap();
-    let mut live = NewJob::new("fix", &media[2..]);
+    let stranded = jobs
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Prepare,
+            &media[..1],
+        ))
+        .unwrap();
+    let failed = jobs
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Prepare,
+            &media[1..2],
+        ))
+        .unwrap();
+    let mut live = NewJob::new(
+        atvprep_manager::state_machine::JobAction::Prepare,
+        &media[2..],
+    );
     live.trigger = "manual";
     let live = jobs.create(&live).unwrap();
     f.sql(&format!(
@@ -620,7 +639,7 @@ fn items_left_queued_under_terminal_automatic_jobs_are_settled() {
 #[test]
 fn failed_claim_readback_rolls_back_the_claim_and_attempt() {
     let f = Fixture::new();
-    let (job, item) = f.job("verify", 1);
+    let (job, item) = f.job(JobAction::Verify, 1);
     f.sql("CREATE TRIGGER unreadable_claim AFTER UPDATE OF status ON job_items WHEN NEW.status='claimed' BEGIN UPDATE job_items SET attempt='unreadable' WHERE id=NEW.id; END;");
     assert!(
         Jobs(f.ctx())
@@ -636,7 +655,7 @@ fn failed_claim_readback_rolls_back_the_claim_and_attempt() {
 #[test]
 fn failed_transition_event_rolls_back_item_parent_and_all_events() {
     let f = Fixture::new();
-    let (job, item) = f.job("verify", 1);
+    let (job, item) = f.job(JobAction::Verify, 1);
     let before: i64 = f
         .conn
         .raw()
@@ -668,7 +687,7 @@ fn failed_transition_event_rolls_back_item_parent_and_all_events() {
 #[test]
 fn claim_and_transition_retry_real_shared_cache_write_locks() {
     let f = Fixture::new();
-    let (job, item) = f.job("verify", 1);
+    let (job, item) = f.job(JobAction::Verify, 1);
     let block = || {
         let conn = f.db.conn().unwrap();
         conn.raw()
@@ -702,4 +721,40 @@ fn claim_and_transition_retry_real_shared_cache_write_locks() {
         Jobs(f.ctx()).get_item(item).unwrap().unwrap().status,
         ItemStatus::Running
     );
+}
+
+#[test]
+fn a_job_action_reads_every_stored_form_and_writes_one() {
+    for (stored, action) in [
+        ("inspect", JobAction::Inspect),
+        ("verify", JobAction::Verify),
+        ("fix", JobAction::Prepare),
+        ("convert", JobAction::Prepare),
+        ("prepare", JobAction::Prepare),
+    ] {
+        assert_eq!(stored.parse::<JobAction>().unwrap(), action, "{stored}");
+    }
+    assert!("repair".parse::<JobAction>().is_err());
+    assert_eq!(JobAction::Prepare.stored(), "fix");
+    assert_eq!(JobAction::Verify.stored(), "verify");
+}
+
+#[test]
+fn a_job_action_has_one_public_form_and_one_sql_list() {
+    assert_eq!(JobAction::Prepare.public(), "prepare");
+    assert_eq!(JobAction::from_public("prepare"), Some(JobAction::Prepare));
+    assert_eq!(JobAction::from_public("fix"), None);
+    assert_eq!(JobAction::from_public("convert"), None);
+    assert_eq!(
+        JobAction::Prepare.stored_sql_list(),
+        "('fix','convert','prepare')"
+    );
+    assert_eq!(JobAction::Verify.stored_sql_list(), "('verify')");
+}
+
+#[test]
+fn only_preparing_changes_files() {
+    for action in JobAction::ALL {
+        assert_eq!(action.changes_files(), *action == JobAction::Prepare);
+    }
 }

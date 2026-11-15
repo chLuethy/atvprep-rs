@@ -18,7 +18,7 @@ use crate::limits;
 use crate::repo::Ctx;
 use crate::scans::Scans;
 use crate::settings::TargetProfile;
-use crate::state_machine::ItemStatus;
+use crate::state_machine::{ItemStatus, JobAction};
 use crate::{Error, Result};
 
 const CATCH_UP_MICROS: i64 = 6 * 60 * 60 * 1_000_000;
@@ -441,11 +441,12 @@ fn run_recorded(ctx: Ctx<'_>, schedule_id: i64, slot: Option<&str>) -> Result<St
            AND (?1 IS NULL OR root_id=?1)
            AND (?2 IS NULL OR compliance_state=?2)
            AND id NOT IN (SELECT media_file_id FROM job_items
-                          WHERE action IN ('fix','convert')
+                          WHERE action IN {}
                             AND status NOT IN {})
          ORDER BY (SELECT max(id) FROM job_items AS prior
                    WHERE prior.media_file_id=media_files.id AND prior.action='verify') ASC,
                   media_files.id ASC LIMIT ?3",
+        JobAction::Prepare.stored_sql_list(),
         ItemStatus::terminal_sql_list()
     ))?;
     let media_ids = statement
@@ -460,7 +461,7 @@ fn run_recorded(ctx: Ctx<'_>, schedule_id: i64, slot: Option<&str>) -> Result<St
         finish_run(ctx, schedule_id, slot, &now, message, None, None)?;
         return Ok(message.to_owned());
     }
-    let mut job = NewJob::new("verify", &media_ids);
+    let mut job = NewJob::new(crate::state_machine::JobAction::Verify, &media_ids);
     job.trigger = "manual";
     job.settings_snapshot =
         serde_json::json!({"manual_approval": false, "schedule_id": schedule_id});
@@ -594,10 +595,11 @@ fn run_change_schedule(
            AND (?1 IS NULL OR m.root_id=?1)
            AND (?2 IS NULL OR m.compliance_state=?2)
            AND NOT EXISTS (SELECT 1 FROM job_items i WHERE i.media_file_id=m.id
-                           AND i.action IN ('fix','convert')
+                           AND i.action IN {}
                            AND i.status NOT IN {})
            AND {}
          ORDER BY m.id LIMIT ?4",
+        JobAction::Prepare.stored_sql_list(),
         ItemStatus::terminal_sql_list(),
         crate::media_sql::change_candidate("?3", "?5")
     ))?;
@@ -619,7 +621,7 @@ fn run_change_schedule(
         return finish("No matching files".to_owned(), None);
     }
     let params = row.params(delete_original, profile);
-    let mut job = NewJob::new("fix", &media_ids);
+    let mut job = NewJob::new(JobAction::Prepare, &media_ids);
     job.trigger = "manual";
     // Every item carries the signed Kodierfreigabe; the worker refuses one that differs.
     job.encode_media = media_ids.iter().map(|id| (*id, row.encode)).collect();

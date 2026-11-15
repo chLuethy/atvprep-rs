@@ -108,10 +108,11 @@ pub fn execute_claimed(
     }
     let item = crate::db::retry_busy(|| Jobs(ctx).get_item(item_id))?
         .ok_or_else(|| Error::Invalid("job item not found".to_owned()))?;
-    if !matches!(
-        item.action.as_str(),
-        "verify" | "inspect" | "fix" | "convert"
-    ) || item.status != ItemStatus::Claimed
+    if !item
+        .action
+        .parse::<crate::state_machine::JobAction>()
+        .is_ok_and(|action| action != crate::state_machine::JobAction::Scan)
+        || item.status != ItemStatus::Claimed
     {
         return Err(Error::Invalid(
             "item is not a claimed verification".to_owned(),
@@ -148,7 +149,10 @@ pub fn execute_claimed(
         {
             return Err(Error::Invalid("verification input changed".to_owned()));
         }
-        let changing = matches!(item.action.as_str(), "fix" | "convert");
+        let changing = item
+            .action
+            .parse::<crate::state_machine::JobAction>()
+            .is_ok_and(crate::state_machine::JobAction::changes_files);
         let mut mode = PrepareMode {
             encode: EncodeAllowance::Copy,
             delete_original: false,
@@ -698,7 +702,10 @@ fn complete_prepare(
             && process.exit_code == Some(0)
             && matches!(observed.meta.suffix.as_str(), ".mp4" | ".m4v" | ".mov")
         {
-            Jobs(write).create(&crate::jobs::NewJob::new("verify", &[media.id]))?;
+            Jobs(write).create(&crate::jobs::NewJob::new(
+                crate::state_machine::JobAction::Verify,
+                &[media.id],
+            ))?;
         }
     }
     if !matches!(observed.meta.suffix.as_str(), ".mp4" | ".m4v" | ".mov") {

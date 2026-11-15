@@ -95,7 +95,7 @@ impl Contract {
             conn: conn.raw(),
             clock: self.state.clock.as_ref(),
         };
-        let mut new = NewJob::new("fix", &[1]);
+        let mut new = NewJob::new(atvprep_manager::state_machine::JobAction::Prepare, &[1]);
         new.settings_snapshot = json!({"pipeline":"prepare","policy":atvprep_manager::approval::PREPARE_POLICY,"profile":atvprep_manager::settings::TargetProfile::default().to_json(),"delete_original":false,"delete_original_confirmed":false,"manual_approval":true,"approved_by":1,"approved_at":0});
         let job = Jobs(ctx).create(&new).unwrap();
         assert_eq!(job.id, 2);

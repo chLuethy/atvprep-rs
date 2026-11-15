@@ -124,6 +124,130 @@ status_enum! {
     }
 }
 
+/// What a job or schedule does. The one place that knows the names it is stored and shown under:
+/// Vorbereiten is stored as `fix` for new rows, was stored as `fix` or `convert` before (ADR 0008,
+/// history stays as it is) and is `prepare` on the wire.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum JobAction {
+    /// Prüfen (inspect): read the file's streams.
+    Inspect,
+    /// Analysieren (verify).
+    Verify,
+    /// Vorbereiten: the only action that changes files.
+    Prepare,
+    /// Scannen: only a schedule runs it, no job is stored under it.
+    Scan,
+}
+
+impl JobAction {
+    /// Every action, in declaration order.
+    pub const ALL: &'static [Self] = &[Self::Inspect, Self::Verify, Self::Prepare, Self::Scan];
+
+    /// The form written to new rows.
+    #[must_use]
+    pub const fn stored(self) -> &'static str {
+        match self {
+            Self::Inspect => "inspect",
+            Self::Verify => "verify",
+            Self::Prepare => "fix",
+            Self::Scan => "scan",
+        }
+    }
+
+    /// Every stored form read for this action, the historical ones included.
+    #[must_use]
+    pub const fn stored_forms(self) -> &'static [&'static str] {
+        match self {
+            Self::Inspect => &["inspect"],
+            Self::Verify => &["verify"],
+            Self::Prepare => &["fix", "convert", "prepare"],
+            Self::Scan => &["scan"],
+        }
+    }
+
+    /// The form the API and the UI use.
+    #[must_use]
+    pub const fn public(self) -> &'static str {
+        match self {
+            Self::Inspect => "inspect",
+            Self::Verify => "verify",
+            Self::Prepare => "prepare",
+            Self::Scan => "scan",
+        }
+    }
+
+    /// The action behind a public name, or `None` (also for the historical stored names).
+    #[must_use]
+    pub fn from_public(text: &str) -> Option<Self> {
+        Self::ALL
+            .iter()
+            .copied()
+            .find(|action| action.public() == text)
+    }
+
+    /// All stored forms of the actions as an SQL list, for example `('fix','convert','prepare')`.
+    #[must_use]
+    pub fn stored_sql_list(self) -> String {
+        Self::sql_list(&[self])
+    }
+
+    /// The stored forms of every action a job can have (all but Scannen) as an SQL list.
+    #[must_use]
+    pub fn job_sql_list() -> String {
+        Self::sql_list(&[Self::Inspect, Self::Verify, Self::Prepare])
+    }
+
+    fn sql_list(actions: &[Self]) -> String {
+        let list = actions
+            .iter()
+            .flat_map(|action| action.stored_forms())
+            .map(|form| format!("'{form}'"))
+            .collect::<Vec<_>>()
+            .join(",");
+        format!("({list})")
+    }
+
+    /// Whether the action changes files, which limits and approvals depend on.
+    #[must_use]
+    pub const fn changes_files(self) -> bool {
+        matches!(self, Self::Prepare)
+    }
+}
+
+impl std::str::FromStr for JobAction {
+    type Err = Error;
+
+    /// Reads any stored form, the historical ones included.
+    fn from_str(text: &str) -> Result<Self> {
+        Self::ALL
+            .iter()
+            .copied()
+            .find(|action| action.stored_forms().contains(&text))
+            .ok_or_else(|| Error::Invalid(format!("unknown job action: {text}")))
+    }
+}
+
+impl std::fmt::Display for JobAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.stored())
+    }
+}
+
+impl rusqlite::types::ToSql for JobAction {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        Ok(self.stored().into())
+    }
+}
+
+impl rusqlite::types::FromSql for JobAction {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        value
+            .as_str()?
+            .parse()
+            .map_err(|error: Error| rusqlite::types::FromSqlError::Other(error.to_string().into()))
+    }
+}
+
 impl ScanStatus {
     /// Running work: no longer waiting, not yet ended.
     #[must_use]
@@ -753,10 +877,11 @@ impl JobStateMachine<'_> {
     /// SQLite or a transition fails.
     pub fn cancel_queued_automatic_jobs(&self) -> Result<usize> {
         let ids: Vec<i64> = {
-            let mut statement = self.0.conn.prepare(
+            let mut statement = self.0.conn.prepare(&format!(
                 "SELECT id FROM jobs WHERE trigger='automatic' AND status='queued'
-                 AND action IN ('fix','convert','inspect','verify') ORDER BY id",
-            )?;
+                 AND action IN {} ORDER BY id",
+                JobAction::job_sql_list()
+            ))?;
             let rows = statement.query_map([], |r| r.get(0))?;
             rows.collect::<std::result::Result<_, _>>()?
         };

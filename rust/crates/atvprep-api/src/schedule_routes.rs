@@ -19,7 +19,7 @@ use atvprep_manager::{
         next_cron_run_at_system, run_schedule, upcoming_cron_runs_system,
     },
     settings::target_profile,
-    state_machine::ItemStatus,
+    state_machine::{ItemStatus, JobAction},
 };
 use axum::{
     Json,
@@ -548,7 +548,7 @@ fn views(conn: &rusqlite::Connection, state: &AppState) -> Result<(Vec<Value>, b
         let matching: Option<i64> = if scan {
             None
         } else {
-            Some(conn.query_row(&format!("SELECT count(*) FROM media_files m WHERE m.discovery_state='present' AND (?1 IS NULL OR m.root_id=?1) AND (?2 IS NULL OR m.compliance_state=?2) AND NOT EXISTS(SELECT 1 FROM job_items i WHERE i.media_file_id=m.id AND i.action IN ('fix','convert') AND i.status NOT IN {}) AND (CASE WHEN ?3='prepare' THEN {} ELSE {} END)",ItemStatus::terminal_sql_list(),media_sql::change_candidate("?4","?5"),media_sql::MP4_LIKE),rusqlite::params![root,compliance,action,encode,embed_open],|row|row.get(0)).map_err(|_|())?)
+            Some(conn.query_row(&format!("SELECT count(*) FROM media_files m WHERE m.discovery_state='present' AND (?1 IS NULL OR m.root_id=?1) AND (?2 IS NULL OR m.compliance_state=?2) AND NOT EXISTS(SELECT 1 FROM job_items i WHERE i.media_file_id=m.id AND i.action IN {} AND i.status NOT IN {}) AND (CASE WHEN ?3='prepare' THEN {} ELSE {} END)",JobAction::Prepare.stored_sql_list(),ItemStatus::terminal_sql_list(),media_sql::change_candidate("?4","?5"),media_sql::MP4_LIKE),rusqlite::params![root,compliance,action,encode,embed_open],|row|row.get(0)).map_err(|_|())?)
         };
         let last_run = last_run.map(|value| timestamp(&value).replace('Z', "+00:00"));
         let runs = recent_runs(conn, &opaque, id)?;

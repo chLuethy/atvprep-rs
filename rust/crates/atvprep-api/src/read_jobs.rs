@@ -6,7 +6,7 @@ use crate::{
     read::{error, page_meta, timestamp},
     state::AppState,
 };
-use atvprep_manager::state_machine::{ItemStatus, JobStatus};
+use atvprep_manager::state_machine::{ItemStatus, JobAction, JobStatus};
 use axum::{
     Json,
     extract::{Path, Query, State},
@@ -73,11 +73,9 @@ pub(crate) fn safe_diagnostic(value: &str, limit: usize) -> String {
 /// The action as the API names it: every job that changes files is Vorbereiten (`prepare`), also the
 /// history entries stored under the former names `fix` and `convert` (ADR 0008).
 fn public_action(stored: &str) -> &str {
-    if matches!(stored, "fix" | "convert") {
-        "prepare"
-    } else {
-        stored
-    }
+    stored
+        .parse::<JobAction>()
+        .map_or(stored, |action| action.public())
 }
 
 fn view(row: &rusqlite::Row<'_>, opaque: &Opaque) -> rusqlite::Result<(i64, Value)> {
