@@ -312,6 +312,7 @@ fn ac3_at_44_1_khz() -> (tempfile::TempDir, PathBuf) {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("file.mp4");
     let status = std::process::Command::new("ffmpeg")
+        .stdin(std::process::Stdio::null())
         .args([
             "-v",
             "error",

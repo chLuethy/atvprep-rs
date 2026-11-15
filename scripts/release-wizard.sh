@@ -209,7 +209,16 @@ NAMES=(release.json release.json.sig release.pub atvprep-linux-x86_64 atvprep-li
 SEMVER='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'
 
 die() { warn "$1"; note "Ursache beheben und den Wizard neu starten; erledigte Schritte werden übersprungen."; exit 1; }
-run() { printf '  %s$ %s%s\n' "$DIM" "$*" "$RESET"; "$@"; }
+# run CMD… shows and runs CMD, then restores the terminal settings: a child that leaves the
+# terminal in raw mode (ffmpeg with the terminal as stdin does) would swallow Enter at the next pause.
+run() {
+  local tty_state="" rc=0
+  [[ -t 0 ]] && tty_state=$(stty -g 2>/dev/null || true)
+  printf '  %s$ %s%s\n' "$DIM" "$*" "$RESET"
+  "$@" || rc=$?
+  if [[ -n "$tty_state" ]]; then stty "$tty_state" 2>/dev/null || true; fi
+  return "$rc"
+}
 
 cargo_version() { sed -n '/^\[workspace.package\]/,/^\[/{s/^version = "\([^"]*\)"/\1/p;}' rust/Cargo.toml; }
 
