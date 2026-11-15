@@ -367,7 +367,11 @@ fn worker_executes_a_claimed_verification_and_releases_its_permit() {
     copy_fixture(directory.path(), "plain_faststart.mp4", "verify.mp4");
     let root_path = directory.path().canonicalize().unwrap();
     let metadata = std::fs::metadata(root_path.join("verify.mp4")).unwrap();
-    let db = Db::memory().unwrap();
+    // A database file, as in production: its WAL and busy timeout wait out a lock held by another
+    // worker thread. A shared-cache in-memory database reports such a lock at once, past the busy
+    // timeout, and the unretried statement would end an item as failed that was never at fault.
+    let database_dir = tempfile::tempdir().unwrap();
+    let db = Db::open(&database_dir.path().join("manager.sqlite")).unwrap();
     let mut conn = db.conn().unwrap();
     schema::migrate(&mut conn).unwrap();
     let clock = SystemClock;

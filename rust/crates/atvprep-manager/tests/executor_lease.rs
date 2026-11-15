@@ -211,3 +211,29 @@ fn a_worker_that_lost_the_lease_cannot_commit_late_results() {
         ItemStatus::Running
     );
 }
+
+/// A lock held by another connection for a moment must not leave the lease held: a worker pass
+/// that fails to give it back blocks every executor until the lease expires.
+#[test]
+fn release_retries_shared_cache_locks_instead_of_keeping_the_lease() {
+    let (db, conn) = setup();
+    let clock = FixedClock(T0);
+    let mut lease = MediaExecutorLease::new(at(&conn, &clock));
+    assert!(lease.acquire("a", 30).unwrap());
+    let blocker: Conn = db.conn().unwrap();
+    blocker
+        .raw()
+        .execute_batch("BEGIN IMMEDIATE; UPDATE media_executor_leases SET owner_id=owner_id;")
+        .unwrap();
+    let unlock = std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(40));
+        blocker.raw().execute_batch("ROLLBACK").unwrap();
+    });
+    assert!(lease.release().unwrap());
+    unlock.join().unwrap();
+    assert!(
+        MediaExecutorLease::new(at(&conn, &clock))
+            .acquire("b", 30)
+            .unwrap()
+    );
+}
