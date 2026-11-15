@@ -26,7 +26,9 @@
         "size": 123,
         "status_version": 0,
         "suffix": ".mp4",
-        "workflow_state": "idle"
+        "workflow_state": "idle",
+        "state": "clean",
+        "preparable": false
       },
       "meta": {
         "current_cursor": null,

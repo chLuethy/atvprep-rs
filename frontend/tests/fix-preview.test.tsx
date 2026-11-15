@@ -5,7 +5,7 @@ import type { FileRow } from "../src/features/files/loaders";
 
 const row = (over: Partial<FileRow> = {}): FileRow => ({
   id: "m_1", root_id: "r_1", display_path: "Film/Overboard (2018)/Overboard (2018).mp4", kind: "movie", suffix: ".mp4", size: 5 * 1024 ** 3,
-  mtime_ns: 1, discovery_state: "present", compliance_state: "clean", workflow_state: "idle", desired_action: "none", last_seen_at: null,
+  mtime_ns: 1, discovery_state: "present", compliance_state: "clean", state: "clean", preparable: false, workflow_state: "idle", desired_action: "none", last_seen_at: null,
   compliance_reasons: [], ...over,
 });
 

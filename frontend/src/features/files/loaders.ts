@@ -18,6 +18,10 @@ export type FileRow = {
   mtime_ns: number;
   discovery_state: string;
   compliance_state: string;
+  /** The one state the server decided: clean, embed_open, warning, blocker, unknown, probe_failed or missing. */
+  state: string;
+  /** The server would queue Prepare for this file: present, and a verdict to repair, a fix wish or a subtitle file to embed. */
+  preparable: boolean;
   compliance_reasons?: string[];
   workflow_state: string;
   desired_action: string;
