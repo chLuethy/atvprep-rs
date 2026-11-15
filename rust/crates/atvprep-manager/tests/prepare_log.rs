@@ -3,7 +3,7 @@
 use atvprep_core::encode::EncodeAllowance;
 use atvprep_manager::{
     approval::{ApprovalVerifier, ScheduleParams},
-    clock::SystemClock,
+    clock::{Clock, SystemClock, ZonedClock},
     db::{Conn, Db},
     jobs::Jobs,
     leases::MediaExecutorLease,
@@ -126,10 +126,14 @@ impl Library {
 
     /// Run the queued Vorbereiten item and return its status and stored log.
     fn run(&self) -> (ItemStatus, String) {
-        let clock = SystemClock;
+        self.run_on(&SystemClock)
+    }
+
+    /// [`Self::run`] with the time and the server timezone taken from `clock`.
+    fn run_on(&self, clock: &dyn Clock) -> (ItemStatus, String) {
         let ctx = Ctx {
             conn: self.conn.raw(),
-            clock: &clock,
+            clock,
         };
         let job: i64 = ctx
             .conn
@@ -266,6 +270,30 @@ echo 'ATVPREP-OUTCOME rebuilt'"#,
         assert!(last < at && at < exit, "{name}: {log}");
         last = at;
     }
+}
+
+#[test]
+fn step_lines_and_phase_starts_read_in_server_time() {
+    let library = Library::new(
+        r#"if [ "$ATVPREP_TRACE_PHASES" = 1 ]; then
+  echo '{"phase":"ffmpeg","seconds":2.5}' >&2
+fi
+echo 'ATVPREP-OUTCOME rebuilt'"#,
+        false,
+    );
+    // 2023-11-14 22:13:20 UTC is 2023-11-15 03:43:20 in Kolkata (UTC+05:30).
+    let clock = ZonedClock {
+        micros: 1_700_000_000_000_000,
+        zone: chrono_tz::Asia::Kolkata,
+    };
+    let (status, log) = library.run_on(&clock);
+    assert_eq!(status, ItemStatus::Succeeded, "{log}");
+    let stamped: Vec<&str> = log.lines().filter(|line| line.starts_with('[')).collect();
+    assert!(stamped.len() > 3, "{log}");
+    for line in stamped {
+        assert!(line.starts_with("[03:43:20] "), "{line}");
+    }
+    position(&log, "Phase ffmpeg: started 03:43:17, took 2.50 s");
 }
 
 #[test]

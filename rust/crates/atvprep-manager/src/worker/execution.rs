@@ -353,9 +353,7 @@ pub fn execute_claimed(
                 &mut cancelled,
                 |stream, chunk| {
                     output.feed(chunk, false)?;
-                    for line in
-                        reports.step_lines_keeping_error(stream, chunk, ctx.clock.now_micros())
-                    {
+                    for line in reports.step_lines_keeping_error(stream, chunk, ctx.clock) {
                         output.step(&line)?;
                     }
                     Ok(())

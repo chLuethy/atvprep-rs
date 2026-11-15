@@ -1,5 +1,8 @@
 //! Time as the database stores it: UTC text `YYYY-MM-DD HH:MM:SS.ffffff`, which sorts like time.
+//! What people read, such as an item's log, is in server time: the manager process's local
+//! timezone, the one schedules run in.
 
+use chrono::{DateTime, Local, TimeZone, Utc};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Where "now" comes from; tests pin it.
@@ -10,6 +13,22 @@ pub trait Clock: Send + Sync {
     fn now(&self) -> String {
         format_micros(self.now_micros())
     }
+
+    /// `HH:MM:SS` of `at_micros` (microseconds since the epoch) in server time.
+    fn server_time_of_day(&self, at_micros: i64) -> String {
+        time_of_day_in(at_micros, &Local)
+    }
+}
+
+/// `HH:MM:SS` of `at_micros` (microseconds since the epoch) in `zone`.
+#[must_use]
+pub fn time_of_day_in<Tz: TimeZone>(at_micros: i64, zone: &Tz) -> String {
+    DateTime::<Utc>::from_timestamp_micros(at_micros)
+        .unwrap_or_default()
+        .with_timezone(zone)
+        .naive_local()
+        .format("%H:%M:%S")
+        .to_string()
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -29,6 +48,23 @@ pub struct FixedClock(pub i64);
 impl Clock for FixedClock {
     fn now_micros(&self) -> i64 {
         self.0
+    }
+}
+
+/// A pinned time in a pinned server timezone, for tests that read server time.
+#[derive(Debug, Clone, Copy)]
+pub struct ZonedClock {
+    pub micros: i64,
+    pub zone: chrono_tz::Tz,
+}
+
+impl Clock for ZonedClock {
+    fn now_micros(&self) -> i64 {
+        self.micros
+    }
+
+    fn server_time_of_day(&self, at_micros: i64) -> String {
+        time_of_day_in(at_micros, &self.zone)
     }
 }
 
