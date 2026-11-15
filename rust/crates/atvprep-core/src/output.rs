@@ -496,12 +496,10 @@ mod tests {
 
     #[test]
     fn atmos_verification_messages_match_python() {
-        use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::tempdir().unwrap();
         let script = |name: &str, body: &str| {
             let path = dir.path().join(name);
-            std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
-            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+            atvprep_testkit::write_script(&path, format!("#!/bin/sh\n{body}\n"));
             crate::ffprobe::Ffprobe::with_program(path)
         };
         let out = std::path::Path::new("/m/out.mp4");

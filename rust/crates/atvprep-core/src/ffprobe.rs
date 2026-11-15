@@ -213,8 +213,6 @@ impl Prober for Ffprobe {
 
 #[cfg(all(test, unix))]
 mod tests {
-    use std::fs;
-    use std::os::unix::fs::PermissionsExt;
     use std::path::{Path, PathBuf};
     use std::time::{Duration, Instant};
 
@@ -224,8 +222,7 @@ mod tests {
     fn fake(body: &str) -> (tempfile::TempDir, Ffprobe) {
         let dir = tempfile::tempdir().unwrap();
         let script = dir.path().join("ffprobe");
-        fs::write(&script, format!("#!/bin/sh\n{body}\n")).unwrap();
-        fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+        atvprep_testkit::write_script(&script, format!("#!/bin/sh\n{body}\n"));
         (dir, Ffprobe::with_program(script))
     }
 

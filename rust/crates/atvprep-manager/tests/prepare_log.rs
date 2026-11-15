@@ -17,12 +17,7 @@ use atvprep_manager::{
     state_machine::ItemStatus,
     worker::execution::{ExecutionConfig, execute_claimed},
 };
-use std::{
-    collections::BTreeMap,
-    os::unix::fs::{MetadataExt, PermissionsExt},
-    path::PathBuf,
-    time::Duration,
-};
+use std::{collections::BTreeMap, os::unix::fs::MetadataExt, path::PathBuf, time::Duration};
 
 const SECRET: &[u8] = b"secret";
 
@@ -43,8 +38,7 @@ impl Library {
         let library = root.join("library");
         std::fs::write(library.join("film.mp4"), b"not really a film").unwrap();
         let tool = root.join("tool");
-        std::fs::write(&tool, format!("#!/bin/sh\n{script}\n")).unwrap();
-        std::fs::set_permissions(&tool, std::fs::Permissions::from_mode(0o755)).unwrap();
+        atvprep_testkit::write_script(&tool, format!("#!/bin/sh\n{script}\n"));
         let db = Db::memory().unwrap();
         let mut conn = db.conn().unwrap();
         schema::migrate(&mut conn).unwrap();

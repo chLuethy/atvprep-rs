@@ -771,16 +771,13 @@ fn without_a_command_the_help_is_printed_and_the_exit_code_is_1() {
 #[test]
 fn cancelling_a_re_encode_removes_the_partial_file() {
     use atvprep_manager::worker::process::{PrepareMode, StopReason, run_pinned_prepare};
-    use std::os::unix::fs::PermissionsExt;
     use std::{collections::BTreeMap, time::Duration};
     let tools = tempfile::tempdir().unwrap();
     let fake = tools.path().join("ffmpeg");
-    std::fs::write(
+    atvprep_testkit::write_script(
         &fake,
         "#!/bin/sh\nfor last; do :; done\nprintf partial > \"$last\"\nexec sleep 60\n",
-    )
-    .unwrap();
-    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+    );
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("film.mp4");
     std::fs::copy(high10(), &path).unwrap();

@@ -5,7 +5,6 @@
 //! Needs ffmpeg, ffprobe and Bento4 on `PATH`, like `real_tools.rs`.
 
 use std::collections::BTreeMap;
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
@@ -119,8 +118,7 @@ fn shim(dir: &Path) -> (PathBuf, PathBuf) {
         log = log.display(),
         real = real.display()
     );
-    std::fs::write(&script, body).unwrap();
-    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    atvprep_testkit::write_script(&script, body);
     (script, log)
 }
 
@@ -435,8 +433,7 @@ fn fixture(name: &str, script: Option<&str>) -> Fixture {
     let source = copy_case(name, &base.join("work"));
     let ffmpeg = script.map(|body| {
         let path = base.join("fake-ffmpeg");
-        std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        atvprep_testkit::write_script(&path, format!("#!/bin/sh\n{body}\n"));
         path
     });
     let ctx = RunContext {

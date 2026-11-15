@@ -153,7 +153,6 @@ pub fn run_ffmpeg_with_progress(ctx: &mut RunContext, plan: &Plan) -> Result<(),
 
 #[cfg(test)]
 mod tests {
-    use std::os::unix::fs::PermissionsExt;
     use std::path::{Path, PathBuf};
 
     use super::*;
@@ -164,8 +163,7 @@ mod tests {
 
     fn script(dir: &Path, body: &str) -> String {
         let path = dir.join("ffmpeg");
-        std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        atvprep_testkit::write_script(&path, format!("#!/bin/sh\n{body}\n"));
         path.to_string_lossy().into_owned()
     }
 

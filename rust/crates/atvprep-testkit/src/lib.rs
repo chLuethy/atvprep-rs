@@ -143,6 +143,42 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
         })
 }
 
+/// Write `contents` to `path` as an executable (0755) script that a test may run right away.
+///
+/// The file is written by a short-lived `/bin/sh` child, never through a descriptor of the test
+/// process. Writing it in-process races on Linux: the test harness runs tests on many threads, and
+/// another thread that forks in the moment the write descriptor is open hands a copy of it to its
+/// child, which holds it until its `exec` (`O_CLOEXEC` closes it only then). Executing the script
+/// while any process holds it open for writing fails with `ETXTBSY` ("Text file busy"). The child
+/// here closes the file before it exits, and the test process never owns a write descriptor.
+///
+/// # Panics
+///
+/// Panics when the script cannot be written; this is test tooling.
+#[cfg(unix)]
+pub fn write_script(path: &Path, contents: impl AsRef<[u8]>) {
+    use std::io::Write as _;
+    use std::process::Stdio;
+
+    let mut child = Command::new("/bin/sh")
+        .args(["-c", r#"cat > "$1" && chmod 755 "$1""#, "write_script"])
+        .arg(path)
+        .stdin(Stdio::piped())
+        .spawn()
+        .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    let mut stdin = child.stdin.take().expect("piped stdin");
+    stdin
+        .write_all(contents.as_ref())
+        .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    drop(stdin);
+    let status = child.wait().unwrap();
+    assert!(
+        status.success(),
+        "{}: writing the script failed: {status}",
+        path.display()
+    );
+}
+
 /// Read `testdata/golden/<suite>.json`.
 ///
 /// # Panics
@@ -251,5 +287,21 @@ mod tests {
         let names: Vec<&str> = cases.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(names, ["a", "b"]);
         assert_eq!(cases[1].input + 1, cases[1].expected);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_written_script_is_executable_and_runs_its_contents() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = std::env::temp_dir().join(format!("atvprep-testkit-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let script = dir.join("tool");
+        write_script(&script, "#!/bin/sh\nprintf '%s' \"$1\"\n");
+        let mode = fs::metadata(&script).unwrap().permissions().mode();
+        let output = Command::new(&script).arg("ran").output().unwrap();
+        fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(mode & 0o777, 0o755);
+        assert_eq!(output.stdout, b"ran");
     }
 }

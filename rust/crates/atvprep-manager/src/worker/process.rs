@@ -573,12 +573,10 @@ mod tests {
 
     #[test]
     fn output_observer_unblocks_a_child_before_it_exits() {
-        use std::os::unix::fs::PermissionsExt;
         let temp = tempfile::tempdir().unwrap();
         let script = temp.path().join("producer");
         let marker = temp.path().join("continue");
-        std::fs::write(&script,b"#!/bin/sh\nprintf 'ATVPREP-PROGRESS 25\\n'\nwhile [ ! -f \"$CONTINUE_MARKER\" ]; do sleep 0.01; done\nprintf 'done\\n'\n").unwrap();
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        atvprep_testkit::write_script(&script, b"#!/bin/sh\nprintf 'ATVPREP-PROGRESS 25\\n'\nwhile [ ! -f \"$CONTINUE_MARKER\" ]; do sleep 0.01; done\nprintf 'done\\n'\n");
         let environment = BTreeMap::from([
             ("PATH".to_owned(), "/usr/bin:/bin".to_owned()),
             (
