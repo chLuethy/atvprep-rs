@@ -56,6 +56,28 @@ Der private Schlüssel `~/.ssh/atvprep-release-ed25519` verlässt den Rechner ni
 12. [ ] **Einzeiler testen** auf einem Linux-Host, auf dem die Vorversion liegt: `curl -fsSL https://raw.githubusercontent.com/chLuethy/atvprep-rs/main/scripts/install.sh | sudo sh` meldet `0.5.5 -> 0.5.6 aktualisiert`; ein zweiter Lauf meldet „bereits aktuell“.
 13. [ ] **Produktiv auf `mm`**: nur im Releasefenster, siehe [DEPLOYMENT.md](../DEPLOYMENT.md), Betreiberabnahme vor dem Öffnen des Gates.
 
+## Runner und Actions anheben
+
+Runner-Version und Action-Pins stehen in `.github/workflows/ci.yml` (Jobs `commits`, `rust`, `frontend`, `e2e`) und `.github/workflows/release.yml` (Jobs `release`, `mirror`). Alle Jobs laufen auf einem fest benannten Runner (`runs-on: ubuntu-26.04`), nie auf `ubuntu-latest`. Jede Action ist auf einen Commit-SHA gepinnt, die Version steht als Kommentar daneben (`uses: actions/checkout@<sha> # v7.0.1`). Ein Update ist immer ein eigener, sichtbarer Commit.
+
+- [ ] **Breaking Changes lesen** zwischen alter und neuer Hauptversion (Releases bzw. `CHANGELOG.md` der Action). Ändert sich ein Verhalten, auf das ein Job sich verlässt, setzt der Job es ausdrücklich, etwa `fetch-depth: 0` (volle Historie mit Tags) im Job `mirror`, `cache: npm` bei `setup-node` oder `platforms: arm64` bei `setup-qemu-action`.
+- [ ] **Commit-SHA zum Tag holen**:
+
+   ```bash
+   gh api repos/actions/checkout/git/ref/tags/v7.0.1 --jq '.object.type + " " + .object.sha'
+   ```
+
+   Ist der Typ `tag` (annotierter Tag), bis zum Commit auflösen: `gh api repos/actions/checkout/git/tags/<sha> --jq '.object.type + " " + .object.sha'`. Gepinnt wird nur ein SHA vom Typ `commit`.
+- [ ] **Laufzeit prüfen** in der `action.yml` genau dieses Commits:
+
+   ```bash
+   gh api "repos/actions/checkout/contents/action.yml?ref=<sha>" --jq .content | base64 -d | grep -A1 '^runs:'
+   ```
+
+   `using` muss eine von GitHub noch unterstützte Node-Version nennen (derzeit `node24`).
+- [ ] **Runner wechseln** (neue Ubuntu-Version): alle `runs-on` gemeinsam ändern. Werkzeuge aus dem Runner (`ffmpeg`, `qemu-user`, Compiler für Bento4) ändern sich damit; `scripts/check-release.sh` ist auf das `qemu-user` des Runners eingestellt. Die Job-IDs bleiben, sie sind die Pflicht-Checks auf `main`.
+- [ ] **Nachweis**: Der PR-Lauf ist grün und zeigt keine Annotationen (`gh api repos/chLuethy/atvprep-rs/check-runs/<id>/annotations`). Den Release-Workflow prüft erst das nächste echte Release, siehe oben Schritt 10.
+
 ## Wenn etwas schiefgeht
 
 - **Die Action meldet abweichende Hashes**: Es wird nichts veröffentlicht. Das Manifest niemals mit den Hashes der Action neu signieren. Ursache suchen: nicht reproduzierbarer Build oder anderer Quelltext als der signierte (Version, Lockfiles, uncommittete Änderungen beim lokalen Build). Danach ab Schritt 4 wiederholen.
