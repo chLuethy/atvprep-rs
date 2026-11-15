@@ -147,7 +147,12 @@ fn a_worker_that_lost_the_lease_cannot_commit_late_results() {
         ..MediaMeta::default()
     };
     let media = Media(ctx).create(root, "a.mp4", &meta).unwrap().id;
-    let job = Jobs(ctx).create(&NewJob::new("fix", &[media])).unwrap();
+    let job = Jobs(ctx)
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Prepare,
+            &[media],
+        ))
+        .unwrap();
 
     let mut old = MediaExecutorLease::new(ctx);
     assert!(old.acquire("old", 30).unwrap());

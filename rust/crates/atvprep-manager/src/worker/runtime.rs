@@ -214,7 +214,7 @@ fn execute_pass(ctx: Ctx<'_>, config: &RuntimeConfig) -> Result<()> {
         return Ok(());
     }
     let result = (|| {
-        let mut statement=ctx.conn.prepare("SELECT DISTINCT j.id FROM jobs j JOIN job_items i ON i.job_id=j.id WHERE j.status IN ('queued','running') AND i.status='queued' AND j.action IN ('inspect','verify','fix','convert') ORDER BY j.id LIMIT 1")?;
+        let mut statement=ctx.conn.prepare(&format!("SELECT DISTINCT j.id FROM jobs j JOIN job_items i ON i.job_id=j.id WHERE j.status IN ('queued','running') AND i.status='queued' AND j.action IN {} ORDER BY j.id LIMIT 1",crate::state_machine::JobAction::job_sql_list()))?;
         let jobs = statement
             .query_map([], |row| row.get::<_, i64>(0))?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -299,7 +299,7 @@ pub(crate) fn queue_need_checks(ctx: Ctx<'_>, settle_seconds: i64) -> Result<()>
             .collect::<std::result::Result<Vec<_>, _>>()?;
         drop(statement);
         if !ids.is_empty() {
-            let mut job = crate::jobs::NewJob::new("verify", &ids);
+            let mut job = crate::jobs::NewJob::new(crate::state_machine::JobAction::Verify, &ids);
             job.settings_snapshot =
                 serde_json::json!({"need_check": true, "profile_revision": profile_revision});
             Jobs(write).create(&job)?;
@@ -333,7 +333,10 @@ fn queue_probes(ctx: Ctx<'_>, settle_seconds: i64) -> Result<()> {
             .collect::<std::result::Result<Vec<_>, _>>()?;
         drop(statement);
         if !ids.is_empty() {
-            Jobs(write).create(&crate::jobs::NewJob::new("inspect", &ids))?;
+            Jobs(write).create(&crate::jobs::NewJob::new(
+                crate::state_machine::JobAction::Inspect,
+                &ids,
+            ))?;
         }
     }
     tx.commit()?;
@@ -476,7 +479,10 @@ mod tests {
             clock: &clock,
         };
         Jobs(ctx)
-            .create(&crate::jobs::NewJob::new("inspect", &[1]))
+            .create(&crate::jobs::NewJob::new(
+                crate::state_machine::JobAction::Inspect,
+                &[1],
+            ))
             .unwrap();
         queue_need_checks(ctx, 0).unwrap();
         assert_eq!(checked(&conn), [4]);

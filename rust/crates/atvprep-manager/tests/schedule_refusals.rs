@@ -135,7 +135,10 @@ fn refused_after(change: &str) {
     assert_eq!(ended.status, ItemStatus::StaleInput, "{change}");
     // The refusal is not transient, so it must not keep the single heavy slot occupied.
     let other = Jobs(ctx)
-        .create(&NewJob::new("fix", &[world.media]))
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Prepare,
+            &[world.media],
+        ))
         .unwrap();
     assert!(
         Jobs(ctx)

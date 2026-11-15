@@ -8,7 +8,7 @@ use crate::{
 };
 use atvprep_manager::{
     media_sql::{self, CONVERTED, NEEDS_AUDIO, NEEDS_VIDEO, TO_CONVERT},
-    state_machine::ItemStatus,
+    state_machine::{ItemStatus, JobAction},
 };
 use axum::{
     Json,
@@ -1181,11 +1181,11 @@ fn load_file(
         &desired,
         open
     ));
-    let fix_status:Option<String>=conn.query_row(&format!("SELECT CASE WHEN max(CASE WHEN status='running' THEN 2 WHEN status IN ('cancel_requested','cancelling') THEN 1 ELSE 0 END)=2 THEN 'running' WHEN max(CASE WHEN status='running' THEN 2 WHEN status IN ('cancel_requested','cancelling') THEN 1 ELSE 0 END)=1 THEN 'cancelling' ELSE 'queued' END FROM job_items WHERE media_file_id=?1 AND action IN ('fix','convert') AND status NOT IN {} HAVING count(*)>0",ItemStatus::terminal_sql_list()),[media],|row|row.get(0)).optional().map_err(|_|())?;
+    let fix_status:Option<String>=conn.query_row(&format!("SELECT CASE WHEN max(CASE WHEN status='running' THEN 2 WHEN status IN ('cancel_requested','cancelling') THEN 1 ELSE 0 END)=2 THEN 'running' WHEN max(CASE WHEN status='running' THEN 2 WHEN status IN ('cancel_requested','cancelling') THEN 1 ELSE 0 END)=1 THEN 'cancelling' ELSE 'queued' END FROM job_items WHERE media_file_id=?1 AND action IN {} AND status NOT IN {} HAVING count(*)>0",JobAction::Prepare.stored_sql_list(),ItemStatus::terminal_sql_list()),[media],|row|row.get(0)).optional().map_err(|_|())?;
     data["fix_status"] = json!(fix_status);
     // The newest item of the file that has started (any action) is an interrupted fix or convert, and no
     // inspection was stored after it. Anything later clears the flag.
-    let last_interrupted:bool=conn.query_row("SELECT COALESCE((SELECT i.action IN ('fix','convert') AND i.status='interrupted' AND NOT EXISTS(SELECT 1 FROM inspections n WHERE n.media_file_id=?1 AND i.finished_at IS NOT NULL AND datetime(n.created_at)>datetime(i.finished_at)) FROM job_items i WHERE i.media_file_id=?1 AND i.status<>'queued' ORDER BY i.id DESC LIMIT 1),0)",[media],|row|row.get(0)).map_err(|_|())?;
+    let last_interrupted:bool=conn.query_row(&format!("SELECT COALESCE((SELECT i.action IN {} AND i.status='interrupted' AND NOT EXISTS(SELECT 1 FROM inspections n WHERE n.media_file_id=?1 AND i.finished_at IS NOT NULL AND datetime(n.created_at)>datetime(i.finished_at)) FROM job_items i WHERE i.media_file_id=?1 AND i.status<>'queued' ORDER BY i.id DESC LIMIT 1),0)",JobAction::Prepare.stored_sql_list()),[media],|row|row.get(0)).map_err(|_|())?;
     data["last_interrupted"] = json!(last_interrupted);
     Ok(Some(data))
 }

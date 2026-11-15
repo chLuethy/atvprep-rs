@@ -19,6 +19,7 @@ use crate::scans::Scans;
 use crate::schedule_candidates::{ScheduleSelection, candidate_ids};
 use crate::schedule_due::{self, Decision};
 use crate::settings::TargetProfile;
+use crate::state_machine::JobAction;
 use crate::{Error, Result};
 
 /// A validated local wall-clock minute.
@@ -372,7 +373,7 @@ fn run_recorded(ctx: Ctx<'_>, schedule_id: i64, slot: Option<&str>) -> Result<St
         finish_run(ctx, schedule_id, slot, &now, message, None, None)?;
         return Ok(message.to_owned());
     }
-    let mut job = NewJob::new("verify", &media_ids);
+    let mut job = NewJob::new(JobAction::Verify, &media_ids);
     job.trigger = "manual";
     job.settings_snapshot =
         serde_json::json!({"manual_approval": false, "schedule_id": schedule_id});
@@ -514,7 +515,7 @@ fn run_change_schedule(
         return finish("No matching files".to_owned(), None);
     }
     let params = row.params(delete_original, profile);
-    let mut job = NewJob::new("fix", &media_ids);
+    let mut job = NewJob::new(JobAction::Prepare, &media_ids);
     job.trigger = "manual";
     // Every item carries the signed Kodierfreigabe; the worker refuses one that differs.
     job.encode_media = media_ids.iter().map(|id| (*id, row.encode)).collect();

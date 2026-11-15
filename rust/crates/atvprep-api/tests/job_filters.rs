@@ -167,6 +167,30 @@ async fn action_takes_a_list_and_prepare_covers_the_former_names() {
 }
 
 #[tokio::test]
+async fn a_row_stored_as_prepare_is_listed_with_fix_and_convert() {
+    let api = api_with(
+        "PRAGMA ignore_check_constraints=ON; UPDATE jobs SET action='prepare' WHERE id=6;",
+    );
+    let subjects = api.subjects("order=asc&action=prepare").await;
+    assert_eq!(
+        subjects,
+        [
+            "Films/Running.mkv",
+            "Films/Partly.mkv",
+            "Films/Failed_1.mkv"
+        ]
+    );
+    let body = api.get("/api/v1/jobs?order=asc&action=prepare").await;
+    assert!(
+        body["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|job| job["action"] == "prepare")
+    );
+}
+
+#[tokio::test]
 async fn exclude_status_still_leaves_one_status_out() {
     let api = api();
     let shown = api.subjects("exclude_status=cancelled").await;

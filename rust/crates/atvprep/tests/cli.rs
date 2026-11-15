@@ -396,7 +396,10 @@ fn worker_executes_a_claimed_verification_and_releases_its_permit() {
         )
         .unwrap();
     let job = Jobs(ctx)
-        .create(&NewJob::new("verify", &[media.id]))
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Verify,
+            &[media.id],
+        ))
         .unwrap();
     let mut lease = MediaExecutorLease::new(ctx);
     assert!(lease.acquire("worker", 30).unwrap());
@@ -439,7 +442,10 @@ fn worker_executes_a_claimed_verification_and_releases_its_permit() {
         .unwrap();
     assert_eq!(permits, 0);
     let job = Jobs(ctx)
-        .create(&NewJob::new("verify", &[media.id]))
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Verify,
+            &[media.id],
+        ))
         .unwrap();
     let item = Jobs(ctx)
         .claim_media_item(job.id, "worker", fence, 30, 1)
@@ -465,7 +471,10 @@ fn worker_executes_a_claimed_verification_and_releases_its_permit() {
         ..missing
     };
     let job = Jobs(ctx)
-        .create(&NewJob::new("inspect", &[media.id]))
+        .create(&NewJob::new(
+            atvprep_manager::state_machine::JobAction::Inspect,
+            &[media.id],
+        ))
         .unwrap();
     let item = Jobs(ctx)
         .claim_media_item(job.id, "worker", fence, 30, 1)
@@ -555,7 +564,7 @@ fn worker_executes_a_claimed_verification_and_releases_its_permit() {
     let auth = atvprep_api::auth::AuthService::with_csrf_ttl(ctx, 28_800, 3600, 900).unwrap();
     let session = auth.create().unwrap();
     let ids = [media.id];
-    let mut prepare = NewJob::new("fix", &ids);
+    let mut prepare = NewJob::new(atvprep_manager::state_machine::JobAction::Prepare, &ids);
     prepare.trigger = "manual";
     prepare.settings_snapshot = serde_json::json!({"pipeline":"prepare","policy":atvprep_manager::approval::PREPARE_POLICY,"profile":atvprep_manager::settings::TargetProfile::default().to_json(),"encode":"copy","manual_approval":true,"approved_by":session.id,"approved_at":ctx.clock.now_micros()/1_000_000,"delete_original":false,"delete_original_confirmed":false});
     let job = Jobs(ctx).create(&prepare).unwrap();

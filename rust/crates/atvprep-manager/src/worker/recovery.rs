@@ -120,7 +120,10 @@ impl Recovery<'_> {
                 continue;
             }
             let status = DeploymentGate(self.0).status()?;
-            let changes_media = matches!(item.action.as_str(), "fix" | "convert");
+            let changes_media = item
+                .action
+                .parse::<crate::state_machine::JobAction>()
+                .is_ok_and(crate::state_machine::JobAction::changes_files);
             let paused = (!status.healthy || status.mode != "open" || status.phase != "steady")
                 && item.attempt < max_attempts
                 && !changes_media;
@@ -142,7 +145,7 @@ impl Recovery<'_> {
             }
             self.0.conn.execute("UPDATE job_items SET error_detail=?1 WHERE id=?2 AND status='interrupted'",rusqlite::params!["The worker stopped or lost its lease while this ran, so the work was lost. It was queued again as a new job.",item.id])?;
             let media_ids = [item.media_file_id];
-            let mut retry = NewJob::new(&item.action, &media_ids);
+            let mut retry = NewJob::new(item.action.parse()?, &media_ids);
             retry.trigger = "retry";
             retry.settings_snapshot = item.settings_snapshot.clone();
             retry
@@ -334,7 +337,10 @@ mod tests {
             )
             .unwrap();
         let job = Jobs(ctx)
-            .create(&NewJob::new("verify", &[media.id]))
+            .create(&NewJob::new(
+                crate::state_machine::JobAction::Verify,
+                &[media.id],
+            ))
             .unwrap();
         (database, conn, clock, job.id)
     }

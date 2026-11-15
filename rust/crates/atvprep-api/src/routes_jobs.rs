@@ -12,7 +12,7 @@ use atvprep_manager::{
     media::Media,
     prepare_snapshot::{ManualApproval, Origin, PrepareSnapshot},
     repo::Ctx,
-    state_machine::JobStatus,
+    state_machine::{JobAction, JobStatus},
 };
 use axum::{
     Json,
@@ -50,17 +50,19 @@ pub async fn create(
     Json(input): Json<CreateJob>,
 ) -> Response {
     const PATH: &str = "/api/v1/jobs";
-    if input.media_ids.is_empty()
-        || input.media_ids.len() > 100
-        || !matches!(input.action.as_str(), "inspect" | "verify" | "prepare")
-    {
+    let Some(action) =
+        JobAction::from_public(&input.action).filter(|action| *action != JobAction::Scan)
+    else {
+        return crate::read::error(StatusCode::UNPROCESSABLE_ENTITY, "invalid request", PATH);
+    };
+    if input.media_ids.is_empty() || input.media_ids.len() > 100 {
         return crate::read::error(StatusCode::UNPROCESSABLE_ENTITY, "invalid request", PATH);
     }
     let body = serde_json::to_value(&input).expect("request serializes");
     let session_token =
         routes_auth::cookie(&headers, state.config.session_cookie_secure).unwrap_or_default();
     mutate(state,headers,"POST",PATH.to_owned(),"create-job",body,move |ctx,state| {
-        let prepares=input.action=="prepare";
+        let prepares=action.changes_files();
         let opaque=Opaque::new(state.api_secret.as_bytes());
         let ids=input.media_ids.iter().map(|value|opaque.decode(value,"m").ok().filter(|id|*id>0).ok_or(MutationError::InvalidInput("media_ids must contain opaque identifiers"))).collect::<Result<Vec<_>,_>>()?;
         if input.force && !prepares {return Err(MutationError::InvalidInput("force is only available when preparing"));}
@@ -70,11 +72,11 @@ pub async fn create(
         if prepares && encode==EncodeAllowance::All && !input.confirm_video_encode {return Err(MutationError::InvalidInput("encoding audio and video requires an explicit confirmation"));}
         for id in &ids {let media=Media(ctx).get(*id).map_err(|_|MutationError::Database)?.ok_or(MutationError::NotFound)?;if prepares && media.discovery_state!="present" {return Err(MutationError::InvalidInput("only files that are present can be prepared"));}}
         let job=if prepares {queue_prepare(ctx,state,&PrepareDecision{media_ids:&ids,encode,video_confirmed:input.confirm_video_encode,force:input.force,session_token:&session_token})?}else{
-            let mut new=NewJob::new(&input.action,&ids);new.trigger="manual";
+            let mut new=NewJob::new(action,&ids);new.trigger="manual";
             new.settings_snapshot=json!({"manual_approval":input.manual_approval});
             Jobs(ctx).create(&new).map_err(creation_error)?
         };
-        Ok((201,json!({"data":{"id":opaque.encode("j",job.id),"action":if prepares {"prepare"}else{&job.action},"status":job.status}})))
+        Ok((201,json!({"data":{"id":opaque.encode("j",job.id),"action":action.public(),"status":job.status}})))
     }).await
 }
 
@@ -100,7 +102,7 @@ fn queue_prepare(
     state: &AppState,
     decision: &PrepareDecision<'_>,
 ) -> Result<atvprep_manager::models::Job, MutationError> {
-    let mut new = NewJob::new("fix", decision.media_ids);
+    let mut new = NewJob::new(JobAction::Prepare, decision.media_ids);
     new.trigger = "manual";
     new.encode_media = decision
         .media_ids
@@ -428,7 +430,7 @@ pub async fn inspect_file(
                 return Err(MutationError::NotFound);
             }
             let ids = [media];
-            let mut new = NewJob::new("inspect", &ids);
+            let mut new = NewJob::new(JobAction::Inspect, &ids);
             new.trigger = "manual";
             let job = Jobs(ctx)
                 .create(&new)
