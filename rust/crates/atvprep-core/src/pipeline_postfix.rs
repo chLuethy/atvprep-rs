@@ -273,16 +273,13 @@ mod tests {
 
     /// A shell script that prints `probe` for every ffprobe call.
     fn fake_ffprobe(dir: &Path, probe: &Value) -> Ffprobe {
-        use std::os::unix::fs::PermissionsExt;
         let json_file = dir.join("probe.json");
         std::fs::write(&json_file, probe.to_string()).unwrap();
         let script = dir.join("ffprobe");
-        std::fs::write(
+        atvprep_testkit::write_script(
             &script,
             format!("#!/bin/sh\ncat '{}'\n", json_file.display()),
-        )
-        .unwrap();
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        );
         Ffprobe::with_program(script)
     }
 

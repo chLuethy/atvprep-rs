@@ -367,7 +367,11 @@ fn worker_executes_a_claimed_verification_and_releases_its_permit() {
     copy_fixture(directory.path(), "plain_faststart.mp4", "verify.mp4");
     let root_path = directory.path().canonicalize().unwrap();
     let metadata = std::fs::metadata(root_path.join("verify.mp4")).unwrap();
-    let db = Db::memory().unwrap();
+    // A database file, as in production: its WAL and busy timeout wait out a lock held by another
+    // worker thread. A shared-cache in-memory database reports such a lock at once, past the busy
+    // timeout, and the unretried statement would end an item as failed that was never at fault.
+    let database_dir = tempfile::tempdir().unwrap();
+    let db = Db::open(&database_dir.path().join("manager.sqlite")).unwrap();
     let mut conn = db.conn().unwrap();
     schema::migrate(&mut conn).unwrap();
     let clock = SystemClock;
@@ -780,16 +784,13 @@ fn without_a_command_the_help_is_printed_and_the_exit_code_is_1() {
 #[test]
 fn cancelling_a_re_encode_removes_the_partial_file() {
     use atvprep_manager::worker::process::{PrepareMode, StopReason, run_pinned_prepare};
-    use std::os::unix::fs::PermissionsExt;
     use std::{collections::BTreeMap, time::Duration};
     let tools = tempfile::tempdir().unwrap();
     let fake = tools.path().join("ffmpeg");
-    std::fs::write(
+    atvprep_testkit::write_script(
         &fake,
         "#!/bin/sh\nfor last; do :; done\nprintf partial > \"$last\"\nexec sleep 60\n",
-    )
-    .unwrap();
-    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+    );
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("film.mp4");
     std::fs::copy(high10(), &path).unwrap();

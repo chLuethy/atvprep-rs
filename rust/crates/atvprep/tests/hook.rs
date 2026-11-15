@@ -1,7 +1,6 @@
 //! The Servarr hook: argv, stdout, stderr and exit codes on top of the prepare pipeline.
 
 use std::ffi::OsString;
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 use atvprep::{Environment, hook_main};
@@ -26,8 +25,7 @@ fn hook(args: &[&Path], ffmpeg: Option<&str>) -> Run {
     let mut env = Environment::from_process();
     env.ffmpeg = ffmpeg.map(|body| {
         let path = dir.path().join("ffmpeg");
-        std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        atvprep_testkit::write_script(&path, format!("#!/bin/sh\n{body}\n"));
         path
     });
     let args: Vec<OsString> = args.iter().map(OsString::from).collect();

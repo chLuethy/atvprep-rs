@@ -4,7 +4,6 @@
 //! over short, generated files. A missing tool fails these tests; nothing is skipped.
 
 use std::collections::BTreeMap;
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
@@ -789,16 +788,14 @@ fn a_new_mp4_that_fails_verification_keeps_the_container() {
     // Real ffmpeg does the work, then the output is swapped for one the check rejects.
     let tools = tempfile::tempdir().unwrap();
     let stand_in = tools.path().join("ffmpeg");
-    std::fs::write(
+    atvprep_testkit::write_script(
         &stand_in,
         format!(
             "#!/bin/sh\nfor last; do :; done\n{ffmpeg} \"$@\" || exit $?\ncase \"$last\" in -|/dev/null) ;; *) cp {bad} \"$last\" ;; esac\n",
             ffmpeg = on_path("ffmpeg").display(),
             bad = testdata("high10.mp4").display(),
         ),
-    )
-    .unwrap();
-    std::fs::set_permissions(&stand_in, std::fs::Permissions::from_mode(0o755)).unwrap();
+    );
     world.config.environment.insert(
         "PATH".to_owned(),
         format!("{}:{}", tools.path().display(), search_path()),
@@ -1362,16 +1359,14 @@ fn a_new_mp4_that_fails_verification_ends_the_log_with_the_cause() {
     let mut world = world(&[("file.mkv", copyable_mkv, Copy)], true);
     let tools = tempfile::tempdir().unwrap();
     let stand_in = tools.path().join("ffmpeg");
-    std::fs::write(
+    atvprep_testkit::write_script(
         &stand_in,
         format!(
             "#!/bin/sh\nfor last; do :; done\n{ffmpeg} \"$@\" || exit $?\ncase \"$last\" in -|/dev/null) ;; *) cp {bad} \"$last\" ;; esac\n",
             ffmpeg = on_path("ffmpeg").display(),
             bad = testdata("high10.mp4").display(),
         ),
-    )
-    .unwrap();
-    std::fs::set_permissions(&stand_in, std::fs::Permissions::from_mode(0o755)).unwrap();
+    );
     world.config.environment.insert(
         "PATH".to_owned(),
         format!("{}:{}", tools.path().display(), search_path()),

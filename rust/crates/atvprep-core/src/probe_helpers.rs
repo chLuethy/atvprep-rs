@@ -371,7 +371,6 @@ mod tests {
     #[cfg(unix)]
     mod load {
         use std::fs;
-        use std::os::unix::fs::PermissionsExt;
         use std::path::Path;
 
         use atvprep_testkit::fixture_path;
@@ -383,8 +382,7 @@ mod tests {
         /// A fake ffprobe: JSON for the stream probe, one packet for the DTS probe, or a failure.
         fn fake(dir: &Path, body: &str) -> Ffprobe {
             let script = dir.join("ffprobe");
-            fs::write(&script, format!("#!/bin/sh\n{body}\n")).unwrap();
-            fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+            atvprep_testkit::write_script(&script, format!("#!/bin/sh\n{body}\n"));
             Ffprobe::with_program(script)
         }
 

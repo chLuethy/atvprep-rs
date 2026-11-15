@@ -83,15 +83,18 @@ impl<'a> MediaExecutorLease<'a> {
     ///
     /// # Errors
     ///
-    /// SQLite fails.
+    /// SQLite fails. A lock held by another connection is retried first: a lease that is not given
+    /// back stays held until it expires, and no executor runs in the meantime.
     pub fn release(&self) -> Result<bool> {
         let Some(token) = self.fencing_token else {
             return Ok(false);
         };
-        Ok(self.ctx.conn.execute(
-            "UPDATE media_executor_leases SET owner_id=NULL, lease_expires_at=NULL, heartbeat_at=NULL
-             WHERE id=1 AND fencing_token=?1",
-            [token],
-        )? == 1)
+        crate::db::retry_busy(|| {
+            Ok(self.ctx.conn.execute(
+                "UPDATE media_executor_leases SET owner_id=NULL, lease_expires_at=NULL, heartbeat_at=NULL
+                 WHERE id=1 AND fencing_token=?1",
+                [token],
+            )? == 1)
+        })
     }
 }

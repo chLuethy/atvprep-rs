@@ -338,11 +338,9 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn a_failing_ffprobe_means_no_duplicate_and_a_missing_one_too() {
-        use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::tempdir().unwrap();
         let script = dir.path().join("ffprobe");
-        std::fs::write(&script, "#!/bin/sh\nprintf '1,a\\n2,a\\n'\nexit 1\n").unwrap();
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        atvprep_testkit::write_script(&script, "#!/bin/sh\nprintf '1,a\\n2,a\\n'\nexit 1\n");
         let probe = serde_json::json!({"streams": [
             {"index": 1, "codec_type": "audio", "codec_name": "ac3", "channels": 2},
             {"index": 2, "codec_type": "audio", "codec_name": "ac3", "channels": 2},
@@ -362,11 +360,9 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn identical_tracks_read_from_a_real_process_are_reported() {
-        use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::tempdir().unwrap();
         let script = dir.path().join("ffprobe");
-        std::fs::write(&script, "#!/bin/sh\nprintf '1,a\\n2,a\\n1,b\\n2,b\\n'\n").unwrap();
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        atvprep_testkit::write_script(&script, "#!/bin/sh\nprintf '1,a\\n2,a\\n1,b\\n2,b\\n'\n");
         let probe = serde_json::json!({"streams": [
             {"index": 1, "codec_type": "audio", "codec_name": "ac3", "channels": 2},
             {"index": 2, "codec_type": "audio", "codec_name": "ac3", "channels": 2},
