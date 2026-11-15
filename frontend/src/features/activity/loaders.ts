@@ -54,6 +54,7 @@ export type ItemRow = {
   error_detail?: string | null;
   progress?: number | null;
   started_at?: string | null;
+  finished_at?: string | null;
 };
 
 export type Page<T> = { kind: "ok" | "error" | "session"; items: T[]; nextCursor?: string | undefined };

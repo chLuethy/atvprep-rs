@@ -617,7 +617,7 @@ impl Jobs<'_> {
         self.claim_item(job_id, worker_id, fencing_token, lease_seconds, &limits)
     }
 
-    /// Show a running item's latest output. Only its owner may, and only while it runs.
+    /// Show a running item's latest output. Only its owner may, and only while it runs or stops.
     ///
     /// # Errors
     ///
@@ -625,7 +625,8 @@ impl Jobs<'_> {
     pub fn set_item_log_tail(&self, item_id: i64, fencing_token: i64, tail: &str) -> Result<bool> {
         Ok(self.0.conn.execute(
             "UPDATE job_items SET log_tail=?3
-             WHERE id=?1 AND executor_fencing_token=?2 AND status='running'",
+             WHERE id=?1 AND executor_fencing_token=?2
+               AND status IN ('running','cancel_requested','cancelling')",
             rusqlite::params![item_id, fencing_token, tail],
         )? == 1)
     }

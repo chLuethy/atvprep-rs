@@ -40,7 +40,7 @@ export const deLibrary: Record<string, string | readonly [string, string]> = {
   "Unable to load files": "Dateien konnten nicht geladen werden",
   "No files match the current filters": "Keine Datei passt zu den aktuellen Filtern",
   "No files yet": "Noch keine Dateien",
-  "A scan reads your libraries and checks which files Apple TV will play, and why. Use Scan above to start.": "Ein Scan liest die Mediatheken und prüft, welche Dateien der Apple TV abspielt, und warum. Oben mit „Scan“ starten.",
+  "A scan reads your libraries and checks which files Apple TV will play, and why. Add a schedule with the Scan action, or choose Run now on an existing one.": "Ein Scan liest die Mediatheken und prüft, welche Dateien der Apple TV abspielt, und warum. Lege einen Zeitplan mit der Aktion Scannen an oder wähle auf einem bestehenden „Jetzt ausführen“.",
   "Retry loading more files": "Weitere Dateien erneut laden",
   "Load more files": "Weitere Dateien laden",
   "{count} selected": "{count} ausgewählt",

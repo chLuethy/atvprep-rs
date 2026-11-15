@@ -111,7 +111,7 @@ details summary { cursor: pointer; color: var(--muted); }
 .item-row { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
 .item-line { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 10px; align-items: start; }
 .item-pos { padding-top: 2px; }
-.item-progress { grid-column: 2 / -1; display: flex; align-items: center; gap: 8px; }
+.item-progress, .item-duration { grid-column: 2 / -1; display: flex; align-items: center; gap: 8px; }
 .item-name.repeat { font-weight: 400; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
 .item-name { font-weight: 500; }
 .item-log { margin-top: 4px; }
@@ -179,9 +179,23 @@ details summary { cursor: pointer; color: var(--muted); }
 .more .notice { margin: 0 0 10px; }
 .setting textarea.lines { width: 100%; max-width: 420px; font-family: var(--font-mono); font-size: var(--text-sm); resize: vertical; }
 .setting-group > p.muted { margin: -2px 0 8px; font-size: var(--text-sm); }
-.lib-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; }
-.lib-tools .scan-control { margin: 0; flex: 1 1 0; min-width: 0; }
-.lib-tools .remove-missing { margin-left: auto; white-space: nowrap; flex: none; }
+/* Files: title, search, the view switch and Remove missing share one row; narrow, the search takes a line of its own. */
+.lib-title-row { flex-wrap: wrap; gap: 8px 12px; min-width: 0; }
+.lib-title-row h1 { flex: none; }
+.lib-title-row .remove-missing { white-space: nowrap; flex: none; }
+@media (max-width: 720px) {
+  .lib-title-row .search { order: 3; flex: 1 1 100%; min-width: 0; max-width: none; }
+  .lib-title-row .search .input { min-height: 44px; padding-right: 8px; }
+  .lib-title-row .search .kbd { display: none; }
+  .lib-title-row .view-switch { margin-left: auto; }
+  .lib-title-row .seg-label { display: none; }
+  .lib-title-row .seg button { min-width: 44px; min-height: 44px; justify-content: center; }
+  .lib-title-row .remove-missing { min-height: 44px; }
+}
+@media (hover: none) and (pointer: coarse) {
+  .lib-title-row .search .kbd { display: none; }
+  .lib-title-row .search .input { padding-right: 8px; }
+}
 .sidecar { display: flex; flex-wrap: wrap; gap: 2px 8px; padding: 2px 0; }
 .sidecar-state { font-size: var(--text-sm); flex-basis: 100%; }
 .sidecar-state.pending { color: var(--text); font-weight: 500; }

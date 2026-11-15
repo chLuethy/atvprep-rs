@@ -126,7 +126,11 @@ pub struct PrepareMode {
 }
 
 /// The argument vector of `atvprep prepare` for one pinned leaf.
-fn prepare_arguments(leaf: &str, identity: (i128, i128, i128), mode: PrepareMode) -> Vec<String> {
+pub(crate) fn prepare_arguments(
+    leaf: &str,
+    identity: (i128, i128, i128),
+    mode: PrepareMode,
+) -> Vec<String> {
     let (device, inode, ctime) = identity;
     let mut arguments = vec![
         "prepare".to_owned(),
@@ -318,6 +322,24 @@ fn run_with_stdin(
     result
 }
 
+/// The arguments of ffprobe for a file on its stdin. The report carries ffprobe's version under
+/// `program_version`, for the item's log.
+#[must_use]
+pub(crate) fn probe_arguments() -> Vec<String> {
+    [
+        "-v",
+        "error",
+        "-show_program_version",
+        "-show_format",
+        "-show_streams",
+        "-of",
+        "json",
+        "/dev/fd/0",
+    ]
+    .map(str::to_owned)
+    .to_vec()
+}
+
 /// Probe a pinned regular file with ffprobe through a read-only stdin descriptor.
 ///
 /// # Errors
@@ -333,16 +355,7 @@ pub fn run_pinned_probe(
     let file = target
         .open_for_tools()
         .map_err(|_| Error::Invalid("probe input changed".to_owned()))?;
-    let arguments = [
-        "-v",
-        "error",
-        "-show_format",
-        "-show_streams",
-        "-of",
-        "json",
-        "/dev/fd/0",
-    ]
-    .map(str::to_owned);
+    let arguments = probe_arguments();
     run_with_stdin(
         executable,
         &arguments,
@@ -356,7 +369,7 @@ pub fn run_pinned_probe(
 }
 
 /// The argument vector of `atvprep verify` for one pinned leaf.
-fn verify_arguments(
+pub(crate) fn verify_arguments(
     leaf: &str,
     identity: (i128, i128, i128),
     profile: TargetProfile,
