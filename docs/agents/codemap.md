@@ -24,6 +24,7 @@ Einstiegspunkte nach Modul und Konzept, nicht nach Funktion. Suche den Namen im 
 
 - **Worker-Ausführung.** `worker/execution.rs` führt beanspruchte Items aus, `worker/process.rs` startet die Prozesse.
 - **Item-Protokoll.** `worker/logs.rs` (`ItemLog`, begrenzt, Schrittzeilen bleiben ganz), `worker/report_log.rs` und `worker/prepare_log.rs` (Schrittzeilen aus dem, was das Werkzeug meldet).
+- **Zeitpläne.** `schedule_candidates.rs` (Kandidatenauswahl: die Zahl der API-Ansicht und die eingereihte Menge eines Laufs kommen aus derselben Abfrage), `schedule_due.rs` (reine Fälligkeitsentscheidung `decide`), `cron.rs` (der einzige Kalender), `schedules.rs` (Dispatch, Lauf, Zeitzonen-Umrechnung `local_to_utc`), `media_sql.rs` (gemeinsame SQL-Bausteine).
 - **Migrationen.** `schema.rs` führt `migrations/000N_name.sql` der Reihe nach aus; `PRAGMA user_version` ist die Version. Neu: Datei anlegen, in `STAGES` anhängen, `VERSION` erhöhen.
 
 ## Golden- und Oracle-Daten (`rust/testdata/golden`)
