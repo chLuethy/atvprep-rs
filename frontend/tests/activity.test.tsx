@@ -318,6 +318,54 @@ describe("JobDetail: what happened", () => {
     }
   });
 
+  it("shows on a prepare item the change and the steps planned when it was queued", async () => {
+    const planned = item({
+      planned_change: "audio",
+      planned_steps: [
+        "[warning] audio-sample-rate: ac-3 track id=2 sample rate 44100Hz (expected 48000)",
+        "[warning] fast-start: moov atom appears after mdat",
+        "[warning] avc-level-atv-limit: H.264 level 6.0 exceeds 5.2",
+        "[embed] subtitles: 2",
+      ],
+    });
+    const view = render(() => <JobDetail api={detailApi({}, [planned])} jobId="j_1" />);
+
+    const plan = await view.findByRole("group", { name: "Expected change" });
+    expect(within(plan).getByText("Audio encoding")).toBeInTheDocument();
+    const steps = within(within(plan).getByRole("list", { name: "Planned steps" })).getAllByRole("listitem").map((step) => step.textContent);
+    expect(steps).toEqual([
+      "AC-3 44.1 kHz → EAC3 48 kHz",
+      "Rewrite the file with the index at the front (faststart)",
+      "Merge 2 external subtitle files into the MP4",
+    ]);
+  });
+
+  it("reads the expected change in German", async () => {
+    setLanguage("de");
+    try {
+      const planned = item({ planned_change: "remux", planned_steps: ["[warning] fast-start: moov atom appears after mdat"] });
+      const view = render(() => <JobDetail api={detailApi({}, [planned])} jobId="j_1" />);
+      const plan = await view.findByRole("group", { name: "Erwartete Änderung" });
+      expect(within(plan).getByText("Remux")).toBeInTheDocument();
+      expect(within(plan).getByRole("list", { name: "Geplante Schritte" })).toBeInTheDocument();
+    } finally {
+      setLanguage("en");
+    }
+  });
+
+  it("shows only the change when nothing more specific was planned", async () => {
+    const view = render(() => <JobDetail api={detailApi({}, [item({ planned_change: "patch", planned_steps: [] })])} jobId="j_1" />);
+    const plan = await view.findByRole("group", { name: "Expected change" });
+    expect(within(plan).getByText("Patch")).toBeInTheDocument();
+    expect(within(plan).queryByRole("list")).not.toBeInTheDocument();
+  });
+
+  it("shows no expected change on an item that was queued without one", async () => {
+    const view = render(() => <JobDetail api={detailApi({ action: "verify" }, [item({ action: "verify" }), item({ id: "i_2", position: 2 })])} jobId="j_1" />);
+    await view.findAllByText("Heat");
+    expect(view.queryByRole("group", { name: "Expected change" })).not.toBeInTheDocument();
+  });
+
   it("says on the item that encoding was not allowed, as a hint and not as a failure", async () => {
     const refused = item({ error_code: "encode_not_allowed", error_detail: "Encoding not allowed (need=video allowance=audio): the file stays as it was." });
     const view = render(() => <JobDetail api={detailApi({}, [refused])} jobId="j_1" />);

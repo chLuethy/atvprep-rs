@@ -240,6 +240,22 @@ fn item_view(row: &rusqlite::Row<'_>, opaque: &Opaque) -> rusqlite::Result<((i64
             row_json["encode_need"] = json!(need);
         }
     }
+    // The change a Vorbereiten item was queued with; an item without one (older entries, Prüfen,
+    // Analysieren) keeps its shape.
+    if let Some(change) = snapshot.get("planned_change").and_then(Value::as_str) {
+        row_json["planned_change"] = json!(safe_head(change, 32));
+        let steps: Vec<String> = snapshot
+            .get("planned_steps")
+            .and_then(Value::as_array)
+            .map(Vec::as_slice)
+            .unwrap_or_default()
+            .iter()
+            .filter_map(Value::as_str)
+            .take(atvprep_manager::jobs::MAX_PLANNED_STEPS)
+            .map(|step| safe_head(step, atvprep_manager::jobs::MAX_PLANNED_STEP_BYTES))
+            .collect();
+        row_json["planned_steps"] = json!(steps);
+    }
     Ok(((position, id), row_json))
 }
 

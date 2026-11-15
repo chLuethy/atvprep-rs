@@ -1,12 +1,13 @@
-import { tn, t } from "../../lib/i18n";
+import { formatNumber, tn, t } from "../../lib/i18n";
 import { parseReason, type ParsedReason } from "./reasons";
 
 /**
  * What `atvprep prepare` will do about each verify reason. Derived from the rules, not simulated:
  * the size-neutral postfix steps and the Apple tag patch change the file without re-encoding
  * ("patch"), layout problems need a remux, findings that need encoding are "encode" (whether that means
- * audio or video is the server's Kodierbedarf, not a guess from here), and level or sample-rate problems
- * nothing here can predict ("none").
+ * audio or video is the server's Kodierbedarf, not a guess from here), an audio track at a sample rate the
+ * Apple TV does not take is encoded at 48 kHz ("encode"), and level problems nothing here can predict
+ * ("none").
  */
 export type ChangeKind = "patch" | "remux" | "encode" | "none";
 export type Change = { kind: ChangeKind; rule: string | null; text: string };
@@ -28,6 +29,21 @@ function tagChange(message: string): Change {
     if (match) return { kind: "patch", rule: "apple-tags", text: describe(Number(match[1])) };
   }
   return { kind: "patch", rule: "apple-tags", text: message };
+}
+
+/** The codec as mp4info names it in `audio-sample-rate`, and what Prepare encodes it to at 48 kHz. */
+const RESAMPLED: Readonly<Record<string, [string, string]>> = {
+  "ac-3": ["AC-3", "EAC3"], ac3: ["AC-3", "EAC3"], "ec-3": ["E-AC-3", "EAC3"], ec3: ["E-AC-3", "EAC3"], mp4a: ["AAC", "AAC"],
+};
+const SAMPLE_RATE = /^(\S+) track id=\S+ sample rate (\d+)Hz /;
+const kHz = (hz: number) => formatNumber(hz / 1000, hz % 1000 === 0 ? 0 : 1);
+
+/** Prepare encodes an AC-3/E-AC-3 track that is not at 48 kHz to EAC3, an odd-rate AAC to AAC, both at 48 kHz. */
+function sampleRateChange(message: string): Change | null {
+  const match = SAMPLE_RATE.exec(message);
+  const codecs = match ? RESAMPLED[match[1] ?? ""] : undefined;
+  if (!match || !codecs) return null;
+  return { kind: "encode", rule: "audio-sample-rate", text: `${codecs[0]} ${kHz(Number(match[2]))} kHz → ${codecs[1]} ${kHz(48000)} kHz` };
 }
 
 /** A rule that threw reports `rule crashed: ...`; that is a tool problem, not a defect of the file. */
@@ -55,9 +71,10 @@ function changeFor(reason: ParsedReason): Change | null {
     case "video-reencode": return { kind: "encode", rule, text: t("Re-encode the video to HEVC (lossy, needs confirmation)") };
     case "fast-start": return { kind: "remux", rule, text: t("Rewrite the file with the index at the front (faststart)") };
     case "no-fragments": return { kind: "remux", rule, text: t("Rewrite the fragmented file as a regular MP4") };
+    case "audio-sample-rate":
+      return sampleRateChange(reason.message) ?? { kind: "none", rule, text: t("{message}. Only a re-encode changes this.", { message: reason.message }) };
     case "avc-level-atv-limit":
     case "hevc-level-atv-limit":
-    case "audio-sample-rate":
       return { kind: "none", rule, text: t("{message}. Only a re-encode changes this.", { message: reason.message }) };
     default:
       return { kind: "none", rule, text: t("{message} (what Prepare does about this rule is unknown)", { message: reason.message }) };
@@ -68,6 +85,24 @@ export function expectedChanges(reasons: ParsedReason[]): Change[] {
   return reasons.flatMap((reason) => {
     const change = changeFor(reason);
     return change ? [change] : [];
+  });
+}
+
+const EMBED_STEP = /^\[embed\] subtitles: (\d+)$/;
+
+/**
+ * The planned steps a Vorbereiten item was queued with, in the words of the preview: the verify reasons
+ * it resolves and the subtitle files it merges (`[embed] subtitles: n`). What it leaves unchanged is
+ * not a step.
+ */
+export function plannedStepTexts(steps: ReadonlyArray<string>): string[] {
+  return steps.flatMap((step) => {
+    const embed = EMBED_STEP.exec(step);
+    if (embed) {
+      const count = Number(embed[1]);
+      return [tn("Merge {count} external subtitle file into the MP4", "Merge {count} external subtitle files into the MP4", count)];
+    }
+    return expectedChanges([parseReason(step)]).filter((change) => change.kind !== "none").map((change) => change.text);
   });
 }
 

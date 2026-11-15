@@ -115,6 +115,12 @@ details summary { cursor: pointer; color: var(--muted); }
 .item-name.repeat { font-weight: 400; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
 .item-name { font-weight: 500; }
 .item-log { margin-top: 4px; }
+.item-plan { margin: 4px 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: var(--text-sm); min-width: 0; }
+.change-mark { border: 1px solid currentColor; border-radius: 999px; padding: 0 6px; line-height: 1.5; color: var(--muted); white-space: nowrap; }
+.change-mark.patch { color: var(--ok); }
+.change-mark.remux { color: var(--warn); }
+.change-mark.audio, .change-mark.reencode { color: var(--bad); }
+.item-steps { flex-basis: 100%; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
 .log-tools { display: flex; gap: 4px; }
 
 .wave-limit { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
