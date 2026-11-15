@@ -170,9 +170,18 @@ pub fn redact_text(value: &str) -> String {
     redact(value).unwrap_or_else(|()| "<redacted>".to_owned())
 }
 /// Redact first, then retain at most `limit` UTF-8 bytes without a split character.
+///
+/// Every pattern stops at a line break, so the text is redacted line by line (`\n` and `\r` end
+/// a line): a long log stays within the regex work bound, and a line that does not is withheld
+/// alone, as `<redacted>`.
 #[must_use]
 pub fn redact_log_tail(value: &str, limit: usize) -> String {
-    let redacted = redact_text(value);
+    let mut redacted = String::with_capacity(value.len());
+    for line in value.split_inclusive(['\n', '\r']) {
+        let body = line.trim_end_matches(['\n', '\r']);
+        redacted.push_str(&redact_text(body));
+        redacted.push_str(&line[body.len()..]);
+    }
     let mut start = redacted.len().saturating_sub(limit);
     while !redacted.is_char_boundary(start) {
         start += 1;
@@ -235,5 +244,27 @@ mod tests {
         assert_eq!(redact_log_tail("a😀é", 5), "é");
         let hostile = format!("prefix /{}", "x ".repeat(20_000));
         assert!(!redact_text(&hostile).contains("x "));
+    }
+
+    #[test]
+    fn a_whole_item_log_is_redacted_line_by_line_and_kept() {
+        let progress = "frame= 1234 fps= 52 q=28.0 size=   10240KiB time=00:01:02.03\n";
+        let log = format!(
+            "[10:00:00] Start: verify\n{}token=private-value at /library/secret/film.mkv\n{}\r[10:00:09] Exit code: 0\n",
+            progress.repeat(500),
+            progress.repeat(500)
+        );
+        let redacted = redact_log_tail(&log, usize::MAX);
+        assert!(redacted.starts_with("[10:00:00] Start: verify\nframe= 1234"));
+        assert!(redacted.ends_with("\r[10:00:09] Exit code: 0\n"));
+        assert!(redacted.contains("token=<redacted> at <path>\n"));
+        assert!(!redacted.contains("private-value"));
+        assert!(!redacted.contains("/library"));
+        // A line too long to redact safely is withheld, not the whole log.
+        let hostile = format!("start\n/{}\nend\n", "x ".repeat(20_000));
+        assert_eq!(
+            redact_log_tail(&hostile, usize::MAX),
+            "start\n<redacted>\nend\n"
+        );
     }
 }

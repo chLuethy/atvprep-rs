@@ -3,7 +3,7 @@ import { N, t, tn } from "../../lib/i18n";
 import { Button, Icon } from "../../ui";
 import { allReady, describeCounts, loadBrowse, worstIn, type Browse, type BrowseFolder, type StateCounts } from "./browse";
 import type { Api, FileRow } from "./loaders";
-import { EMPTY_FILTER, fileFilterQuery, type FileFilter } from "./filters";
+import { EMPTY_FILTER, fileFilterQuery, fileSortQuery, type FileFilter, type FileSort } from "./filters";
 import { verdictOf } from "./model";
 import { RowMenu, type MenuItem } from "./RowMenu";
 import { additive, copyText, selectionMenu, type SelectionAction } from "./selection";
@@ -26,6 +26,9 @@ export type ColumnAction = SelectionAction;
 
 /** What of the filter the column view follows (everything but the search), as one comparable string. */
 const viewKey = (filter: FileFilter) => fileFilterQuery({ ...filter, q: "" });
+
+/** The order a column asks for, as one comparable string; none given is the server's own order. */
+const sortKey = (sort: FileSort | undefined) => (sort === undefined ? "server" : fileSortQuery(sort));
 
 const lastName =(path: string | undefined) => (path ?? "").split("/").pop() || t("(unnamed)");
 const entriesOf = (data: Browse): Entry[] => [
@@ -62,6 +65,7 @@ const Column: Component<{
   index: number;
   place: Place;
   filter: FileFilter;
+  sort: FileSort | undefined;
   version: number;
   selected: (key: string) => boolean;
   focused: boolean;
@@ -71,8 +75,8 @@ const Column: Component<{
   onBackground: (index: number) => void;
 }> = (props) => {
   const [data, { refetch }] = createResource(
-    () => [props.place.rootId, props.place.path, viewKey(props.filter), props.version] as const,
-    ([rootId, path]) => loadBrowse(props.api, { rootId, path, filter: props.filter }),
+    () => [props.place.rootId, props.place.path, viewKey(props.filter), sortKey(props.sort), props.version] as const,
+    ([rootId, path]) => loadBrowse(props.api, { rootId, path, filter: props.filter, sort: props.sort }),
   );
   const loaded = () => data.latest;
   // The libraries are the first column, so the library facet leaves out the ones not chosen there.
@@ -163,6 +167,11 @@ export const ColumnsView: Component<{
   api: Api;
   /** The files filter; every column follows it except for the search. Folders without a hit are left out. */
   filter?: FileFilter;
+  /**
+   * The order of every column, folders first, then files; `null` is the default (recently added, newest first).
+   * A different order reads the columns again but keeps the path and the selection.
+   */
+  sort?: FileSort;
   /** Changes whenever the files may have changed under us (a job ended); columns read again. */
   version: number;
   /** The id of the file the inspector shows, if any. */
@@ -423,6 +432,7 @@ export const ColumnsView: Component<{
             index={index}
             place={placeOf(index)}
             filter={props.filter ?? EMPTY_FILTER}
+            sort={props.sort}
             version={props.version}
             selected={(key) => isSelected(index, key)}
             focused={active() === index}

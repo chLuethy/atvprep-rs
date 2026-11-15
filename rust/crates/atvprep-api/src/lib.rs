@@ -1829,7 +1829,10 @@ mod tests {
         conn.raw()
             .execute(
                 "UPDATE job_items SET log_tail=?1 WHERE id=1",
-                ["é".repeat(5000)],
+                [format!(
+                    "[10:00:00] Start: verify\n{}",
+                    format!("{}\n", "é".repeat(100)).repeat(300)
+                )],
             )
             .unwrap();
         let id = crate::opaque::Opaque::new(state.api_secret.as_bytes()).encode("i", 1);
@@ -1846,12 +1849,32 @@ mod tests {
                 .body(axum::body::Body::empty())
                 .unwrap()
         };
-        let response = app.clone().oneshot(get()).await.unwrap();
-        assert_eq!(response.status(), StatusCode::OK);
-        let body: serde_json::Value =
-            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        let read = |app: axum::Router| async move {
+            let response = app.oneshot(get()).await.unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            serde_json::from_slice::<serde_json::Value>(
+                &to_bytes(response.into_body(), 1 << 20).await.unwrap(),
+            )
+            .unwrap()
+        };
+        // A whole manager log (up to 64 KiB) comes back whole, its first step line included.
+        let body = read(app.clone()).await;
+        assert_eq!(body["meta"]["truncated"], false);
+        assert!(
+            body["data"]["log_tail"]
+                .as_str()
+                .unwrap()
+                .starts_with("[10:00:00] Start: verify\n")
+        );
+        conn.raw()
+            .execute(
+                "UPDATE job_items SET log_tail=?1 WHERE id=1",
+                ["é\n".repeat(30_000)],
+            )
+            .unwrap();
+        let body = read(app.clone()).await;
         assert_eq!(body["meta"]["truncated"], true);
-        assert!(body["data"]["log_tail"].as_str().unwrap().len() <= 8192);
+        assert!(body["data"]["log_tail"].as_str().unwrap().len() <= 64 * 1024);
         conn.raw()
             .execute(
                 "UPDATE job_items SET log_tail='token=private-value' WHERE id=1",

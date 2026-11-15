@@ -1,5 +1,8 @@
 //! Incremental, fenced progress and bounded log events from a running Prepare child.
-use super::{executor::FfmpegProgress, logs::LogTail};
+use super::{
+    executor::FfmpegProgress,
+    logs::{ITEM_LOG_LIMIT, ItemLog},
+};
 use crate::{Error, Result, events::Events, jobs::Jobs, repo::Ctx};
 use std::time::{Duration, Instant};
 
@@ -23,6 +26,20 @@ impl Drop for NonblockingWrite<'_> {
     }
 }
 
+/// How much of the log a `job.log` event carries. The event tells live readers that the log moved;
+/// the whole log is read from the item.
+const EVENT_TAIL_LIMIT: usize = 8192;
+
+/// The fenced sink of one running item: progress, step lines and tool output, written to the item
+/// (`progress`, `log_tail`) and announced as `job.progress` and `job.log`.
+///
+/// - [`Self::feed`] takes tool output and parses progress from it.
+/// - [`Self::step`] adds a stamped step line of the manager (see [`ItemLog`]).
+/// - [`Self::finish`] writes the final state, waiting for the database if it must.
+///
+/// Every write needs the item's claim and lease; a lost authority writes nothing and is an error.
+/// Writes only land while the item is running, so the last line must come before its terminal
+/// status.
 pub(super) struct ClaimedOutput<'a> {
     pub ctx: Ctx<'a>,
     pub owner: &'a str,
@@ -30,7 +47,7 @@ pub(super) struct ClaimedOutput<'a> {
     pub item: i64,
     pub job: i64,
     parser: FfmpegProgress,
-    tail: LogTail,
+    log: ItemLog,
     progress: Option<u8>,
     flushed: Option<Instant>,
 }
@@ -43,13 +60,16 @@ impl<'a> ClaimedOutput<'a> {
             item,
             job,
             parser: FfmpegProgress::new(),
-            tail: LogTail::new(8192),
+            log: ItemLog::new(ITEM_LOG_LIMIT),
             progress: None,
             flushed: None,
         }
     }
+
+    /// Take a chunk of tool output. Writes at most every 250 ms unless `force` or progress rose; a
+    /// busy database skips the write instead of delaying the tool.
     pub fn feed(&mut self, chunk: &[u8], force: bool) -> Result<()> {
-        self.tail.push(chunk);
+        self.log.tool(chunk);
         let increased = self.parser.feed(chunk);
         if let Some(percent) = increased {
             self.progress = Some(percent);
@@ -62,20 +82,46 @@ impl<'a> ClaimedOutput<'a> {
         {
             return Ok(());
         }
-        let _nonblocking = NonblockingWrite::new(self.ctx.conn)?;
-        let tx = match rusqlite::Transaction::new_unchecked(
-            self.ctx.conn,
-            rusqlite::TransactionBehavior::Immediate,
-        )
-        .map_err(Error::from)
-        {
+        self.flush(false)
+    }
+
+    /// Add a step line, stamped with the current time, and write it without waiting.
+    pub fn step(&mut self, line: &str) -> Result<()> {
+        self.log.step(self.ctx.clock.now_micros(), line);
+        self.flush(false)
+    }
+
+    /// Write everything still pending, waiting for a busy database like any other write.
+    pub fn finish(&mut self) -> Result<()> {
+        self.flush(true)
+    }
+
+    fn flush(&mut self, wait: bool) -> Result<()> {
+        let nonblocking = if wait {
+            None
+        } else {
+            Some(NonblockingWrite::new(self.ctx.conn)?)
+        };
+        let begin = || {
+            rusqlite::Transaction::new_unchecked(
+                self.ctx.conn,
+                rusqlite::TransactionBehavior::Immediate,
+            )
+            .map_err(Error::from)
+        };
+        let tx = match if wait {
+            crate::db::retry_busy(begin)
+        } else {
+            begin()
+        } {
             Ok(tx) => tx,
-            Err(Error::Busy) => {
+            Err(Error::Busy) if !wait => {
                 self.flushed = Some(Instant::now());
                 return Ok(());
             }
             Err(error) => return Err(error),
         };
+        drop(nonblocking);
         let ctx = Ctx {
             conn: &tx,
             clock: self.ctx.clock,
@@ -98,17 +144,22 @@ impl<'a> ClaimedOutput<'a> {
                 Some(self.item),
             )?;
         }
-        if !self.tail.is_empty()
-            && Jobs(ctx).set_item_log_tail(self.item, self.fence, &self.tail.text())?
-        {
-            Events(ctx).append(
-                self.job,
-                "job.log",
-                "job_item",
-                self.item,
-                &serde_json::json!({"tail":self.tail.text()}),
-                Some(self.item),
-            )?;
+        if !self.log.is_empty() {
+            let text = self.log.text();
+            if Jobs(ctx).set_item_log_tail(self.item, self.fence, &text)? {
+                let mut start = text.len().saturating_sub(EVENT_TAIL_LIMIT);
+                while !text.is_char_boundary(start) {
+                    start += 1;
+                }
+                Events(ctx).append(
+                    self.job,
+                    "job.log",
+                    "job_item",
+                    self.item,
+                    &serde_json::json!({"tail":&text[start..]}),
+                    Some(self.item),
+                )?;
+            }
         }
         tx.commit()?;
         self.flushed = Some(Instant::now());
@@ -186,7 +237,9 @@ mod tests {
                 .feed(format!("ATVPREP-PROGRESS {percent}\n").as_bytes(), true)
                 .unwrap();
         }
-        output.feed(&vec![b'x'; 50000], true).unwrap();
+        output.feed(b"HEAD\n", true).unwrap();
+        output.feed(&vec![b'x'; 200_000], true).unwrap();
+        output.feed(b"\nEND\n", true).unwrap();
         let (percent, tail): (i64, String) = conn
             .raw()
             .query_row(
@@ -196,7 +249,23 @@ mod tests {
             )
             .unwrap();
         assert_eq!(percent, 75);
-        assert!(tail.len() <= 8192);
+        assert!(tail.len() <= 64 * 1024);
+        assert!(tail.contains("ATVPREP-PROGRESS 25\nATVPREP-PROGRESS 10\n"));
+        assert!(tail.contains("bytes omitted"));
+        assert!(tail.ends_with("\nEND\n"));
+        // The live event keeps its former size: it says the log moved, the log itself is read.
+        let event: String = conn
+            .raw()
+            .query_row(
+                "SELECT payload_json FROM events WHERE topic='job.log' ORDER BY id DESC LIMIT 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let event: serde_json::Value = serde_json::from_str(&event).unwrap();
+        let event = event["tail"].as_str().unwrap();
+        assert!(event.len() <= 8192);
+        assert!(event.ends_with("\nEND\n"));
         let values: Vec<String> = conn
             .raw()
             .prepare("SELECT payload_json FROM events WHERE topic='job.progress' ORDER BY id")

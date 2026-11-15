@@ -16,11 +16,11 @@ import type { EncodeLevel } from "./EncodeChoice";
 import { preparable } from "./preparePlan";
 import { isMp4Like } from "./container";
 import { Inspector } from "./Inspector";
-import { ScanControl } from "../scan/ScanControl";
 import { dismissMissing, loadFacetCounts, loadFiles, rawId, loadSummary, queueJob, type Api, type FileCounts, type FileRow, type JobResult } from "./loaders";
 import { formatSize, estimateMinutes, baseName, verdictOf } from "./model";
 import { isTyping } from "../../lib/keys";
 import { reuseUnchanged } from "../../lib/stable";
+import { realtimeState } from "../../lib/realtime";
 
 const VIEW_KEY = "atvprep.library.view";
 function readView(): "list" | "columns" {
@@ -235,6 +235,19 @@ export const LibraryPage: Component<{
   createEffect(on(filter, () => { void load(true); void refreshFacetCounts(); }));
   createEffect(on(sort, () => void load(true, null, true), { defer: true }));
   onMount(() => void refreshSummary());
+
+  // A scan that ends (from a schedule or Run now) can bring new files: read list, counts and columns again.
+  // Only scans that end while the page is open count; the feed also holds older events.
+  let seenSequence = realtimeState.events().reduce((highest, event) => Math.max(highest, event.sequence), 0);
+  createEffect(on(realtimeState.events, (events) => {
+    const fresh = events.filter((event) => event.sequence > seenSequence);
+    if (fresh.length === 0) return;
+    seenSequence = Math.max(seenSequence, ...fresh.map((event) => event.sequence));
+    if (!fresh.some((event) => event.topic === "scan.finished")) return;
+    if (phase() === "ready") void refreshRows(); else void load(true);
+    void refreshSummary();
+    setInspectorVersion((value) => value + 1);
+  }, { defer: true }));
 
   const visibleRows = createMemo(() => rows());
   /** The picked files in list order, so job bodies are stable whatever order they were clicked in. */
@@ -579,11 +592,25 @@ export const LibraryPage: Component<{
     <div class="library" data-pane={props.activeId || previewRows() ? "detail" : "list"} onKeyDown={onKeyDown}>
       <section class="lib-main" aria-label={t("Files")}>
         <div class="lib-bar">
-          <div class="lib-bar-top">
+          <div class="lib-bar-top lib-title-row">
             <h1>{t("Files")}</h1>
-          </div>
-          <div class="lib-tools">
-            <ScanControl api={props.api} onFinished={() => { void load(true); void refreshSummary(); }} />
+            <div class="search">
+              <Icon name="search" />
+              <input
+                ref={searchInput}
+                class="input"
+                type="search"
+                placeholder={t("Search files")}
+                aria-label={t("Search files")}
+                value={search()}
+                onInput={(event) => onSearchInput(event.currentTarget.value)}
+              />
+              <Kbd>/</Kbd>
+            </div>
+            <div class="seg view-switch" role="group" aria-label={t("Files view")}>
+              <button type="button" aria-pressed={view() === "list"} aria-label={t("List")} onClick={() => setView("list")}><Icon name="rows" size={14} /> <span class="seg-label">{t("List")}</span></button>
+              <button type="button" aria-pressed={view() === "columns"} aria-label={t("Columns")} onClick={() => setView("columns")}><Icon name="columns" size={14} /> <span class="seg-label">{t("Columns")}</span></button>
+            </div>
             <Show when={missing() > 0}>
               <Button variant="quiet" class="remove-missing" ref={(element) => { removeTrigger = element; }} aria-expanded={removeOpen()} onClick={() => (removeOpen() ? closeRemove() : openRemove())}>{t("Remove missing ({count})", { count: missing() })}</Button>
             </Show>
@@ -610,23 +637,7 @@ export const LibraryPage: Component<{
             onReset={clearFilters}
             quick={quickChoices()}
             onQuick={onQuick}
-            search={(
-              <div class="search">
-                <Icon name="search" />
-                <input
-                  ref={searchInput}
-                  class="input"
-                  type="search"
-                  placeholder={t("Search files")}
-                  aria-label={t("Search files")}
-                  value={search()}
-                  onInput={(event) => onSearchInput(event.currentTarget.value)}
-                />
-                <Kbd>/</Kbd>
-              </div>
-            )}
             tools={(
-              <>
               <div class="lib-sort">
                 <select class="select" aria-label={t("Sort by")} value={sortKey()} onChange={(event) => {
                   const key = event.currentTarget.value as FileSortKey;
@@ -644,11 +655,6 @@ export const LibraryPage: Component<{
                   <span aria-hidden="true">{sortDir() === 1 ? "↑" : "↓"}</span>
                 </button>
               </div>
-              <div class="seg view-switch" role="group" aria-label={t("Files view")}>
-                <button type="button" aria-pressed={view() === "list"} aria-label={t("List")} onClick={() => setView("list")}><Icon name="rows" size={14} /> <span class="seg-label">{t("List")}</span></button>
-                <button type="button" aria-pressed={view() === "columns"} aria-label={t("Columns")} onClick={() => setView("columns")}><Icon name="columns" size={14} /> <span class="seg-label">{t("Columns")}</span></button>
-              </div>
-              </>
             )}
           />
         </div>
@@ -657,8 +663,9 @@ export const LibraryPage: Component<{
         <Show when={actionError()}><p class="notice bad lib-notice" role="alert">{actionError()}</p></Show>
 
         <Show when={showColumns()}>
-          <ColumnsView api={props.api} filter={filter()} version={inspectorVersion()} activeId={props.activeId} clearToken={clearToken()}
+          <ColumnsView api={props.api} filter={filter()} sort={sort()} version={inspectorVersion()} activeId={props.activeId} clearToken={clearToken()}
             initialPath={recallColumnPath(filter())} onPath={(path) => rememberColumnPath(filter(), path)} onOpen={props.onOpen} onSelection={setColPicked} onAction={(action) => void actOnColumns(action)} />
+
         </Show>
         <div class="lib-scroll" hidden={showColumns()}>
           <Show when={phase() !== "loading"} fallback={<p class="muted pad">{t("Loading files")}</p>}>
@@ -681,7 +688,11 @@ export const LibraryPage: Component<{
                       <NoMatches title={t("No files match the current filters")} facets={facets()} value={facetValue()} search={query()} onReset={clearFilters} />
                     )}
                   >
-                    <div class="empty"><b>{t("No files yet")}</b>{t("A scan reads your libraries and checks which files Apple TV will play, and why. Use Scan above to start.")}</div>
+                    <div class="empty">
+                      <b>{t("No files yet")}</b>
+                      {t("A scan reads your libraries and checks which files Apple TV will play, and why. Add a schedule with the Scan action, or choose Run now on an existing one.")}
+                      <a href="/schedules">{t("Schedules")}</a>
+                    </div>
                   </Show>
                 )}
               >

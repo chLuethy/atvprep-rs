@@ -5,6 +5,7 @@ import { LibraryPage } from "../src/features/files/LibraryPage";
 import { EMPTY_FILTER, type FileFilter } from "../src/features/files/filters";
 import { SessionError } from "../src/lib/api";
 import { setLanguage } from "../src/lib/i18n";
+import { realtimeState } from "../src/lib/realtime";
 
 type Api = { request: (path: string, init?: RequestInit) => Promise<Response> };
 
@@ -63,6 +64,8 @@ const isPicked = (view: { getByRole: (role: string, options: { name: string }) =
   rowNamed(view, name).getAttribute("data-picked") === "true";
 
 const open = vi.fn();
+/** Realtime sequences only ever grow, across every test in this file. */
+let sequence = 1;
 const renderLibrary = (api: Api, activeId?: string) => render(() => <LibraryPage api={api} activeId={activeId} onOpen={open} />);
 
 describe("LibraryPage: the page title", () => {
@@ -770,32 +773,89 @@ describe("LibraryPage: selection and the fix flow", () => {
   });
 });
 
-describe("LibraryPage: scanning by hand", () => {
-  it("offers a scan and reloads the list and the counts when it finishes", async () => {
-    vi.useFakeTimers();
-    let scanStatus = "running";
+describe("LibraryPage: the title row without a scan", () => {
+  const scannedApi = () => {
     const calls: string[] = [];
     const api: Api = {
       request: vi.fn(async (path: string) => {
         calls.push(path);
-        if (path === "/roots") return json([{ id: "r_1", name: "Film", latest_scan: { id: "s_1", root_id: "r_1", generation: 1, status: scanStatus, started_at: null, finished_at: null } }]);
+        if (path === "/roots") return json([{ id: "r_1", name: "Film", latest_scan: { id: "s_1", root_id: "r_1", generation: 1, status: "succeeded", started_at: null, finished_at: "2026-11-01T10:00:00Z" } }]);
         if (path.startsWith("/files?")) return json(ROWS, 200, { next_cursor: null });
-        if (path === "/dashboard") return json({ files: { clean: 1 }, scans: {}, jobs: {} });
+        if (path === "/dashboard") return json({ files: { clean: 1 }, missing: 2, scans: {}, jobs: {} });
+        if (path.startsWith("/browse")) return json({ folders: [{ name: "Film", id: "r_1", counts: { clean: 1 }, total: 1 }], files: [], truncated: false });
         return json([]);
       }),
     };
+    return { api, calls };
+  };
+
+  it("offers no scan and says nothing about the last scan", async () => {
+    const view = renderLibrary(scannedApi().api);
+    await view.findByRole("link", { name: "Heat" });
+
+    expect(view.queryByRole("button", { name: /^Scan/ })).not.toBeInTheDocument();
+    expect(view.queryByText(/scanned/i)).not.toBeInTheDocument();
+    expect(await view.findByRole("button", { name: "Remove missing (2)" })).toBeInTheDocument();
+  });
+
+  it("puts the search field and the view switch next to the title, and / still finds the search", async () => {
+    const view = renderLibrary(scannedApi().api);
+    await view.findByRole("link", { name: "Heat" });
+
+    const titleRow = view.getByRole("heading", { level: 1, name: "Files" }).parentElement as HTMLElement;
+    const search = within(titleRow).getByRole("searchbox", { name: "Search files" });
+    expect(within(titleRow).getByRole("group", { name: "Files view" })).toBeInTheDocument();
+    const filters = view.getByRole("search", { name: "Filter files" });
+    expect(within(filters).queryByRole("searchbox")).not.toBeInTheDocument();
+    expect(within(filters).getByRole("combobox", { name: "Sort by" })).toBeInTheDocument();
+
+    await fireEvent.keyDown(rowNamed(view, "Heat"), { key: "/" });
+    expect(search).toHaveFocus();
+  });
+
+  const scanFinished = (topic = "scan.finished") => realtimeState.applyEvent({ type: "event", id: `e_${sequence}`, sequence: sequence++, topic, payload: { status: "succeeded", trigger: "scheduled" } });
+
+  it("reloads the list and the counts when a scan finishes, and not for other events", async () => {
+    const { api, calls } = scannedApi();
     const view = renderLibrary(api);
-    await vi.advanceTimersByTimeAsync(0);
-    expect(view.getByRole("button", { name: "Scanning" })).toBeDisabled();
-    const before = calls.filter((path) => path.startsWith("/files?")).length;
+    await view.findByRole("link", { name: "Heat" });
+    await waitFor(() => expect(calls.filter((path) => path === "/dashboard")).toHaveLength(1));
+    const listReads = () => calls.filter((path) => path.startsWith("/files?")).length;
+    const before = listReads();
 
-    scanStatus = "succeeded";
-    await vi.advanceTimersByTimeAsync(4100);
+    scanFinished("job.updated");
+    await Promise.resolve();
+    expect(listReads()).toBe(before);
 
-    expect(view.getByRole("button", { name: "Scan library" })).toBeEnabled();
-    expect(calls.filter((path) => path.startsWith("/files?")).length).toBe(before + 1);
-    expect(calls.filter((path) => path === "/dashboard").length).toBe(2);
-    vi.useRealTimers();
+    scanFinished();
+    await waitFor(() => expect(listReads()).toBe(before + 1));
+    await waitFor(() => expect(calls.filter((path) => path === "/dashboard")).toHaveLength(2));
+    expect(view.getByRole("link", { name: "Heat" })).toBeInTheDocument();
+  });
+
+  it("ignores a scan that finished before the page opened", async () => {
+    scanFinished();
+    const { api, calls } = scannedApi();
+    const view = renderLibrary(api);
+    await view.findByRole("link", { name: "Heat" });
+    await waitFor(() => expect(calls.filter((path) => path === "/dashboard")).toHaveLength(1));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(calls.filter((path) => path === "/dashboard")).toHaveLength(1);
+  });
+
+  it("reloads the columns when a scan finishes", async () => {
+    localStorage.setItem("atvprep.library.view", "columns");
+    const { api, calls } = scannedApi();
+    const view = renderLibrary(api);
+    await view.findByRole("group", { name: /Files by folder/ });
+    await waitFor(() => expect(calls.some((path) => path.startsWith("/browse"))).toBe(true));
+    const browseReads = () => calls.filter((path) => path.startsWith("/browse")).length;
+    const before = browseReads();
+
+    scanFinished();
+
+    await waitFor(() => expect(browseReads()).toBeGreaterThan(before));
+    localStorage.removeItem("atvprep.library.view");
   });
 });
 
@@ -817,7 +877,9 @@ describe("LibraryPage: a first run and a search that finds nothing", () => {
     const view = renderLibrary(apiWith({}).api);
 
     expect(await view.findByText("No files yet")).toBeInTheDocument();
-    expect(view.getByText(/a scan reads your libraries/i)).toBeInTheDocument();
+    expect(view.getByText(/a scan reads your libraries/i)).toHaveTextContent(/Run now/);
+    expect(view.getByRole("link", { name: "Schedules" })).toHaveAttribute("href", "/schedules");
+    expect(view.queryByRole("button", { name: /^Scan/ })).not.toBeInTheDocument();
     expect(view.queryByRole("button", { name: "Reset filters" })).not.toBeInTheDocument();
   });
 
@@ -1319,6 +1381,27 @@ describe("LibraryPage: actions on a column selection", () => {
     expect(job).toMatchObject({ action: "inspect", manual_approval: false });
     expect(job.media_ids).toHaveLength(2);
     expect(await view.findByText(/Inspection queued for 2 files/)).toBeInTheDocument();
+    localStorage.removeItem("atvprep.library.view");
+  });
+
+  it("sorts every column by the chosen order and keeps the path and the selection", async () => {
+    localStorage.setItem("atvprep.library.view", "columns");
+    const { api } = columnsApi();
+    const browsed = () => vi.mocked(api.request).mock.calls.map(([path]) => String(path)).filter((path) => path.startsWith("/browse?"));
+    const view = renderLibrary(api);
+    await inShow(view);
+    await fireEvent.click(row(view, "S01"));
+    await view.findByText("e1.mp4");
+    // Without a choice the columns are recently added, newest first, like the list.
+    expect(browsed()).toContain("/browse?root_id=r_1&path=Show&dir=desc");
+
+    await fireEvent.change(view.getByRole("combobox", { name: "Sort by" }), { target: { value: "size" } });
+
+    await waitFor(() => expect(browsed()).toContain("/browse?root_id=r_1&path=Show&sort=size&dir=asc"));
+    expect(browsed()).toContain("/browse?sort=size&dir=asc");
+    expect(browsed()).toContain("/browse?root_id=r_1&path=Show%2FS01&sort=size&dir=asc");
+    expect(view.getByRole("navigation", { name: "Location" })).toHaveTextContent("LibrariesFilmShowS01");
+    expect(row(view, "S01")).toHaveAttribute("aria-selected", "true");
     localStorage.removeItem("atvprep.library.view");
   });
 });

@@ -1,7 +1,7 @@
 import { SessionError } from "../../lib/api";
 import { t, tn } from "../../lib/i18n";
-import { filterParams, type Api, type FileRow } from "./loaders";
-import type { FileFilter } from "./filters";
+import { filterParams, sortParams, type Api, type FileRow } from "./loaders";
+import type { FileFilter, FileSort } from "./filters";
 
 /** How many files below a folder are in each state: clean, warning, blocker, unknown, probe_failed, missing. */
 export type StateCounts = Record<string, number>;
@@ -12,6 +12,8 @@ export type BrowseFolder = {
   id?: string | null;
   counts: StateCounts;
   total: number;
+  /** The size of all files below, in bytes. */
+  size?: number;
 };
 
 export type Browse = { folders: BrowseFolder[]; files: FileRow[]; truncated: boolean };
@@ -25,12 +27,19 @@ function browseFilter(filter: FileFilter | undefined, query: URLSearchParams): U
   return filter ? filterParams({ ...filter, q: "", root: [] }, query) : query;
 }
 
-/** One level of the library. No root lists the libraries; a root and a path list that folder. */
-export async function loadBrowse(api: Api, where: { rootId?: string | null; path?: string; filter?: FileFilter }): Promise<BrowseResult> {
-  const query = new URLSearchParams();
+/** Where a folder view is and what it shows: the filter and, when one is given (`null` is the default), the order. */
+type Where = { rootId?: string | null; path?: string; filter?: FileFilter; sort?: FileSort | undefined };
+
+function browseQuery(where: Where, query: URLSearchParams): URLSearchParams {
   if (where.rootId) query.set("root_id", where.rootId);
   if (where.path) query.set("path", where.path);
   browseFilter(where.filter, query);
+  return where.sort === undefined ? query : sortParams(where.sort, query);
+}
+
+/** One level of the library. No root lists the libraries; a root and a path list that folder. */
+export async function loadBrowse(api: Api, where: Where): Promise<BrowseResult> {
+  const query = browseQuery(where, new URLSearchParams());
   try {
     const response = await api.request(`/browse${query.size > 0 ? `?${query}` : ""}`);
     if (!response.ok) return { kind: "error" };
@@ -77,10 +86,8 @@ export function describeCounts(counts: StateCounts): string {
 export type BelowResult = { kind: "ok"; files: FileRow[]; truncated: boolean } | { kind: "error" } | { kind: "session" };
 
 /** Every file below a folder, at any depth, so an action on a folder reaches its files. */
-export async function loadBelow(api: Api, where: { rootId: string; path?: string; filter?: FileFilter }): Promise<BelowResult> {
-  const query = new URLSearchParams({ root_id: where.rootId });
-  if (where.path) query.set("path", where.path);
-  browseFilter(where.filter, query);
+export async function loadBelow(api: Api, where: Where & { rootId: string }): Promise<BelowResult> {
+  const query = browseQuery(where, new URLSearchParams());
   try {
     const response = await api.request(`/browse/below?${query}`);
     if (!response.ok) return { kind: "error" };
