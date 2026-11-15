@@ -119,6 +119,8 @@ impl<'a> Fixtures<'a> {
             encode: None,
             discovery_state: "present",
             dismissed_at: None,
+            desired_action: None,
+            inspection_failed: false,
         }
     }
 
@@ -131,6 +133,8 @@ impl<'a> Fixtures<'a> {
             files,
             trigger: "automatic",
             status: None,
+            item_status: None,
+            cleared_at: None,
             settings: json!({}),
             requested_at: None,
         }
@@ -266,6 +270,8 @@ pub struct NewFile<'f, 'a> {
     encode: Option<(&'static str, &'static str)>,
     discovery_state: &'static str,
     dismissed_at: Option<String>,
+    desired_action: Option<&'static str>,
+    inspection_failed: bool,
 }
 
 impl NewFile<'_, '_> {
@@ -311,6 +317,20 @@ impl NewFile<'_, '_> {
         self
     }
 
+    /// The operator wants the file fixed (`fix`); the default is `none`.
+    #[must_use]
+    pub const fn desired_action(mut self, action: &'static str) -> Self {
+        self.desired_action = Some(action);
+        self
+    }
+
+    /// Reading the file failed (the stored verdict is `probe_failed`).
+    #[must_use]
+    pub const fn inspection_failed(mut self) -> Self {
+        self.inspection_failed = true;
+        self
+    }
+
     /// Lay the file down. Returns its id.
     ///
     /// # Panics
@@ -349,6 +369,24 @@ impl NewFile<'_, '_> {
                 .execute(
                     "UPDATE media_files SET dismissed_at=?2 WHERE id=?1",
                     rusqlite::params![id, at],
+                )
+                .unwrap();
+        }
+        if let Some(action) = self.desired_action {
+            self.fx
+                .conn
+                .execute(
+                    "UPDATE media_files SET desired_action=?2 WHERE id=?1",
+                    rusqlite::params![id, action],
+                )
+                .unwrap();
+        }
+        if self.inspection_failed {
+            self.fx
+                .conn
+                .execute(
+                    "UPDATE media_files SET compliance_state='probe_failed' WHERE id=?1",
+                    [id],
                 )
                 .unwrap();
         }
@@ -416,6 +454,8 @@ pub struct NewJobSpec<'f, 'a> {
     files: &'f [i64],
     trigger: &'f str,
     status: Option<&'f str>,
+    item_status: Option<&'f str>,
+    cleared_at: Option<&'f str>,
     settings: Value,
     requested_at: Option<&'f str>,
 }
@@ -432,6 +472,21 @@ impl<'f> NewJobSpec<'f, '_> {
     #[must_use]
     pub const fn status(mut self, status: &'f str) -> Self {
         self.status = Some(status);
+        self
+    }
+
+    /// The items are in this state while the job keeps the one of [`Self::status`] (a partly
+    /// successful job has failed items).
+    #[must_use]
+    pub const fn item_status(mut self, status: &'f str) -> Self {
+        self.item_status = Some(status);
+        self
+    }
+
+    /// The operator cleared the job from Activity at `stored_time`.
+    #[must_use]
+    pub const fn cleared_at(mut self, stored_time: &'f str) -> Self {
+        self.cleared_at = Some(stored_time);
         self
     }
 
@@ -477,12 +532,22 @@ impl<'f> NewJobSpec<'f, '_> {
                 .unwrap();
         }
         if let Some(status) = self.status {
+            let items = self.item_status.unwrap_or(status);
             self.fx
                 .conn
                 .execute_batch(&format!(
                     "UPDATE jobs SET status='{status}' WHERE id={job};
-                     UPDATE job_items SET status='{status}' WHERE job_id={job};"
+                     UPDATE job_items SET status='{items}' WHERE job_id={job};"
                 ))
+                .unwrap();
+        }
+        if let Some(at) = self.cleared_at {
+            self.fx
+                .conn
+                .execute(
+                    "UPDATE jobs SET cleared_at=?2 WHERE id=?1",
+                    rusqlite::params![job, at],
+                )
                 .unwrap();
         }
         if let Some(at) = self.requested_at {
@@ -546,6 +611,21 @@ impl NewSchedule<'_, '_> {
     #[must_use]
     pub fn armed_at(self, stored_time: &str) -> Self {
         self.set("armed_at", stored_time.to_owned())
+    }
+
+    /// The Kodierfreigabe (`copy`, `audio`, `all`) of a schedule that prepares.
+    #[must_use]
+    pub fn encode(self, allowance: &str) -> Self {
+        self.set("encode", allowance.to_owned())
+    }
+
+    /// The operator approved the schedule (`approved_by` at `approved_at`, in seconds) with a
+    /// signature of the form `mac`. The signature is not verified here.
+    #[must_use]
+    pub fn approved(self, by: i64, at: i64, mac: &str) -> Self {
+        self.set("approved_by", by)
+            .set("approved_at", at)
+            .set("approval_mac", mac.to_owned())
     }
 
     /// Lay the schedule down. Returns its id.

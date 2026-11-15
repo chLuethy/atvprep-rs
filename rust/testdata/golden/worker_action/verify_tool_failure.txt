@@ -1,0 +1,9 @@
+Start: verify
+File: film.mp4
+Tool: atvprep {version}
+Command: atvprep verify --json --crf 18 --manager-parent-fd 0 --manager-leaf film.mp4 --manager-device 1 --manager-inode 2 --manager-ctime-ns 3 -- film.mp4
+Target profile: crf 18, prefer HEVC 10-bit no, keep AV1 no, fix DTS no
+boom
+Exit code: 2
+Duration: 4.21 s
+Failed: verification_failed: the tool exited with code 2

@@ -5,9 +5,9 @@
 
 use chrono::{DateTime, TimeZone, Utc};
 
+use crate::calendar::{local_of, local_to_utc, next_cron_run_at};
 use crate::clock::format_micros;
 use crate::cron::CronExpr;
-use crate::schedules::{local_of, local_to_utc, next_cron_run_at};
 
 /// How long after its slot a schedule that does not change files still runs.
 pub const CATCH_UP_MICROS: i64 = 6 * 60 * 60 * 1_000_000;

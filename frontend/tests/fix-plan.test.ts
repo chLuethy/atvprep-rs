@@ -178,7 +178,7 @@ describe("summarizeChanges", () => {
 });
 
 describe("fixesAnything", () => {
-  const base = { compliance_state: "warning", desired_action: "fix" };
+  const base = { state: "warning" };
 
   it("is true when at least one reason is something a fix resolves", () => {
     expect(fixesAnything({ ...base, compliance_reasons: ["[warning] apple-tags: 1 track lacks an elng tag", "[warning] audio-sample-rate: 96 kHz"] })).toBe(true);
@@ -197,11 +197,11 @@ describe("fixesAnything", () => {
 
 describe("external subtitles make a file fixable", () => {
   it("offers a fix for a file with nothing to repair when a subtitle file is waiting to be merged", () => {
-    expect(fixesAnything({ compliance_reasons: [], pending_sidecars: 1 })).toBe(true);
-    expect(fixesAnything({ compliance_reasons: ["[warning] apple-tags: 4 tracks lack an elng tag"], pending_sidecars: 0 })).toBe(true);
+    expect(fixesAnything({ state: "embed_open", compliance_reasons: [] })).toBe(true);
+    expect(fixesAnything({ state: "warning", compliance_reasons: ["[warning] apple-tags: 4 tracks lack an elng tag"] })).toBe(true);
   });
 
   it("still refuses a fix that only has unfixable findings and no subtitle to merge", () => {
-    expect(fixesAnything({ compliance_reasons: ["[blocker] avc-level-atv-limit: level 5.2"], pending_sidecars: 0 })).toBe(false);
+    expect(fixesAnything({ state: "blocker", compliance_reasons: ["[blocker] avc-level-atv-limit: level 5.2"] })).toBe(false);
   });
 });

@@ -1,0 +1,23 @@
+Start: verify
+File: film.mp4
+Tool: atvprep {version}
+Command: atvprep verify --json --crf 18 --manager-parent-fd 0 --manager-leaf film.mp4 --manager-device 1 --manager-inode 2 --manager-ctime-ns 3 -- film.mp4
+Target profile: crf 18, prefer HEVC 10-bit no, keep AV1 no, fix DTS no
+Rule ftyp-dby1-requires-atmos: ok
+Rule single-enabled-per-type: ok
+Rule subtitle-handler-type: ok
+Rule no-fragments: ok
+Rule fast-start: warning: moov at end
+Rule avc-level-atv-limit: ok
+Rule hevc-level-atv-limit: ok
+Rule audio-sample-rate: ok
+Rule apple-tags: ok
+Rule default-track-selection: ok
+Rule stereo-twin: ok
+Rule duplicate-audio: ok
+Rule video-reencode: ok
+State: warning
+Encode need: audio
+Planned change: unknown
+Exit code: 1
+Duration: 4.21 s

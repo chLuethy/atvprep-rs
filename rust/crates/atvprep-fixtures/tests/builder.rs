@@ -73,3 +73,44 @@ fn a_job_has_one_queued_item_per_file() {
         .unwrap();
     assert_eq!((job, items), (1, 2));
 }
+
+#[test]
+fn a_file_can_want_a_fix_or_have_failed_inspection() {
+    let conn = migrated();
+    let fx = Fixtures::new(conn.raw());
+    let root = fx.library("Movies");
+    let wanted = fx.file(root, "a.mp4").desired_action("fix").create();
+    let broken = fx.file(root, "b.mp4").inspection_failed().create();
+    assert_eq!(stored(&conn, wanted).desired_action, "fix");
+    assert_eq!(stored(&conn, broken).compliance_state, "probe_failed");
+}
+
+#[test]
+fn a_job_can_end_partly_with_failed_items_and_be_cleared() {
+    let conn = migrated();
+    let fx = Fixtures::new(conn.raw());
+    let root = fx.library("Movies");
+    let a = fx.file(root, "a.mp4").create();
+    let job = fx
+        .job("verify", &[a])
+        .status("partial_success")
+        .item_status("failed")
+        .cleared_at("2026-01-01 00:00:00")
+        .create();
+    let row: (String, String, Option<String>) = conn
+        .raw()
+        .query_row(
+            "SELECT j.status, i.status, j.cleared_at FROM jobs j JOIN job_items i ON i.job_id=j.id WHERE j.id=?1",
+            [job],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!(
+        row,
+        (
+            "partial_success".to_owned(),
+            "failed".to_owned(),
+            Some("2026-01-01 00:00:00".to_owned())
+        )
+    );
+}

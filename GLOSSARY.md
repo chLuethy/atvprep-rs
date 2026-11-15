@@ -97,6 +97,10 @@ _Avoid_: Child-Status
 Woher ein Job stammt: von Hand (ein Betreiber hat ihn in der Oberfläche angestoßen), Zeitplan (aus einem Lauf eines bestimmten Zeitplans) oder Wiederholung (er wiederholt die fehlgeschlagenen Items eines früheren Jobs).
 _Avoid_: Trigger, automatisch (kommt nur bei Altlasten vor)
 
+**Job-Aktion**:
+Was ein Job tut (`JobAction`): Prüfen (`inspect`), Analysieren (`verify`), Vorbereiten (`prepare`) oder Scannen (`scan`, nur ein Zeitplan löst es aus, kein Job wird darunter gespeichert). Vorbereiten ist die einzige Aktion, die Dateien ändert (`changes_files`). Gespeichert wird `fix`, gelesen werden auch die historischen Formen `convert` und `prepare`; die API und die Oberfläche sagen `prepare`. Ein Zeitplan hat eine Aktion aus Analysieren, Vorbereiten und Scannen.
+_Avoid_: Action als String vergleichen, Job-Typ
+
 **Scan-Status**:
 Der Zustand eines Scan-Laufs (`ScanStatus`), getrennt vom Job-Lebenszyklus: `queued`, `claimed`, `running`, `succeeded`, `failed`, `cancelled`, `interrupted`. Terminal sind `succeeded`, `failed`, `cancelled` und `interrupted`.
 

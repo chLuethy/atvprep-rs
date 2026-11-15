@@ -236,3 +236,24 @@ async fn an_unknown_library_is_not_found_as_on_the_file_list() {
         assert_eq!(status, 404, "{path}: {body}");
     }
 }
+
+#[tokio::test]
+async fn an_unknown_library_is_found_missing_before_any_other_bad_value_of_the_job_list() {
+    // The order of the refusals is the one from before the facet engine: the library is resolved first.
+    let api = api();
+    for path in ["/api/v1/jobs", "/api/v1/jobs/counts"] {
+        for other in [
+            "status=nonsense",
+            "action=nonsense",
+            "from=yesterday",
+            "trigger=nonsense",
+        ] {
+            let (status, body) = api.call(&format!("{path}?root_id=nonsense&{other}")).await;
+            assert_eq!(status, 404, "{path}?{other}: {body}");
+        }
+        // A library list that is too long is still invalid input, not missing.
+        let long = "r,".repeat(2000);
+        let (status, _) = api.call(&format!("{path}?root_id={long}")).await;
+        assert_eq!(status, 422, "{path}");
+    }
+}

@@ -270,3 +270,17 @@ async fn the_column_view_takes_the_same_facets_and_hides_empty_folders() {
     assert_eq!(below["data"]["files"].as_array().unwrap().len(), 1);
     assert_eq!(api.request("/api/v1/browse?has_sidecar=maybe").await.0, 422);
 }
+
+#[tokio::test]
+async fn invalid_input_is_refused_before_an_unknown_library_is_missing_on_the_file_list() {
+    // As before the facet engine: every invalid value (a facet token, the date) answers 422 first.
+    let api = api();
+    for path in [
+        "/api/v1/files?root_id=nonsense&status=nonsense",
+        "/api/v1/files?root_id=nonsense&last_seen_from=yesterday",
+        "/api/v1/files?root_id=nonsense&last_seen_to=yesterday",
+        "/api/v1/files?last_seen_from=yesterday",
+    ] {
+        assert_eq!(api.request(path).await.0, 422, "{path}");
+    }
+}

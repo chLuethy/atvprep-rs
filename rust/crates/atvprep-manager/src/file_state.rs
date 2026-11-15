@@ -42,13 +42,16 @@ pub const TRAITS: [&str; 5] = [
 /// The states in which Prepare has something to do with a present file.
 pub const PREPARABLE: [&str; 3] = ["warning", "blocker", "embed_open"];
 
+/// The rank of a token that is no state: it sorts after every state.
+pub const UNRANKED: u8 = 9;
+
 /// The rank of a state token in the status sort; a token that is no state sorts last.
 #[must_use]
 pub fn rank(token: &str) -> u8 {
     RANKED
         .iter()
         .position(|known| *known == token)
-        .map_or(9, |index| u8::try_from(index).unwrap_or(9))
+        .map_or(UNRANKED, |index| u8::try_from(index).unwrap_or(UNRANKED))
 }
 
 /// The state token of a file. A stored verdict this module does not know is its own token.
@@ -99,19 +102,27 @@ pub fn rank_sql(param: &str) -> String {
         .enumerate()
         .map(|(index, token)| format!("WHEN '{token}' THEN {index}"))
         .collect();
-    format!("(CASE {} {} ELSE 9 END)", state_sql(param), arms.join(" "))
+    format!(
+        "(CASE {} {} ELSE {UNRANKED} END)",
+        state_sql(param),
+        arms.join(" ")
+    )
 }
 
 /// The SQL test (table alias `m`) that Prepare would take the file, as `is_preparable` decides it
 /// for a present file: a preparable state, the wish to be fixed or an open embedding.
+///
+/// The JSON list of the open ids is used twice, so it is a numbered placeholder: `open_ids` is the
+/// `N` of `?N`. A bare `?` would bind it once per use and shift every parameter after it.
 #[must_use]
-pub fn preparable_sql(open_param: &str) -> String {
+pub fn preparable_sql(open_ids: u8) -> String {
+    let open_param = format!("?{open_ids}");
     let states: Vec<String> = PREPARABLE.iter().map(|s| format!("'{s}'")).collect();
     format!(
         "({} IN ({}) OR m.desired_action='fix' OR {})",
-        state_sql(open_param),
+        state_sql(&open_param),
         states.join(","),
-        crate::media_sql::embed_open(open_param)
+        crate::media_sql::embed_open(&open_param)
     )
 }
 

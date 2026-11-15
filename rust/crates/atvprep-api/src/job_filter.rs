@@ -96,7 +96,9 @@ fn facets() -> FacetSet<'static> {
             format!(
                 "EXISTS(SELECT 1 FROM job_items i JOIN media_files m ON m.id=i.media_file_id WHERE i.job_id=j.id AND {in_root})"
             )
-        }),
+        })
+        // The job list has always named an unknown library before any other bad value.
+        .resolved_first(),
         job_trigger::facet(),
     ])
 }

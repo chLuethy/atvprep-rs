@@ -185,6 +185,13 @@ impl JobAction {
             .find(|action| action.public() == text)
     }
 
+    /// The action of a schedule by its public name: a schedule verifies, prepares or scans, it does
+    /// not inspect.
+    #[must_use]
+    pub fn from_schedule(text: &str) -> Option<Self> {
+        Self::from_public(text).filter(|action| *action != Self::Inspect)
+    }
+
     /// All stored forms of the actions as an SQL list, for example `('fix','convert','prepare')`.
     #[must_use]
     pub fn stored_sql_list(self) -> String {

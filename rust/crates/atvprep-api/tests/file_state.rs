@@ -3,12 +3,13 @@
 use atvprep_api::{
     auth::AuthService, config::ManagerConfig, opaque::Opaque, router, state::AppState,
 };
+use atvprep_fixtures::{Fixtures, Verdict};
 use atvprep_manager::{db::Db, repo::Ctx, schema};
 use axum::{
     body::{Body, to_bytes},
     http::Request,
 };
-use serde_json::Value;
+use serde_json::{Value, json};
 use tower::ServiceExt;
 
 const SECRET: &str = "test-api-secret";
@@ -38,32 +39,74 @@ impl Api {
 }
 
 /// 1 ready without sidecar, 2 clean with open sidecar, 3 warning with open sidecar, 4 clean with an
-/// already embedded sidecar, plus the files of `extra` SQL run after it.
-fn api_with(extra: &str) -> Api {
+/// already embedded sidecar, and four files in the other states.
+fn api() -> Api {
     let db = Db::memory().unwrap();
     let mut conn = db.conn().unwrap();
     schema::migrate(&mut conn).unwrap();
-    conn.raw()
-        .execute_batch(
-            "INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/library');
-             INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES
-               (1,1,'ready.mp4','video','.mp4',1,1,'f1','present','clean','idle','none'),
-               (2,1,'open.mp4','video','.mp4',1,1,'f2','present','clean','idle','none'),
-               (3,1,'warn.mp4','video','.mp4',1,1,'f3','present','warning','idle','none'),
-               (4,1,'done.mp4','video','.mp4',1,1,'f4','present','clean','idle','none');
-             INSERT INTO sidecars(media_file_id,relative_path,fingerprint) VALUES
-               (2,'open.de.srt','x'),(3,'warn.de.srt','x'),(4,'done.de.srt','x');
-             INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,max_files,enabled,armed_at)
-               VALUES(1,'Fix','prepare',1,127,'12:00',5,0,'2000-01-01');
-             INSERT INTO inspections(media_file_id,source_fingerprint,input_fingerprint,tool_name,tool_version,result) VALUES
-               (2,'s','f2','ffprobe','1','{\"streams\":[]}'),
-               (3,'s','f3','ffprobe','1','{\"streams\":[]}'),
-               (4,'s','f4','ffprobe','1','{\"streams\":[{\"codec_type\":\"subtitle\",\"codec_name\":\"mov_text\",\"tags\":{\"language\":\"deu\"}}]}');
-             UPDATE media_files SET encode_need='video' WHERE id IN (3,4);
-             UPDATE media_files SET encode_need='none' WHERE id IN (1,2);",
-        )
-        .unwrap();
-    conn.raw().execute_batch(extra).unwrap();
+    {
+        let fx = Fixtures::new(conn.raw());
+        let root = fx.library_at("Movies", "/library");
+        let file = |name: &str, fingerprint: &str, verdict: Verdict, need: &'static str| {
+            fx.file(root, name)
+                .fingerprint(fingerprint)
+                .verdict(verdict)
+                .encode(need, "none")
+                .create()
+        };
+        let _ = file("ready.mp4", "f1", Verdict::Clean, "none");
+        let open = file("open.mp4", "f2", Verdict::Clean, "none");
+        let warn = file("warn.mp4", "f3", Verdict::Warning, "video");
+        let done = file("done.mp4", "f4", Verdict::Clean, "video");
+        for (media, sidecar) in [
+            (open, "open.de.srt"),
+            (warn, "warn.de.srt"),
+            (done, "done.de.srt"),
+        ] {
+            let _ = fx.sidecar(media, sidecar, "x");
+        }
+        // The streams a file was probed with: only `done.mp4` already carries the subtitle.
+        let streams = |media: i64, fingerprint: &str, result: Value| {
+            let _ = fx.inspection(media, "ffprobe", fingerprint, &result);
+        };
+        streams(open, "f2", json!({"streams": []}));
+        streams(warn, "f3", json!({"streams": []}));
+        streams(
+            done,
+            "f4",
+            json!({"streams": [{"codec_type": "subtitle", "codec_name": "mov_text", "tags": {"language": "deu"}}]}),
+        );
+        let _ = fx
+            .schedule("Fix", "prepare")
+            .library(root)
+            .days_mask(127)
+            .time_of_day("12:00")
+            .max_files(5)
+            .enabled(false)
+            .armed_at("2000-01-01")
+            .create();
+        let _ = fx
+            .file(root, "gone.mp4")
+            .fingerprint("f5")
+            .verdict(Verdict::Clean)
+            .missing()
+            .create();
+        let _ = fx
+            .file(root, "blocked.mp4")
+            .fingerprint("f6")
+            .verdict(Verdict::Blocker)
+            .create();
+        let _ = fx
+            .file(root, "new.mp4")
+            .fingerprint("f7")
+            .desired_action("fix")
+            .create();
+        let _ = fx
+            .file(root, "broken.mp4")
+            .fingerprint("f8")
+            .inspection_failed()
+            .create();
+    }
     let state = AppState::new(
         db,
         ManagerConfig {
@@ -90,12 +133,6 @@ fn api_with(extra: &str) -> Api {
         session,
     }
 }
-
-const MORE_FILES: &str = "INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES
-           (5,1,'gone.mp4','video','.mp4',1,1,'f5','missing','clean','idle','none'),
-           (6,1,'blocked.mp4','video','.mp4',1,1,'f6','present','blocker','idle','none'),
-           (7,1,'new.mp4','video','.mp4',1,1,'f7','present','unknown','idle','fix'),
-           (8,1,'broken.mp4','video','.mp4',1,1,'f8','present','probe_failed','idle','none');";
 
 type Mark = (String, String, bool);
 
@@ -132,7 +169,7 @@ fn paths(files: &Value) -> Vec<String> {
 
 #[tokio::test]
 async fn every_file_row_carries_its_state_and_whether_prepare_takes_it() {
-    let api = api_with(MORE_FILES);
+    let api = api();
     let expected = vec![
         mark("blocked.mp4", "blocker", true),
         mark("broken.mp4", "probe_failed", false),
@@ -161,7 +198,7 @@ async fn every_file_row_carries_its_state_and_whether_prepare_takes_it() {
 
 #[tokio::test]
 async fn the_facet_counters_the_overview_and_the_total_agree() {
-    let api = api_with(MORE_FILES);
+    let api = api();
     let counts = api.get("/api/v1/files/counts").await;
     let overview = api.get("/api/v1/dashboard/summary").await;
     let mut sum = 0;
@@ -180,7 +217,7 @@ async fn the_facet_counters_the_overview_and_the_total_agree() {
 
 #[tokio::test]
 async fn the_status_sort_is_the_same_in_the_list_and_the_column_view() {
-    let api = api_with(MORE_FILES);
+    let api = api();
     let root = Opaque::new(SECRET.as_bytes()).encode("r", 1);
     for dir in ["asc", "desc"] {
         let list = api
