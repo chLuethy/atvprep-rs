@@ -1,4 +1,5 @@
 //! The log of one job item: the manager's step lines and the tools' output, bounded together.
+use crate::clock::Clock;
 
 /// The most a stored item log may hold, in bytes. It stays within what the API returns for a log.
 pub const ITEM_LOG_LIMIT: usize = 64 * 1024;
@@ -6,7 +7,7 @@ pub const ITEM_LOG_LIMIT: usize = 64 * 1024;
 /// The log of one job item, as stored in `job_items.log_tail`.
 ///
 /// Two kinds of text go in, in the order they happen:
-/// - [`Self::step`]: a line of the manager, stamped `[HH:MM:SS]` (UTC). Step lines are never cut.
+/// - [`Self::step`]: a line of the manager, stamped `[HH:MM:SS]` in server time. Step lines are never cut.
 /// - [`Self::tool`]: raw output of a tool. Output that does not fit loses its middle, marked with
 ///   `… n bytes omitted …`, so its beginning and its end stay.
 ///
@@ -144,17 +145,6 @@ fn cut_middle_lines(text: &str, room: usize) -> String {
     )
 }
 
-/// `[HH:MM:SS]` of a UTC time in microseconds since the epoch.
-fn stamp(at_micros: i64) -> String {
-    let seconds = at_micros.div_euclid(1_000_000).rem_euclid(86_400);
-    format!(
-        "[{:02}:{:02}:{:02}]",
-        seconds / 3600,
-        seconds % 3600 / 60,
-        seconds % 60
-    )
-}
-
 impl ItemLog {
     #[must_use]
     pub fn new(limit: usize) -> Self {
@@ -164,11 +154,12 @@ impl ItemLog {
         }
     }
 
-    /// Add a step line of the manager, stamped with `at_micros` (microseconds since the epoch).
-    pub fn step(&mut self, at_micros: i64, line: &str) {
+    /// Add a step line of the manager, stamped with the current time of `clock` in server time.
+    pub fn step(&mut self, clock: &dyn Clock, line: &str) {
         let line = line.trim_end_matches('\n').replace('\0', "");
+        let stamp = clock.server_time_of_day(clock.now_micros());
         self.entries
-            .push(Entry::Step(format!("{} {line}\n", stamp(at_micros))));
+            .push(Entry::Step(format!("[{stamp}] {line}\n")));
     }
 
     /// Add raw tool output. Consecutive chunks form one output, cut as a whole.
@@ -246,16 +237,25 @@ impl ItemLog {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::clock::ZonedClock;
 
     /// 2023-11-14 22:13:20 UTC.
     const AT: i64 = 1_700_000_000_000_000;
 
+    /// A clock at `micros` on a server that runs in UTC.
+    fn at(micros: i64) -> ZonedClock {
+        ZonedClock {
+            micros,
+            zone: chrono_tz::UTC,
+        }
+    }
+
     #[test]
     fn step_lines_carry_their_time_of_day_and_stand_apart_from_tool_output() {
         let mut log = ItemLog::new(ITEM_LOG_LIMIT);
-        log.step(AT, "Start: Analysieren");
+        log.step(&at(AT), "Start: Analysieren");
         log.tool(b"frame=1 fps=0");
-        log.step(AT + 61_000_000, "Exit code: 0");
+        log.step(&at(AT + 61_000_000), "Exit code: 0");
         assert_eq!(
             log.text(),
             "[22:13:20] Start: Analysieren\nframe=1 fps=0\n[22:14:21] Exit code: 0\n"
@@ -265,13 +265,13 @@ mod tests {
     #[test]
     fn long_tool_output_loses_its_middle_and_every_step_line_survives() {
         let mut log = ItemLog::new(1000);
-        log.step(AT, "first step");
+        log.step(&at(AT), "first step");
         log.tool(b"HEAD-OF-OUTPUT\n");
         for _ in 0..500 {
             log.tool(b"0123456789");
         }
         log.tool(b"\nEND-OF-OUTPUT\n");
-        log.step(AT, "last step");
+        log.step(&at(AT), "last step");
         let text = log.text();
         assert!(text.len() <= 1000, "{} bytes", text.len());
         assert!(text.starts_with("[22:13:20] first step\nHEAD-OF-OUTPUT\n"));
@@ -289,7 +289,7 @@ mod tests {
     fn output_within_the_limit_is_kept_whole() {
         let mut log = ItemLog::new(ITEM_LOG_LIMIT);
         log.tool(b"one\n");
-        log.step(AT, "between");
+        log.step(&at(AT), "between");
         log.tool(b"two\n");
         assert_eq!(log.text(), "one\n[22:13:20] between\ntwo\n");
     }
@@ -307,7 +307,7 @@ mod tests {
     #[test]
     fn the_limit_holds_even_for_multibyte_output() {
         let mut log = ItemLog::new(300);
-        log.step(AT, "start");
+        log.step(&at(AT), "start");
         for _ in 0..200 {
             log.tool("é😀".as_bytes());
         }
@@ -321,7 +321,7 @@ mod tests {
     fn steps_alone_beyond_the_limit_are_still_bounded() {
         let mut log = ItemLog::new(200);
         for index in 0..50 {
-            log.step(AT, &format!("step {index}"));
+            log.step(&at(AT), &format!("step {index}"));
         }
         let text = log.text();
         assert!(text.len() <= 200, "{} bytes", text.len());

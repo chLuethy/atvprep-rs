@@ -87,7 +87,7 @@ impl<'a> ClaimedOutput<'a> {
 
     /// Add a step line, stamped with the current time, and write it without waiting.
     pub fn step(&mut self, line: &str) -> Result<()> {
-        self.log.step(self.ctx.clock.now_micros(), line);
+        self.log.step(self.ctx.clock, line);
         self.flush(false)
     }
 
