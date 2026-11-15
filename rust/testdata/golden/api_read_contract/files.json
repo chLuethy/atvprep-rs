@@ -1,0 +1,50 @@
+{
+  "expected": {
+    "body": {
+      "data": [
+        {
+          "compliance_reasons": [],
+          "compliance_state": "clean",
+          "converted_kept": false,
+          "desired_action": "none",
+          "discovery_state": "present",
+          "display_path": "Movie/film.mp4",
+          "embed_sidecars": [],
+          "encode_need": "unknown",
+          "fix_status": null,
+          "id": "<m:1>",
+          "kind": "video",
+          "last_interrupted": false,
+          "last_seen_at": "<ts>",
+          "mtime_ns": 4,
+          "pending_sidecars": 0,
+          "planned_change": "unknown",
+          "root_id": "<r:1>",
+          "size": 123,
+          "suffix": ".mp4",
+          "workflow_state": "idle"
+        }
+      ],
+      "meta": {
+        "current_cursor": null,
+        "current_sequence": null,
+        "facets": {
+          "suffix": [
+            ".mp4"
+          ]
+        },
+        "limit": 50,
+        "next_cursor": null,
+        "truncated": false
+      }
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "method": "GET",
+    "origin": "http://testserver",
+    "path": "/api/v1/files"
+  },
+  "name": "files"
+}

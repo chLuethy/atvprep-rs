@@ -1,0 +1,20 @@
+{
+  "expected": {
+    "body": {
+      "data": {
+        "cleared": 0
+      }
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "body_json": "{\"statuses\":[\"succeeded\"]}",
+    "csrf_action": "clear-jobs",
+    "idempotency_key": "clear_jobs",
+    "method": "POST",
+    "origin": "http://testserver",
+    "path": "/api/v1/jobs/clear"
+  },
+  "name": "clear_jobs"
+}

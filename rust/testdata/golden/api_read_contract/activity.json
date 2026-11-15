@@ -1,0 +1,30 @@
+{
+  "expected": {
+    "body": {
+      "data": [
+        {
+          "created_at": "<ts>",
+          "id": "<e:1>",
+          "kind": "job_event",
+          "topic": "job.created"
+        }
+      ],
+      "meta": {
+        "current_cursor": null,
+        "current_sequence": null,
+        "facets": {},
+        "limit": 20,
+        "next_cursor": null,
+        "truncated": false
+      }
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "method": "GET",
+    "origin": "http://testserver",
+    "path": "/api/v1/dashboard/activity"
+  },
+  "name": "activity"
+}

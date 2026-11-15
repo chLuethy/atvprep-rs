@@ -1,0 +1,47 @@
+{
+  "expected": {
+    "body": {
+      "data": {
+        "action": "verify",
+        "compliance_state": null,
+        "cron": "30 12 * * 2,5",
+        "days": [
+          1,
+          4
+        ],
+        "enabled": true,
+        "id": "<sc:1>",
+        "last_job_id": "<j:2>",
+        "last_result": "Queued 1 file",
+        "last_run_at": "<ts>",
+        "matching": 1,
+        "max_files": 25,
+        "name": "Updated",
+        "next_run_at": "<ts>",
+        "root_id": null,
+        "root_name": null,
+        "runs": [
+          {
+            "job_id": "<j:2>",
+            "kind": "run",
+            "result": "Queued 1 file",
+            "scan_id": null,
+            "started_at": "<ts>",
+            "trigger": "manual"
+          }
+        ],
+        "time": "12:30"
+      }
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "csrf_action": "run-schedule",
+    "idempotency_key": "schedule_run",
+    "method": "POST",
+    "origin": "http://testserver",
+    "path": "/api/v1/schedules/<sc:1>/run"
+  },
+  "name": "schedule_run"
+}

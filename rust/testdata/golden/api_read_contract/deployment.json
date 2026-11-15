@@ -1,0 +1,39 @@
+{
+  "expected": {
+    "body": {
+      "data": {
+        "active_items": 0,
+        "active_scans": 0,
+        "changed_at": "<ts>",
+        "changed_by_kind": null,
+        "generation": 0,
+        "healthy": true,
+        "mode": "open",
+        "open_permits": [],
+        "permits": 0,
+        "phase": "steady",
+        "quiesced": false,
+        "reason": null,
+        "workers": {
+          "media": {
+            "alive": false,
+            "expires_in_seconds": null
+          },
+          "scheduler": {
+            "alive": false,
+            "expires_in_seconds": null
+          }
+        }
+      },
+      "meta": {}
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "method": "GET",
+    "origin": "http://testserver",
+    "path": "/api/v1/deployment"
+  },
+  "name": "deployment"
+}
