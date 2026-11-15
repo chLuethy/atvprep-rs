@@ -1,0 +1,35 @@
+{
+  "expected": {
+    "body": {
+      "data": [
+        {
+          "created_at": "<ts>",
+          "fingerprint": "sidecar",
+          "id": "<c:1>",
+          "language": "eng",
+          "media_id": "<m:1>",
+          "mtime_ns": 9,
+          "name": "film.en.srt",
+          "size": 42,
+          "state": "unchecked"
+        }
+      ],
+      "meta": {
+        "current_cursor": null,
+        "current_sequence": null,
+        "facets": {},
+        "limit": 50,
+        "next_cursor": null,
+        "truncated": false
+      }
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "method": "GET",
+    "origin": "http://testserver",
+    "path": "/api/v1/files/<m:1>/sidecars"
+  },
+  "name": "sidecars"
+}

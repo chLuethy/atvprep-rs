@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
 use crate::{extract::AuthenticatedSession, opaque::Opaque, state::AppState};
-use atvprep_manager::media_sql;
+use atvprep_manager::{file_state, media_sql};
 
 /// Aggregate the file, scan and job counts used by the dashboard.
 pub async fn dashboard(State(state): State<AppState>, _session: AuthenticatedSession) -> Response {
@@ -26,15 +26,14 @@ pub async fn dashboard(State(state): State<AppState>, _session: AuthenticatedSes
         };
         // The states split the files without overlap, so their counts add up to the total: a missing
         // file counts as missing only, whatever its last verdict was.
-        let mut files = counts("SELECT CASE WHEN discovery_state='missing' THEN 'missing' ELSE compliance_state END AS state,count(*) FROM media_files WHERE NOT (discovery_state='missing' AND dismissed_at IS NOT NULL) GROUP BY state ORDER BY state")?;
-        // "Ready" is a clean file with nothing left to embed; those with an open embedding count apart.
+        // The states split the files without overlap (`file_state`), so their counts add up to the total.
         let open = atvprep_manager::embed::open_media_ids(conn.raw()).map_err(|_| ())?;
         let open_json = serde_json::to_string(&open).map_err(|_| ())?;
-        let embed_open: i64 = conn.raw().query_row(&format!("SELECT count(*) FROM media_files m WHERE m.discovery_state<>'missing' AND m.compliance_state='clean' AND {}", media_sql::embed_open("?1")), [&open_json], |row| row.get(0)).map_err(|_| ())?;
-        if embed_open > 0 {
-            if let Some(clean) = files.get_mut("clean") { *clean -= embed_open; if *clean == 0 { files.remove("clean"); } }
-            files.insert("embed_open".to_owned(), embed_open);
-        }
+        let files: BTreeMap<String, i64> = {
+            let mut stmt = conn.raw().prepare(&format!("SELECT {state} AS state,count(*) FROM media_files m WHERE NOT (m.discovery_state='missing' AND m.dismissed_at IS NOT NULL) GROUP BY state ORDER BY state", state = file_state::state_sql("?1"))).map_err(|_| ())?;
+            let rows = stmt.query_map([&open_json], |row| Ok((row.get(0)?, row.get(1)?))).map_err(|_| ())?;
+            rows.collect::<Result<_,_>>().map_err(|_| ())?
+        };
         let embed = i64::try_from(open.len()).map_err(|_| ())?;
         let scans = counts("SELECT status,count(*) FROM scan_runs GROUP BY status ORDER BY status")?;
         let jobs = counts("SELECT status,count(*) FROM jobs GROUP BY status ORDER BY status")?;
@@ -380,5 +379,233 @@ pub async fn scan(
             "internal server error",
             path,
         ),
+    }
+}
+
+#[cfg(test)]
+mod http_tests {
+    use crate::router;
+    use crate::routes_auth;
+    use crate::test_support::state;
+    use atvprep_fixtures::{Fixtures, Verdict};
+    use axum::body::to_bytes;
+    use axum::http::StatusCode;
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn roots_returns_latest_scan_without_the_private_path() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let root = fx.library_at("Movies", "/private/library");
+        let _ = fx.library_at("/secret/other", "/secret/other");
+        let _ = fx.scan(root, 1, "failed");
+        let _ = fx.scan(root, 2, "succeeded");
+        let token = routes_auth::service(&state, &conn)
+            .unwrap()
+            .create()
+            .unwrap()
+            .token;
+        let app = router(state);
+        let response = app
+            .oneshot(
+                axum::http::Request::get("/api/v1/roots")
+                    .header("origin", "http://localhost")
+                    .header("cookie", format!("__Host-atvprep_session={token}"))
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), 65536).await.unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["data"][0]["name"], "Movies");
+        assert_eq!(body["data"][1]["name"], "other");
+        assert_eq!(body["data"][0]["latest_scan"]["generation"], 2);
+        assert_eq!(
+            body["data"][0]["latest_scan"]["root_id"],
+            body["data"][0]["id"]
+        );
+        assert!(!body.to_string().contains("/private/library"));
+        assert!(!body.to_string().contains("/secret"));
+    }
+
+    #[tokio::test]
+    async fn dashboard_counts_converted_missing_and_pending_files() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let root = fx.library_at("Movies", "/private");
+        let warned = fx
+            .file(root, "film.mkv")
+            .fingerprint("a")
+            .verdict(Verdict::Warning)
+            .encode("video", "reencode")
+            .create();
+        let _ = fx
+            .file(root, "film.mp4")
+            .fingerprint("b")
+            .verdict(Verdict::Clean)
+            .create();
+        let _ = fx.file(root, "other.mkv").fingerprint("c").create();
+        let _ = fx
+            .file(root, "gone.mkv")
+            .fingerprint("d")
+            .missing()
+            .create();
+        let _ = fx
+            .file(root, "dismissed.mkv")
+            .fingerprint("e")
+            .missing()
+            .dismissed_at("2026-01-01")
+            .create();
+        let _ = fx.job("verify", &[warned]).create();
+        let _ = fx.scan(root, 1, "succeeded");
+        fx.setting("delete_original", &serde_json::json!(true), "bool", 1);
+        let token = routes_auth::service(&state, &conn)
+            .unwrap()
+            .create()
+            .unwrap()
+            .token;
+        let response = router(state)
+            .oneshot(
+                axum::http::Request::get("/api/v1/dashboard/summary")
+                    .header("origin", "http://localhost")
+                    .header("cookie", format!("__Host-atvprep_session={token}"))
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(body["data"]["missing"], 1);
+        assert_eq!(body["data"]["convert"], 1);
+        assert_eq!(body["data"]["converted"], 1);
+        assert_eq!(body["data"]["encode_video"], 1);
+        assert_eq!(body["data"]["encode_audio"], 0);
+        // gone.mkv counts as missing only, so the state counts add up to the files shown.
+        assert_eq!(body["data"]["files"]["unknown"], 1);
+        assert_eq!(body["data"]["files"]["missing"], 1);
+        assert_eq!(body["data"]["delete_original"], true);
+        assert_eq!(body["data"]["jobs"]["queued"], 1);
+        assert_eq!(body["data"]["scans"]["succeeded"], 1);
+    }
+
+    #[tokio::test]
+    async fn roots_truncates_an_oversized_entry() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        let _ = Fixtures::new(conn.raw())
+            .library_at(&"x".repeat(crate::bounds::MAX_ELEMENT_BYTES), "/library");
+        let token = routes_auth::service(&state, &conn)
+            .unwrap()
+            .create()
+            .unwrap()
+            .token;
+        let response = router(state)
+            .oneshot(
+                axum::http::Request::get("/api/v1/roots")
+                    .header("origin", "http://localhost")
+                    .header("cookie", format!("__Host-atvprep_session={token}"))
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = to_bytes(response.into_body(), crate::bounds::MAX_RESPONSE_BYTES)
+            .await
+            .unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["data"], serde_json::json!([]));
+        assert_eq!(body["meta"]["truncated"], true);
+    }
+
+    #[tokio::test]
+    async fn scans_page_and_detail_use_authenticated_endpoint_bound_tokens() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let root = fx.library_at("Movies", "/library");
+        let _ = fx.scan(root, 1, "failed");
+        let _ = fx.scan(root, 2, "succeeded");
+        let token = routes_auth::service(&state, &conn)
+            .unwrap()
+            .create()
+            .unwrap()
+            .token;
+        let app = router(state);
+        let get = |path: &str| {
+            axum::http::Request::get(path)
+                .header("origin", "http://localhost")
+                .header("cookie", format!("__Host-atvprep_session={token}"))
+                .body(axum::body::Body::empty())
+                .unwrap()
+        };
+        let first = app
+            .clone()
+            .oneshot(get("/api/v1/scans?limit=1"))
+            .await
+            .unwrap();
+        assert_eq!(first.status(), StatusCode::OK);
+        let first: serde_json::Value =
+            serde_json::from_slice(&to_bytes(first.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(first["data"][0]["generation"], 1);
+        assert_eq!(
+            first["meta"].get("current_cursor"),
+            Some(&serde_json::Value::Null)
+        );
+        assert_eq!(
+            first["meta"].get("current_sequence"),
+            Some(&serde_json::Value::Null)
+        );
+        assert_eq!(first["meta"]["facets"], serde_json::json!({}));
+        let cursor = first["meta"]["next_cursor"].as_str().unwrap();
+        let second = app
+            .clone()
+            .oneshot(get(&format!("/api/v1/scans?limit=1&cursor={cursor}")))
+            .await
+            .unwrap();
+        let second: serde_json::Value =
+            serde_json::from_slice(&to_bytes(second.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(second["data"][0]["generation"], 2);
+        assert!(second["meta"]["next_cursor"].is_null());
+        let id = second["data"][0]["id"].as_str().unwrap();
+        let detail = app
+            .clone()
+            .oneshot(get(&format!("/api/v1/scans/{id}")))
+            .await
+            .unwrap();
+        assert_eq!(detail.status(), StatusCode::OK);
+        assert_eq!(
+            app.clone()
+                .oneshot(get(&format!("/api/v1/scans?cursor={id}")))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::BAD_REQUEST
+        );
+        conn.raw()
+            .execute(
+                "UPDATE scan_runs SET finished_at=?1 WHERE id=2",
+                ["x".repeat(crate::bounds::MAX_ELEMENT_BYTES)],
+            )
+            .unwrap();
+        let bounded = app.oneshot(get("/api/v1/scans?limit=2")).await.unwrap();
+        let bounded: serde_json::Value = serde_json::from_slice(
+            &to_bytes(bounded.into_body(), crate::bounds::MAX_RESPONSE_BYTES)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(bounded["data"].as_array().unwrap().len(), 2);
+        assert_eq!(bounded["data"][1]["finished_at"], "[invalid timestamp]");
+        assert!(bounded["meta"]["next_cursor"].is_null());
     }
 }

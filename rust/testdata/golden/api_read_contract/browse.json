@@ -1,0 +1,32 @@
+{
+  "expected": {
+    "body": {
+      "data": {
+        "files": [],
+        "folders": [
+          {
+            "counts": {
+              "clean": 1
+            },
+            "id": "<r:1>",
+            "name": "Movies",
+            "size": 123,
+            "total": 1
+          }
+        ],
+        "path": "",
+        "root_id": null,
+        "truncated": false
+      },
+      "meta": {}
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "method": "GET",
+    "origin": "http://testserver",
+    "path": "/api/v1/browse"
+  },
+  "name": "browse"
+}

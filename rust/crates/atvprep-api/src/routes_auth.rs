@@ -219,3 +219,70 @@ pub async fn revoke(State(state): State<AppState>, headers: HeaderMap) -> Respon
     }
     response
 }
+
+#[cfg(test)]
+mod http_tests {
+    use crate::router;
+    use crate::test_support::state;
+    use axum::body::to_bytes;
+    use axum::http::StatusCode;
+    use axum::http::header;
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn session_bootstrap_and_logout_require_origin_and_single_use_csrf() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        let app = router(state);
+        let request = || {
+            axum::http::Request::post("/api/v1/auth/session")
+                .header("authorization", "Bearer secret")
+        };
+        let denied = app
+            .clone()
+            .oneshot(request().body(axum::body::Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(denied.status(), StatusCode::FORBIDDEN);
+        let response = app
+            .clone()
+            .oneshot(
+                request()
+                    .header("origin", "http://localhost")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let cookie = response.headers()[header::SET_COOKIE]
+            .to_str()
+            .unwrap()
+            .split(';')
+            .next()
+            .unwrap()
+            .to_owned();
+        let body = to_bytes(response.into_body(), 4096).await.unwrap();
+        let csrf = serde_json::from_slice::<serde_json::Value>(&body).unwrap()["csrf_token"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let logout = || {
+            axum::http::Request::delete("/api/v1/auth/session")
+                .header("origin", "http://localhost")
+                .header("cookie", &cookie)
+                .header("x-csrf-token", &csrf)
+                .body(axum::body::Body::empty())
+                .unwrap()
+        };
+        assert_eq!(
+            app.clone().oneshot(logout()).await.unwrap().status(),
+            StatusCode::OK
+        );
+        assert_eq!(
+            app.oneshot(logout()).await.unwrap().status(),
+            StatusCode::UNAUTHORIZED
+        );
+    }
+}

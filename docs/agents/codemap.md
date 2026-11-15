@@ -24,6 +24,7 @@ Einstiegspunkte nach Modul und Konzept, nicht nach Funktion. Suche den Namen im 
 
 - **Worker-Ausführung.** `worker/execution.rs` ist die Hülle (Lease, Fencing, Permit, Zustandsübergänge des Items). `worker/action.rs` hält je Aktion (Vorbereiten, Prüfen, Analysieren) Argumente, Deutung des Prozessergebnisses und Protokollzeilen; Seams sind `ProcessAdapter` (echter Kindprozess oder festes Ergebnis), `Sink` und `Shell`. `worker/process.rs` startet die Prozesse.
 - **Item-Protokoll.** `worker/logs.rs` (`ItemLog`, begrenzt, Schrittzeilen bleiben ganz), `worker/report_log.rs` und `worker/prepare_log.rs` (Schrittzeilen aus dem, was das Werkzeug meldet).
+- **Dateizustand.** `file_state.rs` entscheidet den Zustand einer Datei (Bereit, Einbettung offen, Warnung, …) an einer Stelle: SQL-Ausdruck `state_sql`, Rangfolge `RANKED`/`rank_sql`, Rust-Gegenstück `state_of`, dazu `is_preparable`. Filter, Sortierung, Spaltenansicht und Übersicht der API nutzen ihn; die Lese-API liefert `state` und `preparable` je Datei. Neuer Zustand: nur dort (Tabellentest) und in `frontend/src/features/files/filters.ts`.
 - **Migrationen.** `schema.rs` führt `migrations/000N_name.sql` der Reihe nach aus; `PRAGMA user_version` ist die Version. Neu: Datei anlegen, in `STAGES` anhängen, `VERSION` erhöhen.
 
 ## Golden- und Oracle-Daten (`rust/testdata/golden`)

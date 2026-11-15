@@ -1,0 +1,39 @@
+{
+  "expected": {
+    "body": {
+      "data": {
+        "action": "verify",
+        "compliance_state": null,
+        "cron": "30 12 * * 2,5",
+        "days": [
+          1,
+          4
+        ],
+        "enabled": true,
+        "id": "<sc:1>",
+        "last_job_id": null,
+        "last_result": null,
+        "last_run_at": null,
+        "matching": 1,
+        "max_files": 25,
+        "name": "Updated",
+        "next_run_at": "<ts>",
+        "root_id": null,
+        "root_name": null,
+        "runs": [],
+        "time": "12:30"
+      }
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "body_json": "{\"name\":\"Updated\",\"days\":[1,4],\"enabled\":true,\"clear_root\":true}",
+    "csrf_action": "update-schedule",
+    "idempotency_key": "schedule_update",
+    "method": "PATCH",
+    "origin": "http://testserver",
+    "path": "/api/v1/schedules/<sc:1>"
+  },
+  "name": "schedule_update"
+}

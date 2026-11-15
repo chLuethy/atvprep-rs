@@ -1,0 +1,39 @@
+{
+  "expected": {
+    "body": {
+      "data": {
+        "action": "verify",
+        "compliance_state": null,
+        "cron": "30 12 * * 1,3",
+        "days": [
+          0,
+          2
+        ],
+        "enabled": true,
+        "id": "<sc:2>",
+        "last_job_id": null,
+        "last_result": null,
+        "last_run_at": null,
+        "matching": 1,
+        "max_files": 25,
+        "name": "New",
+        "next_run_at": "<ts>",
+        "root_id": null,
+        "root_name": null,
+        "runs": [],
+        "time": "12:30"
+      }
+    },
+    "status": 201
+  },
+  "input": {
+    "authenticated": true,
+    "body_json": "{\"name\":\"New\",\"action\":\"verify\",\"days\":[0,2],\"time\":\"12:30\"}",
+    "csrf_action": "create-schedule",
+    "idempotency_key": "create-schedule",
+    "method": "POST",
+    "origin": "http://testserver",
+    "path": "/api/v1/schedules"
+  },
+  "name": "schedule_create"
+}
