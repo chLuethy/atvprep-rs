@@ -2,7 +2,7 @@ import type { ChipKind } from "../../ui/StatusChip";
 import type { IconName } from "../../ui/icons";
 import { N, t } from "../../lib/i18n";
 import { baseName } from "../files/model";
-import type { JobRow } from "./loaders";
+import type { ItemRow, JobRow } from "./loaders";
 
 export type Tone = { kind: ChipKind; icon: IconName; label: string; live?: boolean };
 
@@ -74,6 +74,22 @@ export function jobPercent(job: Pick<JobRow, "status" | "progress">): number | u
 /** How long something has been running, up to `now`; empty without a start. */
 export function runningFor(start: string | null | undefined, now: Date = new Date()): string {
   return start ? formatElapsed(start, now.toISOString()) : "";
+}
+
+const ENDED_ITEM = new Set(["succeeded", "failed", "cancelled", "interrupted", "stale_input"]);
+const WAITING_ITEM = new Set(["queued", "claimed"]);
+/** An item in one of these states will not change again. */
+export const isItemTerminal = (status: string) => ENDED_ITEM.has(status);
+
+/** How long an item has taken, as text: running for a while, took a while once it ended, nothing while it waits. */
+export function itemDuration(item: Pick<ItemRow, "status" | "started_at" | "finished_at">, now: Date): string {
+  if (isItemTerminal(item.status)) {
+    const took = formatElapsed(item.started_at ?? null, item.finished_at ?? null);
+    return took ? t("took {time}", { time: took }) : "";
+  }
+  if (WAITING_ITEM.has(item.status)) return "";
+  const since = runningFor(item.started_at, now);
+  return since ? t("running for {time}", { time: since }) : "";
 }
 
 /** Active jobs first; each group keeps the order the server sent (newest first). */
