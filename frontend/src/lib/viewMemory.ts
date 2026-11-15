@@ -4,7 +4,7 @@
  * and the pages behave as if they had never been visited. `columns` holds the folder path the column view of the
  * files page has open, `layout` whether that page shows the list or the columns.
  */
-export type ViewPage = "files" | "jobs" | "columns" | "layout";
+export type ViewPage = "files" | "jobs" | "schedules" | "columns" | "layout";
 
 /** `layout` is the list/columns choice of the files page; it keeps the key it always had, so the choice stays. */
 const slot = (page: ViewPage) => (page === "layout" ? "atvprep.library.view" : `atvprep.view.${page}`);

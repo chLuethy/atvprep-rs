@@ -30,7 +30,9 @@ export function itemTone(status: string): Tone {
   }
 }
 
-export const isActive = (job: Pick<JobRow, "status">) => ["queued", "running", "cancel_requested"].includes(job.status);
+/** The statuses of a job that still waits or runs; the one definition the list, the filter and the refresh share. */
+export const ACTIVE_STATUSES: ReadonlyArray<string> = ["queued", "running", "cancel_requested"];
+export const isActive = (job: Pick<JobRow, "status">) => ACTIVE_STATUSES.includes(job.status);
 /** The server accepts a cancel only for queued or running jobs. */
 export const canCancel = (job: Pick<JobRow, "status">) => job.status === "queued" || job.status === "running";
 /** A retry needs failed items and nothing still in flight, which only these two end states guarantee. */

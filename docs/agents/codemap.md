@@ -4,7 +4,8 @@ Einstiegspunkte nach Modul und Konzept, nicht nach Funktion. Suche den Namen im 
 
 ## Frontend (`frontend/src`)
 
-- **Routen und Ansichtsgedächtnis.** `App.tsx` hängt die Routen ein. `Library` (Dateien) und `Activity` (Aktivität) sind Routen-Wrapper: eine Route für Liste und geöffnetes Element, der Filter steht in der Adresse. `lib/viewMemory.ts` merkt den zuletzt gezeigten Ansichtsstand pro Seite und ist der einzige Zugriff auf den Browser-Speicher dafür.
+- **Routen und Ansichtsgedächtnis.** `App.tsx` hängt die Routen ein. `Library` (Dateien), `Activity` (Aktivität) und `SchedulesRoute` (Zeitpläne) sind Routen-Wrapper: eine Route für Liste und geöffnetes Element, der Filter steht in der Adresse. `lib/viewMemory.ts` merkt den zuletzt gezeigten Ansichtsstand pro Seite und ist der einzige Zugriff auf den Browser-Speicher dafür.
+- **Facetten-Filter.** `lib/facetFilter.ts` bündelt die Filtermechanik aller Listen: `useFilterAddress` (Adresse und Ansichtsgedächtnis, im Routen-Wrapper) und `createFacetFilter` (Suche mit Verzögerung, Schnellfilter, Abbildung auf die Filterleiste, Zurücksetzen, in der Seite) sowie die Adresshilfen `list`/`canonical`/`sorted`. Eine Liste liefert nur ihre `FacetFilterSpec` (`FILE_FILTER_SPEC` in `features/files/filters.ts`, `jobFilterSpec` in `features/activity/filters.ts`, `SCHEDULE_FILTER_SPEC` in `features/schedules/filters.ts`). Die Zeitplanliste filtert und sortiert weiter im Client.
 - **Dateien und Spaltenansicht.** `features/files/`: `LibraryPage.tsx` (Liste), `ColumnsView.tsx` mit `browse.ts` (Ordner nachladen) und `columnPath.ts` (offener Pfad, über `viewMemory`), `filters.ts`, `loaders.ts`, `Inspector.tsx`. `preparePlan.ts` und `fixPlan.ts` stellen Planer-Ergebnisse des Servers dar.
 - **Aktivität und Protokollansicht.** `features/activity/`: `ActivityPage.tsx` (Jobliste), `JobDetail.tsx` (Job und Items), `LogViewer.tsx` (Item-Protokoll), `filters.ts`, `loaders.ts`, `model.ts`.
 - **Texte.** `lib/i18n.ts` und `locales/de*.ts`.
@@ -12,6 +13,7 @@ Einstiegspunkte nach Modul und Konzept, nicht nach Funktion. Suche den Namen im 
 ## API (`rust/crates/atvprep-api/src`)
 
 - **Lesepfade.** `read_files.rs` (Dateien, Ordner-Browse, Detail, Inspektionen) und `read_jobs.rs` (Jobs, Warteschlange, Items, Item-Protokoll), dazu `job_filter.rs` und `filter_params.rs` für die Abfrageparameter.
+- **Facetten-Engine.** `facets.rs` ist die eine Engine für Dateiliste und Jobliste: eine `Facet` deklariert Adress-Schlüssel, Quelle der erlaubten Tokens (`Tokens`: fest, offen oder opake Ids aus der Datenbank) und SQL-Klausel; `FacetSet` parst die Adresse (`FacetError`), baut die Klauseln und zählt je Option den Filter ohne die eigene Facette. Die Dateiliste deklariert ihre Facetten in `read_files.rs` (`file_facets`), die Jobliste in `job_filter.rs` (Auslöser in `job_trigger.rs`); die Mediathek-Facette (`library_facet`) ist geteilt. Neue Facette: dort deklarieren, Zähler und Eingabeprüfung folgen.
 - **Fehlerkonvention.** Fehler gehen als `ProblemDetail` aus `errors.rs` hinaus. Ein ungültiger Parameter oder Body ist 422 (`UNPROCESSABLE_ENTITY`, Code `invalid_request`).
 
 ## Kern (`rust/crates/atvprep-core/src`)
