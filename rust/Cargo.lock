@@ -109,6 +109,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "atvprep-fixtures"
+version = "0.6.0"
+dependencies = [
+ "atvprep-manager",
+ "chrono",
+ "rusqlite",
+ "serde_json",
+]
+
+[[package]]
 name = "atvprep-manager"
 version = "0.6.0"
 dependencies = [
