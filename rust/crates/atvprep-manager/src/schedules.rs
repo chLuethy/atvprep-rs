@@ -351,11 +351,13 @@ fn run_recorded(ctx: Ctx<'_>, schedule_id: i64, slot: Option<&str>) -> Result<St
         |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
     )?;
     let (action, root_id, compliance_state, max_files, _) = schedule;
+    // A stored name no action has is treated as verifying, as it always was.
+    let action = JobAction::from_public(&action).unwrap_or(JobAction::Verify);
     let now = ctx.clock.now();
-    if action == "scan" {
+    if action == JobAction::Scan {
         return run_scan_schedule(ctx, schedule_id, root_id, &now, slot);
     }
-    if limits::changes_files(&action) {
+    if action.changes_files() {
         return run_change_schedule(ctx, schedule_id, &now, slot);
     }
     let media_ids = candidate_ids(
@@ -504,7 +506,7 @@ fn run_change_schedule(
     let media_ids = candidate_ids(
         ctx.conn,
         &ScheduleSelection {
-            action: row.action.clone(),
+            action: JobAction::Prepare,
             root_id: row.root_id,
             compliance_state: row.compliance_state.clone(),
             encode: row.encode,

@@ -7,13 +7,13 @@
 use atvprep_core::encode::EncodeAllowance;
 
 use crate::Result;
-use crate::limits;
 use crate::media_sql;
+use crate::state_machine::JobAction;
 
 /// What a schedule selects by: its action, library, compliance state and Kodierfreigabe.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScheduleSelection {
-    pub action: String,
+    pub action: JobAction,
     pub root_id: Option<i64>,
     pub compliance_state: Option<String>,
     /// Only preparing reads it; an unknown stored name counts as the narrowest level.
@@ -32,7 +32,9 @@ impl ScheduleSelection {
             [id],
             |row| {
                 Ok(Self {
-                    action: row.get(0)?,
+                    // A stored name no action has is treated as verifying, as it always was.
+                    action: JobAction::from_public(&row.get::<_, String>(0)?)
+                        .unwrap_or(JobAction::Verify),
                     root_id: row.get(1)?,
                     compliance_state: row.get(2)?,
                     encode: EncodeAllowance::parse(&row.get::<_, String>(3)?)
@@ -55,7 +57,7 @@ pub fn candidate_ids(
     selection: &ScheduleSelection,
     limit: Option<i64>,
 ) -> Result<Vec<i64>> {
-    if selection.action == "scan" {
+    if selection.action == JobAction::Scan {
         return Ok(Vec::new());
     }
     let embed_open = crate::embed::open_media_ids_json(conn)?;
@@ -85,27 +87,13 @@ pub fn candidate_count(
     selection: &ScheduleSelection,
     limit: Option<i64>,
 ) -> Result<i64> {
-    if selection.action == "scan" {
-        return Ok(0);
-    }
-    let embed_open = crate::embed::open_media_ids_json(conn)?;
-    Ok(conn.query_row(
-        &format!("SELECT count(*) FROM ({})", select_sql(selection)),
-        rusqlite::params![
-            selection.root_id,
-            selection.compliance_state,
-            selection.encode.as_str(),
-            embed_open,
-            limit.unwrap_or(-1),
-        ],
-        |row| row.get(0),
-    )?)
+    Ok(i64::try_from(candidate_ids(conn, selection, limit)?.len()).unwrap_or(i64::MAX))
 }
 
 /// `?1` library, `?2` compliance state, `?3` Kodierfreigabe, `?4` open embed ids, `?5` limit
 /// (negative: none). Every parameter is bound, whether the action's condition uses it or not.
 fn select_sql(selection: &ScheduleSelection) -> String {
-    let (condition, order) = if limits::changes_files(&selection.action) {
+    let (condition, order) = if selection.action.changes_files() {
         (media_sql::change_candidate("?3", "?4"), "m.id")
     } else {
         (

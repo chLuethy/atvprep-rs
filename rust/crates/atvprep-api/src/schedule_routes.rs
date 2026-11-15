@@ -20,6 +20,7 @@ use atvprep_manager::{
         next_cron_run_at_system, run_schedule, upcoming_cron_runs_system,
     },
     settings::target_profile,
+    state_machine::JobAction,
 };
 use axum::{
     Json,
@@ -347,8 +348,9 @@ pub async fn update(
             let exists:bool=ctx.conn.query_row("SELECT EXISTS(SELECT 1 FROM library_roots WHERE id=?1)",[root],|row|row.get(0)).map_err(|_|MutationError::Database)?;
             if !exists {return Err(MutationError::InvalidInput("unknown library"));}Some(root)
         } else {root};
-        let scan=action=="scan";
-        let changes_files=limits::changes_files(&action);
+        let kind=JobAction::from_schedule(&action);
+        let scan=kind==Some(JobAction::Scan);
+        let changes_files=kind.is_some_and(JobAction::changes_files);
         if requested.is_some() && !changes_files {return Err(MutationError::InvalidInput("encode applies to preparing only"));}
         let new_encode=requested.unwrap_or(old_encode);
         let compliance=if scan || payload.clear_compliance_state {None}else{payload.compliance_state.clone().or(compliance)};
@@ -413,7 +415,8 @@ pub async fn create(
     let Some(timing) = create_timing(&payload) else {
         return error(StatusCode::UNPROCESSABLE_ENTITY, "invalid request", PATH);
     };
-    let changes_files = limits::changes_files(&payload.action);
+    let kind = JobAction::from_schedule(&payload.action);
+    let changes_files = kind.is_some_and(JobAction::changes_files);
     let Ok(requested) = requested_encode(payload.encode.as_ref()) else {
         return error(StatusCode::UNPROCESSABLE_ENTITY, "invalid request", PATH);
     };
@@ -428,7 +431,7 @@ pub async fn create(
                 "unknown" | "clean" | "warning" | "blocker" | "probe_failed"
             )
         })
-        || !matches!(payload.action.as_str(), "verify" | "scan" | "prepare")
+        || kind.is_none()
     {
         return error(StatusCode::UNPROCESSABLE_ENTITY, "invalid request", PATH);
     }
@@ -465,7 +468,7 @@ pub async fn create(
         let ctx=Ctx{conn:conn.raw(),clock:state.clock.as_ref()};
         let request=MutationRequest{token:&token,csrf:&csrf,origin_allowed,requires_open_gate:true,method:"POST",path:PATH,action:"create-schedule",idempotency_key:&key,body:&body,absolute_ttl:i64::try_from(state.config.session_absolute_ttl_seconds).unwrap_or(0),idle_ttl:i64::try_from(state.config.session_idle_ttl_seconds).unwrap_or(0),csrf_ttl:i64::try_from(state.config.csrf_ttl_seconds).unwrap_or(0)};
         mutation::execute(ctx,&request,|tx|{
-            let scan=payload.action=="scan";
+            let scan=kind==Some(JobAction::Scan);
             let count:i64=tx.conn.query_row("SELECT count(*) FROM schedules",[],|row|row.get(0)).map_err(|_|MutationError::Database)?;
             if count>=50{return Err(MutationError::InvalidInput("at most 50 schedules"));}
             let opaque=Opaque::new(state.api_secret.as_bytes());
@@ -543,7 +546,8 @@ fn views(conn: &rusqlite::Connection, state: &AppState) -> Result<(Vec<Value>, b
         let mask = u8::try_from(mask).map_err(|_| ())?;
         let cron = effective_cron(stored_cron.as_deref(), mask, &clock).map_err(|_| ())?;
         let next = next_cron_run_at_system(now, enabled, &cron).map(|value| value.to_rfc3339());
-        let scan = action == "scan";
+        let kind = JobAction::from_public(&action);
+        let scan = kind == Some(JobAction::Scan);
         let matching: Option<i64> = if scan {
             None
         } else {
@@ -551,7 +555,7 @@ fn views(conn: &rusqlite::Connection, state: &AppState) -> Result<(Vec<Value>, b
                 candidate_count(
                     conn,
                     &ScheduleSelection {
-                        action: action.clone(),
+                        action: kind.unwrap_or(JobAction::Verify),
                         root_id: root,
                         compliance_state: compliance.clone(),
                         encode: EncodeAllowance::parse(&encode).unwrap_or(EncodeAllowance::Copy),
@@ -565,7 +569,7 @@ fn views(conn: &rusqlite::Connection, state: &AppState) -> Result<(Vec<Value>, b
         let runs = recent_runs(conn, &opaque, id)?;
         let value = json!({"id":opaque.encode("sc",id),"name":safe_head(&name,2048),"action":action,"root_id":root.map(|id|opaque.encode("r",id)),"root_name":root_name.map(|name|subject(&name)),"compliance_state":if scan {None} else {compliance},"cron":cron.as_str(),"days":mask_to_days(mask),"time":clock,"max_files":if scan {None} else {Some(max_files)},"enabled":enabled,"matching":matching,"next_run_at":next,"last_run_at":last_run,"last_result":last_result.map(|value|safe_head(&value,2048)),"last_job_id":last_job.map(|id|opaque.encode("j",id)),"runs":runs});
         let mut value = value;
-        if limits::changes_files(&action) {
+        if kind.is_some_and(JobAction::changes_files) {
             value["encode"] = json!(encode);
             value["profile"] = profile.clone();
         }
