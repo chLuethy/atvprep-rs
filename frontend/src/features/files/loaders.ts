@@ -179,14 +179,21 @@ export function filterParams(filter: FileFilter, params = new URLSearchParams())
 }
 export type FilePage = { items: FileRow[]; nextCursor: string | null; error: boolean; session: boolean };
 
+/**
+ * The order as `/files` and `/browse` take it. Recently added is the server's order without a sort; only its
+ * direction is sent. No sort at all is the default order, recently added with the newest first.
+ */
+export function sortParams(chosen: FileSort, params: URLSearchParams): URLSearchParams {
+  const sort = chosen ?? { key: "added", dir: -1 };
+  if (sort.key !== "added") params.set("sort", sort.key);
+  params.set("dir", sort.dir === 1 ? "asc" : "desc");
+  return params;
+}
+
 export async function loadFiles(api: Api, query: FilesQuery): Promise<FilePage> {
   const params = filterParams(query, new URLSearchParams({ limit: "50" }));
   if (query.cursor) params.set("cursor", query.cursor);
-  // Recently added is the server's order without a sort; only its direction is sent. No sort at all is the
-  // default order, recently added with the newest first.
-  const sort = query.sort ?? { key: "added", dir: -1 };
-  if (sort.key !== "added") params.set("sort", sort.key);
-  params.set("dir", sort.dir === 1 ? "asc" : "desc");
+  sortParams(query.sort ?? null, params);
   try {
     const response = await api.request(`/files?${params.toString()}`);
     if (!response.ok) return { items: [], nextCursor: null, error: true, session: false };

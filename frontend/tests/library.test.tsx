@@ -1321,6 +1321,27 @@ describe("LibraryPage: actions on a column selection", () => {
     expect(await view.findByText(/Inspection queued for 2 files/)).toBeInTheDocument();
     localStorage.removeItem("atvprep.library.view");
   });
+
+  it("sorts every column by the chosen order and keeps the path and the selection", async () => {
+    localStorage.setItem("atvprep.library.view", "columns");
+    const { api } = columnsApi();
+    const browsed = () => vi.mocked(api.request).mock.calls.map(([path]) => String(path)).filter((path) => path.startsWith("/browse?"));
+    const view = renderLibrary(api);
+    await inShow(view);
+    await fireEvent.click(row(view, "S01"));
+    await view.findByText("e1.mp4");
+    // Without a choice the columns are recently added, newest first, like the list.
+    expect(browsed()).toContain("/browse?root_id=r_1&path=Show&dir=desc");
+
+    await fireEvent.change(view.getByRole("combobox", { name: "Sort by" }), { target: { value: "size" } });
+
+    await waitFor(() => expect(browsed()).toContain("/browse?root_id=r_1&path=Show&sort=size&dir=asc"));
+    expect(browsed()).toContain("/browse?sort=size&dir=asc");
+    expect(browsed()).toContain("/browse?root_id=r_1&path=Show%2FS01&sort=size&dir=asc");
+    expect(view.getByRole("navigation", { name: "Location" })).toHaveTextContent("LibrariesFilmShowS01");
+    expect(row(view, "S01")).toHaveAttribute("aria-selected", "true");
+    localStorage.removeItem("atvprep.library.view");
+  });
 });
 
 describe("LibraryPage: selecting in the list like the Finder", () => {

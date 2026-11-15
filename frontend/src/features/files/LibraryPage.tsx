@@ -656,7 +656,7 @@ export const LibraryPage: Component<{
         <Show when={actionError()}><p class="notice bad lib-notice" role="alert">{actionError()}</p></Show>
 
         <Show when={showColumns()}>
-          <ColumnsView api={props.api} filter={filter()} version={inspectorVersion()} activeId={props.activeId} clearToken={clearToken()} onOpen={props.onOpen} onSelection={setColPicked} onAction={(action) => void actOnColumns(action)} />
+          <ColumnsView api={props.api} filter={filter()} sort={sort()} version={inspectorVersion()} activeId={props.activeId} clearToken={clearToken()} onOpen={props.onOpen} onSelection={setColPicked} onAction={(action) => void actOnColumns(action)} />
         </Show>
         <div class="lib-scroll" hidden={showColumns()}>
           <Show when={phase() !== "loading"} fallback={<p class="muted pad">{t("Loading files")}</p>}>
