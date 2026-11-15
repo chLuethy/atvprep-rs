@@ -893,6 +893,31 @@
         "title": "EventView",
         "type": "object"
       },
+      "PlanStep": {
+        "oneOf": [
+          {
+            "properties": {
+              "kind": {"const": "sample_rate"},
+              "stream": {"type": "integer"},
+              "from_codec": {"type": "string"},
+              "to_codec": {"type": "string"},
+              "from_hz": {"type": "integer"},
+              "to_hz": {"type": "integer"}
+            },
+            "required": ["kind", "stream", "from_codec", "to_codec", "from_hz", "to_hz"],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "kind": {"const": "text"},
+              "text": {"type": "string"}
+            },
+            "required": ["kind", "text"],
+            "type": "object"
+          }
+        ],
+        "title": "Plan Step"
+      },
       "FileDetail": {
         "properties": {
           "compliance_reasons": {
@@ -900,6 +925,13 @@
               "type": "string"
             },
             "title": "Compliance Reasons",
+            "type": "array"
+          },
+          "planned_steps": {
+            "default": [],
+            "description": "What the planner would do at the last check, apart from the reasons.",
+            "items": {"$ref": "#/components/schemas/PlanStep"},
+            "title": "Planned Steps",
             "type": "array"
           },
           "compliance_state": {
@@ -1054,6 +1086,13 @@
               "type": "string"
             },
             "title": "Compliance Reasons",
+            "type": "array"
+          },
+          "planned_steps": {
+            "default": [],
+            "description": "What the planner would do at the last check, apart from the reasons.",
+            "items": {"$ref": "#/components/schemas/PlanStep"},
+            "title": "Planned Steps",
             "type": "array"
           },
           "compliance_state": {
@@ -1362,11 +1401,8 @@
             "type": "string"
           },
           "planned_steps": {
-            "description": "Only together with planned_change: the planned steps when queued, as redacted short texts (at most 32 of at most 512 bytes): verify reasons `[severity] rule: message` and `[embed] subtitles: n`.",
-            "items": {
-              "maxLength": 512,
-              "type": "string"
-            },
+            "description": "Only together with planned_change: the planned steps when queued, at most 32, each an object with a `kind`. `sample_rate` carries stream, from_codec, to_codec, from_hz, to_hz. `text` carries redacted text of at most 512 bytes: verify reasons `[severity] rule: message`, `[embed] subtitles: n`, and what older items stored.",
+            "items": {"$ref": "#/components/schemas/PlanStep"},
             "maxItems": 32,
             "title": "Planned Steps",
             "type": "array"

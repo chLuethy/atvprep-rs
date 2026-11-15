@@ -353,7 +353,8 @@ fn the_verify_report_names_the_encodings_the_planner_plans() {
     assert_eq!(report["encode_need"], "audio");
     assert_eq!(
         report["planned_steps"],
-        serde_json::json!(["audio stream #1 ac3 44100Hz -> eac3 48000Hz"])
+        serde_json::json!([{"kind": "sample_rate", "stream": 1, "from_codec": "ac3",
+            "to_codec": "eac3", "from_hz": 44100, "to_hz": 48000}])
     );
     let (_audio_dir, audio) = needs_audio();
     assert!(verify_report(&[], &audio).get("planned_steps").is_none());
