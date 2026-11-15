@@ -23,6 +23,8 @@ pub mod prepare_snapshot;
 pub mod procid;
 pub mod repo;
 pub mod scans;
+pub mod schedule_candidates;
+pub mod schedule_due;
 pub mod scheduler;
 pub mod schedules;
 pub mod schema;

@@ -241,7 +241,7 @@ mod tests {
     #[test]
     fn a_version_1_database_upgrades_and_keeps_every_weekday_combination_on_its_slots() {
         use crate::cron::CronExpr;
-        use crate::schedules::{LocalDateTime, TimeOfDay, latest_slot};
+        use crate::schedules::{LocalDateTime, TimeOfDay};
 
         let db = Db::memory().unwrap();
         let mut conn = db.conn().unwrap();
@@ -283,11 +283,24 @@ mod tests {
                     .with_time(TimeOfDay::parse(&format!("{:02}:30", step % 24)).unwrap());
                 assert_eq!(
                     cron.latest_slot(now),
-                    latest_slot(now, mask, time),
+                    weekly_latest_slot(now, mask, time),
                     "mask {mask} at {now:?}"
                 );
             }
         }
+    }
+
+    /// The latest slot of a weekday mask at one time of day, worked out the plain way.
+    fn weekly_latest_slot(
+        now: crate::schedules::LocalDateTime,
+        mask: u8,
+        time: crate::schedules::TimeOfDay,
+    ) -> Option<crate::schedules::LocalDateTime> {
+        (0..8).find_map(|back| {
+            let day = now.add_days(-back);
+            let slot = day.with_time(time);
+            (mask & (1 << day.weekday()) != 0 && slot <= now).then_some(slot)
+        })
     }
 
     fn database_at(version: usize) -> (Db, Conn) {
