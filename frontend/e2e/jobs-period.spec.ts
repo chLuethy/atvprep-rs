@@ -43,7 +43,10 @@ test.describe("activity period and library", () => {
     const bar = page.getByRole("search", { name: "Filter jobs" });
     await expect(bar.getByRole("button", { name: "All filters (1 active)" })).toBeVisible();
     // The filter symbol first, then the active period from More filters, then the rest.
-    const left = async (name: string | RegExp) => (await bar.getByRole("button", { name, exact: typeof name === "string" }).boundingBox())!.x;
+    // The resize swaps the period chip from the second row into the facet row, so for a moment the
+    // chip that was found is gone and has no box: report NaN (every comparison false) and poll on.
+    const left = async (name: string | RegExp) =>
+      (await bar.getByRole("button", { name, exact: typeof name === "string" }).boundingBox())?.x ?? Number.NaN;
     // The narrow layout follows the resize; wait until the period has joined the row.
     await expect.poll(async () => (await left("Status")) > (await left(/^Period: /))).toBe(true);
     expect(await left("All filters (1 active)")).toBeLessThan(await left(/^Period: /));
