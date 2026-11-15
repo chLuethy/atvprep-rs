@@ -645,7 +645,9 @@ fn worker_executes_a_claimed_verification_and_releases_its_permit() {
         )
         .unwrap();
     assert!(tail.contains("ATVPREP-OUTCOME "));
-    assert!(tail.len() <= 8192);
+    assert!(tail.len() <= 64 * 1024);
+    assert!(tail.contains("] Start: prepare\n"), "{tail}");
+    assert!(tail.contains("] Exit code: 0\n"), "{tail}");
     assert!(
         ctx.conn
             .query_row(
