@@ -16,7 +16,7 @@ import { N, t, tn } from "./lib/i18n";
 import { isTyping } from "./lib/keys";
 import { realtimeState } from "./lib/realtime";
 import { useWorkTitle } from "./lib/title";
-import { recall, remember, type ViewPage } from "./lib/viewMemory";
+import { recall, remember } from "./lib/viewMemory";
 import { workState } from "./lib/work";
 import { dismissTip, tipPending } from "./lib/tips";
 import { Button, chooseTheme, CommandPalette, Icon, Kbd, LanguageSwitch, Logo, ThemeSwitch, type Command, type IconName, type Theme } from "./ui";
@@ -28,19 +28,13 @@ const Schedules: ParentComponent = () => <section>{t("Schedules")}</section>;
 const Settings: ParentComponent = () => <section>{t("Settings")}</section>;
 
 /**
- * The remembered state to open a page with, asked once when the page mounts: a page opened without a query
- * (navigation, the palette, a reload of the bare address) takes the last remembered state, by replacing the
- * address so no history entry is added. Later bare addresses on the same page (Reset filters, Back) are
- * left alone, and a query of its own always wins.
+ * Marks an address the page itself chose, so a bare one there means "show everything" (Reset filters, a cleared
+ * quick filter, Back to such an entry). A bare address without the mark came from outside (navigation, the palette,
+ * a link, a reload) and takes the last remembered state instead, by replacing the address so no history entry is
+ * added. A query of its own always wins.
  */
-const openingState = (page: ViewPage) => {
-  let asked = false;
-  return (search: string): string | null => {
-    if (asked) return null;
-    asked = true;
-    return search === "" ? recall(page) : null;
-  };
-};
+const OWN = { own: true } as const;
+const isOwn = (state: unknown) => typeof state === "object" && state !== null && (state as { own?: unknown }).own === true;
 
 /**
  * One route for the list and the open file, so choosing a file never remounts the list. The filter lives in
@@ -57,14 +51,14 @@ const Library: ParentComponent<{ api: ManagerApi | undefined; fileId: string | u
   const params = () => new URLSearchParams(location.search);
   const filter = createMemo(() => parseFileFilter(params()), undefined, { equals: sameFilter });
   const sort = createMemo(() => parseFileSort(params()), undefined, { equals: (a, b) => fileSortQuery(a) === fileSortQuery(b) });
-  const opening = openingState("files");
   createEffect(() => {
     const search = location.search.replace(/^\?/, "");
-    const saved = opening(search);
-    if (saved !== null) return navigate(at(props.fileId, saved), { replace: true });
+    if (search === "" && !isOwn(location.state)) {
+      return navigate(at(props.fileId, recall("files") ?? ""), { replace: true, state: OWN });
+    }
     const canonical = query(filter(), sort());
     remember("files", canonical);
-    if (search !== canonical) navigate(at(props.fileId, canonical), { replace: true });
+    if (search !== canonical) navigate(at(props.fileId, canonical), { replace: true, state: OWN });
   });
   return (
     <Show when={props.api} fallback={<Files />}>
@@ -74,9 +68,9 @@ const Library: ParentComponent<{ api: ManagerApi | undefined; fileId: string | u
           activeId={props.fileId}
           filter={filter()}
           sort={sort()}
-          onFilter={(next, how) => navigate(at(props.fileId, query(next, sort())), { replace: how.replace })}
-          onSort={(next) => navigate(at(props.fileId, query(filter(), next)))}
-          onOpen={(id) => navigate(`${base(id)}${location.search}`)}
+          onFilter={(next, how) => navigate(at(props.fileId, query(next, sort())), { replace: how.replace, state: OWN })}
+          onSort={(next) => navigate(at(props.fileId, query(filter(), next)), { state: OWN })}
+          onOpen={(id) => navigate(`${base(id)}${location.search}`, { state: OWN })}
         />
       )}
     </Show>
@@ -93,14 +87,14 @@ const Activity: ParentComponent<{ api: ManagerApi | undefined; jobId: string | u
   const base = (id: string | undefined) => (id ? `/jobs/${encodeURIComponent(id)}` : "/jobs");
   const at = (id: string | undefined, query: string) => `${base(id)}${query ? `?${query}` : ""}`;
   const filter = createMemo(() => parseJobFilter(new URLSearchParams(location.search)), undefined, { equals: sameJobFilter });
-  const opening = openingState("jobs");
   createEffect(() => {
     const search = location.search.replace(/^\?/, "");
-    const saved = opening(search);
-    if (saved !== null) return navigate(at(props.jobId, saved), { replace: true });
+    if (search === "" && !isOwn(location.state)) {
+      return navigate(at(props.jobId, recall("jobs") ?? ""), { replace: true, state: OWN });
+    }
     const canonical = jobFilterQuery(filter());
     remember("jobs", canonical);
-    if (search !== canonical) navigate(at(props.jobId, canonical), { replace: true });
+    if (search !== canonical) navigate(at(props.jobId, canonical), { replace: true, state: OWN });
   });
   return (
     <Show when={props.api} fallback={<Jobs />}>
@@ -109,8 +103,8 @@ const Activity: ParentComponent<{ api: ManagerApi | undefined; jobId: string | u
           api={api()}
           activeId={props.jobId}
           filter={filter()}
-          onFilter={(next, how) => navigate(at(props.jobId, jobFilterQuery(next)), { replace: how.replace })}
-          onOpen={(id) => navigate(`${base(id)}${location.search}`)}
+          onFilter={(next, how) => navigate(at(props.jobId, jobFilterQuery(next)), { replace: how.replace, state: OWN })}
+          onOpen={(id) => navigate(`${base(id)}${location.search}`, { state: OWN })}
         />
       )}
     </Show>
@@ -181,7 +175,8 @@ const Shell: ParentComponent<{ session?: SessionControls; api?: ManagerApi }> = 
       id: `files-${entry.status || "all"}`,
       label: t("Files: show {state}", { state: t(entry.label) }),
       hint: t("Filter"),
-      run: () => navigate(entry.status ? `/files?status=${entry.status}` : "/files"),
+      // "All files" asks for everything, so it carries the page's own mark and forgets the remembered state.
+      run: () => (entry.status ? navigate(`/files?status=${entry.status}`) : navigate("/files", { state: OWN })),
     })),
     ...QUICK_FILTERS.map((entry) => ({
       id: `files-quick-${entry.id}`,

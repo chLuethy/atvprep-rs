@@ -66,6 +66,81 @@ describe("filters survive a page change", () => {
     expect(lastJobs()).toContain("from=");
   });
 
+  const palette = async (view: ReturnType<typeof render>, label: string) => {
+    await fireEvent.keyDown(document, { key: "k", metaKey: true });
+    const search = view.getByRole("combobox", { name: "Search commands" });
+    await fireEvent.input(search, { target: { value: label } });
+    await fireEvent.keyDown(search, { key: "Enter" });
+  };
+
+  it("keeps the files state when Files is chosen in the navigation while already on Files", async () => {
+    window.history.replaceState(null, "", "/files?status=blocker&q=dune");
+    const { api, lastFiles } = fakeApi();
+    const view = render(() => <App api={api as never} />);
+    await waitFor(() => expect(lastFiles()).toContain("q=dune"));
+
+    await fireEvent.click(nav(view, /Files/));
+
+    await waitFor(() => expect(window.location.search).toBe("?status=blocker&q=dune"));
+    await fireEvent.click(nav(view, /Activity/));
+    await waitFor(() => expect(window.location.pathname).toBe("/jobs"));
+    await fireEvent.click(nav(view, /Files/));
+    await waitFor(() => expect(window.location.search).toBe("?status=blocker&q=dune"));
+  });
+
+  it("keeps the files state when Go to Files is chosen in the palette from an open file", async () => {
+    window.history.replaceState(null, "", "/files/f_1?status=warning");
+    const view = render(() => <App api={fakeApi().api as never} />);
+    await waitFor(() => expect(window.location.search).toBe("?status=warning"));
+
+    await palette(view, "Go to Files");
+
+    await waitFor(() => expect(window.location.pathname).toBe("/files"));
+    await waitFor(() => expect(window.location.search).toBe("?status=warning"));
+  });
+
+  it("keeps the activity state when Activity is chosen in the navigation or the palette while on Activity", async () => {
+    window.history.replaceState(null, "", "/jobs?status=failed&q=heat");
+    const { api, lastJobs } = fakeApi();
+    const view = render(() => <App api={api as never} />);
+    await waitFor(() => expect(lastJobs()).toContain("q=heat"));
+
+    await fireEvent.click(nav(view, /Activity/));
+    await waitFor(() => expect(window.location.search).toBe("?status=failed&q=heat"));
+
+    await palette(view, "Go to Activity");
+    await waitFor(() => expect(window.location.search).toBe("?status=failed&q=heat"));
+  });
+
+  it("shows everything with the palette's All files and forgets the state", async () => {
+    window.history.replaceState(null, "", "/files?status=blocker");
+    const view = render(() => <App api={fakeApi().api as never} />);
+    await waitFor(() => expect(window.location.search).toBe("?status=blocker"));
+
+    await palette(view, "Files: show All files");
+    await waitFor(() => expect(window.location.search).toBe(""));
+
+    await fireEvent.click(nav(view, /Activity/));
+    await waitFor(() => expect(window.location.pathname).toBe("/jobs"));
+    await fireEvent.click(nav(view, /Files/));
+    await waitFor(() => expect(window.location.pathname).toBe("/files"));
+    expect(window.location.search).toBe("");
+  });
+
+  it("keeps Back to the bare first visit showing everything", async () => {
+    window.history.replaceState(null, "", "/files");
+    const view = render(() => <App api={fakeApi().api as never} />);
+    const bar = await view.findByRole("search", { name: "Filter files" });
+    await fireEvent.click(within(bar).getByRole("button", { name: /^Status/ }));
+    await fireEvent.click(within(view.getByRole("dialog", { name: "Status" })).getByRole("checkbox", { name: /^Warning/ }));
+    await waitFor(() => expect(window.location.search).toBe("?status=warning"));
+
+    window.history.back();
+    await waitFor(() => expect(window.location.search).toBe(""));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(window.location.search).toBe("");
+  });
+
   it("brings the state back after a reload or in a new tab, without a new history entry", async () => {
     window.history.replaceState(null, "", "/files?status=warning&q=alien");
     const first = render(() => <App api={fakeApi().api as never} />);
