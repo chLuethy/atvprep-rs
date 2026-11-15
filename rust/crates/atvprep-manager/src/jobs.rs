@@ -420,9 +420,10 @@ impl Jobs<'_> {
             // A retry is a new decision by the person who clicked it, about the file the job was for.
             let owned: Vec<JobItem> = retry_items.iter().map(|i| (*i).clone()).collect();
             self.require_same_files(&owned)?;
-            let queued = PrepareSnapshot::parse_job(&snapshot)
-                .map_err(|refusal| Error::Invalid(refusal.message().to_owned()))?;
-            if queued.profile != crate::settings::target_profile(self.0.conn)? {
+            // Only the Zielprofil is judged here, as before; a job without one counts as changed.
+            if PrepareSnapshot::recorded_profile(&snapshot)
+                != Some(crate::settings::target_profile(self.0.conn)?)
+            {
                 return Err(Error::Invalid(
                     "the target profile changed since the job was queued; queue it again"
                         .to_owned(),
@@ -462,9 +463,7 @@ impl Jobs<'_> {
                 origin_item_id: Some(old.id),
                 input: &old.input_snapshot,
                 settings: &snapshot,
-                encode: PrepareSnapshot::parse(&old.settings_snapshot)
-                    .ok()
-                    .and_then(|parsed| parsed.encode)
+                encode: PrepareSnapshot::recorded_encode(&old.settings_snapshot)
                     .unwrap_or(EncodeAllowance::Copy),
             })?;
         }

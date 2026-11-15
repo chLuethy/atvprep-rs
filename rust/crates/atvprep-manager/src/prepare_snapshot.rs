@@ -137,38 +137,43 @@ impl PrepareSnapshot {
         value
     }
 
-    /// Read a stored snapshot, or say why it cannot authorize a media-changing job.
+    /// The Kodierfreigabe an item records, if it is one the policy knows. Reads one key; judges
+    /// nothing else (use [`Self::parse`] to authorize).
+    #[must_use]
+    pub fn recorded_encode(snapshot: &Value) -> Option<EncodeAllowance> {
+        snapshot
+            .get("encode")
+            .and_then(Value::as_str)
+            .and_then(EncodeAllowance::parse)
+    }
+
+    /// The Zielprofil a snapshot records, if it holds one. Reads one key; judges nothing else.
+    #[must_use]
+    pub fn recorded_profile(snapshot: &Value) -> Option<TargetProfile> {
+        snapshot.get("profile").and_then(TargetProfile::from_json)
+    }
+
+    /// Read the stored snapshot of an item, or say why it cannot authorize a media-changing job.
     ///
     /// # Errors
     ///
     /// The named [`Refusal`].
     pub fn parse(snapshot: &Value) -> Result<Self, Refusal> {
-        Self::parse_with(snapshot, true)
+        Self::require_current_policy(snapshot)?;
+        let encode = Self::recorded_encode(snapshot).ok_or(Refusal::NoEncode)?;
+        Self::read(snapshot, encode)
     }
 
-    /// Read the snapshot of a whole job. Unlike an item's, a schedule job's carries no Kodierfreigabe
-    /// of its own (each item does), so its `encode` may be missing.
-    ///
-    /// # Errors
-    ///
-    /// The named [`Refusal`].
-    pub fn parse_job(snapshot: &Value) -> Result<Self, Refusal> {
-        Self::parse_with(snapshot, false)
-    }
-
-    fn parse_with(snapshot: &Value, item: bool) -> Result<Self, Refusal> {
+    fn require_current_policy(snapshot: &Value) -> Result<(), Refusal> {
         if snapshot.get("pipeline").and_then(Value::as_str) != Some("prepare")
             || snapshot.get("policy").and_then(Value::as_str) != Some(PREPARE_POLICY)
         {
             return Err(Refusal::Outdated);
         }
-        let encode = snapshot
-            .get("encode")
-            .and_then(Value::as_str)
-            .and_then(EncodeAllowance::parse);
-        if item && encode.is_none() {
-            return Err(Refusal::NoEncode);
-        }
+        Ok(())
+    }
+
+    fn read(snapshot: &Value, encode: EncodeAllowance) -> Result<Self, Refusal> {
         let profile = snapshot
             .get("profile")
             .and_then(TargetProfile::from_json)
@@ -224,7 +229,7 @@ impl PrepareSnapshot {
             profile,
             delete_original: flag("delete_original"),
             delete_original_confirmed: flag("delete_original_confirmed"),
-            encode,
+            encode: Some(encode),
             force: flag("force"),
             planned,
             origin,

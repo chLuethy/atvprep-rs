@@ -766,3 +766,32 @@ fn a_job_without_the_prepare_policy_gets_no_allowance() {
             .is_none()
     );
 }
+
+#[test]
+fn a_prepare_retry_judges_only_the_target_profile_not_the_rest_of_the_snapshot() {
+    // Same refusals and messages as before the Vorbereiten-Snapshot type (#94): a retry compares the
+    // Zielprofil and nothing else, so a snapshot without `policy` or approval is not refused here.
+    let f = Fixture::new();
+    let media = f.media(&["a.mp4"]);
+    let jobs = Jobs(f.ctx());
+    let mut new = NewJob::new(atvprep_manager::state_machine::JobAction::Prepare, &media);
+    new.settings_snapshot = json!({"pipeline": "prepare", "profile": atvprep_manager::settings::TargetProfile::default().to_json()});
+    let job = jobs.create(&new).unwrap();
+    f.sql("UPDATE job_items SET status='failed'");
+    assert!(jobs.retry(job.id, None).is_ok());
+}
+
+#[test]
+fn a_prepare_retry_without_a_recorded_profile_reports_the_changed_profile() {
+    let f = Fixture::new();
+    let media = f.media(&["a.mp4"]);
+    let jobs = Jobs(f.ctx());
+    let mut new = NewJob::new(atvprep_manager::state_machine::JobAction::Prepare, &media);
+    new.settings_snapshot = json!({"pipeline": "prepare", "manual_approval": true});
+    let job = jobs.create(&new).unwrap();
+    f.sql("UPDATE job_items SET status='failed'");
+    assert_eq!(
+        error_text(jobs.retry(job.id, None)),
+        "the target profile changed since the job was queued; queue it again"
+    );
+}
