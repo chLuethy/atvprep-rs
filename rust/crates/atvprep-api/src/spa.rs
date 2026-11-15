@@ -151,3 +151,109 @@ async fn respond(
     );
     response
 }
+
+#[cfg(test)]
+mod http_tests {
+    use crate::router;
+    use crate::test_support::state;
+    use axum::http::StatusCode;
+    use axum::http::header;
+    use std::sync::Arc;
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn spa_serving_keeps_api_separate_and_rejects_symlink_assets() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("assets")).unwrap();
+        std::fs::write(dir.path().join("index.html"), "index").unwrap();
+        std::fs::write(dir.path().join("assets/app.js"), "app").unwrap();
+        std::fs::write(dir.path().join("favicon.svg"), "<svg/>").unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(
+            dir.path().join("index.html"),
+            dir.path().join("assets/link.js"),
+        )
+        .unwrap();
+        let app = router(state().with_web_dist(dir.path().to_path_buf()));
+        let get = |path| {
+            axum::http::Request::get(path)
+                .body(axum::body::Body::empty())
+                .unwrap()
+        };
+        let index = app.clone().oneshot(get("/files/123")).await.unwrap();
+        assert_eq!(index.status(), StatusCode::OK);
+        assert_eq!(index.headers()[header::CACHE_CONTROL], "no-cache");
+        let asset = app.clone().oneshot(get("/assets/app.js")).await.unwrap();
+        assert_eq!(
+            asset.headers()[header::CACHE_CONTROL],
+            "public, max-age=31536000, immutable"
+        );
+        let favicon = app.clone().oneshot(get("/favicon.svg")).await.unwrap();
+        assert_eq!(favicon.headers()[header::CONTENT_TYPE], "image/svg+xml");
+        assert_eq!(favicon.headers()[header::CACHE_CONTROL], "no-cache");
+        assert_eq!(
+            app.clone()
+                .oneshot(get("/missing.svg"))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(
+            app.clone().oneshot(get("/api")).await.unwrap().status(),
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(
+            app.clone()
+                .oneshot(get("/api/unknown"))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(
+            app.clone()
+                .oneshot(get("/assets/%2e%2e/index.html"))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::NOT_FOUND
+        );
+        #[cfg(unix)]
+        assert_eq!(
+            app.oneshot(get("/assets/link.js")).await.unwrap().status(),
+            StatusCode::NOT_FOUND
+        );
+    }
+
+    #[tokio::test]
+    async fn readiness_requires_a_safe_readable_spa_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = router(
+            state()
+                .with_readiness_probes(vec![Arc::new(|| true)])
+                .with_web_dist(dir.path().to_path_buf()),
+        );
+        let ready = || {
+            axum::http::Request::get("/api/health/ready")
+                .body(axum::body::Body::empty())
+                .unwrap()
+        };
+        assert_eq!(
+            app.clone().oneshot(ready()).await.unwrap().status(),
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+        std::fs::write(dir.path().join("index.html"), "index").unwrap();
+        assert_eq!(
+            app.clone().oneshot(ready()).await.unwrap().status(),
+            StatusCode::OK
+        );
+        std::fs::remove_file(dir.path().join("index.html")).unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink("missing", dir.path().join("index.html")).unwrap();
+        assert_eq!(
+            app.oneshot(ready()).await.unwrap().status(),
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+    }
+}

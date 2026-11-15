@@ -551,3 +551,270 @@ mod tests {
         assert_eq!(subject(&"é".repeat(2000)).len(), 2048);
     }
 }
+
+#[cfg(test)]
+mod http_tests {
+    use crate::router;
+    use crate::routes_auth;
+    use crate::test_support::state;
+    use axum::body::to_bytes;
+    use axum::http::StatusCode;
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn jobs_filter_page_and_show_prepare_snapshot() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        conn.raw().execute_batch("INSERT INTO jobs(id,action,status,settings_snapshot_json) VALUES(1,'fix','queued','{\"pipeline\":\"prepare\",\"delete_original_confirmed\":true,\"delete_original\":true}'),(2,'verify','succeeded','{}'),(3,'convert','queued','{}'); UPDATE jobs SET cleared_at='2026-01-01' WHERE id=3;").unwrap();
+        let token = routes_auth::service(&state, &conn)
+            .unwrap()
+            .create()
+            .unwrap()
+            .token;
+        let app = router(state);
+        let get = |path: &str| {
+            axum::http::Request::get(path)
+                .header("origin", "http://localhost")
+                .header("cookie", format!("__Host-atvprep_session={token}"))
+                .body(axum::body::Body::empty())
+                .unwrap()
+        };
+        let response = app
+            .clone()
+            .oneshot(get("/api/v1/jobs?limit=1"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(body["data"][0]["action"], "prepare");
+        assert_eq!(body["data"][0]["delete_confirmed"], true);
+        assert_eq!(body["data"][0]["delete_original"], true);
+        let id = body["data"][0]["id"].as_str().unwrap();
+        let detail = app
+            .clone()
+            .oneshot(get(&format!("/api/v1/jobs/{id}")))
+            .await
+            .unwrap();
+        assert_eq!(detail.status(), StatusCode::OK);
+        let cursor = body["meta"]["next_cursor"].as_str().unwrap();
+        let response = app
+            .clone()
+            .oneshot(get(&format!("/api/v1/jobs?limit=1&cursor={cursor}")))
+            .await
+            .unwrap();
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(body["data"][0]["action"], "verify");
+        assert!(body["meta"]["next_cursor"].is_null());
+        assert_eq!(
+            app.oneshot(get(&format!("/api/v1/jobs?cursor={id}")))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::BAD_REQUEST
+        );
+    }
+
+    #[tokio::test]
+    async fn dashboard_queue_reports_total_and_paginates_active_jobs() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        conn.raw().execute_batch("INSERT INTO jobs(id,action,status) VALUES(1,'verify','queued'),(2,'verify','running'),(3,'verify','succeeded');").unwrap();
+        let token = routes_auth::service(&state, &conn)
+            .unwrap()
+            .create()
+            .unwrap()
+            .token;
+        let app = router(state);
+        let get = |path: &str| {
+            axum::http::Request::get(path)
+                .header("origin", "http://localhost")
+                .header("cookie", format!("__Host-atvprep_session={token}"))
+                .body(axum::body::Body::empty())
+                .unwrap()
+        };
+        let response = app
+            .clone()
+            .oneshot(get("/api/v1/dashboard/queue?limit=1"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(body["data"]["total"], 2);
+        assert_eq!(body["data"]["jobs"][0]["status"], "queued");
+        let cursor = body["meta"]["next_cursor"].as_str().unwrap();
+        let response = app
+            .oneshot(get(&format!(
+                "/api/v1/dashboard/queue-preview?limit=1&cursor={cursor}"
+            )))
+            .await
+            .unwrap();
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(body["data"]["jobs"][0]["status"], "running");
+        assert!(body["meta"]["next_cursor"].is_null());
+    }
+
+    #[tokio::test]
+    async fn job_list_filters_accept_known_statuses_and_reject_unknown_ones() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        conn.raw().execute_batch("INSERT INTO jobs(id,action,status) VALUES(1,'verify','queued'),(2,'verify','running');").unwrap();
+        let token = routes_auth::service(&state, &conn)
+            .unwrap()
+            .create()
+            .unwrap()
+            .token;
+        let app = router(state);
+        let get = |path: &str| {
+            axum::http::Request::get(path)
+                .header("origin", "http://localhost")
+                .header("cookie", format!("__Host-atvprep_session={token}"))
+                .body(axum::body::Body::empty())
+                .unwrap()
+        };
+        let response = app
+            .clone()
+            .oneshot(get("/api/v1/jobs?status=running"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(body["data"].as_array().unwrap().len(), 1);
+        assert_eq!(body["data"][0]["status"], "running");
+        for path in [
+            "/api/v1/jobs?status=bogus",
+            "/api/v1/jobs?exclude_status=bogus",
+        ] {
+            let response = app.clone().oneshot(get(path)).await.unwrap();
+            assert_eq!(
+                response.status(),
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{path}"
+            );
+            let body: serde_json::Value =
+                serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap())
+                    .unwrap();
+            assert_eq!(body["error"]["code"], "invalid_request", "{path}");
+        }
+    }
+
+    #[tokio::test]
+    async fn job_items_page_across_equal_positions_without_exposing_paths() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private'); INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES(1,1,'/private/one.mkv','video','.mkv',1,1,'a','present','unknown','idle','none'),(2,1,'two.mkv','video','.mkv',1,1,'b','present','unknown','idle','none'); INSERT INTO jobs(id,action,status) VALUES(1,'verify','queued'); INSERT INTO job_items(id,job_id,media_file_id,action,position,error_detail) VALUES(1,1,1,'verify',0,'failed /private/one.mkv'),(2,1,2,'verify',0,NULL);").unwrap();
+        let job = crate::opaque::Opaque::new(state.api_secret.as_bytes()).encode("j", 1);
+        let token = routes_auth::service(&state, &conn)
+            .unwrap()
+            .create()
+            .unwrap()
+            .token;
+        let app = router(state);
+        let get = |path: &str| {
+            axum::http::Request::get(path)
+                .header("origin", "http://localhost")
+                .header("cookie", format!("__Host-atvprep_session={token}"))
+                .body(axum::body::Body::empty())
+                .unwrap()
+        };
+        let first = app
+            .clone()
+            .oneshot(get(&format!("/api/v1/jobs/{job}/items?limit=1")))
+            .await
+            .unwrap();
+        assert_eq!(first.status(), StatusCode::OK);
+        let first: serde_json::Value =
+            serde_json::from_slice(&to_bytes(first.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(first["data"][0]["display_path"], "one.mkv");
+        assert!(!first.to_string().contains("/private"));
+        let cursor = first["meta"]["next_cursor"].as_str().unwrap();
+        let second = app
+            .oneshot(get(&format!(
+                "/api/v1/jobs/{job}/items?limit=1&cursor={cursor}"
+            )))
+            .await
+            .unwrap();
+        let second: serde_json::Value =
+            serde_json::from_slice(&to_bytes(second.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(second["data"][0]["display_path"], "two.mkv");
+        assert!(second["meta"]["next_cursor"].is_null());
+    }
+
+    #[tokio::test]
+    async fn job_item_logs_are_bounded_and_redact_credentials() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private'); INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES(1,1,'film.mkv','video','.mkv',1,1,'a','present','unknown','idle','none'); INSERT INTO jobs(id,action,status) VALUES(1,'verify','queued'); INSERT INTO job_items(id,job_id,media_file_id,action,position,status) VALUES(1,1,1,'verify',0,'queued');").unwrap();
+        conn.raw()
+            .execute(
+                "UPDATE job_items SET log_tail=?1 WHERE id=1",
+                [format!(
+                    "[10:00:00] Start: verify\n{}",
+                    format!("{}\n", "é".repeat(100)).repeat(300)
+                )],
+            )
+            .unwrap();
+        let id = crate::opaque::Opaque::new(state.api_secret.as_bytes()).encode("i", 1);
+        let token = routes_auth::service(&state, &conn)
+            .unwrap()
+            .create()
+            .unwrap()
+            .token;
+        let app = router(state);
+        let get = || {
+            axum::http::Request::get(format!("/api/v1/job-items/{id}/log"))
+                .header("origin", "http://localhost")
+                .header("cookie", format!("__Host-atvprep_session={token}"))
+                .body(axum::body::Body::empty())
+                .unwrap()
+        };
+        let read = |app: axum::Router| async move {
+            let response = app.oneshot(get()).await.unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            serde_json::from_slice::<serde_json::Value>(
+                &to_bytes(response.into_body(), 1 << 20).await.unwrap(),
+            )
+            .unwrap()
+        };
+        // A whole manager log (up to 64 KiB) comes back whole, its first step line included.
+        let body = read(app.clone()).await;
+        assert_eq!(body["meta"]["truncated"], false);
+        assert!(
+            body["data"]["log_tail"]
+                .as_str()
+                .unwrap()
+                .starts_with("[10:00:00] Start: verify\n")
+        );
+        conn.raw()
+            .execute(
+                "UPDATE job_items SET log_tail=?1 WHERE id=1",
+                ["é\n".repeat(30_000)],
+            )
+            .unwrap();
+        let body = read(app.clone()).await;
+        assert_eq!(body["meta"]["truncated"], true);
+        assert!(body["data"]["log_tail"].as_str().unwrap().len() <= 64 * 1024);
+        conn.raw()
+            .execute(
+                "UPDATE job_items SET log_tail='token=private-value' WHERE id=1",
+                [],
+            )
+            .unwrap();
+        let response = app.oneshot(get()).await.unwrap();
+        let body = to_bytes(response.into_body(), 65536).await.unwrap();
+        assert!(
+            !std::str::from_utf8(&body)
+                .unwrap()
+                .contains("private-value")
+        );
+    }
+}

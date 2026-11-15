@@ -382,3 +382,209 @@ pub async fn scan(
         ),
     }
 }
+
+#[cfg(test)]
+mod http_tests {
+    use crate::router;
+    use crate::routes_auth;
+    use crate::test_support::state;
+    use axum::body::to_bytes;
+    use axum::http::StatusCode;
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn roots_returns_latest_scan_without_the_private_path() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private/library'),(2,'/secret/other','/secret/other'); INSERT INTO scan_runs(id,root_id,generation,status) VALUES(1,1,1,'failed'),(2,1,2,'succeeded');").unwrap();
+        let token = routes_auth::service(&state, &conn)
+            .unwrap()
+            .create()
+            .unwrap()
+            .token;
+        let app = router(state);
+        let response = app
+            .oneshot(
+                axum::http::Request::get("/api/v1/roots")
+                    .header("origin", "http://localhost")
+                    .header("cookie", format!("__Host-atvprep_session={token}"))
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), 65536).await.unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["data"][0]["name"], "Movies");
+        assert_eq!(body["data"][1]["name"], "other");
+        assert_eq!(body["data"][0]["latest_scan"]["generation"], 2);
+        assert_eq!(
+            body["data"][0]["latest_scan"]["root_id"],
+            body["data"][0]["id"]
+        );
+        assert!(!body.to_string().contains("/private/library"));
+        assert!(!body.to_string().contains("/secret"));
+    }
+
+    #[tokio::test]
+    async fn dashboard_counts_converted_missing_and_pending_files() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private');
+        INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action,compliance_reasons,dismissed_at) VALUES
+        (1,1,'film.mkv','video','.mkv',1,1,'a','present','warning','idle','none','[\"[warning] video-reencode: required\"]',NULL),
+        (2,1,'film.mp4','video','.mp4',1,1,'b','present','clean','idle','none','[]',NULL),
+        (3,1,'other.mkv','video','.mkv',1,1,'c','present','unknown','idle','none','[]',NULL),
+        (4,1,'gone.mkv','video','.mkv',1,1,'d','missing','unknown','idle','none','[]',NULL),
+        (5,1,'dismissed.mkv','video','.mkv',1,1,'e','missing','unknown','idle','none','[]','2026-01-01');
+        UPDATE media_files SET encode_need='video' WHERE id=1;
+        INSERT INTO jobs(action,status) VALUES('verify','queued'); INSERT INTO scan_runs(root_id,generation,status) VALUES(1,1,'succeeded');
+        INSERT INTO runtime_settings(key,value_json,value_type,revision) VALUES('delete_original','true','bool',1);").unwrap();
+        let token = routes_auth::service(&state, &conn)
+            .unwrap()
+            .create()
+            .unwrap()
+            .token;
+        let response = router(state)
+            .oneshot(
+                axum::http::Request::get("/api/v1/dashboard/summary")
+                    .header("origin", "http://localhost")
+                    .header("cookie", format!("__Host-atvprep_session={token}"))
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(body["data"]["missing"], 1);
+        assert_eq!(body["data"]["convert"], 1);
+        assert_eq!(body["data"]["converted"], 1);
+        assert_eq!(body["data"]["encode_video"], 1);
+        assert_eq!(body["data"]["encode_audio"], 0);
+        // gone.mkv counts as missing only, so the state counts add up to the files shown.
+        assert_eq!(body["data"]["files"]["unknown"], 1);
+        assert_eq!(body["data"]["files"]["missing"], 1);
+        assert_eq!(body["data"]["delete_original"], true);
+        assert_eq!(body["data"]["jobs"]["queued"], 1);
+        assert_eq!(body["data"]["scans"]["succeeded"], 1);
+    }
+
+    #[tokio::test]
+    async fn roots_truncates_an_oversized_entry() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        conn.raw()
+            .execute(
+                "INSERT INTO library_roots(name,canonical_path) VALUES(?1,'/library')",
+                ["x".repeat(crate::bounds::MAX_ELEMENT_BYTES)],
+            )
+            .unwrap();
+        let token = routes_auth::service(&state, &conn)
+            .unwrap()
+            .create()
+            .unwrap()
+            .token;
+        let response = router(state)
+            .oneshot(
+                axum::http::Request::get("/api/v1/roots")
+                    .header("origin", "http://localhost")
+                    .header("cookie", format!("__Host-atvprep_session={token}"))
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = to_bytes(response.into_body(), crate::bounds::MAX_RESPONSE_BYTES)
+            .await
+            .unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["data"], serde_json::json!([]));
+        assert_eq!(body["meta"]["truncated"], true);
+    }
+
+    #[tokio::test]
+    async fn scans_page_and_detail_use_authenticated_endpoint_bound_tokens() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/library'); INSERT INTO scan_runs(id,root_id,generation,status) VALUES(1,1,1,'failed'),(2,1,2,'succeeded');").unwrap();
+        let token = routes_auth::service(&state, &conn)
+            .unwrap()
+            .create()
+            .unwrap()
+            .token;
+        let app = router(state);
+        let get = |path: &str| {
+            axum::http::Request::get(path)
+                .header("origin", "http://localhost")
+                .header("cookie", format!("__Host-atvprep_session={token}"))
+                .body(axum::body::Body::empty())
+                .unwrap()
+        };
+        let first = app
+            .clone()
+            .oneshot(get("/api/v1/scans?limit=1"))
+            .await
+            .unwrap();
+        assert_eq!(first.status(), StatusCode::OK);
+        let first: serde_json::Value =
+            serde_json::from_slice(&to_bytes(first.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(first["data"][0]["generation"], 1);
+        assert_eq!(
+            first["meta"].get("current_cursor"),
+            Some(&serde_json::Value::Null)
+        );
+        assert_eq!(
+            first["meta"].get("current_sequence"),
+            Some(&serde_json::Value::Null)
+        );
+        assert_eq!(first["meta"]["facets"], serde_json::json!({}));
+        let cursor = first["meta"]["next_cursor"].as_str().unwrap();
+        let second = app
+            .clone()
+            .oneshot(get(&format!("/api/v1/scans?limit=1&cursor={cursor}")))
+            .await
+            .unwrap();
+        let second: serde_json::Value =
+            serde_json::from_slice(&to_bytes(second.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(second["data"][0]["generation"], 2);
+        assert!(second["meta"]["next_cursor"].is_null());
+        let id = second["data"][0]["id"].as_str().unwrap();
+        let detail = app
+            .clone()
+            .oneshot(get(&format!("/api/v1/scans/{id}")))
+            .await
+            .unwrap();
+        assert_eq!(detail.status(), StatusCode::OK);
+        assert_eq!(
+            app.clone()
+                .oneshot(get(&format!("/api/v1/scans?cursor={id}")))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::BAD_REQUEST
+        );
+        conn.raw()
+            .execute(
+                "UPDATE scan_runs SET finished_at=?1 WHERE id=2",
+                ["x".repeat(crate::bounds::MAX_ELEMENT_BYTES)],
+            )
+            .unwrap();
+        let bounded = app.oneshot(get("/api/v1/scans?limit=2")).await.unwrap();
+        let bounded: serde_json::Value = serde_json::from_slice(
+            &to_bytes(bounded.into_body(), crate::bounds::MAX_RESPONSE_BYTES)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(bounded["data"].as_array().unwrap().len(), 2);
+        assert_eq!(bounded["data"][1]["finished_at"], "[invalid timestamp]");
+        assert!(bounded["meta"]["next_cursor"].is_null());
+    }
+}

@@ -115,3 +115,37 @@ impl AppState {
         self
     }
 }
+
+#[cfg(test)]
+mod http_tests {
+    use crate::config::ManagerConfig;
+    use crate::state::AppState;
+    use crate::state::ReadinessProbe;
+    use crate::test_support::state;
+    use std::sync::Arc;
+
+    #[test]
+    fn startup_rejects_insecure_cookies_on_a_public_bind() {
+        let config = ManagerConfig {
+            api_secret: Some("secret".to_owned()),
+            allowed_origins: vec!["http://localhost".to_owned()],
+            bind_host: "0.0.0.0".to_owned(),
+            session_cookie_secure: false,
+            ..ManagerConfig::default()
+        };
+        let Err(error) = AppState::new(atvprep_manager::db::Db::memory().unwrap(), config) else {
+            panic!("public insecure cookies must be rejected");
+        };
+        assert_eq!(
+            error,
+            crate::state::StartupError::InsecureCookiesOnPublicBind
+        );
+    }
+
+    #[test]
+    fn a_true_probe_makes_ready() {
+        let probe: ReadinessProbe = Arc::new(|| true);
+        let result = state().with_readiness_probes(vec![probe]);
+        assert_eq!(result.readiness_probes.len(), 1);
+    }
+}
