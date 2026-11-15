@@ -84,8 +84,8 @@ describe("the labels of need and change", () => {
 
 describe("preparable", () => {
   // `preparable` on the row is the server's word: present, and a verdict to repair, a fix wish or a subtitle to embed.
-  const base = { discovery_state: "present", suffix: ".mp4", preparable: true };
-  const ready = { ...base, preparable: false };
+  const base = { discovery_state: "present", suffix: ".mp4", preparable: true, state: "warning" };
+  const ready = { ...base, preparable: false, state: "clean" };
 
   it("offers a file with something to do", () => {
     expect(preparable(base)).toBe(true);
@@ -115,6 +115,6 @@ describe("preparable", () => {
   });
 
   it("offers a file the server takes for a waiting subtitle", () => {
-    expect(preparable({ ...base, pending_sidecars: 1 })).toBe(true);
+    expect(preparable({ ...base, state: "embed_open" })).toBe(true);
   });
 });

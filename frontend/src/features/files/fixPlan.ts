@@ -128,8 +128,9 @@ export function summarizeChanges(changes: Change[]): { resolved: number; remaini
  * Whether queueing a fix for this file can change anything. Without a readable violation the
  * server's own request for a fix is trusted; with only unfixable ones it would be a pointless job.
  */
-export function fixesAnything(file: { compliance_reasons?: string[] | undefined; planned_steps?: ReadonlyArray<PlanStep> | undefined; pending_sidecars?: number | undefined }): boolean {
-  if ((file.pending_sidecars ?? 0) > 0) return true;
+export function fixesAnything(file: { state: string; compliance_reasons?: string[] | undefined; planned_steps?: ReadonlyArray<PlanStep> | undefined }): boolean {
+  // The server's state says a subtitle file waits to be embedded; nothing is counted here.
+  if (file.state === "embed_open") return true;
   const changes = expectedChanges((file.compliance_reasons ?? []).map(parseReason), file.planned_steps ?? []);
   return changes.length === 0 || changes.some((change) => change.kind !== "none");
 }

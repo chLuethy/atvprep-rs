@@ -65,8 +65,9 @@ export function preparable(file: {
   converted_kept?: boolean | undefined;
   /** From the server: Prepare would take the file by its state alone. */
   preparable: boolean;
+  /** From the server: the one state of the file. */
+  state: string;
   compliance_reasons?: string[] | undefined;
-  pending_sidecars?: number | undefined;
   fix_status?: string | null | undefined;
   encode_need?: EncodeNeed | undefined;
   planned_steps?: ReadonlyArray<PlanStep> | undefined;

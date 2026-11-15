@@ -60,7 +60,7 @@ describe("FixPreview: subtitles to embed", () => {
   });
 
   it("still says so when only a count is known", () => {
-    const view = show(row({ pending_sidecars: 2 }));
+    const view = show(row({ state: "embed_open", pending_sidecars: 2 }));
     expect(view.getByText("Merge 2 external subtitle files into the MP4")).toBeInTheDocument();
   });
 

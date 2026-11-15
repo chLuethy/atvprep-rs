@@ -10,6 +10,8 @@ import { N, t, tn } from "../../lib/i18n";
 import { baseName, estimateMinutes, formatSize, languageName, parseReason, verdictOf } from "./model";
 
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
+/** A subtitle file waits to be embedded: the server's state says so, or it lists the files. */
+const embedding = (file: FileRow) => file.state === "embed_open" || (file.embed_sidecars ?? []).length > 0;
 const NEED_ORDER: ReadonlyArray<EncodeNeed> = ["video", "audio", "none", "unknown"];
 
 /**
@@ -82,7 +84,7 @@ export const FixPreview: Component<{
               <Show when={!plain(file)}>
                 <For each={confirms(file).lines}>{(line, index) => <p class={confirms(file).reencode && index() === 0 ? "notice warn" : "muted"} role={confirms(file).reencode && index() === 0 ? "alert" : undefined}>{line}</p>}</For>
               </Show>
-              <Show when={(file.pending_sidecars ?? 0) > 0}>
+              <Show when={embedding(file)}>
                 <ul class="plain changes" aria-label={t("Subtitles to embed")}>
                   <For
                     each={file.embed_sidecars ?? []}
@@ -95,7 +97,7 @@ export const FixPreview: Component<{
               </Show>
               <Show
                 when={changes.length > 0}
-                fallback={<Show when={(file.pending_sidecars ?? 0) === 0 && isMp4Like(file.suffix)}><p class="muted">{t("The server asks for Prepare; the verify report lists nothing more specific.")}</p></Show>}
+                fallback={<Show when={!embedding(file) && isMp4Like(file.suffix)}><p class="muted">{t("The server asks for Prepare; the verify report lists nothing more specific.")}</p></Show>}
               >
                 <ul class="plain changes">
                   <For each={changes}>{(change) => (
