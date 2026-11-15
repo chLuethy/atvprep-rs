@@ -470,6 +470,41 @@ mod tests {
     }
 
     #[test]
+    fn an_old_snapshot_with_planned_steps_as_strings_still_verifies_against_its_signature() {
+        // Before steps were data (#98) an item stored them as text. Its signature never covered them, so
+        // the item stays approved after it is read, and after it is written back in the new form.
+        let verifier = ApprovalVerifier::new(b"secret").unwrap();
+        let item = ApprovalItem {
+            job_id: 7,
+            media_id: 9,
+            action: "fix",
+            identity: &[],
+            encode: EncodeAllowance::Audio,
+            delete_original: false,
+            force: false,
+            profile: crate::settings::TargetProfile::default(),
+        };
+        let old = json!({"pipeline":"prepare","policy":PREPARE_POLICY,
+            "profile":crate::settings::TargetProfile::default().to_json(),"encode":"audio",
+            "delete_original":false,"delete_original_confirmed":false,
+            "manual_approval":true,"video_encode_confirmed":false,"force":false,
+            "planned_change":"audio",
+            "planned_steps":["[plan] audio stream #1 ac3 44100Hz -> eac3 48000Hz","[embed] subtitles: 1"],
+            "approved_by":5,"approved_at":1000,"approval_mac":verifier.sign(&item,5,1000)});
+        assert_eq!(verifier.check(&old, &item, 1000), None);
+        let parsed = PrepareSnapshot::parse(&old).expect("an old snapshot is still read");
+        assert_eq!(parsed.planned.expect("steps").steps.len(), 2);
+        assert_eq!(
+            verifier.check(
+                &PrepareSnapshot::parse(&old).unwrap().to_json(),
+                &item,
+                1000
+            ),
+            None
+        );
+    }
+
+    #[test]
     fn a_job_signature_binds_the_allowance_and_delete_original() {
         let verifier = ApprovalVerifier::new(b"secret").unwrap();
         let base = ApprovalItem {
