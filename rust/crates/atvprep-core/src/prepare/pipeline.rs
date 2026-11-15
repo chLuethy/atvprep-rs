@@ -26,7 +26,7 @@ use crate::mp4::patch::{
     apply_moov_patches, check_accessibility, is_faststart, set_subtitle_accessibility,
 };
 use crate::mp4::tags::{PatchSummary, SubInfo};
-use crate::output::{patch_summary_lines, plan_table, verify_atmos_in_output};
+use crate::output::{patch_summary_lines, plan_table, stream_plan, verify_atmos_in_output};
 use crate::phase_timing::phase;
 use crate::pipeline_postfix::{RunContext, finalize_output};
 use crate::planner::{PlanOptions, build_plan};
@@ -408,6 +408,9 @@ fn encode(
         return Err(transcode(&violation));
     }
     lines(ctx, &plan_table(plan));
+    for stream in stream_plan(plan, &analysis.probe) {
+        ctx.reporter.plan(&stream);
+    }
     {
         let _timing = phase("ffmpeg", Some(tmp));
         run_ffmpeg_with_progress(ctx, plan)?;

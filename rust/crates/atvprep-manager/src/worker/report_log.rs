@@ -39,6 +39,17 @@ pub(super) fn duration(elapsed: Duration) -> String {
     }
 }
 
+/// `HH:MM:SS` of a UTC time in microseconds since the epoch.
+pub(super) fn clock_time(at_micros: i64) -> String {
+    let seconds = at_micros.div_euclid(1_000_000).rem_euclid(86_400);
+    format!(
+        "{:02}:{:02}:{:02}",
+        seconds / 3600,
+        seconds % 3600 / 60,
+        seconds % 60
+    )
+}
+
 /// The code of an error that ended an item, for its last log line.
 pub(super) const fn error_code(error: &Error) -> &'static str {
     match error {

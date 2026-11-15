@@ -288,7 +288,7 @@ fn run_case(name: &str, variant: &str) -> Value {
 // FFmpeg emits intermediate encode percentages according to elapsed wall time.
 // Discard sampled encode percentages, but retain the deterministic 90% stage
 // boundary regardless of whether ffmpeg or finalization emits it first.
-// Independently reject out-of-range or non-monotonic progress.
+// Independently reject out-of-range or non-monotonic progress. Plan lines are left out.
 fn stable_machine(value: Value) -> Value {
     let Some(lines) = value.as_array() else {
         return value;
@@ -299,6 +299,10 @@ fn stable_machine(value: Value) -> Value {
     let mut previous = None;
     for line in lines {
         let text = line.as_str().expect("machine protocol string");
+        // The plan lines are the port's own, for the manager's log; the oracle has none.
+        if text.starts_with("ATVPREP-PLAN ") {
+            continue;
+        }
         if let Some(percent) = text.strip_prefix("ATVPREP-PROGRESS ") {
             let percent: u32 = percent.parse().expect("integer progress");
             assert!(percent <= 99, "progress must remain below completion");

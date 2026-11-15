@@ -7,6 +7,7 @@ pub mod logs;
 pub mod maintenance;
 pub mod manual_policy;
 pub mod orphans;
+mod prepare_log;
 pub mod process;
 pub mod recovery;
 mod report_log;

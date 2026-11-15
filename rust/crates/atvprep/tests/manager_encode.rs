@@ -1255,3 +1255,126 @@ fn a_schedule_item_is_refused_when_the_target_profile_changes_after_queueing() {
     assert_eq!(world.ended(item).status, ItemStatus::StaleInput);
     assert_eq!(std::fs::read(world.path("gringa.mp4")).unwrap(), before);
 }
+
+impl World {
+    /// The step lines of `item`'s log, without their `[HH:MM:SS] ` stamp.
+    fn steps(&self, item: i64) -> Vec<String> {
+        let log: Option<String> = self
+            .conn
+            .raw()
+            .query_row(
+                "SELECT log_tail FROM job_items WHERE id=?1",
+                [item],
+                |row| row.get(0),
+            )
+            .unwrap();
+        log.unwrap_or_default()
+            .lines()
+            .filter_map(|line| {
+                let rest = line.strip_prefix('[')?;
+                let (stamp, text) = rest.split_once("] ")?;
+                (stamp.len() == 8 && stamp.as_bytes()[2] == b':').then(|| text.to_owned())
+            })
+            .collect()
+    }
+}
+
+#[test]
+fn a_preparation_logs_its_frame_the_plan_of_each_stream_its_phases_and_the_check_after_it() {
+    let world = world(&[("file.mp4", surround_only, Audio)], false);
+    let (item, result) = world.run_next();
+    result.unwrap();
+    assert_ran(&world.ended(item));
+    let steps = world.steps(item);
+    let at = |wanted: &str| {
+        steps
+            .iter()
+            .position(|line| line.starts_with(wanted))
+            .unwrap_or_else(|| panic!("no step line {wanted:?} in {steps:#?}"))
+    };
+    let ordered = [
+        at("Command: atvprep prepare "),
+        at("Encode allowance: audio"),
+        at("Target profile: crf 18, "),
+        at("Delete original: no"),
+        at("Plan stream 0 (video h264): copy"),
+        at("Plan stream 1 (audio eac3): copy + downmix to aac stereo"),
+        at("Phase ffmpeg: started "),
+        at("Exit code: 0"),
+        at("Duration: "),
+    ];
+    assert!(
+        ordered.windows(2).all(|pair| pair[0] < pair[1]),
+        "{steps:#?}"
+    );
+    // stdout and stderr are two pipes: the check and its phase come in either order.
+    for late in [
+        "Phase verify: started ",
+        "Check after prepare: passed, 0 blockers, ",
+    ] {
+        assert!(
+            at("Phase ffmpeg: started ") < at(late) && at(late) < at("Exit code: 0"),
+            "{late}: {steps:#?}"
+        );
+    }
+}
+
+#[test]
+fn a_preparation_that_removes_the_original_says_so_in_its_log() {
+    let world = world(&[("file.mkv", copyable_mkv, Copy)], true);
+    let (item, result) = world.run_next();
+    result.unwrap();
+    assert_container_replaced(&world, &world.ended(item));
+    let steps = world.steps(item);
+    assert!(
+        steps.iter().any(|line| line == "Delete original: yes"),
+        "{steps:#?}"
+    );
+    assert!(
+        steps.iter().any(|line| line == "Original: removed"),
+        "{steps:#?}"
+    );
+}
+
+#[test]
+fn a_preparation_refused_by_its_allowance_ends_its_log_with_the_reason() {
+    let world = world(&[("file.mp4", surround_only, Copy)], false);
+    let (item, result) = world.run_next();
+    result.unwrap();
+    let steps = world.steps(item);
+    assert_eq!(
+        steps.last().map(String::as_str),
+        Some("Encoding not allowed (need=audio allowance=copy): the file stays as it was."),
+        "{steps:#?}"
+    );
+}
+
+#[test]
+fn a_new_mp4_that_fails_verification_ends_the_log_with_the_cause() {
+    let mut world = world(&[("file.mkv", copyable_mkv, Copy)], true);
+    let tools = tempfile::tempdir().unwrap();
+    let stand_in = tools.path().join("ffmpeg");
+    std::fs::write(
+        &stand_in,
+        format!(
+            "#!/bin/sh\nfor last; do :; done\n{ffmpeg} \"$@\" || exit $?\ncase \"$last\" in -|/dev/null) ;; *) cp {bad} \"$last\" ;; esac\n",
+            ffmpeg = on_path("ffmpeg").display(),
+            bad = testdata("high10.mp4").display(),
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&stand_in, std::fs::Permissions::from_mode(0o755)).unwrap();
+    world.config.environment.insert(
+        "PATH".to_owned(),
+        format!("{}:{}", tools.path().display(), search_path()),
+    );
+    let (item, result) = world.run_next();
+    result.unwrap();
+    assert_eq!(world.ended(item).status, ItemStatus::Failed);
+    let steps = world.steps(item);
+    let last = steps.last().unwrap();
+    assert!(
+        last.starts_with("Failed: verification_failed: ") && !last.contains("exited with code"),
+        "{steps:#?}"
+    );
+}
