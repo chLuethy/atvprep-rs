@@ -1,5 +1,6 @@
 //! Worker primitives.
 
+mod action;
 pub mod execution;
 mod execution_output;
 pub mod executor;
