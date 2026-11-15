@@ -560,7 +560,9 @@ fn views(conn: &rusqlite::Connection, state: &AppState) -> Result<(Vec<Value>, b
                         compliance_state: compliance.clone(),
                         encode: EncodeAllowance::parse(&encode).unwrap_or(EncodeAllowance::Copy),
                     },
-                    Some(max_files),
+                    // Every match, not only what a run takes: next to `max_files` it shows whether the
+                    // limit bites.
+                    None,
                 )
                 .map_err(|_| ())?,
             )
@@ -794,6 +796,50 @@ mod http_tests {
             serde_json::json!([0, 1, 2, 3, 4, 5, 6])
         );
         assert!(body["data"][0]["next_run_at"].is_string());
+    }
+
+    #[tokio::test]
+    async fn the_list_counts_every_match_so_a_limit_that_bites_can_be_seen() {
+        // `matching` is what the files select, `max_files` what a run takes of them: the two together
+        // tell whether the limit bites. The confirmation of a schedule shows the smaller of both.
+        let mut state = state();
+        state.clock = Arc::new(atvprep_manager::clock::FixedClock(1_700_000_000_000_000));
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let root = fx.library_at("Movies", "/private");
+        for path in ["a.mp4", "b.mp4", "c.mp4"] {
+            let _ = fx
+                .file(root, path)
+                .fingerprint(&path[..1])
+                .verdict(Verdict::Clean)
+                .create();
+        }
+        let _ = fx
+            .schedule("Weekly", "verify")
+            .library(root)
+            .max_files(2)
+            .enabled(true)
+            .create();
+        let session = routes_auth::service(&state, &conn)
+            .unwrap()
+            .create()
+            .unwrap()
+            .token;
+        let response = router(state)
+            .oneshot(
+                axum::http::Request::get("/api/v1/schedules")
+                    .header("origin", "http://localhost")
+                    .header("cookie", format!("__Host-atvprep_session={session}"))
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(body["data"][0]["matching"], 3);
+        assert_eq!(body["data"][0]["max_files"], 2);
     }
 
     #[tokio::test]
