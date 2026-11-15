@@ -1,7 +1,12 @@
 //! Execute claimed inspection and verification items under leases and gate permits.
-use super::process::{
-    PrepareMode, ProcessResult, StopReason, run_pinned_prepare_observed, run_pinned_probe,
-    run_pinned_verify,
+use super::{
+    execution_output::ClaimedOutput,
+    prepare_log::PrepareReports,
+    process::{
+        PrepareMode, ProcessResult, StopReason, prepare_arguments, probe_arguments,
+        run_pinned_prepare_observed, run_pinned_probe, run_pinned_verify, verify_arguments,
+    },
+    report_log,
 };
 use crate::{
     Error, Result,
@@ -248,6 +253,9 @@ pub fn execute_claimed(
     let permit = gate.acquire_permit("job", owner)?.ok_or_else(|| {
         Error::Conflict("maintenance: new work is not accepted right now".to_owned())
     })?;
+    // The item's log: step lines of this run and the tool's output (see `ClaimedOutput`).
+    let mut output = ClaimedOutput::new(ctx, owner, fence, item_id, item.job_id);
+    let started = Instant::now();
     let result = (|| {
         if !authority(ctx, item_id, owner, fence)? {
             return Err(Error::Conflict(
@@ -301,21 +309,57 @@ pub fn execute_claimed(
         };
         // „Prüfen“ runs against the profile of this moment; what it stored is checked again below.
         let verify_profile = crate::db::retry_busy(|| target_profile(ctx.conn))?;
-        let mut output =
-            super::execution_output::ClaimedOutput::new(ctx, owner, fence, item_id, item.job_id);
+        let inspect = !changing && item.action == "inspect";
+        for line in report_log::opening(if changing { "prepare" } else { &item.action }, &relative)
+        {
+            output.step(&line)?;
+        }
+        let arguments = if changing {
+            prepare_arguments(target.leaf_name(), target.identity(), mode)
+        } else if inspect {
+            probe_arguments()
+        } else {
+            verify_arguments(target.leaf_name(), target.identity(), verify_profile)
+        };
+        if !inspect {
+            output.step(&format!("Tool: atvprep {}", env!("CARGO_PKG_VERSION")))?;
+        }
+        output.step(&report_log::command(&config.executable, &arguments))?;
+        if changing {
+            for line in report_log::prepare_frame(mode) {
+                output.step(&line)?;
+            }
+        } else if !inspect {
+            output.step(&format!("Target profile: {}", verify_profile.summary()))?;
+        }
+        let mut reports = PrepareReports::default();
         let process = if changing {
             let need = crate::media::Media(ctx)
                 .get(item.media_file_id)?
                 .and_then(|media| media.encode_need);
+            // The phase timing reports each phase on stderr, for the log.
+            let mut environment = config.environment.clone();
+            environment.insert(
+                atvprep_core::phase_timing::ENV_VAR.to_owned(),
+                "1".to_owned(),
+            );
             run_pinned_prepare_observed(
                 &config.executable,
                 &target,
                 mode,
-                &config.environment,
+                &environment,
                 prepare_timeout(config.timeout, mode, need),
                 config.grace,
                 &mut cancelled,
-                |chunk| output.feed(chunk, false),
+                |stream, chunk| {
+                    output.feed(chunk, false)?;
+                    for line in
+                        reports.step_lines_keeping_error(stream, chunk, ctx.clock.now_micros())
+                    {
+                        output.step(&line)?;
+                    }
+                    Ok(())
+                },
             )
         } else if item.action == "inspect" {
             run_pinned_probe(
@@ -337,19 +381,21 @@ pub fn execute_claimed(
                 &mut cancelled,
             )
         }?;
+        // A check that worked leaves its report, not its output; one that failed leaves its output.
+        let reported = process.reason == StopReason::Exited
+            && (process.exit_code == Some(0)
+                || (item.action == "verify" && process.exit_code == Some(1)));
         if changing {
             output.feed(&[], true)?;
+        } else if !reported {
+            output.feed(&process.output, true)?;
         }
         if lost || !authority(ctx, item_id, owner, fence)? {
             return Err(Error::Conflict(
                 "worker lost its execution lease".to_owned(),
             ));
         }
-        if !changing
-            && process.reason == StopReason::Exited
-            && (process.exit_code == Some(0)
-                || (item.action == "verify" && process.exit_code == Some(1)))
-        {
+        if !changing && reported {
             target
                 .revalidate()
                 .map_err(|_| Error::Invalid("input changed during inspection".to_owned()))?;
@@ -358,8 +404,14 @@ pub fn execute_claimed(
                     "inspection report exceeds supported size".to_owned(),
                 ));
             }
-            let document: serde_json::Value = serde_json::from_slice(&process.stdout)
+            let mut document: serde_json::Value = serde_json::from_slice(&process.stdout)
                 .map_err(|_| Error::Invalid("inspection returned an invalid report".to_owned()))?;
+            // ffprobe's version is for the log; the stored report stays as it was.
+            let tool_version = document
+                .as_object_mut()
+                .and_then(|report| report.remove("program_version"))
+                .and_then(|version| version.get("version")?.as_str().map(str::to_owned))
+                .unwrap_or_else(|| "unknown".to_owned());
             let report = if item.action == "verify" {
                 document
                     .get("reports")
@@ -401,6 +453,26 @@ pub fn execute_claimed(
                 forget_need_of_a_superseded_profile(write, item.media_file_id, verify_profile)?;
             }
             tx.commit()?;
+            if inspect {
+                output.step(&format!("Tool: ffprobe {tool_version}"))?;
+                for line in report_log::streams(report) {
+                    output.step(&line)?;
+                }
+            } else {
+                for line in report_log::rules(report) {
+                    output.step(&line)?;
+                }
+                let stored = crate::db::retry_busy(|| {
+                    crate::media::Media(ctx).stored_verdict(item.media_file_id)
+                })?;
+                for line in report_log::stored_verdict(
+                    &stored.state,
+                    stored.encode_need.as_deref(),
+                    stored.planned_change.as_deref(),
+                ) {
+                    output.step(&line)?;
+                }
+            }
         }
         if changing {
             complete_prepare(
@@ -437,7 +509,6 @@ pub fn execute_claimed(
         } else {
             fresh.status_version
         };
-        JobStateMachine(ctx).transition_item(item_id, terminal, version, Some(fence), None)?;
         // A file above its Kodierfreigabe stays unchanged: a success with a hint, not a failure.
         let refusal = changing.then(|| encode_refusal(&process)).flatten();
         let code = match process.reason {
@@ -449,6 +520,21 @@ pub fn execute_claimed(
             }
             StopReason::Exited => None,
         };
+        // The log is written while the item still runs: its last line comes before its end.
+        for line in report_log::ending(process.exit_code, started.elapsed()) {
+            output.step(&line)?;
+        }
+        if let Some(closing) = report_log::closing(
+            terminal,
+            code,
+            &process,
+            reports.error(),
+            refusal.as_deref(),
+        ) {
+            output.step(&closing)?;
+        }
+        output.finish()?;
+        JobStateMachine(ctx).transition_item(item_id, terminal, version, Some(fence), None)?;
         let changed=ctx.conn.execute("UPDATE job_items SET exit_code=?1,error_code=?2 WHERE id=?3 AND executor_fencing_token=?4 AND lease_expires_at>?5 AND EXISTS(SELECT 1 FROM media_executor_leases WHERE id=1 AND fencing_token=?4 AND lease_expires_at>?5)",rusqlite::params![process.exit_code,code,item_id,fence,ctx.clock.now()])?;
         if changed != 1 {
             return Err(Error::Conflict(
@@ -470,6 +556,9 @@ pub fn execute_claimed(
             Ok(process)
         }
         Err(error) => {
+            // The cause is the last line; without authority or a running item nothing lands.
+            let _ = output.step(&report_log::failed_by(&error));
+            let _ = output.finish();
             // The permit must go back whatever the cleanup does, or the gate never quiesces.
             let cleanup = (|| -> Result<()> {
                 if authority(ctx, item_id, owner, fence).unwrap_or(false)

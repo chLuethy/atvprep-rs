@@ -64,6 +64,8 @@ pub struct BrowseQuery {
     suffix: Option<String>,
     #[serde(default, deserialize_with = "python_bool")]
     has_sidecar: Option<bool>,
+    sort: Option<String>,
+    dir: Option<String>,
 }
 
 fn python_bool<'de, D: serde::Deserializer<'de>>(
@@ -286,7 +288,9 @@ pub async fn browse_below(
 }
 
 fn browse_input_error(query: &BrowseQuery, below: bool) -> Option<&'static str> {
-    if below && query.root_id.is_none() {
+    if (below && query.root_id.is_none())
+        || sort_input_error(query.sort.as_deref(), query.dir.as_deref())
+    {
         return Some("request validation failed");
     }
     if query
@@ -302,6 +306,154 @@ fn browse_input_error(query: &BrowseQuery, below: bool) -> Option<&'static str> 
         query.has.as_deref(),
         query.suffix.as_deref(),
     )
+}
+
+/// `sort` and `dir` as the list and the column view take them; no sort is recently added.
+fn sort_input_error(sort: Option<&str>, dir: Option<&str>) -> bool {
+    !matches!(sort, None | Some("title" | "status" | "size"))
+        || !matches!(dir, None | Some("asc" | "desc"))
+}
+
+/// How many files one column lists at most.
+const MAX_BROWSE_FILES: usize = 500;
+
+/// Where a file's state lands in the status sort, as `status_rank` puts it in SQL.
+fn file_rank(discovery: &str, compliance: &str, embed_open: bool) -> u8 {
+    if discovery == "missing" {
+        return 2;
+    }
+    match compliance {
+        "clean" if embed_open => 4,
+        "blocker" => 0,
+        "probe_failed" => 1,
+        "warning" => 3,
+        "unknown" => 5,
+        "clean" => 6,
+        _ => 9,
+    }
+}
+
+/// A file directly in the column, with what it sorts by.
+struct Listed {
+    id: i64,
+    /// The path in lower case, the tie-breaker.
+    path: String,
+    title: String,
+    size: i64,
+    rank: u8,
+}
+
+impl Listed {
+    fn new(id: i64, path: &str, size: i64, rank: u8) -> Self {
+        Self {
+            id,
+            path: path.to_lowercase(),
+            title: file_title(path),
+            size,
+            rank,
+        }
+    }
+}
+
+/// What the files below a folder or library add up to.
+#[derive(Default)]
+struct Below {
+    counts: std::collections::BTreeMap<String, u64>,
+    size: i64,
+    /// The worst status rank below; none without files.
+    worst: Option<u8>,
+    /// The highest file id below: the most recently added file.
+    newest: i64,
+}
+
+impl Below {
+    fn add(&mut self, key: String, id: i64, size: i64, rank: u8) {
+        *self.counts.entry(key).or_default() += 1;
+        self.size = self.size.saturating_add(size);
+        self.worst = Some(self.worst.map_or(rank, |worst| worst.min(rank)));
+        self.newest = self.newest.max(id);
+    }
+}
+
+#[derive(Clone, Copy)]
+enum SortKey {
+    Title,
+    Status,
+    Size,
+    Added,
+}
+
+/// The order of a column: the key of `/files` and its direction.
+#[derive(Clone, Copy)]
+struct Order {
+    key: SortKey,
+    descending: bool,
+}
+
+impl Order {
+    fn of(sort: Option<&str>, dir: Option<&str>) -> Self {
+        let key = match sort {
+            Some("title") => SortKey::Title,
+            Some("status") => SortKey::Status,
+            Some("size") => SortKey::Size,
+            _ => SortKey::Added,
+        };
+        Self {
+            key,
+            descending: dir == Some("desc"),
+        }
+    }
+
+    fn directed(self, ordering: std::cmp::Ordering) -> std::cmp::Ordering {
+        if self.descending {
+            ordering.reverse()
+        } else {
+            ordering
+        }
+    }
+
+    /// Files as the list orders them, the path breaking a tie.
+    fn files(self, a: &Listed, b: &Listed) -> std::cmp::Ordering {
+        let primary = match self.key {
+            SortKey::Title => a.title.cmp(&b.title),
+            SortKey::Status => a.rank.cmp(&b.rank),
+            SortKey::Size => a.size.cmp(&b.size),
+            SortKey::Added => a.id.cmp(&b.id),
+        };
+        self.directed(primary)
+            .then_with(|| a.path.cmp(&b.path))
+            .then_with(|| a.id.cmp(&b.id))
+    }
+
+    /// Folders by a value over the files below them. A tie is left as it is, so sort by name first.
+    fn folders(self, a_name: &str, a: &Below, b_name: &str, b: &Below) -> std::cmp::Ordering {
+        let primary = match self.key {
+            SortKey::Title => by_name(a_name, b_name),
+            // A library without files has nothing to fix: after the ready ones.
+            SortKey::Status => a.worst.unwrap_or(u8::MAX).cmp(&b.worst.unwrap_or(u8::MAX)),
+            SortKey::Size => a.size.cmp(&b.size),
+            SortKey::Added => a.newest.cmp(&b.newest),
+        };
+        self.directed(primary)
+    }
+}
+
+/// Folder names in casefold order, the name itself breaking a tie.
+fn by_name(a: &str, b: &str) -> std::cmp::Ordering {
+    crate::casefold::python_casefold(a)
+        .cmp(&crate::casefold::python_casefold(b))
+        .then_with(|| a.cmp(b))
+}
+
+/// What a file sorts by under "Name": its file name without the extension, case-folded.
+fn file_title(path: &str) -> String {
+    let display = crate::read_jobs::subject(path);
+    let name = display.rsplit('/').next().unwrap_or(&display);
+    let stem = name
+        .rfind('.')
+        .filter(|i| *i > 0)
+        .map_or(name, |i| &name[..i]);
+    crate::casefold::python_casefold(stem)
 }
 
 #[allow(clippy::too_many_lines)] // Keep validation and its parameterized query together.
@@ -382,23 +534,119 @@ async fn browse_inner(state: AppState, query: BrowseQuery, below: bool) -> Respo
         );
         values.push(prefix.into());
     }
-    let result=tokio::task::spawn_blocking(move || {
-        use std::collections::BTreeMap;
-        let conn=state.db.conn().map_err(|_|())?;let conn=conn.raw();
-        if let Some(root)=root {let exists:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM library_roots WHERE id=?)",[root],|row|row.get(0)).map_err(|_|())?;if !exists{return Ok(None);}}
-        let filter=clauses.join(" AND ");
-        let mut stmt=conn.prepare(&format!("SELECT m.id,m.root_id,m.relative_path,m.discovery_state,m.compliance_state FROM media_files m WHERE {filter} ORDER BY lower(m.relative_path),m.id")).map_err(|_|())?;
-        let rows=stmt.query_map(rusqlite::params_from_iter(values.iter()),|row|Ok((row.get::<_,i64>(0)?,row.get::<_,i64>(1)?,row.get::<_,String>(2)?,row.get::<_,String>(3)?,row.get::<_,String>(4)?))).map_err(|_|())?;
-        let mut counts:BTreeMap<String,BTreeMap<String,u64>>=BTreeMap::new();let mut ids=Vec::new();let mut extra=false;
-        for row in rows {let(id,root_id,path,discovery,compliance)=row.map_err(|_|())?;let key=if matches!(query.state.as_deref(),Some("convert"|"converted"|"encode_audio"|"encode_video"|"embed")){query.state.clone().unwrap_or_default()}else if discovery=="missing" {"missing".to_owned()}else if compliance=="clean" && open_ids.contains(&id) {"embed_open".to_owned()}else{compliance};
-            let group=if root.is_none(){Some(root_id.to_string())}else if below{None}else{let rest=if folder.is_empty(){path.as_str()}else{path.strip_prefix(&format!("{folder}/")).unwrap_or("")};rest.split_once('/').map(|(name,_)|name.to_owned())};
-            if let Some(group)=group {*counts.entry(group).or_default().entry(key).or_default()+=1;}else if root.is_some(){if ids.len()<500 {ids.push(id);}else{extra=true;}}
+    let order = Order::of(query.sort.as_deref(), query.dir.as_deref());
+    let result = tokio::task::spawn_blocking(move || {
+        let conn = state.db.conn().map_err(|_| ())?;
+        let conn = conn.raw();
+        if let Some(root) = root {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM library_roots WHERE id=?)",
+                    [root],
+                    |row| row.get(0),
+                )
+                .map_err(|_| ())?;
+            if !exists {
+                return Ok(None);
+            }
         }
-        let mut folders=Vec::new();
-        if root.is_none(){let mut roots=conn.prepare("SELECT id,name FROM library_roots ORDER BY id").map_err(|_|())?;let rows=roots.query_map([],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?))).map_err(|_|())?;for row in rows{let(id,name)=row.map_err(|_|())?;let tally=counts.remove(&id.to_string()).unwrap_or_default();if filtered && tally.is_empty(){continue;}let total:u64=tally.values().sum();folders.push(json!({"name":crate::read_jobs::safe_head(&name,2048),"id":opaque.encode("r",id),"counts":tally,"total":total}));}}
-        else if !below {let mut entries:Vec<_>=counts.into_iter().collect();entries.sort_by_cached_key(|(name,_)|name.to_lowercase());for(name,tally) in entries{let total:u64=tally.values().sum();folders.push(json!({"name":crate::read_jobs::safe_head(&name,2048),"id":null,"counts":tally,"total":total}));}}
+        let filter = clauses.join(" AND ");
+        let mut stmt = conn
+            .prepare(&format!(
+                "SELECT m.id,m.root_id,m.relative_path,m.discovery_state,m.compliance_state,m.size \
+                 FROM media_files m WHERE {filter}"
+            ))
+            .map_err(|_| ())?;
+        let rows = stmt
+            .query_map(rusqlite::params_from_iter(values.iter()), |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, i64>(5)?,
+                ))
+            })
+            .map_err(|_| ())?;
+        let mut groups: std::collections::BTreeMap<String, Below> =
+            std::collections::BTreeMap::new();
+        let mut direct = Vec::new();
+        for row in rows {
+            let (id, root_id, path, discovery, compliance, size) = row.map_err(|_| ())?;
+            let open = open_ids.contains(&id);
+            let rank = file_rank(&discovery, &compliance, open);
+            let key = if matches!(
+                query.state.as_deref(),
+                Some("convert" | "converted" | "encode_audio" | "encode_video" | "embed")
+            ) {
+                query.state.clone().unwrap_or_default()
+            } else if discovery == "missing" {
+                "missing".to_owned()
+            } else if compliance == "clean" && open {
+                "embed_open".to_owned()
+            } else {
+                compliance
+            };
+            let group = if root.is_none() {
+                Some(root_id.to_string())
+            } else if below {
+                None
+            } else {
+                let rest = if folder.is_empty() {
+                    path.as_str()
+                } else {
+                    path.strip_prefix(&format!("{folder}/")).unwrap_or("")
+                };
+                rest.split_once('/').map(|(name, _)| name.to_owned())
+            };
+            if let Some(group) = group {
+                groups.entry(group).or_default().add(key, id, size, rank);
+            } else if root.is_some() {
+                direct.push(Listed::new(id, &path, size, rank));
+            }
+        }
+        // The cut comes after the order, so the files listed are the first ones in it.
+        direct.sort_by(|a, b| order.files(a, b));
+        let extra = direct.len() > MAX_BROWSE_FILES;
+        direct.truncate(MAX_BROWSE_FILES);
+        let mut entries: Vec<(String, Option<i64>, Below)> = Vec::new();
+        if root.is_none() {
+            let mut roots = conn
+                .prepare("SELECT id,name FROM library_roots ORDER BY id")
+                .map_err(|_| ())?;
+            let rows = roots
+                .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))
+                .map_err(|_| ())?;
+            for row in rows {
+                let (id, name) = row.map_err(|_| ())?;
+                let below = groups.remove(&id.to_string()).unwrap_or_default();
+                if filtered && below.counts.is_empty() {
+                    continue;
+                }
+                entries.push((name, Some(id), below));
+            }
+        } else if !below {
+            entries.extend(groups.into_iter().map(|(name, below)| (name, None, below)));
+        }
+        // Name order first: the sort by the value is stable, so a tie stays in it.
+        entries.sort_by(|a, b| by_name(&a.0, &b.0));
+        entries.sort_by(|a, b| order.folders(&a.0, &a.2, &b.0, &b.2));
+        let mut folders: Vec<Value> = entries
+            .into_iter()
+            .map(|(name, id, below)| {
+                let total: u64 = below.counts.values().sum();
+                json!({
+                    "name": crate::read_jobs::safe_head(&name, 2048),
+                    "id": id.map(|id| opaque.encode("r", id)),
+                    "counts": below.counts,
+                    "total": total,
+                    "size": below.size,
+                })
+            })
+            .collect();
         let mut files=Vec::new();let mut used=serde_json::to_vec(&folders).map_err(|_|())?.len();let mut truncated=extra;
-        for id in ids {let Some(mut value)=load_file(conn,&opaque,id)? else {continue};if let Some(object)=value.as_object_mut(){for key in ["status_version","last_success_at","has_error","sidecar_count","inspection_available"]{object.remove(key);}}
+        for Listed { id, .. } in direct {let Some(mut value)=load_file(conn,&opaque,id)? else {continue};if let Some(object)=value.as_object_mut(){for key in ["status_version","last_success_at","has_error","sidecar_count","inspection_available"]{object.remove(key);}}
             let size=serde_json::to_vec(&value).map_err(|_|())?.len();if size>crate::bounds::MAX_ELEMENT_BYTES || used.saturating_add(size+1024)>crate::bounds::MAX_RESPONSE_BYTES {truncated=true;break;}used+=size;files.push(value);}
         while serde_json::to_vec(&folders).map_err(|_|())?.len()+1024>crate::bounds::MAX_RESPONSE_BYTES {folders.pop();truncated=true;}
         let data=if below {json!({"files":files,"truncated":truncated})} else {json!({"root_id":query.root_id,"path":if root.is_some(){folder}else{String::new()},"folders":folders,"files":files,"truncated":truncated})};
@@ -754,12 +1002,7 @@ pub async fn list(
 ) -> Response {
     const PATH: &str = "/api/v1/files";
     let limit = query.limit.unwrap_or(50);
-    if !(1..=100).contains(&limit)
-        || !matches!(
-            query.sort.as_deref(),
-            None | Some("title" | "status" | "size")
-        )
-        || !matches!(query.dir.as_deref(), None | Some("asc" | "desc"))
+    if !(1..=100).contains(&limit) || sort_input_error(query.sort.as_deref(), query.dir.as_deref())
     {
         return error(
             StatusCode::UNPROCESSABLE_ENTITY,

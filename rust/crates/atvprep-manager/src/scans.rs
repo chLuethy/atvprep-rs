@@ -2,6 +2,8 @@
 
 use rusqlite::{OptionalExtension, named_params};
 
+use crate::clock::format_micros;
+use crate::events::EVENT_RETENTION_MICROS;
 use crate::models::ScanRun;
 use crate::repo::Ctx;
 use crate::state_machine::ScanStatus;
@@ -122,7 +124,7 @@ impl Scans<'_> {
     ///
     /// SQLite fails.
     pub fn abandon(&self, scan_id: i64) -> Result<()> {
-        self.0.conn.execute(
+        let changed = self.0.conn.execute(
             &format!(
                 "UPDATE scan_runs SET status=:status, finished_at=:finished_at
                  WHERE id=:scan_id AND status IN {}",
@@ -133,6 +135,27 @@ impl Scans<'_> {
                 ":finished_at": self.0.clock.now(),
                 ":scan_id": scan_id,
             },
+        )?;
+        if changed > 0 {
+            self.record_finished(&self.require(scan_id)?)?;
+        }
+        Ok(())
+    }
+
+    /// Tell the event feed that a scan of the root came to an end, so open views can reload.
+    fn record_finished(&self, scan: &ScanRun) -> Result<()> {
+        let now = self.0.clock.now_micros();
+        let payload =
+            serde_json::json!({ "status": scan.status.as_str(), "trigger": scan.trigger });
+        self.0.conn.execute(
+            "INSERT INTO events(topic, entity_type, entity_id, payload_json, created_at, expires_at)
+             VALUES ('scan.finished', 'library_root', ?1, ?2, ?3, ?4)",
+            rusqlite::params![
+                scan.root_id,
+                payload.to_string(),
+                format_micros(now),
+                format_micros(now + EVENT_RETENTION_MICROS),
+            ],
         )?;
         Ok(())
     }
@@ -218,6 +241,9 @@ impl Scans<'_> {
         )?;
         if changed == 0 {
             return Ok(scan);
+        }
+        if !scan.status.is_terminal() {
+            self.record_finished(&self.require(scan_id)?)?;
         }
         if reconcile_missing && status == ScanStatus::Succeeded {
             self.0.conn.execute(

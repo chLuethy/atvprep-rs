@@ -318,6 +318,55 @@ describe("JobDetail: what happened", () => {
     }
   });
 
+  it("shows on a prepare item the change and the steps planned when it was queued", async () => {
+    const planned = item({
+      planned_change: "audio",
+      planned_steps: [
+        "[warning] audio-sample-rate: ac-3 track id=2 sample rate 44100Hz (expected 48000)",
+        "[warning] fast-start: moov atom appears after mdat",
+        "[warning] avc-level-atv-limit: H.264 level 6.0 exceeds 5.2",
+        "[plan] audio stream #1 ac3 44100Hz -> eac3 48000Hz",
+        "[embed] subtitles: 2",
+      ],
+    });
+    const view = render(() => <JobDetail api={detailApi({}, [planned])} jobId="j_1" />);
+
+    const plan = await view.findByRole("group", { name: "Expected change" });
+    expect(within(plan).getByText("Audio encoding")).toBeInTheDocument();
+    const steps = within(within(plan).getByRole("list", { name: "Planned steps" })).getAllByRole("listitem").map((step) => step.textContent);
+    expect(steps).toEqual([
+      "Rewrite the file with the index at the front (faststart)",
+      "AC-3 44.1 kHz → EAC3 48 kHz",
+      "Merge 2 external subtitle files into the MP4",
+    ]);
+  });
+
+  it("reads the expected change in German", async () => {
+    setLanguage("de");
+    try {
+      const planned = item({ planned_change: "remux", planned_steps: ["[warning] fast-start: moov atom appears after mdat"] });
+      const view = render(() => <JobDetail api={detailApi({}, [planned])} jobId="j_1" />);
+      const plan = await view.findByRole("group", { name: "Erwartete Änderung" });
+      expect(within(plan).getByText("Remux")).toBeInTheDocument();
+      expect(within(plan).getByRole("list", { name: "Geplante Schritte" })).toBeInTheDocument();
+    } finally {
+      setLanguage("en");
+    }
+  });
+
+  it("shows only the change when nothing more specific was planned", async () => {
+    const view = render(() => <JobDetail api={detailApi({}, [item({ planned_change: "patch", planned_steps: [] })])} jobId="j_1" />);
+    const plan = await view.findByRole("group", { name: "Expected change" });
+    expect(within(plan).getByText("Patch")).toBeInTheDocument();
+    expect(within(plan).queryByRole("list")).not.toBeInTheDocument();
+  });
+
+  it("shows no expected change on an item that was queued without one", async () => {
+    const view = render(() => <JobDetail api={detailApi({ action: "verify" }, [item({ action: "verify" }), item({ id: "i_2", position: 2 })])} jobId="j_1" />);
+    await view.findAllByText("Heat");
+    expect(view.queryByRole("group", { name: "Expected change" })).not.toBeInTheDocument();
+  });
+
   it("says on the item that encoding was not allowed, as a hint and not as a failure", async () => {
     const refused = item({ error_code: "encode_not_allowed", error_detail: "Encoding not allowed (need=video allowance=audio): the file stays as it was." });
     const view = render(() => <JobDetail api={detailApi({}, [refused])} jobId="j_1" />);
@@ -567,6 +616,53 @@ describe("JobDetail: a running job", () => {
   });
 });
 
+describe("JobDetail: how long each entry takes", () => {
+  it("counts up on a running entry with the clock", async () => {
+    vi.useFakeTimers({ now: new Date("2026-07-20T10:01:05Z") });
+    const items = [item({ status: "running", started_at: "2026-07-20T10:00:00Z", finished_at: null })];
+    const view = render(() => <JobDetail api={detailApi({ status: "running", finished_at: null }, items)} jobId="j_1" />);
+    await vi.advanceTimersByTimeAsync(0);
+    const entry = () => view.getByText("#1").closest("li")!;
+    expect(entry()).toHaveTextContent("running for 1 min 5 s");
+
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(entry()).toHaveTextContent("running for 1 min 7 s");
+  });
+
+  it("states how long an ended entry took, whatever its outcome, and nothing for one still waiting", async () => {
+    const items = [
+      item({ id: "i_1", position: 1, status: "succeeded", started_at: "2026-07-20T10:00:00Z", finished_at: "2026-07-20T10:00:42Z" }),
+      item({ id: "i_2", position: 2, status: "failed", started_at: "2026-07-20T10:00:00Z", finished_at: "2026-07-20T10:02:00Z" }),
+      item({ id: "i_3", position: 3, status: "cancelled", started_at: "2026-07-20T10:00:00Z", finished_at: "2026-07-20T10:00:09Z" }),
+      item({ id: "i_4", position: 4, status: "queued", started_at: null, finished_at: null }),
+    ];
+    const view = render(() => <JobDetail api={detailApi({ status: "running", finished_at: null }, items)} jobId="j_1" />);
+    const entry = async (position: number) => (await view.findByText(`#${position}`)).closest("li")!;
+
+    expect(await entry(1)).toHaveTextContent("took 42 s");
+    expect(await entry(2)).toHaveTextContent("took 2 min");
+    expect(await entry(3)).toHaveTextContent("took 9 s");
+    expect(await entry(4)).not.toHaveTextContent(/took|running for/);
+  });
+
+  it("states the duration in German", async () => {
+    setLanguage("de");
+    try {
+      const items = [
+        item({ id: "i_1", position: 1, status: "succeeded", started_at: "2026-07-20T10:00:00Z", finished_at: "2026-07-20T10:00:42Z" }),
+        item({ id: "i_2", position: 2, status: "running", started_at: new Date(Date.now() - 5000).toISOString(), finished_at: null }),
+      ];
+      const view = render(() => <JobDetail api={detailApi({ status: "running", finished_at: null }, items)} jobId="j_1" />);
+
+      expect((await view.findByText("#1")).closest("li")).toHaveTextContent("Dauer 42 s");
+      expect((await view.findByText("#2")).closest("li")).toHaveTextContent(/läuft seit \d+ s/);
+    } finally {
+      setLanguage("en");
+    }
+  });
+});
+
 describe("JobDetail: refreshing a running job", () => {
   /** Fresh ids on every response, like the real server; only the item's progress ever changes. */
   function liveApi(state: { progress: number }) {
@@ -645,7 +741,7 @@ describe("LogViewer: following a running log", () => {
     vi.useFakeTimers();
     metrics(1000, 320);
     const { api, grow } = growingLog();
-    const view = render(() => <LogViewer api={api} itemId="i_1" />);
+    const view = render(() => <LogViewer api={api} itemId="i_1" status="running" />);
     await vi.advanceTimersByTimeAsync(0);
     const pre = view.getByLabelText("Plain text log") as HTMLElement;
     expect(pre.scrollTop).toBe(1000);
@@ -662,7 +758,7 @@ describe("LogViewer: following a running log", () => {
     vi.useFakeTimers();
     metrics(1000, 320);
     const { api, grow } = growingLog();
-    const view = render(() => <LogViewer api={api} itemId="i_1" />);
+    const view = render(() => <LogViewer api={api} itemId="i_1" status="running" />);
     await vi.advanceTimersByTimeAsync(0);
     const pre = view.getByLabelText("Plain text log") as HTMLElement;
     pre.scrollTop = 100;
@@ -674,6 +770,63 @@ describe("LogViewer: following a running log", () => {
 
     expect(pre).toHaveTextContent("a later line");
     expect(pre.scrollTop).toBe(100);
+  });
+});
+
+describe("JobDetail: the log of an entry", () => {
+  const logCalls = (api: Api, itemId = "i_1") => calls(api).filter(([path]) => path === `/job-items/${itemId}/log`).length;
+
+  it("offers no pause, but still a download", async () => {
+    const api = detailApi({ status: "running", finished_at: null }, [item({ status: "running", started_at: "2026-07-20T10:00:00Z" })]);
+    const view = render(() => <JobDetail api={api} jobId="j_1" />);
+    await fireEvent.click(await view.findByRole("button", { name: "Log" }));
+    await view.findByLabelText("Plain text log");
+
+    expect(view.queryByRole("button", { name: /pause log|resume log/i })).not.toBeInTheDocument();
+    expect(view.getByRole("button", { name: "Download log" })).toBeEnabled();
+  });
+
+  it("reads the log of an ended entry once and then leaves it alone", async () => {
+    vi.useFakeTimers();
+    const api = detailApi();
+    const view = render(() => <JobDetail api={api} jobId="j_1" />);
+    await vi.advanceTimersByTimeAsync(0);
+    await fireEvent.click(view.getByRole("button", { name: "Log" }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(view.getByLabelText("Plain text log")).toHaveTextContent("log line");
+
+    await vi.advanceTimersByTimeAsync(15000);
+
+    expect(logCalls(api)).toBe(1);
+  });
+
+  it("follows a running entry and reads its log one last time when it ends", async () => {
+    vi.useFakeTimers();
+    const state = { status: "running", log: "first line" };
+    const api = apiFor((path) => {
+      const ended = state.status !== "running";
+      if (path === "/jobs/j_1") return json(job({ status: ended ? "succeeded" : "running", finished_at: ended ? "2026-07-20T10:02:00Z" : null }));
+      if (path.startsWith("/jobs/j_1/items")) return json([item({ status: state.status, started_at: "2026-07-20T10:00:00Z", finished_at: ended ? "2026-07-20T10:02:00Z" : null })]);
+      if (path === "/job-items/i_1/log") return json({ item_id: "i_1", status: state.status, log_tail: state.log });
+      return json({});
+    });
+    const view = render(() => <JobDetail api={api} jobId="j_1" />);
+    await vi.advanceTimersByTimeAsync(0);
+    await fireEvent.click(view.getByRole("button", { name: "Log" }));
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(3100);
+    const whileRunning = logCalls(api);
+    expect(whileRunning).toBeGreaterThan(1);
+
+    state.status = "succeeded";
+    state.log = "first line\nlast line";
+    await vi.advanceTimersByTimeAsync(1100);
+    expect(logCalls(api)).toBe(whileRunning + 1);
+    expect(view.getByLabelText("Plain text log")).toHaveTextContent("last line");
+
+    await vi.advanceTimersByTimeAsync(15000);
+
+    expect(logCalls(api)).toBe(whileRunning + 1);
   });
 });
 
@@ -797,13 +950,13 @@ describe("JobDetail: cancel and retry", () => {
 
 describe("LogViewer", () => {
   it("renders a generic session state and downloads only plain text", async () => {
-    const expired = render(() => <LogViewer api={apiFor(() => Promise.reject(new SessionError()))} itemId="i_1" />);
+    const expired = render(() => <LogViewer api={apiFor(() => Promise.reject(new SessionError()))} itemId="i_1" status="succeeded" />);
     expect(await expired.findByRole("alert")).toHaveTextContent(/session expired/i);
     expired.unmount();
 
     if (!URL.createObjectURL) URL.createObjectURL = () => "blob:test";
     const createObjectURL = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:test");
-    const view = render(() => <LogViewer api={apiFor(() => json({ item_id: "i_1", status: "ok", log_tail: "hello" }))} itemId="i_1" />);
+    const view = render(() => <LogViewer api={apiFor(() => json({ item_id: "i_1", status: "ok", log_tail: "hello" }))} itemId="i_1" status="succeeded" />);
     await view.findByText("hello");
     await fireEvent.click(view.getByRole("button", { name: "Download log" }));
 
@@ -813,7 +966,7 @@ describe("LogViewer", () => {
   });
 
   it("keeps log text unparsed", async () => {
-    const view = render(() => <LogViewer api={apiFor(() => json({ item_id: "i_1", status: "ok", log_tail: "<b>plain log</b>\nnext" }))} itemId="i_1" />);
+    const view = render(() => <LogViewer api={apiFor(() => json({ item_id: "i_1", status: "ok", log_tail: "<b>plain log</b>\nnext" }))} itemId="i_1" status="succeeded" />);
 
     expect((await view.findByLabelText("Plain text log")).textContent).toContain("<b>plain log</b>");
     expect(view.container.querySelector("b")).not.toBeInTheDocument();
@@ -824,7 +977,7 @@ describe("LogViewer", () => {
     Object.defineProperty(URL, "revokeObjectURL", { configurable: true, writable: true, value: vi.fn() });
     const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
     try {
-      const view = render(() => <LogViewer api={apiFor(() => json({ item_id: "i_1", status: "ok", log_tail: "hello" }))} itemId="i_1" />);
+      const view = render(() => <LogViewer api={apiFor(() => json({ item_id: "i_1", status: "ok", log_tail: "hello" }))} itemId="i_1" status="succeeded" />);
       await vi.advanceTimersByTimeAsync(0);
       const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:test");
       await fireEvent.click(view.getByRole("button", { name: "Download log" }));
@@ -838,25 +991,9 @@ describe("LogViewer", () => {
     }
   });
 
-  it("stops polling while paused and resumes on request", async () => {
-    vi.useFakeTimers();
-    const api = apiFor(() => json({ item_id: "i_1", status: "ok", log_tail: "hello" }));
-    const view = render(() => <LogViewer api={api} itemId="i_1" />);
-    await vi.advanceTimersByTimeAsync(0);
-    expect(calls(api)).toHaveLength(1);
-
-    await fireEvent.click(view.getByRole("button", { name: "Pause log" }));
-    await vi.advanceTimersByTimeAsync(6000);
-    expect(calls(api)).toHaveLength(1);
-
-    await fireEvent.click(view.getByRole("button", { name: "Resume log" }));
-    await vi.advanceTimersByTimeAsync(3100);
-    expect(calls(api)).toHaveLength(2);
-  });
-
   it("offers an independent retry when the log cannot be loaded", async () => {
     let attempts = 0;
-    const view = render(() => <LogViewer api={apiFor(() => (++attempts === 1 ? json({}, 500) : json({ item_id: "i_1", status: "ok", log_tail: "retried" })))} itemId="i_1" />);
+    const view = render(() => <LogViewer api={apiFor(() => (++attempts === 1 ? json({}, 500) : json({ item_id: "i_1", status: "ok", log_tail: "retried" })))} itemId="i_1" status="succeeded" />);
 
     await fireEvent.click(await view.findByRole("button", { name: /retry loading log/i }));
 

@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { ColumnsView } from "../src/features/files/ColumnsView";
 import { allReady, describeCounts, worstIn } from "../src/features/files/browse";
 import type { FileRow } from "../src/features/files/loaders";
-import { EMPTY_FILTER } from "../src/features/files/filters";
+import { EMPTY_FILTER, type FileSort } from "../src/features/files/filters";
+import { createSignal } from "solid-js";
 
 type Api = { request: (path: string, init?: RequestInit) => Promise<Response> };
 
@@ -155,6 +156,69 @@ describe("ColumnsView", () => {
 
     expect(await view.findByText("Unable to load this folder")).toBeInTheDocument();
     expect(view.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+});
+
+describe("ColumnsView: sorting", () => {
+  /** Film A holds A, B and C; the server lists them backwards when asked for names descending. */
+  function sortingApi() {
+    const calls: string[] = [];
+    const api: Api = {
+      request: vi.fn(async (path: string) => {
+        calls.push(path);
+        const query = new URLSearchParams(path.split("?")[1] ?? "");
+        const key = query.has("root_id") ? `${query.get("root_id")}|${query.get("path") ?? ""}` : "";
+        const files = [file("A.mp4"), file("B.mp4"), file("C.mp4")];
+        const level = key === "r_1|deutsch/Film A (2020)"
+          ? { folders: [], files: query.get("dir") === "desc" ? files.reverse() : files }
+          : LEVELS[key];
+        return level ? new Response(JSON.stringify({ data: level, meta: {} })) : new Response("{}", { status: 404 });
+      }),
+    };
+    return { api, calls };
+  }
+  const names = (view: ReturnType<typeof render>, column: number) =>
+    Array.from(view.container.querySelectorAll<HTMLElement>(`.col[data-col="${column}"] [role=option] .col-name`)).map((el) => el.textContent);
+
+  it("sends the chosen order to every column, and recently added newest first without one", async () => {
+    const { api, calls } = sortingApi();
+    const { view } = show(api, { sort: { key: "size", dir: -1 } });
+    await waitFor(() => expect(calls[0]).toBe("/browse?sort=size&dir=desc"));
+    await fireEvent.click(await view.findByText("Film"));
+    await waitFor(() => expect(calls).toContain("/browse?root_id=r_1&sort=size&dir=desc"));
+
+    const plain = sortingApi();
+    show(plain.api, { sort: null, filter: { ...EMPTY_FILTER, status: ["blocker"] } });
+    await waitFor(() => expect(plain.calls[0]).toBe("/browse?status=blocker&dir=desc"));
+  });
+
+  it("keeps the path and the selection when the order changes, and the keys follow the new order", async () => {
+    const { api, calls } = sortingApi();
+    const [sort, setSort] = createSignal<FileSort>({ key: "title", dir: 1 });
+    const picks: string[][] = [];
+    const view = render(() => <ColumnsView api={api} version={0} onOpen={() => {}} sort={sort()} onSelection={(picked) => picks.push(picked.files.map((f) => f.id))} />);
+    await fireEvent.click(await view.findByText("Film"));
+    await fireEvent.click(await view.findByText("deutsch"));
+    await fireEvent.click(await view.findByText("Film A (2020)"));
+    await view.findByText("C.mp4");
+    expect(names(view, 3)).toEqual(["A.mp4", "B.mp4", "C.mp4"]);
+    await fireEvent.click(option(view, "B.mp4") as HTMLElement);
+
+    setSort({ key: "title", dir: -1 });
+
+    await waitFor(() => expect(names(view, 3)).toEqual(["C.mp4", "B.mp4", "A.mp4"]));
+    expect(calls).toContain("/browse?root_id=r_1&path=deutsch%2FFilm+A+%282020%29&sort=title&dir=desc");
+    expect(view.getByRole("navigation", { name: "Location" })).toHaveTextContent("LibrariesFilmdeutschFilm A (2020)");
+    expect(option(view, "B.mp4")).toHaveAttribute("aria-selected", "true");
+
+    const group = view.getByRole("group", { name: /Files by folder/ });
+    await fireEvent.keyDown(group, { key: "ArrowDown" });
+    await waitFor(() => expect(option(view, "A.mp4")).toHaveAttribute("aria-selected", "true"));
+    await fireEvent.keyDown(group, { key: "a", metaKey: true });
+    expect(picks.at(-1)).toEqual(["m_C.mp4", "m_B.mp4", "m_A.mp4"]);
+    await fireEvent.click(option(view, "C.mp4") as HTMLElement);
+    await fireEvent.click(option(view, "B.mp4") as HTMLElement, { shiftKey: true });
+    expect(picks.at(-1)).toEqual(["m_C.mp4", "m_B.mp4"]);
   });
 });
 

@@ -9,7 +9,34 @@ use crate::{Error, Result};
 
 pub struct Media<'a>(pub Ctx<'a>);
 
+/// What the last check stored for a file, as stored: a value never set stays `None`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredVerdict {
+    pub state: String,
+    pub encode_need: Option<String>,
+    pub planned_change: Option<String>,
+}
+
 impl Media<'_> {
+    /// The compliance state, Kodierbedarf and Änderungsart stored for `media_id`.
+    ///
+    /// # Errors
+    ///
+    /// SQLite fails, also when the file has no row.
+    pub fn stored_verdict(&self, media_id: i64) -> Result<StoredVerdict> {
+        Ok(self.0.conn.query_row(
+            "SELECT compliance_state,encode_need,planned_change FROM media_files WHERE id=?1",
+            [media_id],
+            |row| {
+                Ok(StoredVerdict {
+                    state: row.get(0)?,
+                    encode_need: row.get(1)?,
+                    planned_change: row.get(2)?,
+                })
+            },
+        )?)
+    }
+
     /// # Errors
     ///
     /// SQLite fails.

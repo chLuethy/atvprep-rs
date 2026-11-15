@@ -1355,6 +1355,22 @@
             ],
             "title": "Output Media Id"
           },
+          "planned_change": {
+            "description": "Only on Vorbereiten items queued with it: the Änderungsart expected when queued.",
+            "enum": ["none", "patch", "remux", "audio", "reencode", "unknown"],
+            "title": "Planned Change",
+            "type": "string"
+          },
+          "planned_steps": {
+            "description": "Only together with planned_change: the planned steps when queued, as redacted short texts (at most 32 of at most 512 bytes): verify reasons `[severity] rule: message` and `[embed] subtitles: n`.",
+            "items": {
+              "maxLength": 512,
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Planned Steps",
+            "type": "array"
+          },
           "position": {
             "title": "Position",
             "type": "integer"

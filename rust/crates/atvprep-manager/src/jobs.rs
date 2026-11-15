@@ -70,13 +70,74 @@ struct ItemSeed<'a> {
     encode: EncodeAllowance,
 }
 
-/// The snapshot of one item: the job's, plus its own Kodierfreigabe under the prepare policy.
-fn item_settings(job: &Value, encode: EncodeAllowance) -> Value {
+/// At most this many planned steps are kept on an item.
+pub const MAX_PLANNED_STEPS: usize = 32;
+/// At most this many bytes are kept of one planned step.
+pub const MAX_PLANNED_STEP_BYTES: usize = 512;
+
+/// What Prepare is expected to do to one file when it is queued: the Änderungsart and the planned
+/// steps in the short form the preview builds its lines from (the stored verify reasons, then one
+/// `[embed] subtitles: n` step for the subtitle files still to merge).
+struct PlannedChange {
+    change: String,
+    steps: Vec<String>,
+}
+
+fn bounded_step(step: &str) -> String {
+    let mut end = step.len().min(MAX_PLANNED_STEP_BYTES);
+    while !step.is_char_boundary(end) {
+        end -= 1;
+    }
+    step[..end].to_owned()
+}
+
+fn planned_change(conn: &rusqlite::Connection, media: i64) -> Result<Option<PlannedChange>> {
+    let row: Option<(String, String, String, String)> = conn
+        .query_row(
+            "SELECT planned_change, compliance_reasons, relative_path, fingerprint
+             FROM media_files WHERE id=?1",
+            [media],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+        )
+        .optional()?;
+    let Some((change, reasons, path, fingerprint)) = row else {
+        return Ok(None);
+    };
+    let mut steps: Vec<String> = serde_json::from_str::<Value>(&reasons)
+        .ok()
+        .and_then(|value| value.as_array().cloned())
+        .unwrap_or_default()
+        .iter()
+        .filter_map(Value::as_str)
+        .map(bounded_step)
+        .collect();
+    let pending = crate::embed::classify_media(conn, media, &path, &fingerprint)?
+        .iter()
+        .filter(|(_, _, _, state)| state == "pending")
+        .count();
+    if pending > 0 {
+        steps.push(format!("[embed] subtitles: {pending}"));
+    }
+    steps.truncate(MAX_PLANNED_STEPS);
+    Ok(Some(PlannedChange { change, steps }))
+}
+
+fn is_prepare_policy(settings: &Value) -> bool {
+    settings.get("policy").and_then(Value::as_str) == Some(crate::approval::PREPARE_POLICY)
+}
+
+/// The snapshot of one item: the job's, plus under the prepare policy its own Kodierfreigabe and
+/// the change expected when it was queued.
+fn item_settings(job: &Value, encode: EncodeAllowance, planned: Option<PlannedChange>) -> Value {
     let mut settings = job.clone();
-    if job.get("policy").and_then(Value::as_str) == Some(crate::approval::PREPARE_POLICY)
+    if is_prepare_policy(job)
         && let Some(object) = settings.as_object_mut()
     {
         object.insert("encode".to_owned(), json!(encode.as_str()));
+        if let Some(planned) = planned {
+            object.insert("planned_change".to_owned(), json!(planned.change));
+            object.insert("planned_steps".to_owned(), json!(planned.steps));
+        }
     }
     settings
 }
@@ -156,6 +217,11 @@ impl Jobs<'_> {
     }
 
     fn insert_item(&self, seed: &ItemSeed<'_>) -> Result<i64> {
+        let planned = if is_prepare_policy(seed.settings) {
+            planned_change(self.0.conn, seed.media_file_id)?
+        } else {
+            None
+        };
         self.0.conn.execute(
             "INSERT INTO job_items(job_id, media_file_id, action, position, origin_item_id, status,
                                    input_snapshot_json, settings_snapshot_json)
@@ -167,7 +233,7 @@ impl Jobs<'_> {
                 seed.position,
                 seed.origin_item_id,
                 seed.input.to_string(),
-                item_settings(seed.settings, seed.encode).to_string()
+                item_settings(seed.settings, seed.encode, planned).to_string()
             ],
         )?;
         let id = self.0.conn.last_insert_rowid();
@@ -551,7 +617,7 @@ impl Jobs<'_> {
         self.claim_item(job_id, worker_id, fencing_token, lease_seconds, &limits)
     }
 
-    /// Show a running item's latest output. Only its owner may, and only while it runs.
+    /// Show a running item's latest output. Only its owner may, and only while it runs or stops.
     ///
     /// # Errors
     ///
@@ -559,7 +625,8 @@ impl Jobs<'_> {
     pub fn set_item_log_tail(&self, item_id: i64, fencing_token: i64, tail: &str) -> Result<bool> {
         Ok(self.0.conn.execute(
             "UPDATE job_items SET log_tail=?3
-             WHERE id=?1 AND executor_fencing_token=?2 AND status='running'",
+             WHERE id=?1 AND executor_fencing_token=?2
+               AND status IN ('running','cancel_requested','cancelling')",
             rusqlite::params![item_id, fencing_token, tail],
         )? == 1)
     }

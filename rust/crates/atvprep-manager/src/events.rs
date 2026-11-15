@@ -8,7 +8,7 @@ use crate::repo::Ctx;
 use crate::{Error, Result};
 
 /// How long an event is kept before retention may delete it.
-const RETENTION_MICROS: i64 = 7 * 86_400 * 1_000_000;
+pub(crate) const EVENT_RETENTION_MICROS: i64 = 7 * 86_400 * 1_000_000;
 
 pub struct Events<'a>(pub Ctx<'a>);
 
@@ -46,7 +46,7 @@ impl Events<'_> {
                 entity_id,
                 payload.to_string(),
                 format_micros(now),
-                format_micros(now + RETENTION_MICROS),
+                format_micros(now + EVENT_RETENTION_MICROS),
             ],
         )?;
         Ok(self.0.conn.query_row(

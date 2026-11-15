@@ -98,6 +98,19 @@ impl TargetProfile {
         })
     }
 
+    /// The profile in words, for an item's log.
+    #[must_use]
+    pub fn summary(self) -> String {
+        use crate::worker::report_log::yes_no;
+        format!(
+            "crf {}, prefer HEVC 10-bit {}, keep AV1 {}, fix DTS {}",
+            self.crf,
+            yes_no(self.prefer_hevc10),
+            yes_no(self.keep_av1),
+            yes_no(self.fix_dts)
+        )
+    }
+
     /// The CLI flags that carry this profile.
     #[must_use]
     pub fn cli_arguments(self) -> Vec<String> {

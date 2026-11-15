@@ -55,6 +55,31 @@ describe("expectedChanges: what a fix does for each verify reason", () => {
     expect(changes("[warning] audio-sample-rate: 96 kHz")[0]?.kind).toBe("none");
   });
 
+  it("takes the encoding for a sample rate from the planner, in its words", () => {
+    expect(changes(
+      "[warning] audio-sample-rate: ac-3 track id=2 sample rate 44100Hz (expected 48000)",
+      "[warning] audio-sample-rate: mp4a track id=4 sample rate 32000Hz (expected 44100 or 48000)",
+      "[plan] audio stream #1 ac3 44100Hz -> eac3 48000Hz",
+      "[plan] audio stream #3 aac 32000Hz -> aac 48000Hz",
+    )).toEqual([
+      { kind: "encode", rule: "audio-sample-rate", text: "AC-3 44.1 kHz → EAC3 48 kHz" },
+      { kind: "encode", rule: "audio-sample-rate", text: "AAC 32 kHz → AAC 48 kHz" },
+    ]);
+  });
+
+  it("predicts no codec or rate for a sample rate finding the planner has not named", () => {
+    const [finding] = changes("[warning] audio-sample-rate: ac-3 track id=2 sample rate 44100Hz (expected 48000)");
+    expect(finding).toMatchObject({ kind: "none", rule: "audio-sample-rate" });
+    expect(finding?.text).toContain("ac-3 track id=2 sample rate 44100Hz");
+    expect(finding?.text).not.toMatch(/EAC3|48 kHz/);
+  });
+
+  it("shows a planner step it cannot read in its own words", () => {
+    expect(changes("[plan] audio stream #1 opus 44100Hz needs something else")).toEqual([
+      { kind: "encode", rule: "audio-sample-rate", text: "audio stream #1 opus 44100Hz needs something else" },
+    ]);
+  });
+
   it("does not claim to know a rule it has never seen", () => {
     const [unknown] = changes("[warning] brand-new-rule: something");
     expect(unknown).toMatchObject({ kind: "none", rule: "brand-new-rule" });

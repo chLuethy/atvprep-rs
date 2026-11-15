@@ -100,6 +100,19 @@ describe("Inspector: what the file is and why", () => {
     expect(why).toHaveTextContent(/warning/i);
   });
 
+  it("keeps the planner's steps out of the reasons, as they are no findings", async () => {
+    const planned = { ...detail, compliance_state: "warning", compliance_reasons: [
+      "[warning] audio-sample-rate: ac-3 track id=2 sample rate 44100Hz (expected 48000)",
+      "[plan] audio stream #1 ac3 44100Hz -> eac3 48000Hz",
+    ] };
+    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response(planned) })} fileId="m_f1" />);
+    await view.findByRole("heading", { name: "Pretty Woman (1990)" });
+
+    const why = view.getByRole("list", { name: "Why" });
+    expect(within(why).getAllByRole("listitem")).toHaveLength(1);
+    expect(why).not.toHaveTextContent("[plan]");
+  });
+
   it("explains that an unverified file is not known to be fine", async () => {
     const unknown = { ...detail, compliance_state: "unknown", compliance_reasons: ["Current ffprobe inspection is available, but AVPlayer compliance requires a verify report."] };
     const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response(unknown) })} fileId="m_f1" />);

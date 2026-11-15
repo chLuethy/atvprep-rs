@@ -16,6 +16,7 @@ import { N, t, tn } from "./lib/i18n";
 import { isTyping } from "./lib/keys";
 import { realtimeState } from "./lib/realtime";
 import { useWorkTitle } from "./lib/title";
+import { recall, remember, type ViewPage } from "./lib/viewMemory";
 import { workState } from "./lib/work";
 import { dismissTip, tipPending } from "./lib/tips";
 import { Button, chooseTheme, CommandPalette, Icon, Kbd, LanguageSwitch, Logo, ThemeSwitch, type Command, type IconName, type Theme } from "./ui";
@@ -25,6 +26,34 @@ const Files: ParentComponent = () => <section>{t("Files")}</section>;
 const Jobs: ParentComponent = () => <section>{t("Activity")}</section>;
 const Schedules: ParentComponent = () => <section>{t("Schedules")}</section>;
 const Settings: ParentComponent = () => <section>{t("Settings")}</section>;
+
+/**
+ * Marks an address the page itself chose, so a bare one there means "show everything" (Reset filters, a cleared
+ * quick filter, Back to such an entry). A bare address without the mark came from outside (navigation, the palette,
+ * a link, a reload) and takes the last remembered state instead, by replacing the address so no history entry is
+ * added. A query of its own always wins.
+ */
+const OWN = { own: true } as const;
+const isOwn = (state: unknown) => typeof state === "object" && state !== null && (state as { own?: unknown }).own === true;
+
+/**
+ * Keeps the address of a page and its view memory in step: a bare address from outside takes the remembered
+ * state, every other one is rewritten to its `canonical` query (`at` makes the address of a query) and
+ * remembered, an empty one forgetting the state.
+ */
+const useRememberedAddress = (page: ViewPage, at: (query: string) => string, canonical: () => string) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  createEffect(() => {
+    const search = location.search.replace(/^\?/, "");
+    if (search === "" && !isOwn(location.state)) {
+      return navigate(at(recall(page) ?? ""), { replace: true, state: OWN });
+    }
+    const query = canonical();
+    remember(page, query);
+    if (search !== query) navigate(at(query), { replace: true, state: OWN });
+  });
+};
 
 /**
  * One route for the list and the open file, so choosing a file never remounts the list. The filter lives in
@@ -41,10 +70,7 @@ const Library: ParentComponent<{ api: ManagerApi | undefined; fileId: string | u
   const params = () => new URLSearchParams(location.search);
   const filter = createMemo(() => parseFileFilter(params()), undefined, { equals: sameFilter });
   const sort = createMemo(() => parseFileSort(params()), undefined, { equals: (a, b) => fileSortQuery(a) === fileSortQuery(b) });
-  createEffect(() => {
-    const canonical = query(filter(), sort());
-    if (location.search.replace(/^\?/, "") !== canonical) navigate(at(props.fileId, canonical), { replace: true });
-  });
+  useRememberedAddress("files", (search) => at(props.fileId, search), () => query(filter(), sort()));
   return (
     <Show when={props.api} fallback={<Files />}>
       {(api) => (
@@ -53,9 +79,9 @@ const Library: ParentComponent<{ api: ManagerApi | undefined; fileId: string | u
           activeId={props.fileId}
           filter={filter()}
           sort={sort()}
-          onFilter={(next, how) => navigate(at(props.fileId, query(next, sort())), { replace: how.replace })}
-          onSort={(next) => navigate(at(props.fileId, query(filter(), next)))}
-          onOpen={(id) => navigate(`${base(id)}${location.search}`)}
+          onFilter={(next, how) => navigate(at(props.fileId, query(next, sort())), { replace: how.replace, state: OWN })}
+          onSort={(next) => navigate(at(props.fileId, query(filter(), next)), { state: OWN })}
+          onOpen={(id) => navigate(`${base(id)}${location.search}`, { state: OWN })}
         />
       )}
     </Show>
@@ -72,10 +98,7 @@ const Activity: ParentComponent<{ api: ManagerApi | undefined; jobId: string | u
   const base = (id: string | undefined) => (id ? `/jobs/${encodeURIComponent(id)}` : "/jobs");
   const at = (id: string | undefined, query: string) => `${base(id)}${query ? `?${query}` : ""}`;
   const filter = createMemo(() => parseJobFilter(new URLSearchParams(location.search)), undefined, { equals: sameJobFilter });
-  createEffect(() => {
-    const canonical = jobFilterQuery(filter());
-    if (location.search.replace(/^\?/, "") !== canonical) navigate(at(props.jobId, canonical), { replace: true });
-  });
+  useRememberedAddress("jobs", (query) => at(props.jobId, query), () => jobFilterQuery(filter()));
   return (
     <Show when={props.api} fallback={<Jobs />}>
       {(api) => (
@@ -83,8 +106,8 @@ const Activity: ParentComponent<{ api: ManagerApi | undefined; jobId: string | u
           api={api()}
           activeId={props.jobId}
           filter={filter()}
-          onFilter={(next, how) => navigate(at(props.jobId, jobFilterQuery(next)), { replace: how.replace })}
-          onOpen={(id) => navigate(`${base(id)}${location.search}`)}
+          onFilter={(next, how) => navigate(at(props.jobId, jobFilterQuery(next)), { replace: how.replace, state: OWN })}
+          onOpen={(id) => navigate(`${base(id)}${location.search}`, { state: OWN })}
         />
       )}
     </Show>
@@ -155,7 +178,8 @@ const Shell: ParentComponent<{ session?: SessionControls; api?: ManagerApi }> = 
       id: `files-${entry.status || "all"}`,
       label: t("Files: show {state}", { state: t(entry.label) }),
       hint: t("Filter"),
-      run: () => navigate(entry.status ? `/files?status=${entry.status}` : "/files"),
+      // "All files" asks for everything, so it carries the page's own mark and forgets the remembered state.
+      run: () => (entry.status ? navigate(`/files?status=${entry.status}`) : navigate("/files", { state: OWN })),
     })),
     ...QUICK_FILTERS.map((entry) => ({
       id: `files-quick-${entry.id}`,

@@ -1,13 +1,17 @@
-import { createEffect, createResource, createSignal, on, onCleanup, Show, type Component } from "solid-js";
+import { createEffect, createResource, on, onCleanup, Show, type Component } from "solid-js";
 import { Button } from "../../ui";
 import { N, t } from "../../lib/i18n";
 import { loadLog, type Api } from "./loaders";
+import { isItemTerminal, type ItemStatus } from "./model";
 
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
 
-/** The tail of one item's log as plain text. Polls every three seconds unless paused. */
-export const LogViewer: Component<{ api: Api; itemId: string }> = (props) => {
-  const [paused, setPaused] = createSignal(false);
+/**
+ * The tail of one item's log as plain text. Polls every three seconds while the item can still
+ * change, and reads it one last time when the item ends.
+ */
+export const LogViewer: Component<{ api: Api; itemId: string; status: ItemStatus }> = (props) => {
+  const ended = () => isItemTerminal(props.status);
   const [state, { refetch }] = createResource(() => props.itemId, (itemId) => loadLog(props.api, itemId));
 
   // A growing log stays at its end for a reader who is at the end, and stays put for one who scrolled up.
@@ -16,8 +20,9 @@ export const LogViewer: Component<{ api: Api; itemId: string }> = (props) => {
   const atEnd = () => !box || box.scrollHeight - box.scrollTop - box.clientHeight < 24;
   createEffect(on(() => state()?.data?.log_tail, () => { if (box && following) box.scrollTop = box.scrollHeight; }));
 
+  createEffect(on(ended, (isEnded, wasEnded) => { if (isEnded && wasEnded === false) void refetch(); }));
   createEffect(() => {
-    if (paused()) return;
+    if (ended()) return;
     const timer = window.setInterval(() => { if (!document.hidden) void refetch(); }, 3000);
     onCleanup(() => window.clearInterval(timer));
   });
@@ -35,7 +40,6 @@ export const LogViewer: Component<{ api: Api; itemId: string }> = (props) => {
   return (
     <div class="log">
       <div class="log-tools">
-        <Button variant="quiet" onClick={() => setPaused((value) => !value)}>{paused() ? t("Resume log") : t("Pause log")}</Button>
         <Button variant="quiet" disabled={!state()?.data} onClick={download}>{t("Download log")}</Button>
       </div>
       <Show when={state()} fallback={<p class="muted">{t("Loading log")}</p>}>

@@ -298,6 +298,15 @@ fn audio_args(tracks: &[AudioTrack], audio_streams: &[Value]) -> Vec<String> {
                 format!("-b:a:{i}"),
                 "768k".to_owned(),
             ]),
+            AudioAction::TranscodeAac => cmd.extend([
+                format!("-c:a:{i}"),
+                "aac".to_owned(),
+                format!("-b:a:{i}"),
+                (if track.channels <= 2 { "192k" } else { "384k" }).to_owned(),
+            ]),
+        }
+        if let Some(rate) = track.target_sample_rate {
+            cmd.extend([format!("-ar:a:{i}"), rate.to_string()]);
         }
         cmd.extend([
             format!("-metadata:s:a:{i}"),
@@ -549,6 +558,77 @@ fn streams_of_kind(probe: &Value, kind: &str) -> Vec<Value> {
         .collect()
 }
 
+/// An audio track the planner encodes only to bring it to its target sample rate.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RateChange {
+    /// The stream index in the input file.
+    pub index: u32,
+    /// The source codec, as ffprobe names it.
+    pub codec: String,
+    /// The source rate, as ffprobe reports it.
+    pub sample_rate: String,
+    /// The codec the track is encoded to.
+    pub target_codec: String,
+    pub target_rate: u32,
+}
+
+impl RateChange {
+    /// One planned step, as `verify` reports it: `audio stream #1 ac3 44100Hz -> eac3 48000Hz`.
+    #[must_use]
+    pub fn step(&self) -> String {
+        format!(
+            "audio stream #{} {} {}Hz -> {} {}Hz",
+            self.index, self.codec, self.sample_rate, self.target_codec, self.target_rate
+        )
+    }
+}
+
+fn source_codec(audio_streams: &[Value], track: &AudioTrack) -> String {
+    audio_streams
+        .iter()
+        .find(|s| py_int(s.get("index")) == i64::from(track.index))
+        .and_then(|s| s.get("codec_name"))
+        .and_then(Value::as_str)
+        .map_or_else(|| track.codec.clone(), str::to_lowercase)
+}
+
+fn rate_changes_of(audio_streams: &[Value], planned: &[AudioTrack]) -> Vec<RateChange> {
+    planned
+        .iter()
+        .filter(|t| {
+            matches!(
+                t.action,
+                AudioAction::TranscodeEac3 | AudioAction::TranscodeAac
+            )
+        })
+        .filter_map(|track| {
+            let codec = source_codec(audio_streams, track);
+            // Encoded only to reach the target rate: the codec stays (AC-3 becomes E-AC-3).
+            if codec != track.codec && !(codec == "ac3" && track.codec == "eac3") {
+                return None;
+            }
+            let source = audio_streams
+                .iter()
+                .find(|s| py_int(s.get("index")) == i64::from(track.index));
+            Some(RateChange {
+                index: track.index,
+                codec,
+                sample_rate: str_of(source.and_then(|s| s.get("sample_rate"))),
+                target_codec: track.codec.clone(),
+                target_rate: track.target_sample_rate.unwrap_or_default(),
+            })
+        })
+        .collect()
+}
+
+/// The audio tracks of `probe` the planner encodes only to reach their target sample rate,
+/// leaving out the `duplicates` it drops.
+#[must_use]
+pub fn rate_changes(probe: &Value, duplicates: &BTreeSet<i64>) -> Vec<RateChange> {
+    let audio_streams = streams_of_kind(probe, "audio");
+    rate_changes_of(&audio_streams, &analyze_audio(&audio_streams, duplicates))
+}
+
 /// Audio reasons: the planner keeps every stream, each language has a stereo track, no duplicates.
 fn audio_reasons(probe: &Value, duplicates: &BTreeSet<i64>, untagged_audio: bool) -> Vec<String> {
     let audio_streams = streams_of_kind(probe, "audio");
@@ -575,29 +655,25 @@ fn audio_reasons(probe: &Value, duplicates: &BTreeSet<i64>, untagged_audio: bool
             .iter()
             .map(|i| format!("audio stream #{i} duplicates an earlier stream")),
     );
-    let source_codec: BTreeMap<i64, String> = audio_streams
-        .iter()
-        .map(|s| {
-            (
-                py_int(s.get("index")),
-                s.get("codec_name")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default()
-                    .to_lowercase(),
-            )
-        })
-        .collect();
-    for track in planned
-        .iter()
-        .filter(|t| t.action == AudioAction::TranscodeEac3)
-    {
-        let codec = source_codec
-            .get(&i64::from(track.index))
-            .unwrap_or(&track.codec);
-        reasons.push(format!(
-            "audio stream #{} codec={codec} needs E-AC-3",
-            track.index
-        ));
+    let rates = rate_changes_of(&audio_streams, &planned);
+    for track in planned.iter().filter(|t| {
+        matches!(
+            t.action,
+            AudioAction::TranscodeEac3 | AudioAction::TranscodeAac
+        )
+    }) {
+        if let Some(rate) = rates.iter().find(|r| r.index == track.index) {
+            reasons.push(format!(
+                "audio stream #{} sample rate {}Hz needs {}Hz",
+                rate.index, rate.sample_rate, rate.target_rate
+            ));
+        } else {
+            let codec = source_codec(&audio_streams, track);
+            reasons.push(format!(
+                "audio stream #{} codec={codec} needs E-AC-3",
+                track.index
+            ));
+        }
     }
     if untagged_audio
         && let Some(stream) = audio_streams
@@ -771,11 +847,113 @@ mod tests {
         })
     }
 
+    /// The oracle copied this E-AC-3 track at 44.1 kHz; since #83 it is encoded at 48 kHz.
+    const RESAMPLED_SINCE_83: &str = "real hevc 10-bit eac3 5.1";
+
+    /// The ffmpeg arguments for the audio tracks of `cmd`, from the first `0:a` map on.
+    fn audio_argv(cmd: &[String]) -> Vec<&str> {
+        let start = cmd.iter().position(|a| a == "0:a:0").unwrap() - 1;
+        let end = cmd.iter().position(|a| a == "-map_chapters").unwrap();
+        cmd[start..end].iter().map(String::as_str).collect()
+    }
+
+    #[test]
+    fn an_eac3_track_at_44_1_khz_and_its_downmix_are_written_at_48_khz() {
+        let case = load_golden::<Input, Expected>("build_plan")
+            .into_iter()
+            .find(|c| c.name == RESAMPLED_SINCE_83)
+            .unwrap();
+        let input = &case.input;
+        let plan = build_plan(
+            Path::new("/media/Film.mkv"),
+            &input.probe,
+            Path::new("/media/Film.mp4"),
+            &[],
+            &options(&input.options),
+            &context(&input.probe, &input.ctx),
+            &Fake(input.no_param_sets),
+        )
+        .unwrap();
+        assert_eq!(
+            audio_argv(&plan.ffmpeg_cmd),
+            [
+                "-map",
+                "0:a:0",
+                "-c:a:0",
+                "eac3",
+                "-b:a:0",
+                "768k",
+                "-ar:a:0",
+                "48000",
+                "-metadata:s:a:0",
+                "language=deu",
+                "-metadata:s:a:0",
+                "handler_name=German",
+                "-disposition:a:0",
+                "default", //
+                "-map",
+                "0:a:0",
+                "-c:a:1",
+                "aac",
+                "-b:a:1",
+                "192k",
+                "-ac:a:1",
+                "2",
+                "-ar:a:1",
+                "48000",
+                "-metadata:s:a:1",
+                "language=deu",
+                "-metadata:s:a:1",
+                "handler_name=German",
+                "-disposition:a:1",
+                "0",
+            ]
+        );
+        assert_eq!(
+            crate::encode::EncodeNeed::of_plan(&plan),
+            crate::encode::EncodeNeed::Audio,
+            "a resample is an audio encode"
+        );
+    }
+
+    #[test]
+    fn an_aac_track_at_32_khz_is_encoded_as_aac_at_48_khz() {
+        let probe = json!({"streams": [
+            {"index": 0, "codec_type": "video", "codec_name": "h264", "profile": "High",
+             "pix_fmt": "yuv420p", "width": 1280, "height": 720},
+            {"index": 1, "codec_type": "audio", "codec_name": "aac", "channels": 2,
+             "sample_rate": "32000", "tags": {"language": "eng"}, "disposition": {"default": 1}},
+        ]});
+        let ctx = Context {
+            first_video_dts: Some(0),
+            is_faststart: true,
+        };
+        let plan = build_plan(
+            Path::new("/m/a.mp4"),
+            &probe,
+            Path::new("/m/b.mp4"),
+            &[],
+            &PlanOptions::default(),
+            &context(&probe, &ctx),
+            &Fake(false),
+        )
+        .unwrap();
+        assert_eq!(
+            audio_argv(&plan.ffmpeg_cmd)[..8],
+            [
+                "-map", "0:a:0", "-c:a:0", "aac", "-b:a:0", "192k", "-ar:a:0", "48000"
+            ]
+        );
+    }
+
     #[test]
     fn build_plan_matches_the_python_oracle() {
         let cases = load_golden::<Input, Expected>("build_plan");
         assert!(cases.len() >= 47);
         for case in cases {
+            if case.name == RESAMPLED_SINCE_83 {
+                continue;
+            }
             let input = &case.input;
             let sidecars: Vec<PathBuf> = input
                 .sidecars
@@ -887,6 +1065,7 @@ mod tests {
             action: crate::models::AudioAction::Copy,
             is_transcoded: false,
             is_default: false,
+            target_sample_rate: None,
         };
         assert_eq!(video_lang(&[track("deu"), track("eng")]), "eng");
         assert_eq!(

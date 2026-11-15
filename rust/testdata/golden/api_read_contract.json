@@ -91,6 +91,7 @@
                 },
                 "id": "<r:1>",
                 "name": "Movies",
+                "size": 123,
                 "total": 1
               }
             ],
@@ -122,6 +123,7 @@
                 },
                 "id": null,
                 "name": "Movie",
+                "size": 123,
                 "total": 1
               }
             ],

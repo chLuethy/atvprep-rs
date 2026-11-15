@@ -13,6 +13,9 @@
 //! ATVPREP-OUTCOME <outcome>             (once per file, when it ends)
 //! ATVPREP-ENCODE need=<need> allowance=<allowance>   (after `encode_not_allowed`)
 //! ATVPREP-SOURCE removed | kept <why>   (when the original was meant to go)
+//! ATVPREP-PLAN <stream>: <action>       (once per stream, before ffmpeg runs)
+//! ATVPREP-VERIFY passed|failed, <n> blocker(s), <n> warning(s)   (the check after the run)
+//! ATVPREP-ERROR <message>               (why a file failed, on one line)
 //! ```
 //!
 //! On a terminal it prints no protocol lines; it draws the stage and its own percent as one
@@ -21,6 +24,13 @@
 use std::io::Write;
 
 use crate::encode::EncodeRefusal;
+
+/// The start of the line that says what the plan does with one stream.
+pub const PLAN_MARKER: &str = "ATVPREP-PLAN ";
+/// The start of the line that says how the check after the run ended.
+pub const VERIFY_MARKER: &str = "ATVPREP-VERIFY ";
+/// The start of the line that says why a file failed.
+pub const ERROR_MARKER: &str = "ATVPREP-ERROR ";
 
 /// Share of the whole run, as `(start, end)` percent. Without an encode the file is only patched.
 const WITH_ENCODE: [(Stage, u32, u32); 3] = [
@@ -193,6 +203,27 @@ impl StageReporter {
         }
     }
 
+    /// Say what the plan does with one stream (see `output::stream_plan`).
+    pub fn plan(&mut self, stream: &str) {
+        self.line(&format!("{PLAN_MARKER}{}", one_line(stream)));
+    }
+
+    /// Say how the check after the run ended.
+    pub fn checked(&mut self, report: &crate::verify::VerifyReport) {
+        let count = |n: usize, what: &str| format!("{n} {what}{}", if n == 1 { "" } else { "s" });
+        self.line(&format!(
+            "{VERIFY_MARKER}{}, {}, {}",
+            if report.passed() { "passed" } else { "failed" },
+            count(report.blockers().len(), "blocker"),
+            count(report.warnings().len(), "warning")
+        ));
+    }
+
+    /// Say why a file failed.
+    pub fn error(&mut self, message: &str) {
+        self.line(&format!("{ERROR_MARKER}{}", one_line(message)));
+    }
+
     /// End the current file's display. Nothing is shown on a terminal yet, so this only keeps the
     /// call order of the Python original for the CLI to hook into.
     pub fn finish(&mut self) {
@@ -211,6 +242,11 @@ impl StageReporter {
             self.drawn = true;
         }
     }
+}
+
+/// `text` on one line: line breaks become spaces.
+fn one_line(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 /// The stage's own percent, truncated like Python's `int(fraction * 100)`.

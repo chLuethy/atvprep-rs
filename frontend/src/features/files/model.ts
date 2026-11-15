@@ -4,7 +4,7 @@ import { formatNumber, N, t } from "../../lib/i18n";
 import { blockerVerdict } from "./fixPlan";
 import { parseReason } from "./reasons";
 
-export { parseReason, type ParsedReason } from "./reasons";
+export { parseReason, planStep, type ParsedReason } from "./reasons";
 
 /** Pure data logic for the library: verdicts, reasons, tracks, formatting. No DOM, no network. */
 

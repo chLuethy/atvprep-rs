@@ -120,14 +120,39 @@ fn verify_verdict(result: &Value) -> Evaluation {
     }
     found.sort_by_key(|(severity, rule, message)| (*severity != "blocker", *rule, *message));
     let blocker = found.iter().any(|(severity, _, _)| *severity == "blocker");
+    let mut reasons: Vec<String> = found
+        .iter()
+        .map(|(severity, rule, message)| format!("[{severity}] {rule}: {message}"))
+        .collect();
+    reasons.extend(planned_steps(result));
     Evaluation {
         state: if blocker { "blocker" } else { "warning" },
-        reasons: found
-            .iter()
-            .map(|(severity, rule, message)| format!("[{severity}] {rule}: {message}"))
-            .collect(),
+        reasons,
         need,
     }
+}
+
+/// The most planned steps a stored result keeps, and the longest one.
+const MAX_PLAN_STEPS: usize = 16;
+const MAX_PLAN_STEP_CHARS: usize = 200;
+
+/// The encodings the planner names in the report (`planned_steps`), as `[plan] …` reasons after
+/// the findings: the preview and the items of a Vorbereiten job show them in the planner's words
+/// instead of guessing codec or rate (ADR 0008).
+fn planned_steps(result: &Value) -> impl Iterator<Item = String> + '_ {
+    result
+        .get("planned_steps")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .take(MAX_PLAN_STEPS)
+        .map(|step| {
+            format!(
+                "[plan] {}",
+                step.chars().take(MAX_PLAN_STEP_CHARS).collect::<String>()
+            )
+        })
 }
 
 #[cfg(test)]
@@ -194,6 +219,28 @@ mod tests {
                 need: "none",
                 change: "none"
             }
+        );
+    }
+
+    #[test]
+    fn the_planned_steps_of_a_verify_report_follow_its_findings() {
+        let report = json!({"violations": [{"rule": "audio-sample-rate", "severity": "warning",
+                "message": "ac-3 track id=2 sample rate 44100Hz (expected 48000)"}],
+            "encode_need": "audio", "planned_change": "audio",
+            "planned_steps": ["audio stream #1 ac3 44100Hz -> eac3 48000Hz"]});
+        let evaluation =
+            evaluate_inspection("verify", &report, "f", "f", &TargetProfile::default());
+        assert_eq!(
+            evaluation.reasons,
+            [
+                "[warning] audio-sample-rate: ac-3 track id=2 sample rate 44100Hz (expected 48000)",
+                "[plan] audio stream #1 ac3 44100Hz -> eac3 48000Hz"
+            ]
+        );
+        let clean = json!({"violations": [], "planned_steps": ["audio stream #1 ac3 44100Hz -> eac3 48000Hz"]});
+        assert_eq!(
+            evaluate_inspection("verify", &clean, "f", "f", &TargetProfile::default()).reasons,
+            ["No compliance violations reported by verify."]
         );
     }
 

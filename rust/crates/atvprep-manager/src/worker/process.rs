@@ -36,11 +36,19 @@ fn nonblocking(fd: impl std::os::fd::AsFd) -> Result<()> {
         .map_err(|_| Error::Invalid("cannot configure child output".to_owned()))
 }
 
+/// Which pipe of the child a chunk of output came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Stream {
+    Stdout,
+    Stderr,
+}
+
 fn drain(
     reader: &mut impl Read,
+    stream: Stream,
     tail: &mut Vec<u8>,
     mut only: Option<&mut Vec<u8>>,
-    observed: &mut dyn FnMut(&[u8]) -> Result<()>,
+    observed: &mut dyn FnMut(Stream, &[u8]) -> Result<()>,
 ) -> Result<()> {
     let mut buffer = [0u8; 8192];
     // Bound work per pass so a noisy child cannot prevent cancellation checks.
@@ -48,7 +56,7 @@ fn drain(
         match reader.read(&mut buffer) {
             Ok(0) => break,
             Ok(count) => {
-                observed(&buffer[..count])?;
+                observed(stream, &buffer[..count])?;
                 for buffer_tail in std::iter::once(&mut *tail).chain(only.as_deref_mut()) {
                     buffer_tail.extend_from_slice(&buffer[..count]);
                     if buffer_tail.len() > 64 * 1024 {
@@ -62,6 +70,18 @@ fn drain(
         }
     }
     Ok(())
+}
+
+/// Drain stdout, then stderr: both into `tail`, stdout alone also into `only_stdout`.
+fn drain_both(
+    stdout: &mut impl Read,
+    stderr: &mut impl Read,
+    tail: &mut Vec<u8>,
+    only_stdout: &mut Vec<u8>,
+    observed: &mut dyn FnMut(Stream, &[u8]) -> Result<()>,
+) -> Result<()> {
+    drain(stdout, Stream::Stdout, tail, Some(only_stdout), observed)?;
+    drain(stderr, Stream::Stderr, tail, None, observed)
 }
 
 /// Run a trusted argument vector without a shell and with an explicit environment.
@@ -108,7 +128,7 @@ pub fn run_observed(
         grace,
         Stdio::null(),
         cancelled,
-        &mut observed,
+        &mut |_, chunk| observed(chunk),
     )
 }
 
@@ -126,7 +146,11 @@ pub struct PrepareMode {
 }
 
 /// The argument vector of `atvprep prepare` for one pinned leaf.
-fn prepare_arguments(leaf: &str, identity: (i128, i128, i128), mode: PrepareMode) -> Vec<String> {
+pub(crate) fn prepare_arguments(
+    leaf: &str,
+    identity: (i128, i128, i128),
+    mode: PrepareMode,
+) -> Vec<String> {
     let (device, inode, ctime) = identity;
     let mut arguments = vec![
         "prepare".to_owned(),
@@ -180,11 +204,11 @@ pub fn run_pinned_prepare(
         timeout,
         grace,
         cancelled,
-        |_| Ok(()),
+        |_, _| Ok(()),
     )
 }
 
-/// Execute pinned Prepare with incremental output observation.
+/// Execute pinned Prepare with incremental output observation; each chunk names its pipe.
 ///
 /// # Errors
 /// Rejects unsafe input identities, process failures and observer failures.
@@ -197,7 +221,7 @@ pub fn run_pinned_prepare_observed(
     timeout: Duration,
     grace: Duration,
     cancelled: impl FnMut() -> bool,
-    mut observed: impl FnMut(&[u8]) -> Result<()>,
+    mut observed: impl FnMut(Stream, &[u8]) -> Result<()>,
 ) -> Result<ProcessResult> {
     target
         .revalidate()
@@ -231,7 +255,7 @@ fn run_with_stdin(
     grace: Duration,
     stdin: Stdio,
     mut cancelled: impl FnMut() -> bool,
-    observed: &mut dyn FnMut(&[u8]) -> Result<()>,
+    observed: &mut dyn FnMut(Stream, &[u8]) -> Result<()>,
 ) -> Result<ProcessResult> {
     validate_executable(executable)?;
     let mut child = Command::new(executable)
@@ -266,8 +290,13 @@ fn run_with_stdin(
         let mut output = Vec::new();
         let mut only_stdout = Vec::new();
         loop {
-            drain(&mut stdout, &mut output, Some(&mut only_stdout), observed)?;
-            drain(&mut stderr, &mut output, None, observed)?;
+            drain_both(
+                &mut stdout,
+                &mut stderr,
+                &mut output,
+                &mut only_stdout,
+                observed,
+            )?;
             if stopping.is_none() {
                 if cancelled() {
                     reason = StopReason::Cancelled;
@@ -285,8 +314,13 @@ fn run_with_stdin(
                 let status = child
                     .wait()
                     .map_err(|_| Error::Invalid("cannot reap media process".to_owned()))?;
-                drain(&mut stdout, &mut output, Some(&mut only_stdout), observed)?;
-                drain(&mut stderr, &mut output, None, observed)?;
+                drain_both(
+                    &mut stdout,
+                    &mut stderr,
+                    &mut output,
+                    &mut only_stdout,
+                    observed,
+                )?;
                 return Ok(ProcessResult {
                     reason,
                     exit_code: status.code(),
@@ -299,8 +333,13 @@ fn run_with_stdin(
                     .try_wait()
                     .map_err(|_| Error::Invalid("cannot inspect media process".to_owned()))?
             {
-                drain(&mut stdout, &mut output, Some(&mut only_stdout), observed)?;
-                drain(&mut stderr, &mut output, None, observed)?;
+                drain_both(
+                    &mut stdout,
+                    &mut stderr,
+                    &mut output,
+                    &mut only_stdout,
+                    observed,
+                )?;
                 return Ok(ProcessResult {
                     reason,
                     exit_code: status.code(),
@@ -318,6 +357,24 @@ fn run_with_stdin(
     result
 }
 
+/// The arguments of ffprobe for a file on its stdin. The report carries ffprobe's version under
+/// `program_version`, for the item's log.
+#[must_use]
+pub(crate) fn probe_arguments() -> Vec<String> {
+    [
+        "-v",
+        "error",
+        "-show_program_version",
+        "-show_format",
+        "-show_streams",
+        "-of",
+        "json",
+        "/dev/fd/0",
+    ]
+    .map(str::to_owned)
+    .to_vec()
+}
+
 /// Probe a pinned regular file with ffprobe through a read-only stdin descriptor.
 ///
 /// # Errors
@@ -333,16 +390,7 @@ pub fn run_pinned_probe(
     let file = target
         .open_for_tools()
         .map_err(|_| Error::Invalid("probe input changed".to_owned()))?;
-    let arguments = [
-        "-v",
-        "error",
-        "-show_format",
-        "-show_streams",
-        "-of",
-        "json",
-        "/dev/fd/0",
-    ]
-    .map(str::to_owned);
+    let arguments = probe_arguments();
     run_with_stdin(
         executable,
         &arguments,
@@ -351,12 +399,12 @@ pub fn run_pinned_probe(
         grace,
         Stdio::from(std::fs::File::from(file)),
         cancelled,
-        &mut |_| Ok(()),
+        &mut |_, _| Ok(()),
     )
 }
 
 /// The argument vector of `atvprep verify` for one pinned leaf.
-fn verify_arguments(
+pub(crate) fn verify_arguments(
     leaf: &str,
     identity: (i128, i128, i128),
     profile: TargetProfile,
@@ -413,7 +461,7 @@ pub fn run_pinned_verify(
         grace,
         Stdio::from(std::fs::File::from(directory)),
         cancelled,
-        &mut |_| Ok(()),
+        &mut |_, _| Ok(()),
     )
 }
 

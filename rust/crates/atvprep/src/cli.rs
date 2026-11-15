@@ -367,6 +367,7 @@ directory (without .mp4 suffix).",
             Err(error) => {
                 ctx.console
                     .print(&format!("Error processing {}: {error}", name_of(file)));
+                ctx.reporter.error(&error.to_string());
                 ctx.reporter.outcome(Outcome::Failed);
                 failed += 1;
                 continue;
@@ -449,6 +450,17 @@ pub(crate) fn report(ctx: &mut RunContext, result: &PrepareResult) {
     } else if let Some(kept) = &result.source_kept {
         ctx.console.print(&format!("  ! {kept}"));
     }
+    if let Some(report) = &result.report {
+        ctx.reporter.checked(report);
+    }
+    if !result.ok() {
+        ctx.reporter.error(
+            result
+                .error
+                .as_deref()
+                .unwrap_or("the file could not be prepared"),
+        );
+    }
     ctx.reporter.outcome(result.outcome);
     if let Some(refusal) = result.encode_refusal {
         ctx.reporter.encode_refused(refusal);
@@ -470,6 +482,9 @@ struct JsonReport<'a> {
     /// The Änderungsart, alongside the need.
     #[serde(skip_serializing_if = "Option::is_none")]
     planned_change: Option<&'static str>,
+    /// The encodings the planner names, in its own words; left out when there are none.
+    #[serde(skip_serializing_if = "<[String]>::is_empty")]
+    planned_steps: &'a [String],
 }
 
 #[derive(Serialize)]
@@ -501,13 +516,14 @@ fn json_document(reports: &[VerifyReport], planned: Option<&[Option<PlannedChang
             .iter()
             .enumerate()
             .map(|(index, r)| {
-                let plan = planned.map(|all| all.get(index).copied().flatten());
+                let plan = planned.map(|all| all.get(index).and_then(Option::as_ref));
                 JsonReport {
                     path: r.path.to_string_lossy().into_owned(),
                     passed: r.passed(),
                     violations: &r.violations,
                     encode_need: plan.map(|p| need_name(p.map(|p| p.need))),
                     planned_change: plan.map(|p| p.map_or(UNKNOWN, |p| p.change.as_str())),
+                    planned_steps: plan.flatten().map_or(&[], |p| p.steps.as_slice()),
                 }
             })
             .collect(),
