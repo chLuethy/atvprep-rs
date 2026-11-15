@@ -362,3 +362,23 @@ echo 'ATVPREP-OUTCOME reencoded'",
     }
     assert!(lines.last().unwrap().starts_with("Duration: "), "{log}");
 }
+
+#[test]
+fn a_preparation_above_its_allowance_ends_with_the_refusal() {
+    let library = Library::new(
+        "echo 'ATVPREP-ENCODE need=audio allowance=copy'
+echo 'ATVPREP-OUTCOME encode_not_allowed'",
+        false,
+    );
+    let (status, log) = library.run();
+    assert_eq!(status, ItemStatus::Succeeded, "{log}");
+    assert_eq!(
+        steps(&log).last(),
+        Some(&"Encoding not allowed (need=audio allowance=copy): the file stays as it was."),
+        "{log}"
+    );
+    assert!(
+        position(&log, "Exit code: 0") < steps(&log).len() - 1,
+        "{log}"
+    );
+}
