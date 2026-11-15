@@ -4,7 +4,7 @@ import { formatNumber, N, t } from "../../lib/i18n";
 import { blockerVerdict } from "./fixPlan";
 import { parseReason } from "./reasons";
 
-export { parseReason, planStep, type ParsedReason } from "./reasons";
+export { parseReason, type ParsedReason } from "./reasons";
 
 /** Pure data logic for the library: verdicts, reasons, tracks, formatting. No DOM, no network. */
 
@@ -12,14 +12,12 @@ export type Verdict = { kind: ChipKind; icon: IconName; label: string };
 
 const humanize = (value: string) => value.replaceAll("_", " ").replace(/^\w/, (character) => character.toUpperCase());
 
-/** Only a verify report can make a file Ready; an unverified file is never shown as fine. */
-export function verdictOf(file: { compliance_state: string; discovery_state?: string; compliance_reasons?: string[] | undefined; pending_sidecars?: number | undefined }): Verdict {
-  if (file.discovery_state === "missing") return { kind: "bad", icon: "x", label: t("Missing") };
-  switch (file.compliance_state) {
-    // Clean is only Ready while nothing is left to embed; the stored state stays clean.
-    case "clean":
-      if ((file.pending_sidecars ?? 0) > 0) return { kind: "warn", icon: "dot", label: t("Embedding open") };
-      return { kind: "ok", icon: "check", label: t("Ready") };
+/** What the server decided about a file (`state`) as a label and a colour; nothing is derived here. */
+export function verdictOf(file: { state: string; compliance_reasons?: string[] | undefined }): Verdict {
+  switch (file.state) {
+    case "missing": return { kind: "bad", icon: "x", label: t("Missing") };
+    case "embed_open": return { kind: "warn", icon: "dot", label: t("Embedding open") };
+    case "clean": return { kind: "ok", icon: "check", label: t("Ready") };
     case "warning": return { kind: "warn", icon: "warn", label: t("Warning") };
     case "blocker": {
       const outcome = blockerVerdict((file.compliance_reasons ?? []).map(parseReason));
@@ -28,13 +26,8 @@ export function verdictOf(file: { compliance_state: string; discovery_state?: st
     }
     case "probe_failed": return { kind: "bad", icon: "x", label: t("Inspection failed") };
     case "unknown": return { kind: "neutral", icon: "dot", label: t("Not verified") };
-    default: return { kind: "neutral", icon: "dot", label: humanize(file.compliance_state) };
+    default: return { kind: "neutral", icon: "dot", label: humanize(file.state) };
   }
-}
-
-export function isFixable(file: { discovery_state: string; compliance_state: string; desired_action: string; pending_sidecars?: number | undefined }): boolean {
-  if (file.discovery_state !== "present") return false;
-  return file.compliance_state === "warning" || file.compliance_state === "blocker" || file.desired_action === "fix" || (file.pending_sidecars ?? 0) > 0;
 }
 
 /** What a fix does with one external subtitle file, in words a person can act on. */

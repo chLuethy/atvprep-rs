@@ -1,0 +1,19 @@
+{
+  "expected": {
+    "body": {
+      "data": {
+        "removed": 0
+      }
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "csrf_action": "dismiss-missing",
+    "idempotency_key": "dismiss_missing",
+    "method": "POST",
+    "origin": "http://testserver",
+    "path": "/api/v1/files/dismiss-missing"
+  },
+  "name": "dismiss_missing"
+}

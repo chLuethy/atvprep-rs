@@ -83,21 +83,23 @@ describe("the labels of need and change", () => {
 });
 
 describe("preparable", () => {
-  const base = { discovery_state: "present", suffix: ".mp4", compliance_state: "warning", desired_action: "fix" };
+  // `preparable` on the row is the server's word: present, and a verdict to repair, a fix wish or a subtitle to embed.
+  const base = { discovery_state: "present", suffix: ".mp4", preparable: true, state: "warning" };
+  const ready = { ...base, preparable: false, state: "clean" };
 
   it("offers a file with something to do", () => {
     expect(preparable(base)).toBe(true);
-    expect(preparable({ ...base, suffix: ".mkv", compliance_state: "unknown", desired_action: "convert" })).toBe(true);
+    expect(preparable({ ...base, suffix: ".mkv", preparable: false })).toBe(true);
   });
 
   it("offers a file that needs encoding: the preview asks for the release", () => {
     expect(preparable({ ...base, encode_need: "video" })).toBe(true);
-    expect(preparable({ ...base, compliance_state: "clean", desired_action: "none", encode_need: "video" })).toBe(true);
-    expect(preparable({ ...base, compliance_state: "clean", desired_action: "none", encode_need: "audio" })).toBe(true);
+    expect(preparable({ ...ready, encode_need: "video" })).toBe(true);
+    expect(preparable({ ...ready, encode_need: "audio" })).toBe(true);
   });
 
   it("offers a file whose need is still unknown: the run enforces the limit", () => {
-    expect(preparable({ ...base, compliance_state: "clean", desired_action: "none", encode_need: "unknown" })).toBe(true);
+    expect(preparable({ ...ready, encode_need: "unknown" })).toBe(true);
   });
 
   it("still refuses a file that needs encoding when it is missing or busy", () => {
@@ -109,10 +111,10 @@ describe("preparable", () => {
     expect(preparable({ ...base, discovery_state: "missing" })).toBe(false);
     expect(preparable({ ...base, fix_status: "queued" })).toBe(false);
     expect(preparable({ ...base, suffix: ".mkv", converted_kept: true })).toBe(false);
-    expect(preparable({ ...base, compliance_state: "clean", desired_action: "none", encode_need: "none" })).toBe(false);
+    expect(preparable({ ...ready, encode_need: "none" })).toBe(false);
   });
 
-  it("still offers a ready file that has a subtitle waiting", () => {
-    expect(preparable({ ...base, compliance_state: "clean", desired_action: "none", pending_sidecars: 1 })).toBe(true);
+  it("offers a file the server takes for a waiting subtitle", () => {
+    expect(preparable({ ...base, state: "embed_open" })).toBe(true);
   });
 });

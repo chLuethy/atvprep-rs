@@ -13,15 +13,14 @@ use crate::events::Events;
 use crate::models::{Job, JobItem};
 use crate::repo::Ctx;
 use crate::snapshots::{InputSnapshot, InputSnapshots, build_for_media, compare_snapshot};
-use crate::state_machine::{ItemStatus, JobStatus};
+use crate::state_machine::{ItemStatus, JobAction, JobStatus};
 use crate::{Error, Result};
 
-const ACTIONS: [&str; 4] = ["inspect", "verify", "fix", "convert"];
 const TRIGGERS: [&str; 3] = ["automatic", "manual", "retry"];
 
 /// What a new job is made of.
 pub struct NewJob<'a> {
-    pub action: &'a str,
+    pub action: JobAction,
     pub media_ids: &'a [i64],
     pub trigger: &'a str,
     pub settings_revision: i64,
@@ -35,7 +34,7 @@ pub struct NewJob<'a> {
 
 impl<'a> NewJob<'a> {
     #[must_use]
-    pub fn new(action: &'a str, media_ids: &'a [i64]) -> Self {
+    pub fn new(action: JobAction, media_ids: &'a [i64]) -> Self {
         Self {
             action,
             media_ids,
@@ -72,43 +71,43 @@ struct ItemSeed<'a> {
 
 /// At most this many planned steps are kept on an item.
 pub const MAX_PLANNED_STEPS: usize = 32;
-/// At most this many bytes are kept of one planned step.
+/// At most this many bytes are kept of one planned step given as text.
 pub const MAX_PLANNED_STEP_BYTES: usize = 512;
 
-/// What Prepare is expected to do to one file when it is queued: the Änderungsart and the planned
-/// steps in the short form the preview builds its lines from (the stored verify reasons, then one
-/// `[embed] subtitles: n` step for the subtitle files still to merge).
-struct PlannedChange {
-    change: String,
-    steps: Vec<String>,
-}
+use crate::evaluate::StoredResult;
+use crate::prepare_snapshot::{PlannedChange, PrepareSnapshot, is_prepare, with_item};
+use atvprep_core::encode::PlanStep;
 
-fn bounded_step(step: &str) -> String {
-    let mut end = step.len().min(MAX_PLANNED_STEP_BYTES);
-    while !step.is_char_boundary(end) {
-        end -= 1;
-    }
-    step[..end].to_owned()
+/// A step of the planner's own is kept as it is; a step given as text is bounded.
+fn bounded_step(step: PlanStep) -> PlanStep {
+    step.map_text(|text| {
+        let mut end = text.len().min(MAX_PLANNED_STEP_BYTES);
+        while !text.is_char_boundary(end) {
+            end -= 1;
+        }
+        text[..end].to_owned()
+    })
 }
 
 fn planned_change(conn: &rusqlite::Connection, media: i64) -> Result<Option<PlannedChange>> {
-    let row: Option<(String, String, String, String)> = conn
+    let row: Option<(String, String, String, String, String)> = conn
         .query_row(
-            "SELECT planned_change, compliance_reasons, relative_path, fingerprint
+            "SELECT planned_change, compliance_reasons, planned_steps, relative_path, fingerprint
              FROM media_files WHERE id=?1",
             [media],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
         )
         .optional()?;
-    let Some((change, reasons, path, fingerprint)) = row else {
+    let Some((change, reasons, planned, path, fingerprint)) = row else {
         return Ok(None);
     };
-    let mut steps: Vec<String> = serde_json::from_str::<Value>(&reasons)
-        .ok()
-        .and_then(|value| value.as_array().cloned())
-        .unwrap_or_default()
-        .iter()
-        .filter_map(Value::as_str)
+    // The findings the item resolves come first, as text; then what the planner named.
+    let stored = StoredResult::read(&reasons, &planned);
+    let mut steps: Vec<PlanStep> = stored
+        .reasons
+        .into_iter()
+        .map(|text| PlanStep::Text { text })
+        .chain(stored.steps)
         .map(bounded_step)
         .collect();
     let pending = crate::embed::classify_media(conn, media, &path, &fingerprint)?
@@ -116,30 +115,12 @@ fn planned_change(conn: &rusqlite::Connection, media: i64) -> Result<Option<Plan
         .filter(|(_, _, _, state)| state == "pending")
         .count();
     if pending > 0 {
-        steps.push(format!("[embed] subtitles: {pending}"));
+        steps.push(PlanStep::Text {
+            text: format!("[embed] subtitles: {pending}"),
+        });
     }
     steps.truncate(MAX_PLANNED_STEPS);
     Ok(Some(PlannedChange { change, steps }))
-}
-
-fn is_prepare_policy(settings: &Value) -> bool {
-    settings.get("policy").and_then(Value::as_str) == Some(crate::approval::PREPARE_POLICY)
-}
-
-/// The snapshot of one item: the job's, plus under the prepare policy its own Kodierfreigabe and
-/// the change expected when it was queued.
-fn item_settings(job: &Value, encode: EncodeAllowance, planned: Option<PlannedChange>) -> Value {
-    let mut settings = job.clone();
-    if is_prepare_policy(job)
-        && let Some(object) = settings.as_object_mut()
-    {
-        object.insert("encode".to_owned(), json!(encode.as_str()));
-        if let Some(planned) = planned {
-            object.insert("planned_change".to_owned(), json!(planned.change));
-            object.insert("planned_steps".to_owned(), json!(planned.steps));
-        }
-    }
-    settings
 }
 
 pub struct Jobs<'a>(pub Ctx<'a>);
@@ -203,9 +184,10 @@ impl Jobs<'_> {
 
     fn active_mutation_exists(&self, media_ids: &[i64]) -> Result<bool> {
         let sql = format!(
-            "SELECT 1 FROM job_items WHERE media_file_id IN ({}) AND action IN ('fix','convert')
+            "SELECT 1 FROM job_items WHERE media_file_id IN ({}) AND action IN {}
              AND status NOT IN {} LIMIT 1",
             item_columns_in(media_ids),
+            JobAction::Prepare.stored_sql_list(),
             ItemStatus::terminal_sql_list()
         );
         Ok(self
@@ -217,7 +199,7 @@ impl Jobs<'_> {
     }
 
     fn insert_item(&self, seed: &ItemSeed<'_>) -> Result<i64> {
-        let planned = if is_prepare_policy(seed.settings) {
+        let planned = if is_prepare(seed.settings) {
             planned_change(self.0.conn, seed.media_file_id)?
         } else {
             None
@@ -233,7 +215,7 @@ impl Jobs<'_> {
                 seed.position,
                 seed.origin_item_id,
                 seed.input.to_string(),
-                item_settings(seed.settings, seed.encode, planned).to_string()
+                with_item(seed.settings, seed.encode, planned).to_string()
             ],
         )?;
         let id = self.0.conn.last_insert_rowid();
@@ -256,10 +238,10 @@ impl Jobs<'_> {
                 "job must contain at least one media item".to_owned(),
             ));
         }
-        if !ACTIONS.contains(&new.action) || !TRIGGERS.contains(&new.trigger) {
+        if new.action == JobAction::Scan || !TRIGGERS.contains(&new.trigger) {
             return Err(Error::Invalid("invalid job action or trigger".to_owned()));
         }
-        if matches!(new.action, "fix" | "convert") && self.active_mutation_exists(new.media_ids)? {
+        if new.action.changes_files() && self.active_mutation_exists(new.media_ids)? {
             return Err(Error::Invalid(
                 "active job item already exists for media".to_owned(),
             ));
@@ -287,7 +269,7 @@ impl Jobs<'_> {
             self.insert_item(&ItemSeed {
                 job_id,
                 media_file_id: *media_id,
-                action: new.action,
+                action: new.action.stored(),
                 position,
                 origin_item_id: None,
                 input: &input,
@@ -304,7 +286,7 @@ impl Jobs<'_> {
             "job.created",
             "job",
             job_id,
-            &json!({"action": new.action, "item_count": new.media_ids.len()}),
+            &json!({"action": new.action.stored(), "item_count": new.media_ids.len()}),
             None,
         )?;
         self.require(job_id)
@@ -426,7 +408,7 @@ impl Jobs<'_> {
             ));
         }
         let media_ids: Vec<i64> = retry_items.iter().map(|i| i.media_file_id).collect();
-        if matches!(original.action.as_str(), "fix" | "convert")
+        if original.action.parse::<JobAction>()?.changes_files()
             && self.active_mutation_exists(&media_ids)?
         {
             return Err(Error::Invalid(
@@ -438,7 +420,8 @@ impl Jobs<'_> {
             // A retry is a new decision by the person who clicked it, about the file the job was for.
             let owned: Vec<JobItem> = retry_items.iter().map(|i| (*i).clone()).collect();
             self.require_same_files(&owned)?;
-            if crate::approval::item_profile(&snapshot)
+            // Only the Zielprofil is judged here, as before; a job without one counts as changed.
+            if PrepareSnapshot::recorded_profile(&snapshot)
                 != Some(crate::settings::target_profile(self.0.conn)?)
             {
                 return Err(Error::Invalid(
@@ -480,7 +463,7 @@ impl Jobs<'_> {
                 origin_item_id: Some(old.id),
                 input: &old.input_snapshot,
                 settings: &snapshot,
-                encode: crate::approval::item_encode(&old.settings_snapshot)
+                encode: PrepareSnapshot::recorded_encode(&old.settings_snapshot)
                     .unwrap_or(EncodeAllowance::Copy),
             })?;
         }

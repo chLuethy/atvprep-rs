@@ -1,7 +1,9 @@
 //! Recorded local calendar and real-time DST boundaries, including repeated hours.
-use atvprep_manager::schedules::{
-    LocalDateTime, TimeOfDay, days_to_mask, latest_slot, local_to_utc, mask_to_days, next_run_at,
-    next_slot,
+use atvprep_manager::{
+    cron::CronExpr,
+    schedules::{
+        LocalDateTime, TimeOfDay, days_to_mask, local_to_utc, mask_to_days, next_cron_run_at,
+    },
 };
 use chrono::{DateTime, SecondsFormat, Utc};
 use serde_json::{Value, json};
@@ -45,7 +47,9 @@ fn calendars_and_dst_match_the_python_oracle() {
         let now = DateTime::parse_from_rfc3339(input["now"].as_str().unwrap())
             .unwrap()
             .with_timezone(&Utc);
-        let observed = json!({"latest":fields(latest_slot(local,mask,time)),"next":fields(next_slot(local,mask,time)),"local_utc":utc(local_to_utc(local,&chrono_tz::Europe::Zurich)),"next_run":utc(next_run_at(now,input["enabled"].as_bool().unwrap(),mask,time,&chrono_tz::Europe::Zurich)),"days":mask_to_days(mask),"mask":days_to_mask(&days)});
+        // A mask without a day has no cron (the API refuses it); it has no slots.
+        let cron = (mask != 0).then(|| CronExpr::from_weekdays(mask, time));
+        let observed = json!({"latest":fields(cron.as_ref().and_then(|c| c.latest_slot(local))),"next":fields(cron.as_ref().and_then(|c| c.next_slot(local))),"local_utc":utc(local_to_utc(local,&chrono_tz::Europe::Zurich)),"next_run":utc(cron.as_ref().and_then(|c| next_cron_run_at(now,input["enabled"].as_bool().unwrap(),c,&chrono_tz::Europe::Zurich))),"days":mask_to_days(mask),"mask":days_to_mask(&days)});
         assert_eq!(observed, case.expected, "{}", case.name);
     }
 }

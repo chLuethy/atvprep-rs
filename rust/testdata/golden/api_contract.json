@@ -60,11 +60,14 @@
                     "mtime_ns": 4,
                     "encode_need": "unknown",
                     "planned_change": "unknown",
+                    "planned_steps": [],
                     "pending_sidecars": 0,
                     "root_id": "<r:1>",
                     "size": 123,
                     "suffix": ".mp4",
-                    "workflow_state": "idle"
+                    "workflow_state": "idle",
+                    "state": "clean",
+                    "preparable": false
                   }
                 ],
                 "meta": {
@@ -172,11 +175,14 @@
                       "mtime_ns": 4,
                       "encode_need": "unknown",
                       "planned_change": "unknown",
+                      "planned_steps": [],
                       "pending_sidecars": 0,
                       "root_id": "<r:1>",
                       "size": 123,
                       "suffix": ".mp4",
-                      "workflow_state": "idle"
+                      "workflow_state": "idle",
+                      "state": "clean",
+                      "preparable": false
                     }
                   ],
                   "truncated": false
@@ -519,13 +525,16 @@
                   "mtime_ns": 4,
                   "encode_need": "unknown",
                   "planned_change": "unknown",
+                  "planned_steps": [],
                   "pending_sidecars": 0,
                   "root_id": "<r:1>",
                   "sidecar_count": 1,
                   "size": 123,
                   "status_version": 0,
                   "suffix": ".mp4",
-                  "workflow_state": "idle"
+                  "workflow_state": "idle",
+                  "state": "clean",
+                  "preparable": false
                 },
                 "meta": {
                   "current_cursor": null,

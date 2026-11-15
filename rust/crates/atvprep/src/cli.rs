@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use atvprep_core::compliance::{VideoReencodeRule, rules_for};
 use atvprep_core::constants::VIDEO_EXTS;
-use atvprep_core::encode::{EncodeAllowance, PlannedChange, UNKNOWN, need_name};
+use atvprep_core::encode::{EncodeAllowance, PlanStep, PlannedChange, UNKNOWN, need_name};
 use atvprep_core::fd_fix_contract::{FdFixTarget, UnsafeFixTarget};
 use atvprep_core::pipeline_postfix::RunContext;
 use atvprep_core::prepare::paths::resolve;
@@ -482,9 +482,9 @@ struct JsonReport<'a> {
     /// The Änderungsart, alongside the need.
     #[serde(skip_serializing_if = "Option::is_none")]
     planned_change: Option<&'static str>,
-    /// The encodings the planner names, in its own words; left out when there are none.
-    #[serde(skip_serializing_if = "<[String]>::is_empty")]
-    planned_steps: &'a [String],
+    /// The encodings the planner names, as data; left out when there are none.
+    #[serde(skip_serializing_if = "<[PlanStep]>::is_empty")]
+    planned_steps: &'a [PlanStep],
 }
 
 #[derive(Serialize)]

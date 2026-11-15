@@ -5,7 +5,7 @@ use crate::{Error, Result};
 
 /// Migration stages in order; stage `n` takes a database from version `n - 1` to `n`.
 /// To extend: add `000N_name.sql`, append it here and raise [`VERSION`].
-const STAGES: [&str; 13] = [
+const STAGES: [&str; 14] = [
     include_str!("migrations/0001_base.sql"),
     include_str!("migrations/0002_cron.sql"),
     include_str!("migrations/0003_scan_action.sql"),
@@ -19,10 +19,11 @@ const STAGES: [&str; 13] = [
     include_str!("migrations/0011_schedule_encode.sql"),
     include_str!("migrations/0012_recheck_sdh_sidecar_plans.sql"),
     include_str!("migrations/0013_recheck_sample_rate_plans.sql"),
+    include_str!("migrations/0014_planned_steps.sql"),
 ];
 
 /// The version this build creates and understands.
-pub const VERSION: i64 = 13;
+pub const VERSION: i64 = 14;
 
 /// Every table of the current schema.
 pub const TABLES: [&str; 23] = [
@@ -241,7 +242,7 @@ mod tests {
     #[test]
     fn a_version_1_database_upgrades_and_keeps_every_weekday_combination_on_its_slots() {
         use crate::cron::CronExpr;
-        use crate::schedules::{LocalDateTime, TimeOfDay, latest_slot};
+        use crate::schedules::{LocalDateTime, TimeOfDay};
 
         let db = Db::memory().unwrap();
         let mut conn = db.conn().unwrap();
@@ -283,11 +284,24 @@ mod tests {
                     .with_time(TimeOfDay::parse(&format!("{:02}:30", step % 24)).unwrap());
                 assert_eq!(
                     cron.latest_slot(now),
-                    latest_slot(now, mask, time),
+                    weekly_latest_slot(now, mask, time),
                     "mask {mask} at {now:?}"
                 );
             }
         }
+    }
+
+    /// The latest slot of a weekday mask at one time of day, worked out the plain way.
+    fn weekly_latest_slot(
+        now: crate::schedules::LocalDateTime,
+        mask: u8,
+        time: crate::schedules::TimeOfDay,
+    ) -> Option<crate::schedules::LocalDateTime> {
+        (0..8).find_map(|back| {
+            let day = now.add_days(-back);
+            let slot = day.with_time(time);
+            (mask & (1 << day.weekday()) != 0 && slot <= now).then_some(slot)
+        })
     }
 
     fn database_at(version: usize) -> (Db, Conn) {
@@ -1103,5 +1117,49 @@ mod tests {
             exec(&conn, "DELETE FROM media_files WHERE id=1"),
             Err(Error::Constraint(_))
         ));
+    }
+
+    /// A schedule saved before the cron column (#96) has only a weekday mask and a time. The upgrade
+    /// writes the equivalent cron expression, so the one calendar that is left runs it as before.
+    #[test]
+    fn a_schedule_with_only_a_weekday_mask_gets_the_equivalent_cron_and_the_same_next_run() {
+        use crate::cron::CronExpr;
+        use crate::schedules::{TimeOfDay, next_cron_run_at};
+        use chrono::{TimeZone, Utc};
+
+        let (_db, mut conn) = database_at(1);
+        let cases: [(i64, u8, &str); 4] = [
+            (1, 0b001_1111, "02:15"),
+            (2, 0b100_0000, "23:05"),
+            (3, 0b010_0101, "07:30"),
+            (4, 0b111_1111, "00:00"),
+        ];
+        for (id, mask, time) in cases {
+            exec(
+                &conn,
+                &format!(
+                    "INSERT INTO schedules(id, name, action, days_mask, time_of_day)
+                     VALUES ({id}, 's{id}', 'verify', {mask}, '{time}')"
+                ),
+            )
+            .unwrap();
+        }
+        migrate(&mut conn).unwrap();
+
+        let now = Utc.with_ymd_and_hms(2026, 11, 15, 12, 0, 0).unwrap();
+        for (id, mask, time) in cases {
+            let stored: String = conn
+                .raw()
+                .query_row("SELECT cron FROM schedules WHERE id=?1", [id], |r| r.get(0))
+                .unwrap();
+            let expected = CronExpr::from_weekdays(mask, TimeOfDay::parse(time).unwrap());
+            let migrated = CronExpr::parse(&stored).unwrap();
+            assert_eq!(migrated.as_str(), expected.as_str(), "schedule {id}");
+            assert_eq!(
+                next_cron_run_at(now, true, &migrated, &Utc),
+                next_cron_run_at(now, true, &expected, &Utc),
+                "schedule {id}"
+            );
+        }
     }
 }

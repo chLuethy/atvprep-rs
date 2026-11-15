@@ -97,6 +97,10 @@ _Avoid_: Child-Status
 Woher ein Job stammt: von Hand (ein Betreiber hat ihn in der Oberfläche angestoßen), Zeitplan (aus einem Lauf eines bestimmten Zeitplans) oder Wiederholung (er wiederholt die fehlgeschlagenen Items eines früheren Jobs).
 _Avoid_: Trigger, automatisch (kommt nur bei Altlasten vor)
 
+**Job-Aktion**:
+Was ein Job tut (`JobAction`): Prüfen (`inspect`), Analysieren (`verify`), Vorbereiten (`prepare`) oder Scannen (`scan`, nur ein Zeitplan löst es aus, kein Job wird darunter gespeichert). Vorbereiten ist die einzige Aktion, die Dateien ändert (`changes_files`). Gespeichert wird `fix`, gelesen werden auch die historischen Formen `convert` und `prepare`; die API und die Oberfläche sagen `prepare`. Ein Zeitplan hat eine Aktion aus Analysieren, Vorbereiten und Scannen.
+_Avoid_: Action als String vergleichen, Job-Typ
+
 **Scan-Status**:
 Der Zustand eines Scan-Laufs (`ScanStatus`), getrennt vom Job-Lebenszyklus: `queued`, `claimed`, `running`, `succeeded`, `failed`, `cancelled`, `interrupted`. Terminal sind `succeeded`, `failed`, `cancelled` und `interrupted`.
 
@@ -123,6 +127,10 @@ _Avoid_: Re-Encode nötig
 **Änderungsart**:
 Wie Vorbereiten eine Datei ändern würde, so wie „Prüfen“ es zusammen mit dem Kodierbedarf festhält: keine, Patch (nur Flags und Tags an Ort und Stelle), Remux (die Datei wird als MP4 neu geschrieben, alle Streams kopiert), Audio-Kodierung oder Re-Encode. Eine Kodierung geht dem Weg vor: Braucht ein Remux eine Audio-Kodierung, ist die Änderungsart Audio-Kodierung. Vorschau und Inspector zeigen sie, statt sie selbst vorherzusagen.
 _Avoid_: „Remux“ für jede Änderung
+
+**Planerschritt**:
+Eine einzelne Kodierung, die der Planer für eine Datei benennt, als Daten mit Art und Inhalt (heute: Abtastratenänderung mit Stream, Codec und Frequenz vorher und nachher). Prüfen speichert die Schritte in einem eigenen Feld, nicht unter den Gründen; Einreihen, API und Frontend reichen sie unverändert weiter, das Frontend formatiert sie nur. Ältere Ergebnisse tragen den Schritt als Text; er erscheint als Art „text“.
+_Avoid_: Plan-Text, `[plan]`-Grund
 
 **Kodierfreigabe**:
 Die vom Betreiber gesetzte Obergrenze, was ein Auftrag oder Zeitplan kodieren darf: Nur kopieren, Audio kodieren, Audio und Video kodieren.
@@ -165,3 +173,7 @@ Merkmale einer Datei, die unabhängig vom Zustand gelten und sich überschneiden
 **Verwaiste Teilüberarbeitung**:
 Eine halbfertige Arbeitsdatei, die nach einem Absturz oder Abbruch eines Vorbereitens neben der Quelle zurückbleibt. Ist nie ein Ergebnis und wird beim Start des Managers aufgeräumt. Was dabei stehen bleibt, weil es noch zu einem laufenden Vorgang gehören könnte, meldet der Scan; der Betreiber entfernt es dort nach Bestätigung mit Anzahl und Größe. Entfernt wird nur, wenn beides noch stimmt und die Datei nicht zu laufender Arbeit gehört. Jede Löschung steht im Verlauf.
 _Avoid_: Temp-Datei, Leiche
+
+**Vorbereiten-Snapshot**:
+Die Einstellungen, unter denen ein Vorbereiten-Job und seine Items eingereiht wurden: Policy-Version, Zielprofil, Kodierfreigabe, Original löschen und entweder die Freigabe des Betreibers (manueller Auftrag) oder die signierten Parameter eines Zeitplans. Im Code `PrepareSnapshot` (`prepare_snapshot.rs`); die gespeicherte JSON-Form ist Teil der Signatur und darf sich nicht ändern. Nicht der Input-Snapshot, der den Dateistand festhält.
+_Avoid_: Settings-Snapshot (zu unscharf)

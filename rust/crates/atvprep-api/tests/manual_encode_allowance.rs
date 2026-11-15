@@ -546,8 +546,9 @@ async fn only_an_item_with_encoding_not_allowed_can_be_raised() {
 #[allow(clippy::too_many_lines)] // One walk through everything the signature binds.
 fn item_decisions(h: &Harness) -> Vec<(i64, EncodeAllowance, bool)> {
     use atvprep_manager::{
-        approval::{ApprovalItem, ApprovalVerifier, item_encode, prepare_policy_block},
+        approval::{ApprovalItem, ApprovalVerifier},
         jobs::Jobs,
+        prepare_snapshot::PrepareSnapshot,
         snapshots::InputSnapshots,
     };
     let conn = h.state.db.conn().unwrap();
@@ -569,9 +570,9 @@ fn item_decisions(h: &Harness) -> Vec<(i64, EncodeAllowance, bool)> {
                 recorded["file_ctime_ns"].clone(),
                 recorded["sidecar_fingerprint"].clone(),
             ];
-            let encode = item_encode(&item.settings_snapshot).expect("every item has a level");
-            let delete_original = item.settings_snapshot["delete_original"] == json!(true);
-            assert_eq!(prepare_policy_block(&item.settings_snapshot), None);
+            let queued = PrepareSnapshot::parse(&item.settings_snapshot).expect("a valid snapshot");
+            let encode = queued.encode.expect("every item has a level");
+            let delete_original = queued.delete_original;
             let signed = |encode, delete_original| {
                 verifier.check(
                     &item.settings_snapshot,
@@ -582,9 +583,8 @@ fn item_decisions(h: &Harness) -> Vec<(i64, EncodeAllowance, bool)> {
                         identity: &identity,
                         encode,
                         delete_original,
-                        force: atvprep_manager::approval::item_force(&item.settings_snapshot),
-                        profile: atvprep_manager::approval::item_profile(&item.settings_snapshot)
-                            .unwrap(),
+                        force: queued.force,
+                        profile: queued.profile,
                     },
                     ctx.clock.now_micros() / 1_000_000,
                 )
@@ -597,7 +597,7 @@ fn item_decisions(h: &Harness) -> Vec<(i64, EncodeAllowance, bool)> {
                 );
             }
             assert!(signed(encode, !delete_original).is_some());
-            let force = atvprep_manager::approval::item_force(&item.settings_snapshot);
+            let force = queued.force;
             assert!(
                 verifier
                     .check(
@@ -610,10 +610,7 @@ fn item_decisions(h: &Harness) -> Vec<(i64, EncodeAllowance, bool)> {
                             encode,
                             delete_original,
                             force: !force,
-                            profile: atvprep_manager::approval::item_profile(
-                                &item.settings_snapshot
-                            )
-                            .unwrap(),
+                            profile: queued.profile,
                         },
                         ctx.clock.now_micros() / 1_000_000,
                     )
@@ -634,8 +631,7 @@ fn item_decisions(h: &Harness) -> Vec<(i64, EncodeAllowance, bool)> {
                             force,
                             profile: atvprep_manager::settings::TargetProfile {
                                 crf: 40,
-                                ..atvprep_manager::approval::item_profile(&item.settings_snapshot)
-                                    .unwrap()
+                                ..queued.profile
                             },
                         },
                         ctx.clock.now_micros() / 1_000_000,

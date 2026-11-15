@@ -1,5 +1,5 @@
 import { N } from "../../lib/i18n";
-import { canonical, list, sorted, type FilterEntry, type QuickFilter } from "../../ui/filterAddress";
+import { canonical, list, sorted, type FacetFilterSpec, type FilterEntry, type QuickFilter } from "../../lib/facetFilter";
 
 /**
  * The files filter and its address. Status: nothing chosen shows every file, chosen states show the files in
@@ -140,3 +140,24 @@ export const QUICK_FILTERS: ReadonlyArray<QuickFilter<FileFilter>> = [
 /** The quick filter the filter is exactly, if any. */
 export const activeQuickFilter = (filter: FileFilter): QuickFilter<FileFilter> | undefined =>
   QUICK_FILTERS.find((entry) => sameFilter(entry.filter, filter));
+
+/** How the files filter relates to its filter bar: the facets as the bar's value and back. */
+export const FILE_FILTER_SPEC: FacetFilterSpec<FileFilter> = {
+  empty: EMPTY_FILTER,
+  same: sameFilter,
+  isFiltered,
+  quick: QUICK_FILTERS,
+  searchOf: (filter) => filter.q,
+  withSearch: (filter, q) => ({ ...filter, q }),
+  toValue: (filter) => ({
+    status: filter.status, has: filter.has, root: filter.root, suffix: filter.suffix,
+    sidecar: filter.sidecar === null ? [] : [String(filter.sidecar)],
+  }),
+  fromValue: (value, current) => {
+    const sidecar = value.sidecar?.[0];
+    return {
+      ...current, status: [...(value.status ?? [])], has: [...(value.has ?? [])], root: [...(value.root ?? [])], suffix: [...(value.suffix ?? [])],
+      sidecar: sidecar === "true" ? true : sidecar === "false" ? false : null,
+    };
+  },
+};

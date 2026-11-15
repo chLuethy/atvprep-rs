@@ -322,11 +322,11 @@ describe("JobDetail: what happened", () => {
     const planned = item({
       planned_change: "audio",
       planned_steps: [
-        "[warning] audio-sample-rate: ac-3 track id=2 sample rate 44100Hz (expected 48000)",
-        "[warning] fast-start: moov atom appears after mdat",
-        "[warning] avc-level-atv-limit: H.264 level 6.0 exceeds 5.2",
-        "[plan] audio stream #1 ac3 44100Hz -> eac3 48000Hz",
-        "[embed] subtitles: 2",
+        { kind: "text", text: "[warning] audio-sample-rate: ac-3 track id=2 sample rate 44100Hz (expected 48000)" },
+        { kind: "text", text: "[warning] fast-start: moov atom appears after mdat" },
+        { kind: "text", text: "[warning] avc-level-atv-limit: H.264 level 6.0 exceeds 5.2" },
+        { kind: "sample_rate", stream: 1, from_codec: "ac3", to_codec: "eac3", from_hz: 44100, to_hz: 48000 },
+        { kind: "text", text: "[embed] subtitles: 2" },
       ],
     });
     const view = render(() => <JobDetail api={detailApi({}, [planned])} jobId="j_1" />);
@@ -341,10 +341,25 @@ describe("JobDetail: what happened", () => {
     ]);
   });
 
+  it("shows an older plan text as it was and names a step kind it does not know", async () => {
+    const planned = item({
+      planned_change: "audio",
+      planned_steps: [
+        { kind: "text", text: "audio stream #1 ac3 44100Hz -> eac3 48000Hz" },
+        { kind: "loudness_norm", target: -23 },
+      ],
+    });
+    const view = render(() => <JobDetail api={detailApi({}, [planned])} jobId="j_1" />);
+
+    const plan = await view.findByRole("group", { name: "Expected change" });
+    const steps = within(within(plan).getByRole("list", { name: "Planned steps" })).getAllByRole("listitem").map((step) => step.textContent);
+    expect(steps).toEqual(["audio stream #1 ac3 44100Hz -> eac3 48000Hz", "Planned step: loudness_norm"]);
+  });
+
   it("reads the expected change in German", async () => {
     setLanguage("de");
     try {
-      const planned = item({ planned_change: "remux", planned_steps: ["[warning] fast-start: moov atom appears after mdat"] });
+      const planned = item({ planned_change: "remux", planned_steps: [{ kind: "text", text: "[warning] fast-start: moov atom appears after mdat" }] });
       const view = render(() => <JobDetail api={detailApi({}, [planned])} jobId="j_1" />);
       const plan = await view.findByRole("group", { name: "Erwartete Änderung" });
       expect(within(plan).getByText("Remux")).toBeInTheDocument();

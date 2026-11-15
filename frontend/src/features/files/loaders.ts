@@ -1,5 +1,6 @@
 import type { EncodeLevel } from "./EncodeChoice";
-import type { EncodeNeed, PlannedChange } from "./preparePlan";
+import type { EncodeNeed, PlannedChange } from "../../lib/encode";
+import type { PlanStep } from "./planSteps";
 import { SessionError } from "../../lib/api";
 import type { FacetCounts } from "../../ui/FilterBar";
 import type { FileFilter, FileSort } from "./filters";
@@ -18,7 +19,13 @@ export type FileRow = {
   mtime_ns: number;
   discovery_state: string;
   compliance_state: string;
+  /** The one state the server decided: clean, embed_open, warning, blocker, unknown, probe_failed or missing. */
+  state: string;
+  /** The server would queue Prepare for this file: present, and a verdict to repair, a fix wish or a subtitle file to embed. */
+  preparable: boolean;
   compliance_reasons?: string[];
+  /** What the planner would do at the last check, apart from the reasons. */
+  planned_steps?: PlanStep[];
   workflow_state: string;
   desired_action: string;
   last_seen_at: string | null;

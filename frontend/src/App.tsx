@@ -1,12 +1,13 @@
-import { A, Navigate, Router, Route, useLocation, useNavigate } from "@solidjs/router";
-import { createEffect, createMemo, createSignal, onCleanup, onMount, Show, type ParentComponent } from "solid-js";
+import { A, Navigate, Router, Route, useNavigate } from "@solidjs/router";
+import { createMemo, createSignal, onCleanup, onMount, Show, type ParentComponent } from "solid-js";
 import "./styles/app.css";
 import type { ManagerApi } from "./lib/api";
 import type { SessionControls } from "./features/auth/AuthGate";
 import { ActivityPage } from "./features/activity/ActivityPage";
 import { LibraryPage } from "./features/files/LibraryPage";
 import { fileFilterQuery, fileSortQuery, parseFileFilter, parseFileSort, QUICK_FILTERS, sameFilter, type FileFilter, type FileSort } from "./features/files/filters";
-import { JOB_QUICK_FILTERS, jobFilterQuery, parseJobFilter, sameJobFilter } from "./features/activity/filters";
+import { JOB_QUICK_FILTERS, jobFilterQuery, parseJobFilter, sameJobFilter, type JobFilter } from "./features/activity/filters";
+import { parseScheduleView, sameScheduleView, scheduleViewQuery, type ScheduleView } from "./features/schedules/filters";
 import { OverviewPage } from "./features/overview/OverviewPage";
 import { SchedulesPage } from "./features/schedules/SchedulesPage";
 import { SettingsPage } from "./features/settings/SettingsPage";
@@ -16,7 +17,7 @@ import { N, t, tn } from "./lib/i18n";
 import { isTyping } from "./lib/keys";
 import { realtimeState } from "./lib/realtime";
 import { useWorkTitle } from "./lib/title";
-import { recall, remember, type ViewPage } from "./lib/viewMemory";
+import { OWN, useFilterAddress } from "./lib/facetFilter";
 import { workState } from "./lib/work";
 import { dismissTip, tipPending } from "./lib/tips";
 import { Button, chooseTheme, CommandPalette, Icon, Kbd, LanguageSwitch, Logo, ThemeSwitch, type Command, type IconName, type Theme } from "./ui";
@@ -28,49 +29,22 @@ const Schedules: ParentComponent = () => <section>{t("Schedules")}</section>;
 const Settings: ParentComponent = () => <section>{t("Settings")}</section>;
 
 /**
- * Marks an address the page itself chose, so a bare one there means "show everything" (Reset filters, a cleared
- * quick filter, Back to such an entry). A bare address without the mark came from outside (navigation, the palette,
- * a link, a reload) and takes the last remembered state instead, by replacing the address so no history entry is
- * added. A query of its own always wins.
- */
-const OWN = { own: true } as const;
-const isOwn = (state: unknown) => typeof state === "object" && state !== null && (state as { own?: unknown }).own === true;
-
-/**
- * Keeps the address of a page and its view memory in step: a bare address from outside takes the remembered
- * state, every other one is rewritten to its `canonical` query (`at` makes the address of a query) and
- * remembered, an empty one forgetting the state.
- */
-const useRememberedAddress = (page: ViewPage, at: (query: string) => string, canonical: () => string) => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  createEffect(() => {
-    const search = location.search.replace(/^\?/, "");
-    if (search === "" && !isOwn(location.state)) {
-      return navigate(at(recall(page) ?? ""), { replace: true, state: OWN });
-    }
-    const query = canonical();
-    remember(page, query);
-    if (search !== query) navigate(at(query), { replace: true, state: OWN });
-  });
-};
-
-/**
  * One route for the list and the open file, so choosing a file never remounts the list. The filter lives in
- * the address: a chosen state or property is a new history entry (Back undoes it), a search replaces the entry,
- * and an old or untidy address is rewritten to the canonical one. The order follows the filter (`sort`, `dir`);
- * a new order is a history entry too.
+ * the address (`useFilterAddress`): a chosen state or property is a new history entry (Back undoes it), a search
+ * replaces the entry, and an old or untidy address is rewritten to the canonical one. The order follows the
+ * filter (`sort`, `dir`); a new order is a history entry too.
  */
 const Library: ParentComponent<{ api: ManagerApi | undefined; fileId: string | undefined }> = (props) => {
-  const navigate = useNavigate();
-  const location = useLocation();
   const base = (id: string | undefined) => (id ? `/files/${encodeURIComponent(id)}` : "/files");
-  const query = (filter: FileFilter, sort: FileSort) => [fileFilterQuery(filter), fileSortQuery(sort)].filter(Boolean).join("&");
-  const at = (id: string | undefined, search: string) => `${base(id)}${search ? `?${search}` : ""}`;
-  const params = () => new URLSearchParams(location.search);
-  const filter = createMemo(() => parseFileFilter(params()), undefined, { equals: sameFilter });
-  const sort = createMemo(() => parseFileSort(params()), undefined, { equals: (a, b) => fileSortQuery(a) === fileSortQuery(b) });
-  useRememberedAddress("files", (search) => at(props.fileId, search), () => query(filter(), sort()));
+  const address = useFilterAddress<{ filter: FileFilter; sort: FileSort }>({
+    page: "files",
+    path: () => base(props.fileId),
+    parse: (params) => ({ filter: parseFileFilter(params), sort: parseFileSort(params) }),
+    query: ({ filter, sort }) => [fileFilterQuery(filter), fileSortQuery(sort)].filter(Boolean).join("&"),
+    same: (a, b) => sameFilter(a.filter, b.filter) && fileSortQuery(a.sort) === fileSortQuery(b.sort),
+  });
+  const filter = createMemo(() => address.state().filter, undefined, { equals: sameFilter });
+  const sort = createMemo(() => address.state().sort, undefined, { equals: (a, b) => fileSortQuery(a) === fileSortQuery(b) });
   return (
     <Show when={props.api} fallback={<Files />}>
       {(api) => (
@@ -79,9 +53,9 @@ const Library: ParentComponent<{ api: ManagerApi | undefined; fileId: string | u
           activeId={props.fileId}
           filter={filter()}
           sort={sort()}
-          onFilter={(next, how) => navigate(at(props.fileId, query(next, sort())), { replace: how.replace, state: OWN })}
-          onSort={(next) => navigate(at(props.fileId, query(filter(), next)), { state: OWN })}
-          onOpen={(id) => navigate(`${base(id)}${location.search}`, { state: OWN })}
+          onFilter={(next, how) => address.go({ filter: next, sort: sort() }, how)}
+          onSort={(next) => address.go({ filter: filter(), sort: next })}
+          onOpen={(id) => address.open(base(id))}
         />
       )}
     </Show>
@@ -93,23 +67,41 @@ const Library: ParentComponent<{ api: ManagerApi | undefined; fileId: string | u
  * value or order is a new history entry, a search replaces the entry, and an untidy address is rewritten.
  */
 const Activity: ParentComponent<{ api: ManagerApi | undefined; jobId: string | undefined }> = (props) => {
-  const navigate = useNavigate();
-  const location = useLocation();
   const base = (id: string | undefined) => (id ? `/jobs/${encodeURIComponent(id)}` : "/jobs");
-  const at = (id: string | undefined, query: string) => `${base(id)}${query ? `?${query}` : ""}`;
-  const filter = createMemo(() => parseJobFilter(new URLSearchParams(location.search)), undefined, { equals: sameJobFilter });
-  useRememberedAddress("jobs", (query) => at(props.jobId, query), () => jobFilterQuery(filter()));
+  const address = useFilterAddress<JobFilter>({
+    page: "jobs",
+    path: () => base(props.jobId),
+    parse: parseJobFilter,
+    query: jobFilterQuery,
+    same: sameJobFilter,
+  });
   return (
     <Show when={props.api} fallback={<Jobs />}>
       {(api) => (
         <ActivityPage
           api={api()}
           activeId={props.jobId}
-          filter={filter()}
-          onFilter={(next, how) => navigate(at(props.jobId, jobFilterQuery(next)), { replace: how.replace, state: OWN })}
-          onOpen={(id) => navigate(`${base(id)}${location.search}`, { state: OWN })}
+          filter={address.state()}
+          onFilter={(next, how) => address.go(next, how)}
+          onOpen={(id) => address.open(base(id))}
         />
       )}
+    </Show>
+  );
+};
+
+/** The schedule list keeps its filter and order in the address and the view memory like Files and Activity. */
+const SchedulesRoute: ParentComponent<{ api: ManagerApi | undefined }> = (props) => {
+  const address = useFilterAddress<ScheduleView>({
+    page: "schedules",
+    path: () => "/schedules",
+    parse: parseScheduleView,
+    query: scheduleViewQuery,
+    same: sameScheduleView,
+  });
+  return (
+    <Show when={props.api} fallback={<Schedules />}>
+      {(api) => <SchedulesPage api={api()} filter={address.state()} onFilter={(next, how) => address.go(next, how)} />}
     </Show>
   );
 };
@@ -322,7 +314,7 @@ const App: ParentComponent<{ api?: ManagerApi; session?: SessionControls }> = (p
       <Route path="/dashboard" component={() => <Overview api={api} />} />
       <Route path="/files/:fileId?" component={(route) => <Library api={api} fileId={route.params.fileId} />} />
       <Route path="/jobs/:jobId?" component={(route) => <Activity api={api} jobId={route.params.jobId} />} />
-      <Route path="/schedules" component={() => (api ? <SchedulesPage api={api} /> : <Schedules />)} />
+      <Route path="/schedules" component={() => <SchedulesRoute api={api} />} />
       <Route path="/settings" component={() => (api ? <SettingsPage api={api} /> : <Settings />)} />
       <Route path="/" component={() => <Navigate href="/files" />} />
     </Router>

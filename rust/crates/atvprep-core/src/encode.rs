@@ -2,6 +2,8 @@
 
 use crate::escalation::Level;
 use crate::models::{AudioAction, Plan, VideoAction};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 /// The Kodierfreigabe: the upper limit of what one run may encode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
@@ -170,9 +172,73 @@ impl ChangeKind {
 pub struct PlannedChange {
     pub need: EncodeNeed,
     pub change: ChangeKind,
-    /// The encodings the plan names in its own words (`audio stream #1 ac3 44100Hz -> eac3
-    /// 48000Hz`), so no reader has to guess codec or rate.
-    pub steps: Vec<String>,
+    /// The encodings the plan names, as data, so no reader has to guess codec or rate.
+    pub steps: Vec<PlanStep>,
+}
+
+/// One step of a plan, as the planner decides it: a kind and the data that belongs to it. Readers
+/// format it; none parses text. Serialized as `{"kind": "...", ...}`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum PlanStep {
+    /// An audio track encoded only to reach its target sample rate.
+    SampleRate {
+        /// The stream index in the input file.
+        stream: u32,
+        from_codec: String,
+        to_codec: String,
+        from_hz: u32,
+        to_hz: u32,
+    },
+    /// A step known only as text: what older results and items stored, and the findings and the
+    /// subtitle merge an item lists beside the planner's steps. The planner itself never makes one.
+    Text { text: String },
+}
+
+impl PlanStep {
+    /// The step as one line of text, for protocols.
+    #[must_use]
+    pub fn text(&self) -> String {
+        match self {
+            Self::SampleRate {
+                stream,
+                from_codec,
+                to_codec,
+                from_hz,
+                to_hz,
+            } => format!("audio stream #{stream} {from_codec} {from_hz}Hz -> {to_codec} {to_hz}Hz"),
+            Self::Text { text } => text.clone(),
+        }
+    }
+
+    /// The step with its text, if it is a text step, passed through `f`; any other step is data and
+    /// stays as it is.
+    #[must_use]
+    pub fn map_text(self, f: impl FnOnce(String) -> String) -> Self {
+        match self {
+            Self::Text { text } => Self::Text { text: f(text) },
+            data @ Self::SampleRate { .. } => data,
+        }
+    }
+
+    /// The prefix older results put before a planner step they stored as text.
+    pub const LEGACY_PREFIX: &'static str = "[plan] ";
+
+    /// A step as stored: an object of this type, or a bare string from before steps were data
+    /// (without the prefix older results gave the planner's text). Anything else is not a step.
+    #[must_use]
+    pub fn from_stored(value: &Value) -> Option<Self> {
+        match value {
+            Value::String(text) => Some(Self::Text {
+                text: text
+                    .strip_prefix(Self::LEGACY_PREFIX)
+                    .unwrap_or(text)
+                    .to_owned(),
+            }),
+            Value::Object(_) => serde_json::from_value(value.clone()).ok(),
+            _ => None,
+        }
+    }
 }
 
 /// „Kodierung nicht freigegeben“: the plan needs more than the run was allowed.

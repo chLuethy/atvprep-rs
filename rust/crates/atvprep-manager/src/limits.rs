@@ -7,6 +7,7 @@
 use atvprep_core::encode::EncodeAllowance;
 
 use crate::cron::CronExpr;
+use crate::state_machine::JobAction;
 
 /// The shortest gap between two runs of a schedule that prepares files.
 pub const MIN_CHANGE_INTERVAL_MINUTES: u32 = 15;
@@ -21,18 +22,18 @@ pub const MAX_FILES_PREPARE_VIDEO: i64 = 6;
 /// action without the field (scan). Only preparing reads `encode`.
 #[must_use]
 pub fn max_files_limit(action: &str, encode: EncodeAllowance) -> Option<i64> {
-    match action {
-        "verify" => Some(MAX_FILES_VERIFY),
-        "prepare" if encode == EncodeAllowance::All => Some(MAX_FILES_PREPARE_VIDEO),
-        "prepare" => Some(MAX_FILES_PREPARE),
-        _ => None,
+    match JobAction::from_public(action)? {
+        JobAction::Verify => Some(MAX_FILES_VERIFY),
+        JobAction::Prepare if encode == EncodeAllowance::All => Some(MAX_FILES_PREPARE_VIDEO),
+        JobAction::Prepare => Some(MAX_FILES_PREPARE),
+        JobAction::Inspect | JobAction::Scan => None,
     }
 }
 
 /// Whether the action changes files and so has a minimum interval.
 #[must_use]
 pub fn changes_files(action: &str) -> bool {
-    action == "prepare"
+    JobAction::from_public(action).is_some_and(JobAction::changes_files)
 }
 
 /// A schedule's settings that break a limit.

@@ -1,0 +1,32 @@
+{
+  "expected": {
+    "body": {
+      "data": [
+        {
+          "finished_at": null,
+          "generation": 1,
+          "id": "<s:1>",
+          "root_id": "<r:1>",
+          "started_at": "<ts>",
+          "status": "succeeded"
+        }
+      ],
+      "meta": {
+        "current_cursor": null,
+        "current_sequence": null,
+        "facets": {},
+        "limit": 50,
+        "next_cursor": null,
+        "truncated": false
+      }
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "method": "GET",
+    "origin": "http://testserver",
+    "path": "/api/v1/scans"
+  },
+  "name": "scans"
+}

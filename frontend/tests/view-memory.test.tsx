@@ -239,6 +239,38 @@ describe("filters survive a page change", () => {
     expect(window.location.pathname).toBe("/jobs");
   });
 
+  it("brings back the schedule list's filter and order after a visit to Files, and puts them in the address", async () => {
+    const schedule = (id: string, name: string, action: string, enabled: boolean) => ({
+      id, name, action, root_id: null, root_name: null, compliance_state: null, cron: "", days: [0], time: "03:00",
+      max_files: 25, enabled, matching: null, next_run_at: null, last_run_at: null, last_result: null, last_job_id: null,
+    });
+    const rows = [schedule("sc_1", "Zeta scan", "scan", true), schedule("sc_2", "Alpha scan", "scan", false), schedule("sc_3", "Mid verify", "verify", true)];
+    const { api: base } = fakeApi();
+    const api = {
+      request: vi.fn(async (path: string) => path === "/schedules"
+        ? new Response(JSON.stringify({ data: rows, meta: {} }))
+        : base.request(path)),
+    };
+    window.history.replaceState(null, "", "/schedules");
+    const view = render(() => <App api={api as never} />);
+    const listed = () => within(view.getByRole("list", { name: "Schedules" })).getAllByRole("listitem").map((li) => li.querySelector(".sched-name")?.textContent);
+    await view.findByRole("list", { name: "Schedules" });
+
+    await fireEvent.click(within(view.getByRole("group", { name: "Filter schedules by action" })).getByRole("button", { name: "Scan" }));
+    await fireEvent.change(view.getByLabelText("Sort by"), { target: { value: "name" } });
+    await waitFor(() => expect(window.location.search).toBe("?action=scan&sort=name"));
+    expect(listed()).toEqual(["Alpha scan", "Zeta scan"]);
+
+    await fireEvent.click(nav(view, /Files/));
+    await waitFor(() => expect(window.location.pathname).toBe("/files"));
+    await fireEvent.click(nav(view, /Schedules/));
+
+    await waitFor(() => expect(window.location.search).toBe("?action=scan&sort=name"));
+    await view.findByRole("list", { name: "Schedules" });
+    expect(listed()).toEqual(["Alpha scan", "Zeta scan"]);
+    expect(view.getByLabelText("Sort by")).toHaveValue("name");
+  });
+
   it("works as before when the browser has no storage", async () => {
     const broken = { getItem: () => { throw new Error("denied"); }, setItem: () => { throw new Error("denied"); }, removeItem: () => { throw new Error("denied"); }, clear: () => {}, key: () => null, length: 0 };
     vi.stubGlobal("localStorage", broken);

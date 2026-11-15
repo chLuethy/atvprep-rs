@@ -1,6 +1,6 @@
 import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, onMount, Show, type Component } from "solid-js";
 import { Button, Icon, Kbd } from "../../ui";
-import { FilterBar, MANY_OPTIONS, NoMatches, type Facet, type FilterValue } from "../../ui/FilterBar";
+import { FilterBar, MANY_OPTIONS, NoMatches, type Facet } from "../../ui/FilterBar";
 import { N, t, tn } from "../../lib/i18n";
 import { autoDismiss } from "../../lib/autoDismiss";
 import { ColumnsView, type ColumnAction, type Picked } from "./ColumnsView";
@@ -9,7 +9,8 @@ import { recall, remember } from "../../lib/viewMemory";
 import { RowMenu, type MenuItem } from "./RowMenu";
 import { additive, copyText, selectionMenu } from "./selection";
 import { loadBelow } from "./browse";
-import { activeQuickFilter, defaultDir, EMPTY_FILTER, fileSortQuery, isFiltered, QUICK_FILTERS, sameFilter, STATE_FILTERS, TRAIT_FILTERS, type FileFilter, type FileSort, type SortKey as FileSortKey } from "./filters";
+import { defaultDir, FILE_FILTER_SPEC, fileSortQuery, isFiltered, sameFilter, STATE_FILTERS, TRAIT_FILTERS, type FileFilter, type FileSort, type SortKey as FileSortKey } from "./filters";
+import { createFacetFilter } from "../../lib/facetFilter";
 import { loadRoots } from "../scan/loaders";
 import { FileTable, type Sort, type SortKey } from "./FileTable";
 import { FixPreview } from "./FixPreview";
@@ -63,11 +64,10 @@ export const LibraryPage: Component<{
   const [loadingMore, setLoadingMore] = createSignal(false);
   const [moreProblem, setMoreProblem] = createSignal<string | null>(null);
   const [counts, setCounts] = createSignal<Record<string, number> | null>(null);
-  const [filter, setFilter] = createSignal<FileFilter>(props.filter ?? EMPTY_FILTER, { equals: sameFilter });
+  const facet = createFacetFilter(FILE_FILTER_SPEC, { filter: () => props.filter, onFilter: (next, how) => props.onFilter?.(next, how) });
+  const filter = facet.filter;
   const [facetCounts, setFacetCounts] = createSignal<FileCounts | null>(null);
   const query = () => filter().q;
-  /** What the search field shows; the filter takes it after a short pause. */
-  const [search, setSearch] = createSignal(filter().q);
   const sameSort = (a: Sort, b: Sort) => fileSortQuery(a) === fileSortQuery(b);
   const [sort, setSort] = createSignal<Sort>(props.sort ?? null, { equals: sameSort });
   /** The libraries by name, for the library facet; without an answer the facet shows only what is chosen. */
@@ -112,11 +112,9 @@ export const LibraryPage: Component<{
   let pages = 1;
   // Files to mark as their rows are built: new ones and those whose state changed in the last refresh.
   let flagged = new Set<string>();
-  let searchTimer: ReturnType<typeof setTimeout> | undefined;
   let searchInput: HTMLInputElement | undefined;
   let previewKey: { signature: string; key: string } | undefined;
   let verifyKey: { signature: string; key: string } | undefined;
-  onCleanup(() => clearTimeout(searchTimer));
 
   const load = async (reset: boolean, cursor: string | null = null, quiet = false) => {
     const mine = ++generation;
@@ -221,14 +219,6 @@ export const LibraryPage: Component<{
     onCleanup(() => window.clearInterval(timer));
   });
 
-  // The address changed from outside (Back, a link): follow it, search field included.
-  createEffect(on(() => props.filter, (next) => {
-    const wanted = next ?? EMPTY_FILTER;
-    if (sameFilter(wanted, filter())) return;
-    clearTimeout(searchTimer);
-    setSearch(wanted.q);
-    setFilter(wanted);
-  }, { defer: true }));
   createEffect(on(() => props.sort, (next) => setSort(next ?? null), { defer: true }));
   createEffect(on(filter, () => { void load(true); void refreshFacetCounts(); }));
   createEffect(on(sort, () => void load(true, null, true), { defer: true }));
@@ -260,16 +250,6 @@ export const LibraryPage: Component<{
   const firstRun = () => total() === 0 && !filtered() && query() === "";
   /** Anything is left out of the list besides what the search leaves out. */
   const filtered = () => isFiltered({ ...filter(), q: "" });
-  const changeFilter = (next: FileFilter, replace = false) => {
-    if (sameFilter(next, filter())) return;
-    setFilter(next);
-    props.onFilter?.(next, { replace });
-  };
-  const clearFilters = () => {
-    clearTimeout(searchTimer);
-    setSearch("");
-    changeFilter(EMPTY_FILTER);
-  };
   /** Options nobody lists in advance: what the server knows, plus what is chosen, so a choice never vanishes. */
   const withChosen = (known: Array<{ value: string; label: string }>, chosen: string[], label: (value: string) => string) => {
     const seen = new Set(known.map((option) => option.value));
@@ -286,29 +266,6 @@ export const LibraryPage: Component<{
     },
     { key: "sidecar", title: t("Subtitle files"), logic: "or", multiple: false, placement: "more", options: [{ value: "true", label: t("Yes") }, { value: "false", label: t("No") }] },
   ];
-  const facetValue = (): FilterValue => ({
-    status: filter().status, has: filter().has, root: filter().root, suffix: filter().suffix,
-    sidecar: filter().sidecar === null ? [] : [String(filter().sidecar)],
-  });
-  const onFacets = (value: FilterValue) => {
-    const sidecar = value.sidecar?.[0];
-    changeFilter({
-      ...filter(), status: [...(value.status ?? [])], has: [...(value.has ?? [])], root: [...(value.root ?? [])], suffix: [...(value.suffix ?? [])],
-      sidecar: sidecar === "true" ? true : sidecar === "false" ? false : null,
-    });
-  };
-  const quickChoices = () => {
-    const active = activeQuickFilter(filter());
-    return QUICK_FILTERS.map((entry) => ({ id: entry.id, label: t(entry.label), active: entry.id === active?.id }));
-  };
-  /** A quick filter replaces the whole filter, search included; the one in effect takes itself away again. */
-  const onQuick = (id: string) => {
-    const chosen = QUICK_FILTERS.find((entry) => entry.id === id);
-    if (!chosen) return;
-    clearTimeout(searchTimer);
-    setSearch("");
-    changeFilter(activeQuickFilter(filter())?.id === id ? EMPTY_FILTER : chosen.filter);
-  };
   const summaryText = () => {
     const answer = facetCounts();
     return answer ? tn("{matched} of {count} file", "{matched} of {count} files", answer.total, { matched: answer.matched }) : null;
@@ -371,11 +328,6 @@ export const LibraryPage: Component<{
       copyPaths: () => copyText(chosen.map((row) => row.display_path ?? "").join("\n")),
       selectAll: selectAllRows,
     });
-  };
-  const onSearchInput = (value: string) => {
-    setSearch(value);
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => changeFilter({ ...filter(), q: value.trim() }, true), 250);
   };
   const changeSort = (chosen: Sort) => {
     // The default order is always null, so the address and the page agree on it.
@@ -601,8 +553,8 @@ export const LibraryPage: Component<{
                 type="search"
                 placeholder={t("Search files")}
                 aria-label={t("Search files")}
-                value={search()}
-                onInput={(event) => onSearchInput(event.currentTarget.value)}
+                value={facet.search()}
+                onInput={(event) => facet.onSearchInput(event.currentTarget.value)}
               />
               <Kbd>/</Kbd>
             </div>
@@ -627,15 +579,15 @@ export const LibraryPage: Component<{
           <FilterBar
             label={t("Filter files")}
             facets={facets().filter((facet) => facet.options.length > 0)}
-            value={facetValue()}
+            value={facet.bar().value}
             counts={facetCounts()?.facets ?? null}
             summary={summaryText()}
             countText={(count) => tn("{count} file", "{count} files", count)}
-            dirty={isFiltered(filter())}
-            onChange={onFacets}
-            onReset={clearFilters}
-            quick={quickChoices()}
-            onQuick={onQuick}
+            dirty={facet.bar().dirty}
+            onChange={facet.bar().onChange}
+            onReset={facet.reset}
+            quick={facet.bar().quick}
+            onQuick={facet.bar().onQuick}
             tools={(
               <div class="lib-sort">
                 <select class="select" aria-label={t("Sort by")} value={sortKey()} onChange={(event) => {
@@ -673,7 +625,7 @@ export const LibraryPage: Component<{
                 <Show when={phase() === "error"}>
                   <Button onClick={() => void load(true)}>{t("Retry")}</Button>
                   {/* A link with a filter the server refuses fails every time; resetting gets out of it. */}
-                  <Show when={isFiltered(filter())}><Button variant="quiet" onClick={clearFilters}>{t("Reset filters")}</Button></Show>
+                  <Show when={isFiltered(filter())}><Button variant="quiet" onClick={facet.reset}>{t("Reset filters")}</Button></Show>
                 </Show>
               </div>
             }>
@@ -683,7 +635,7 @@ export const LibraryPage: Component<{
                   <Show
                     when={firstRun()}
                     fallback={(
-                      <NoMatches title={t("No files match the current filters")} facets={facets()} value={facetValue()} search={query()} onReset={clearFilters} />
+                      <NoMatches title={t("No files match the current filters")} facets={facets()} value={facet.bar().value} search={query()} onReset={facet.reset} />
                     )}
                   >
                     <div class="empty">

@@ -5,7 +5,7 @@ import type { FileRow } from "../src/features/files/loaders";
 
 const row = (over: Partial<FileRow> = {}): FileRow => ({
   id: "m_1", root_id: "r_1", display_path: "Film/Overboard (2018)/Overboard (2018).mp4", kind: "movie", suffix: ".mp4", size: 5 * 1024 ** 3,
-  mtime_ns: 1, discovery_state: "present", compliance_state: "clean", workflow_state: "idle", desired_action: "none", last_seen_at: null,
+  mtime_ns: 1, discovery_state: "present", compliance_state: "clean", state: "clean", preparable: false, workflow_state: "idle", desired_action: "none", last_seen_at: null,
   compliance_reasons: [], ...over,
 });
 
@@ -60,8 +60,19 @@ describe("FixPreview: subtitles to embed", () => {
   });
 
   it("still says so when only a count is known", () => {
-    const view = show(row({ pending_sidecars: 2 }));
+    const view = show(row({ state: "embed_open", pending_sidecars: 2 }));
     expect(view.getByText("Merge 2 external subtitle files into the MP4")).toBeInTheDocument();
+  });
+
+  it("shows the codec and rate change the planner sent as data", () => {
+    const view = show(row({
+      encode_need: "audio",
+      planned_change: "audio",
+      compliance_state: "warning",
+      compliance_reasons: ["[warning] audio-sample-rate: ac-3 track id=2 sample rate 44100Hz (expected 48000)"],
+      planned_steps: [{ kind: "sample_rate", stream: 1, from_codec: "ac3", to_codec: "eac3", from_hz: 44100, to_hz: 48000 }],
+    }));
+    expect(view.getByText("AC-3 44.1 kHz → EAC3 48 kHz")).toBeInTheDocument();
   });
 
   it("mentions no subtitles when none are waiting", () => {
@@ -130,8 +141,9 @@ describe("FixPreview: the encoding allowance", () => {
   it("shows the need and the change of each file from the server, and an AAC track is no remux", () => {
     const view = show(row({ encode_need: "audio", planned_change: "audio", compliance_state: "warning", compliance_reasons: ["[warning] stereo-twin: 1 language has surround only"] }));
 
+    // The file's change is named by the server; each finding it resolves keeps the preview's own label.
     expect(view.getByText("Audio encoding")).toBeInTheDocument();
-    expect(view.getByText(/Add an AAC stereo track/).previousElementSibling).toHaveTextContent("Encoding");
+    expect(view.getByText(/Add an AAC stereo track/).previousElementSibling).toHaveTextContent(/^Encoding$/);
     expect(view.queryByText("Remux")).not.toBeInTheDocument();
   });
 

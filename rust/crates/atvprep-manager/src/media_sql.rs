@@ -48,6 +48,18 @@ pub const TO_CONVERT: &str = concat!(
     ")"
 );
 
+/// The file is not already in an open prepare item of a job.
+#[must_use]
+pub fn no_open_prepare_item() -> String {
+    format!(
+        "NOT EXISTS (SELECT 1 FROM job_items open_item \
+         WHERE open_item.media_file_id=m.id AND open_item.action IN {} \
+         AND open_item.status NOT IN {})",
+        crate::state_machine::JobAction::Prepare.stored_sql_list(),
+        crate::state_machine::ItemStatus::terminal_sql_list()
+    )
+}
+
 /// The check found that audio has to be encoded (the video is copied).
 pub const NEEDS_AUDIO: &str = "m.encode_need='audio'";
 
@@ -70,15 +82,17 @@ pub fn embed_not_open(param: &str) -> String {
 ///
 /// Excludes converted originals; takes MP4-likes only when they have something to repair or
 /// embed; takes only files whose Kodierbedarf lies within the schedule's Kodierfreigabe, bound as
-/// its name (`copy`, `audio`, `all`) in `encode_param`. A need that is not known yet only fits
-/// the top level (ADR 0008).
+/// its name (`copy`, `audio`, `all`) in the placeholder `?encode`. A need that is not known yet only
+/// fits the top level (ADR 0008).
+///
+/// Both parameters are the `N` of a numbered placeholder `?N` (`?open_ids` holds the JSON list of the
+/// open embedding ids): the list is used more than once, which a bare `?` would bind each time.
 #[must_use]
-pub fn change_candidate(encode_param: &str, open_ids_param: &str) -> String {
+pub fn change_candidate(encode: u8, open_ids: u8) -> String {
     format!(
-        "NOT {CONVERTED} AND ({NOT_MP4_LIKE} OR m.compliance_state IN ('warning','blocker') \
-         OR m.desired_action='fix' OR {open}) AND {within}",
-        open = embed_open(open_ids_param),
-        within = need_within(encode_param)
+        "NOT {CONVERTED} AND ({NOT_MP4_LIKE} OR {preparable}) AND {within}",
+        preparable = crate::file_state::preparable_sql(open_ids),
+        within = need_within(&format!("?{encode}"))
     )
 }
 

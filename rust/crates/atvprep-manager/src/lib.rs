@@ -2,6 +2,7 @@
 //! machine (port of `atvprep_manager/db/` and `jobs_state_machine.py`).
 
 pub mod approval;
+pub mod calendar;
 pub mod clock;
 pub mod cron;
 pub mod db;
@@ -10,6 +11,7 @@ pub mod embed;
 pub mod error;
 pub mod evaluate;
 pub mod events;
+pub mod file_state;
 pub mod inspections;
 pub mod jobs;
 pub mod leases;
@@ -18,9 +20,12 @@ pub mod limits;
 pub mod media;
 pub mod media_sql;
 pub mod models;
+pub mod prepare_snapshot;
 pub mod procid;
 pub mod repo;
 pub mod scans;
+pub mod schedule_candidates;
+pub mod schedule_due;
 pub mod scheduler;
 pub mod schedules;
 pub mod schema;

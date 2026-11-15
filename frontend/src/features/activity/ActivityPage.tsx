@@ -1,6 +1,6 @@
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, type Component } from "solid-js";
 import { Button, Icon, ProgressBar } from "../../ui";
-import { FilterBar, NoMatches, type Facet, type FilterValue } from "../../ui/FilterBar";
+import { FilterBar, NoMatches, type Facet } from "../../ui/FilterBar";
 import { StatusChip } from "../../ui";
 import { JobDetail } from "./JobDetail";
 import { periodLibraryFacets } from "./PeriodLibrary";
@@ -8,7 +8,8 @@ import { flash } from "../../lib/flash";
 import { isTyping } from "../../lib/keys";
 import { reuseUnchanged } from "../../lib/stable";
 import { clearJobs, loadJobCounts, loadJobs, type Api, type ClearStatus, type JobRow } from "./loaders";
-import { activeJobQuickFilter, EMPTY_JOB_FILTER, isJobFiltered, JOB_ACTIONS, JOB_QUICK_FILTERS, JOB_STATUSES, JOB_TRIGGERS, revealActive, sameJobFilter, type JobCounts, type JobFilter, type JobSort } from "./filters";
+import { isJobFiltered, JOB_ACTIONS, JOB_STATUSES, JOB_TRIGGERS, jobFilterSpec, revealActive, sameJobFilter, type JobCounts, type JobFilter, type JobSort } from "./filters";
+import { createFacetFilter } from "../../lib/facetFilter";
 import { N, t, tn } from "../../lib/i18n";
 import { autoDismiss } from "../../lib/autoDismiss";
 import { useClock } from "../../lib/clock";
@@ -87,12 +88,14 @@ export const ActivityPage: Component<{
   const [nextCursor, setNextCursor] = createSignal<string | undefined>();
   const [phase, setPhase] = createSignal<Phase>("loading");
   const [loadingMore, setLoadingMore] = createSignal(false);
-  const [filter, setFilter] = createSignal<JobFilter>(props.filter ?? EMPTY_JOB_FILTER, { equals: sameJobFilter });
-  /** What the search field shows; the filter takes it after a short pause. */
-  const [search, setSearch] = createSignal(filter().q);
+  // The period and library facets need the libraries by name; the filter's spec reaches them lazily.
+  const facet = createFacetFilter(
+    jobFilterSpec({ value: () => periodLibrary.value(), apply: (value, next) => periodLibrary.apply(value, next) }),
+    { filter: () => props.filter, onFilter: (next, how) => props.onFilter?.(next, how) },
+  );
+  const filter = facet.filter;
+  const changeFilter = facet.change;
   const [counts, setCounts] = createSignal<JobCounts | null>(null);
-  let searchTimer: ReturnType<typeof setTimeout> | undefined;
-  onCleanup(() => clearTimeout(searchTimer));
   const [notice, setNotice] = createSignal<string | null>(null);
   autoDismiss(notice, () => setNotice(null));
   const [clearOpen, setClearOpen] = createSignal(false);
@@ -172,41 +175,13 @@ export const ActivityPage: Component<{
     if (sameJobFilter(asked, filter())) setCounts(answer);
   };
 
-  const changeFilter = (next: JobFilter, replace = false) => {
-    if (sameJobFilter(next, filter())) return;
-    setFilter(next);
-    props.onFilter?.(next, { replace });
-  };
-  const clearFilters = () => {
-    clearTimeout(searchTimer);
-    setSearch("");
-    changeFilter({ ...EMPTY_JOB_FILTER, sort: filter().sort });
-  };
-  const onSearchInput = (value: string) => {
-    setSearch(value);
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => changeFilter({ ...filter(), q: value.trim() }, true), 250);
-  };
-  const quickChoices = () => {
-    const active = activeJobQuickFilter(filter());
-    return JOB_QUICK_FILTERS.map((entry) => ({ id: entry.id, label: t(entry.label), active: entry.id === active?.id }));
-  };
-  /** A quick filter replaces the whole filter, search included, but keeps the order; the one in effect takes itself away again. */
-  const onQuick = (id: string) => {
-    const chosen = JOB_QUICK_FILTERS.find((entry) => entry.id === id);
-    if (!chosen) return;
-    clearTimeout(searchTimer);
-    setSearch("");
-    const next = activeJobQuickFilter(filter())?.id === id ? EMPTY_JOB_FILTER : chosen.filter;
-    changeFilter({ ...next, sort: filter().sort });
-  };
   const periodLibrary = periodLibraryFacets({ api: props.api, filter, counts: () => counts()?.facets ?? null, onChange: (next) => changeFilter(next) });
   const showHidden = () => {
     const known = counts();
     if (!known) return;
     const next = revealActive(filter(), known);
-    if (next.q !== filter().q) { clearTimeout(searchTimer); setSearch(next.q); }
-    changeFilter(next);
+    if (next.q !== filter().q) facet.replaceAll(next);
+    else changeFilter(next);
   };
   const facets = (): Facet[] => [
     { key: "status", title: t("Status"), logic: "or", options: JOB_STATUSES.map((entry) => ({ value: entry.token, label: t(entry.label), urgent: entry.urgent })) },
@@ -214,14 +189,6 @@ export const ActivityPage: Component<{
     triggerFacet(),
     ...periodLibrary.facets(),
   ];
-  const facetValue = (): FilterValue => ({ status: filter().status, action: filter().action, trigger: filter().trigger ?? [], schedule: filter().schedule ?? [], ...periodLibrary.value() });
-  const onFacets = (value: FilterValue) => {
-    const { trigger: _trigger, schedule: _schedule, ...rest } = filter();
-    const next: JobFilter = { ...rest, status: [...(value.status ?? [])], action: [...(value.action ?? [])] };
-    if ((value.trigger?.length ?? 0) > 0) next.trigger = [...(value.trigger ?? [])];
-    if ((value.schedule?.length ?? 0) > 0) next.schedule = [...(value.schedule ?? [])];
-    changeFilter(periodLibrary.apply(value, next));
-  };
   /** Auslöser: by hand, retries and the group of every schedule, each schedule by name; a chosen one since deleted stays. */
   const triggerFacet = (): Facet => {
     const known = (counts()?.schedules ?? []).map((schedule) => ({ value: schedule.id, label: schedule.name }));
@@ -248,14 +215,6 @@ export const ActivityPage: Component<{
   });
   const isCurrent = (job: JobRow) => props.activeId === job.id || (!!props.activeId && openedFingerprint() === fingerprint(job));
 
-  // The address changed from outside (Back, a link): follow it, search field included.
-  createEffect(on(() => props.filter, (next) => {
-    const wanted = next ?? EMPTY_JOB_FILTER;
-    if (sameJobFilter(wanted, filter())) return;
-    clearTimeout(searchTimer);
-    setSearch(wanted.q);
-    setFilter(wanted);
-  }, { defer: true }));
   createEffect(on(filter, () => { void load(true); void refreshCounts(); }));
   const grouped = createMemo(() => partitionJobs(rows()));
   // Hidden active jobs keep the refresh going too, so the hint follows them.
@@ -341,15 +300,15 @@ export const ActivityPage: Component<{
           <FilterBar
             label={t("Filter jobs")}
             facets={facets()}
-            value={facetValue()}
+            value={facet.bar().value}
             counts={counts()?.facets ?? null}
             summary={summaryText()}
             countText={(count) => tn("{count} job", "{count} jobs", count)}
-            dirty={isJobFiltered(filter())}
-            onChange={onFacets}
-            onReset={clearFilters}
-            quick={quickChoices()}
-            onQuick={onQuick}
+            dirty={facet.bar().dirty}
+            onChange={facet.bar().onChange}
+            onReset={facet.bar().onReset}
+            quick={facet.bar().quick}
+            onQuick={facet.bar().onQuick}
             search={(
               <div class="search">
                 <Icon name="search" />
@@ -358,8 +317,8 @@ export const ActivityPage: Component<{
                   type="search"
                   placeholder={t("Search jobs")}
                   aria-label={t("Search jobs")}
-                  value={search()}
-                  onInput={(event) => onSearchInput(event.currentTarget.value)}
+                  value={facet.search()}
+                  onInput={(event) => facet.onSearchInput(event.currentTarget.value)}
                 />
               </div>
             )}
@@ -380,7 +339,7 @@ export const ActivityPage: Component<{
                 <Show when={phase() === "error"}>
                   <Button onClick={() => void load(true)}>{t("Retry")}</Button>
                   {/* A link with a filter the server refuses fails every time; resetting gets out of it. */}
-                  <Show when={isJobFiltered(filter())}><Button variant="quiet" onClick={clearFilters}>{t("Reset filters")}</Button></Show>
+                  <Show when={isJobFiltered(filter())}><Button variant="quiet" onClick={facet.reset}>{t("Reset filters")}</Button></Show>
                 </Show>
               </div>
             }>
@@ -392,7 +351,7 @@ export const ActivityPage: Component<{
               </Show>
               <Show when={rows().length > 0} fallback={(
                 <Show when={noJobsYet()} fallback={(
-                  <NoMatches title={t("No jobs match the current filters")} facets={facets()} value={facetValue()} search={filter().q} onReset={clearFilters} />
+                  <NoMatches title={t("No jobs match the current filters")} facets={facets()} value={facet.bar().value} search={filter().q} onReset={facet.reset} />
                 )}>
                   <div class="empty"><b>{t("No jobs yet")}</b>{t("Select a file in Files and press V to verify it, or F to preview preparing it. The job shows up here.")}</div>
                 </Show>

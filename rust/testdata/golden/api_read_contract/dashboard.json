@@ -1,0 +1,33 @@
+{
+  "expected": {
+    "body": {
+      "data": {
+        "convert": 0,
+        "converted": 0,
+        "delete_original": false,
+        "embed": 0,
+        "encode_audio": 0,
+        "encode_video": 0,
+        "files": {
+          "clean": 1
+        },
+        "jobs": {
+          "queued": 1
+        },
+        "missing": 0,
+        "scans": {
+          "succeeded": 1
+        }
+      },
+      "meta": {}
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "method": "GET",
+    "origin": "http://testserver",
+    "path": "/api/v1/dashboard"
+  },
+  "name": "dashboard"
+}

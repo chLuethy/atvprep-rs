@@ -2,6 +2,7 @@
 use atvprep_api::{
     auth::AuthService, config::ManagerConfig, opaque::Opaque, router, state::AppState,
 };
+use atvprep_fixtures::{Fixtures, Verdict};
 use atvprep_manager::{db::Db, repo::Ctx, schema};
 use axum::{
     body::{Body, to_bytes},
@@ -56,36 +57,53 @@ impl Api {
 /// One job per job status, named after it by its only file; `prepare` is stored under its former
 /// names. A cleared job never shows.
 fn api() -> Api {
-    api_with("")
+    api_with(|_| {})
 }
 
-/// The fixture of [`api`] plus `extra` SQL run after it.
-fn api_with(extra: &str) -> Api {
+/// The fixture of [`api`] plus what `extra` lays down after it, in the library of the files.
+fn api_with(extra: impl FnOnce(&Fixtures<'_>)) -> Api {
     let db = Db::memory().unwrap();
     let mut conn = db.conn().unwrap();
     schema::migrate(&mut conn).unwrap();
-    conn.raw()
-        .execute_batch(
-            "INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/library');
-             INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES
-               (1,1,'Films/Queued.mkv','video','.mkv',1,1,'f1','present','clean','idle','none'),
-               (2,1,'Films/Running.mkv','video','.mkv',1,1,'f2','present','clean','idle','none'),
-               (3,1,'Shows/Cancelling.mkv','video','.mkv',1,1,'f3','present','clean','idle','none'),
-               (4,1,'Shows/Succeeded.mkv','video','.mkv',1,1,'f4','present','clean','idle','none'),
-               (5,1,'Films/Partly.mkv','video','.mkv',1,1,'f5','present','clean','idle','none'),
-               (6,1,'Films/Failed_1.mkv','video','.mkv',1,1,'f6','present','clean','idle','none'),
-               (7,1,'Films/Cancelled.mkv','video','.mkv',1,1,'f7','present','clean','idle','none'),
-               (8,1,'Films/Cleared.mkv','video','.mkv',1,1,'f8','present','clean','idle','none');
-             INSERT INTO jobs(id,action,status) VALUES
-               (1,'verify','queued'),(2,'fix','running'),(3,'inspect','cancel_requested'),(4,'verify','succeeded'),
-               (5,'convert','partial_success'),(6,'fix','failed'),(7,'verify','cancelled'),(8,'verify','succeeded');
-             INSERT INTO job_items(job_id,media_file_id,action,position,status) VALUES
-               (1,1,'verify',0,'queued'),(2,2,'fix',0,'running'),(3,3,'inspect',0,'running'),(4,4,'verify',0,'succeeded'),
-               (5,5,'convert',0,'failed'),(6,6,'fix',0,'failed'),(7,7,'verify',0,'cancelled'),(8,8,'verify',0,'succeeded');
-             UPDATE jobs SET cleared_at='2026-01-01' WHERE id=8;",
-        )
-        .unwrap();
-    conn.raw().execute_batch(extra).unwrap();
+    {
+        let fx = Fixtures::new(conn.raw());
+        let root = fx.library_at("Movies", "/library");
+        let file = |name: &str| {
+            fx.file(root, name)
+                .fingerprint(name)
+                .verdict(Verdict::Clean)
+                .create()
+        };
+        let queued = file("Films/Queued.mkv");
+        let running = file("Films/Running.mkv");
+        let cancelling = file("Shows/Cancelling.mkv");
+        let succeeded = file("Shows/Succeeded.mkv");
+        let partly = file("Films/Partly.mkv");
+        let failed = file("Films/Failed_1.mkv");
+        let cancelled = file("Films/Cancelled.mkv");
+        let cleared = file("Films/Cleared.mkv");
+        let _ = fx.job("verify", &[queued]).create();
+        let _ = fx.job("fix", &[running]).status("running").create();
+        let _ = fx
+            .job("inspect", &[cancelling])
+            .status("cancel_requested")
+            .item_status("running")
+            .create();
+        let _ = fx.job("verify", &[succeeded]).status("succeeded").create();
+        let _ = fx
+            .job("convert", &[partly])
+            .status("partial_success")
+            .item_status("failed")
+            .create();
+        let _ = fx.job("fix", &[failed]).status("failed").create();
+        let _ = fx.job("verify", &[cancelled]).status("cancelled").create();
+        let _ = fx
+            .job("verify", &[cleared])
+            .status("succeeded")
+            .cleared_at("2026-01-01 00:00:00")
+            .create();
+        extra(&fx);
+    }
     let state = AppState::new(
         db,
         ManagerConfig {
@@ -167,6 +185,32 @@ async fn action_takes_a_list_and_prepare_covers_the_former_names() {
 }
 
 #[tokio::test]
+async fn a_row_stored_as_prepare_is_listed_with_fix_and_convert() {
+    // The stored form `prepare` is a historical row the repositories no longer write (ADR 0008), so
+    // the one place that may lay it down is raw SQL.
+    let api = api_with(|fx| {
+        fx.sql("PRAGMA ignore_check_constraints=ON; UPDATE jobs SET action='prepare' WHERE id=6;");
+    });
+    let subjects = api.subjects("order=asc&action=prepare").await;
+    assert_eq!(
+        subjects,
+        [
+            "Films/Running.mkv",
+            "Films/Partly.mkv",
+            "Films/Failed_1.mkv"
+        ]
+    );
+    let body = api.get("/api/v1/jobs?order=asc&action=prepare").await;
+    assert!(
+        body["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|job| job["action"] == "prepare")
+    );
+}
+
+#[tokio::test]
 async fn exclude_status_still_leaves_one_status_out() {
     let api = api();
     let shown = api.subjects("exclude_status=cancelled").await;
@@ -187,17 +231,27 @@ async fn search_matches_the_subject_case_insensitively_and_literally() {
 }
 
 /// A job of three files whose search hits a later item, listed next to the fixture's jobs.
-const BATCH: &str = "INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES
-       (9,1,'Batch/First.mkv','video','.mkv',1,1,'f9','present','clean','idle','none'),
-       (10,1,'Batch/Hundredth Episode.mkv','video','.mkv',1,1,'f10','present','clean','idle','none'),
-       (11,1,'Batch/Hundredth Extra.mkv','video','.mkv',1,1,'f11','present','clean','idle','none');
-     INSERT INTO jobs(id,action,status) VALUES (9,'verify','succeeded');
-     INSERT INTO job_items(job_id,media_file_id,action,position,status) VALUES
-       (9,9,'verify',0,'succeeded'),(9,11,'verify',2,'succeeded'),(9,10,'verify',1,'succeeded');";
+fn batch(fx: &Fixtures<'_>) {
+    let root = 1;
+    let files: Vec<i64> = [
+        "Batch/First.mkv",
+        "Batch/Hundredth Episode.mkv",
+        "Batch/Hundredth Extra.mkv",
+    ]
+    .iter()
+    .map(|name| {
+        fx.file(root, name)
+            .fingerprint(name)
+            .verdict(Verdict::Clean)
+            .create()
+    })
+    .collect();
+    let _ = fx.job("verify", &files).status("succeeded").create();
+}
 
 #[tokio::test]
 async fn search_finds_a_job_by_any_of_its_items_once() {
-    let api = api_with(BATCH);
+    let api = api_with(batch);
     let body = api.get("/api/v1/jobs?q=hundredth").await;
     let jobs = body["data"].as_array().unwrap();
     // Two items match, the job shows once; the row names the first matching item in job order.

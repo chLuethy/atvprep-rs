@@ -454,3 +454,116 @@ mod tests {
         assert!(!arguments.to_string().contains("/private"));
     }
 }
+
+#[cfg(test)]
+mod http_tests {
+    use crate::router;
+    use crate::routes_auth;
+    use crate::test_support::state;
+    use axum::body::to_bytes;
+    use axum::http::StatusCode;
+    use axum::http::header;
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn settings_mutations_are_revisioned_idempotent_and_audited() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        let auth = routes_auth::service(&state, &conn).unwrap();
+        let session = auth.create().unwrap();
+        let patch_csrf = auth
+            .issue_csrf(&session.token, "PATCH", "/api/v1/settings", "settings")
+            .unwrap();
+        let put_csrf = auth
+            .issue_csrf(
+                &session.token,
+                "PUT",
+                "/api/v1/settings/max_probe_workers",
+                "settings",
+            )
+            .unwrap();
+        let app = router(state.clone());
+        let request = |method: axum::http::Method,
+                       path: &str,
+                       csrf: &str,
+                       key: &str,
+                       body: serde_json::Value| {
+            axum::http::Request::builder()
+                .method(method)
+                .uri(path)
+                .header("origin", "http://localhost")
+                .header(
+                    "cookie",
+                    format!("__Host-atvprep_session={}", session.token),
+                )
+                .header("x-csrf-token", csrf)
+                .header("idempotency-key", key)
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(body.to_string()))
+                .unwrap()
+        };
+        let patch_body = serde_json::json!({"settings":{"scan_interval_seconds":600,"delete_original":true},"expected_revision":0});
+        let response = app
+            .clone()
+            .oneshot(request(
+                axum::http::Method::PATCH,
+                "/api/v1/settings",
+                &patch_csrf,
+                "patch",
+                patch_body.clone(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let first = to_bytes(response.into_body(), 65536).await.unwrap();
+        let replay = app
+            .clone()
+            .oneshot(request(
+                axum::http::Method::PATCH,
+                "/api/v1/settings",
+                &patch_csrf,
+                "patch",
+                patch_body,
+            ))
+            .await
+            .unwrap();
+        assert_eq!(first, to_bytes(replay.into_body(), 65536).await.unwrap());
+        let body = serde_json::json!({"value":4});
+        let mut put = request(
+            axum::http::Method::PUT,
+            "/api/v1/settings/max_probe_workers",
+            &put_csrf,
+            "put",
+            body,
+        );
+        put.headers_mut()
+            .insert(header::IF_MATCH, "\"1\"".parse().unwrap());
+        let response = app.clone().oneshot(put).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let counts = || {
+            conn.raw().query_row("SELECT (SELECT revision FROM settings_revision WHERE id=1),(SELECT count(*) FROM settings_audit)", [], |row| Ok((row.get::<_,i64>(0)?,row.get::<_,i64>(1)?))).unwrap()
+        };
+        assert_eq!(counts(), (2, 3));
+        let csrf = auth
+            .issue_csrf(
+                &session.token,
+                "PUT",
+                "/api/v1/settings/max_probe_workers",
+                "settings",
+            )
+            .unwrap();
+        let conflict = app
+            .oneshot(request(
+                axum::http::Method::PUT,
+                "/api/v1/settings/max_probe_workers",
+                &csrf,
+                "stale",
+                serde_json::json!({"value":5,"expected_revision":0}),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(conflict.status(), StatusCode::CONFLICT);
+        assert_eq!(counts(), (2, 3));
+    }
+}

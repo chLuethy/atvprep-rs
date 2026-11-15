@@ -4,6 +4,7 @@
 use atvprep_api::{
     auth::AuthService, config::ManagerConfig, opaque::Opaque, router, state::AppState,
 };
+use atvprep_fixtures::{Fixtures, Verdict};
 use atvprep_manager::{db::Db, repo::Ctx, schema};
 use axum::{
     body::{Body, to_bytes},
@@ -77,18 +78,33 @@ fn api() -> Api {
     let db = Db::memory().unwrap();
     let mut conn = db.conn().unwrap();
     schema::migrate(&mut conn).unwrap();
-    conn.raw()
-        .execute_batch(
-            "INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/movies'),(2,'Shows','/shows'),(3,'Empty','/empty');
-             INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES
-               (1,1,'a.mp4','video','.mp4',1,1,'f1','present','clean','idle','none'),
-               (2,1,'b.mkv','video','.mkv',1,1,'f2','present','warning','idle','none'),
-               (3,1,'Sub/c.mkv','video','.mkv',1,1,'f3','present','blocker','idle','none'),
-               (4,2,'d.avi','video','.avi',1,1,'f4','present','warning','idle','none'),
-               (5,2,'e.mp4','video','.mp4',1,1,'f5','present','unknown','idle','none');
-             INSERT INTO sidecars(media_file_id,relative_path,fingerprint) VALUES (2,'b.de.srt','x'),(4,'d.en.srt','y');",
-        )
-        .unwrap();
+    let fx = Fixtures::new(conn.raw());
+    let movies = fx.library("Movies");
+    let shows = fx.library("Shows");
+    let _ = fx.library("Empty");
+    let _ = fx
+        .file(movies, "a.mp4")
+        .fingerprint("f1")
+        .verdict(Verdict::Clean)
+        .create();
+    let b = fx
+        .file(movies, "b.mkv")
+        .fingerprint("f2")
+        .verdict(Verdict::Warning)
+        .create();
+    let _ = fx
+        .file(movies, "Sub/c.mkv")
+        .fingerprint("f3")
+        .verdict(Verdict::Blocker)
+        .create();
+    let d = fx
+        .file(shows, "d.avi")
+        .fingerprint("f4")
+        .verdict(Verdict::Warning)
+        .create();
+    let _ = fx.file(shows, "e.mp4").fingerprint("f5").create();
+    let _ = fx.sidecar(b, "b.de.srt", "x");
+    let _ = fx.sidecar(d, "d.en.srt", "y");
     let state = AppState::new(
         db,
         ManagerConfig {
@@ -253,4 +269,18 @@ async fn the_column_view_takes_the_same_facets_and_hides_empty_folders() {
         .await;
     assert_eq!(below["data"]["files"].as_array().unwrap().len(), 1);
     assert_eq!(api.request("/api/v1/browse?has_sidecar=maybe").await.0, 422);
+}
+
+#[tokio::test]
+async fn invalid_input_is_refused_before_an_unknown_library_is_missing_on_the_file_list() {
+    // As before the facet engine: every invalid value (a facet token, the date) answers 422 first.
+    let api = api();
+    for path in [
+        "/api/v1/files?root_id=nonsense&status=nonsense",
+        "/api/v1/files?root_id=nonsense&last_seen_from=yesterday",
+        "/api/v1/files?root_id=nonsense&last_seen_to=yesterday",
+        "/api/v1/files?last_seen_from=yesterday",
+    ] {
+        assert_eq!(api.request(path).await.0, 422, "{path}");
+    }
 }

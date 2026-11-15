@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { blockerVerdict, expectedChanges, fixesAnything, summarizeChanges } from "../src/features/files/fixPlan";
 import { parseReason } from "../src/features/files/model";
+import type { PlanStep } from "../src/features/files/planSteps";
 
 const changes = (...reasons: string[]) => expectedChanges(reasons.map(parseReason));
+const withSteps = (reasons: string[], steps: PlanStep[]) => expectedChanges(reasons.map(parseReason), steps);
+const rate = (stream: number, from_codec: string, from_hz: number, to_codec: string): PlanStep => ({ kind: "sample_rate", stream, from_codec, to_codec, from_hz, to_hz: 48000 });
 
 describe("expectedChanges: what a fix does for each verify reason", () => {
   it("patches header-level rules without re-encoding", () => {
@@ -56,14 +59,15 @@ describe("expectedChanges: what a fix does for each verify reason", () => {
   });
 
   it("takes the encoding for a sample rate from the planner, in its words", () => {
-    expect(changes(
-      "[warning] audio-sample-rate: ac-3 track id=2 sample rate 44100Hz (expected 48000)",
-      "[warning] audio-sample-rate: mp4a track id=4 sample rate 32000Hz (expected 44100 or 48000)",
-      "[plan] audio stream #1 ac3 44100Hz -> eac3 48000Hz",
-      "[plan] audio stream #3 aac 32000Hz -> aac 48000Hz",
+    expect(withSteps(
+      [
+        "[warning] audio-sample-rate: ac-3 track id=2 sample rate 44100Hz (expected 48000)",
+        "[warning] audio-sample-rate: mp4a track id=4 sample rate 32000Hz (expected 44100 or 48000)",
+      ],
+      [rate(1, "ac3", 44100, "eac3"), rate(3, "aac", 32000, "aac")],
     )).toEqual([
-      { kind: "encode", rule: "audio-sample-rate", text: "AC-3 44.1 kHz → EAC3 48 kHz" },
-      { kind: "encode", rule: "audio-sample-rate", text: "AAC 32 kHz → AAC 48 kHz" },
+      { kind: "audio", rule: "audio-sample-rate", text: "AC-3 44.1 kHz → EAC3 48 kHz" },
+      { kind: "audio", rule: "audio-sample-rate", text: "AAC 32 kHz → AAC 48 kHz" },
     ]);
   });
 
@@ -74,10 +78,14 @@ describe("expectedChanges: what a fix does for each verify reason", () => {
     expect(finding?.text).not.toMatch(/EAC3|48 kHz/);
   });
 
-  it("shows a planner step it cannot read in its own words", () => {
-    expect(changes("[plan] audio stream #1 opus 44100Hz needs something else")).toEqual([
-      { kind: "encode", rule: "audio-sample-rate", text: "audio stream #1 opus 44100Hz needs something else" },
+  it("shows a planner step stored as text in its own words", () => {
+    expect(withSteps([], [{ kind: "text", text: "audio stream #1 opus 44100Hz needs something else" }])).toEqual([
+      { kind: "audio", rule: "audio-sample-rate", text: "audio stream #1 opus 44100Hz needs something else" },
     ]);
+  });
+
+  it("names a planner step of a kind it does not know", () => {
+    expect(withSteps([], [{ kind: "loudness_norm" }])).toEqual([{ kind: "unknown", rule: null, text: "Planned step: loudness_norm" }]);
   });
 
   it("does not claim to know a rule it has never seen", () => {
@@ -115,11 +123,11 @@ describe("expectedChanges: new and corrected mappings", () => {
 describe("expectedChanges: what Prepare adds", () => {
   it("adds a stereo track, drops a duplicate audio track and re-encodes a video that has to be", () => {
     expect(changes("[warning] stereo-twin: 1 language has surround only")[0])
-      .toEqual({ kind: "encode", rule: "stereo-twin", text: "Add an AAC stereo track for the surround-only language" });
+      .toEqual({ kind: "audio", rule: "stereo-twin", text: "Add an AAC stereo track for the surround-only language" });
     expect(changes("[warning] duplicate-audio: two identical tracks")[0])
       .toEqual({ kind: "remux", rule: "duplicate-audio", text: "Drop the duplicate audio track" });
     expect(changes("[blocker] video-reencode: the video needs a re-encode")[0])
-      .toEqual({ kind: "encode", rule: "video-reencode", text: "Re-encode the video to HEVC (lossy, needs confirmation)" });
+      .toEqual({ kind: "reencode", rule: "video-reencode", text: "Re-encode the video to HEVC (lossy, needs confirmation)" });
   });
 
   it("reports a needed re-encode in the summary and counts it as resolved by Prepare", () => {
@@ -170,7 +178,7 @@ describe("summarizeChanges", () => {
 });
 
 describe("fixesAnything", () => {
-  const base = { compliance_state: "warning", desired_action: "fix" };
+  const base = { state: "warning" };
 
   it("is true when at least one reason is something a fix resolves", () => {
     expect(fixesAnything({ ...base, compliance_reasons: ["[warning] apple-tags: 1 track lacks an elng tag", "[warning] audio-sample-rate: 96 kHz"] })).toBe(true);
@@ -189,11 +197,11 @@ describe("fixesAnything", () => {
 
 describe("external subtitles make a file fixable", () => {
   it("offers a fix for a file with nothing to repair when a subtitle file is waiting to be merged", () => {
-    expect(fixesAnything({ compliance_reasons: [], pending_sidecars: 1 })).toBe(true);
-    expect(fixesAnything({ compliance_reasons: ["[warning] apple-tags: 4 tracks lack an elng tag"], pending_sidecars: 0 })).toBe(true);
+    expect(fixesAnything({ state: "embed_open", compliance_reasons: [] })).toBe(true);
+    expect(fixesAnything({ state: "warning", compliance_reasons: ["[warning] apple-tags: 4 tracks lack an elng tag"] })).toBe(true);
   });
 
   it("still refuses a fix that only has unfixable findings and no subtitle to merge", () => {
-    expect(fixesAnything({ compliance_reasons: ["[blocker] avc-level-atv-limit: level 5.2"], pending_sidecars: 0 })).toBe(false);
+    expect(fixesAnything({ state: "blocker", compliance_reasons: ["[blocker] avc-level-atv-limit: level 5.2"] })).toBe(false);
   });
 });

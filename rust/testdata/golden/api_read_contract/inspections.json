@@ -1,0 +1,40 @@
+{
+  "expected": {
+    "body": {
+      "data": [
+        {
+          "created_at": "<ts>",
+          "id": "<n:1>",
+          "media_id": "<m:1>",
+          "result": {
+            "nested": [
+              {
+                "password": "<redacted>"
+              }
+            ],
+            "ok": true,
+            "path": "<path>"
+          },
+          "tool_name": "ffprobe",
+          "tool_version": "1"
+        }
+      ],
+      "meta": {
+        "current_cursor": null,
+        "current_sequence": null,
+        "facets": {},
+        "limit": 50,
+        "next_cursor": null,
+        "truncated": false
+      }
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "method": "GET",
+    "origin": "http://testserver",
+    "path": "/api/v1/files/<m:1>/inspections"
+  },
+  "name": "inspections"
+}

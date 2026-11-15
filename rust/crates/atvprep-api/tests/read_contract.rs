@@ -259,91 +259,244 @@ fn issue_fixture_tokens(
     ]
 }
 
-#[tokio::test]
-#[allow(clippy::too_many_lines)] // The oracle cases share one initialized database and session.
-async fn read_routes_match_recorded_python_responses() {
-    let db = Db::memory().unwrap();
-    let mut conn = db.conn().unwrap();
-    schema::migrate(&mut conn).unwrap();
-    seed::apply(conn.raw());
-    let config = ManagerConfig {
-        api_secret: Some(SECRET.to_owned()),
-        allowed_origins: vec!["http://testserver".to_owned()],
-        ..ManagerConfig::default()
-    };
-    let state = AppState::new(db, config).unwrap();
-    let auth = AuthService::with_csrf_ttl(
-        Ctx {
-            conn: conn.raw(),
-            clock: state.clock.as_ref(),
-        },
-        28_800,
-        3_600,
-        900,
-    )
-    .unwrap();
-    let session = auth.create().unwrap();
-    let opaque = Opaque::new(SECRET);
-    let schedule = opaque.encode("sc", 1);
-    let media = opaque.encode("m", 1);
-    let [
-        settings_patch_csrf,
-        settings_put_csrf,
-        csrf,
-        update_csrf,
-        run_csrf,
-        delete_csrf,
-        scan_csrf,
-        dismiss_csrf,
-        inspect_csrf,
-        clear_csrf,
-    ] = issue_fixture_tokens(&auth, &session.token, &schedule, &media);
-    let job = opaque.encode("j", 1);
-    let item = opaque.encode("i", 1);
-    let app = router(state.clone());
-    let tokens = FixtureTokens {
-        create: &csrf,
-        update: &update_csrf,
-        run: &run_csrf,
-        delete: &delete_csrf,
-        session: &session.token,
-        settings_patch: &settings_patch_csrf,
-        settings_put: &settings_put_csrf,
-        scan: &scan_csrf,
-        dismiss: &dismiss_csrf,
-        inspect: &inspect_csrf,
-        clear: &clear_csrf,
-    };
-    let fixture: Value = serde_json::from_str(include_str!(
-        "../../../testdata/golden/api_read_contract.json"
-    ))
-    .unwrap();
-    for case in fixture["cases"].as_array().unwrap() {
-        let name = case["name"].as_str().unwrap();
-        let path = fixture_path(name, &job, &item, &media, &schedule);
-        let request = fixture_request(name, path, &tokens);
-        let response = app.clone().oneshot(request).await.unwrap();
+/// A fresh seeded database with a session and one CSRF token per mutating call of the contract.
+struct Contract {
+    conn: atvprep_manager::db::Conn,
+    app: axum::Router,
+    state: AppState,
+    opaque: Opaque,
+    session: String,
+    tokens: [String; 10],
+    job: String,
+    item: String,
+    media: String,
+    schedule: String,
+}
+
+impl Contract {
+    fn new() -> Self {
+        let db = Db::memory().unwrap();
+        let mut conn = db.conn().unwrap();
+        schema::migrate(&mut conn).unwrap();
+        seed::apply(conn.raw());
+        let config = ManagerConfig {
+            api_secret: Some(SECRET.to_owned()),
+            allowed_origins: vec!["http://testserver".to_owned()],
+            ..ManagerConfig::default()
+        };
+        let state = AppState::new(db, config).unwrap();
+        let auth = AuthService::with_csrf_ttl(
+            Ctx {
+                conn: conn.raw(),
+                clock: state.clock.as_ref(),
+            },
+            28_800,
+            3_600,
+            900,
+        )
+        .unwrap();
+        let session = auth.create().unwrap().token;
+        let opaque = Opaque::new(SECRET);
+        let schedule = opaque.encode("sc", 1);
+        let media = opaque.encode("m", 1);
+        let tokens = issue_fixture_tokens(&auth, &session, &schedule, &media);
+        Self {
+            job: opaque.encode("j", 1),
+            item: opaque.encode("i", 1),
+            app: router(state.clone()),
+            state,
+            conn,
+            opaque,
+            session,
+            tokens,
+            media,
+            schedule,
+        }
+    }
+
+    fn auth(&self) -> AuthService<'_> {
+        AuthService::with_csrf_ttl(
+            Ctx {
+                conn: self.conn.raw(),
+                clock: self.state.clock.as_ref(),
+            },
+            28_800,
+            3_600,
+            900,
+        )
+        .unwrap()
+    }
+
+    fn request(&self, name: &str, path: String) -> Request<Body> {
+        let [
+            settings_patch,
+            settings_put,
+            create,
+            update,
+            run,
+            delete,
+            scan,
+            dismiss,
+            inspect,
+            clear,
+        ] = &self.tokens;
+        fixture_request(
+            name,
+            path,
+            &FixtureTokens {
+                create,
+                update,
+                run,
+                delete,
+                session: &self.session,
+                settings_patch,
+                settings_put,
+                scan,
+                dismiss,
+                inspect,
+                clear,
+            },
+        )
+    }
+
+    /// Run one recorded case against the current state and compare it with the recording.
+    async fn run(&self, name: &str, recorded: &str) {
+        let case: Value = serde_json::from_str(recorded).unwrap();
+        assert_eq!(case["name"], name, "the file records another case");
+        let path = fixture_path(name, &self.job, &self.item, &self.media, &self.schedule);
+        let response = self
+            .app
+            .clone()
+            .oneshot(self.request(name, path))
+            .await
+            .unwrap();
         let status = response.status().as_u16();
         let mut body: Value =
             serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
-        normalise(&mut body, "", &opaque);
+        normalise(&mut body, "", &self.opaque);
         assert_eq!(
             json!({"status":status,"body":body}),
             case["expected"],
             "case {name}"
         );
     }
-    let replay = app
-        .clone()
-        .oneshot(fixture_request(
-            "scan_create",
-            "/api/v1/scans".to_owned(),
-            &tokens,
-        ))
-        .await
-        .unwrap();
-    assert_eq!(replay.status(), 201);
-    let queued: i64 = conn
+
+    fn cookie(&self) -> String {
+        format!("__Host-atvprep_session={}", self.session)
+    }
+}
+
+/// One test per recorded route, each on its own seeded database, so one changed response shape
+/// breaks one test. The recordings live in `testdata/golden/api_read_contract/<case>.json`.
+macro_rules! recorded_cases {
+    ($($name:ident),+ $(,)?) => {$(
+        #[tokio::test]
+        async fn $name() {
+            Contract::new()
+                .run(
+                    stringify!($name),
+                    include_str!(concat!(
+                        "../../../testdata/golden/api_read_contract/",
+                        stringify!($name),
+                        ".json"
+                    )),
+                )
+                .await;
+        }
+    )+};
+}
+
+/// Recorded cases that continue each other's state, on one database in this order.
+macro_rules! recorded_flow {
+    ($test:ident: $($name:ident),+) => {
+        #[tokio::test]
+        async fn $test() {
+            let contract = Contract::new();
+            $(contract
+                .run(
+                    stringify!($name),
+                    include_str!(concat!(
+                        "../../../testdata/golden/api_read_contract/",
+                        stringify!($name),
+                        ".json"
+                    )),
+                )
+                .await;)+
+        }
+    };
+}
+
+mod recorded_reads {
+    use super::*;
+
+    recorded_cases!(
+        roots,
+        files,
+        browse,
+        browse_root,
+        browse_below,
+        scans,
+        jobs,
+        job_detail,
+        job_items,
+        item_log,
+        file_jobs,
+        file_detail,
+        sidecars,
+        inspections,
+        events,
+        job_events,
+        schedules,
+        settings,
+        deployment,
+        dashboard,
+        queue,
+        activity,
+    );
+}
+
+mod recorded_mutations {
+    use super::*;
+
+    recorded_cases!(
+        schedule_create,
+        schedule_delete,
+        scan_create,
+        dismiss_missing,
+        clear_jobs,
+    );
+
+    // These recordings continue each other's state: a run reports the update before it, the
+    // revision a put expects is the one the patch made, the audit lists both, and an inspection
+    // takes the next job number after the run.
+    recorded_flow!(
+        a_schedule_update_is_seen_by_its_run_and_the_next_job_continues_the_numbering:
+            schedule_update,
+            schedule_run,
+            inspect_file
+    );
+    recorded_flow!(
+        a_settings_patch_is_continued_by_a_put_and_listed_in_the_audit:
+            settings_patch,
+            settings_put,
+            settings_audit
+    );
+}
+
+#[tokio::test]
+async fn a_repeated_scan_request_shares_the_queued_scan() {
+    let contract = Contract::new();
+    for _ in 0..2 {
+        let response = contract
+            .app
+            .clone()
+            .oneshot(contract.request("scan_create", "/api/v1/scans".to_owned()))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 201);
+    }
+    let queued: i64 = contract
+        .conn
         .raw()
         .query_row(
             "SELECT count(*) FROM scan_runs WHERE trigger='manual' AND status='queued'",
@@ -352,14 +505,23 @@ async fn read_routes_match_recorded_python_responses() {
         )
         .unwrap();
     assert_eq!(queued, 1);
-    let inspect_path = format!("/api/v1/files/{media}/inspect");
-    let replay = app
-        .clone()
-        .oneshot(fixture_request("inspect_file", inspect_path, &tokens))
-        .await
-        .unwrap();
-    assert_eq!(replay.status(), 201);
-    let inspections: i64 = conn
+}
+
+#[tokio::test]
+async fn a_repeated_inspect_request_queues_one_job() {
+    let contract = Contract::new();
+    let path = format!("/api/v1/files/{}/inspect", contract.media);
+    for _ in 0..2 {
+        let response = contract
+            .app
+            .clone()
+            .oneshot(contract.request("inspect_file", path.clone()))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 201);
+    }
+    let inspections: i64 = contract
+        .conn
         .raw()
         .query_row(
             "SELECT count(*) FROM jobs WHERE action='inspect'",
@@ -368,44 +530,66 @@ async fn read_routes_match_recorded_python_responses() {
         )
         .unwrap();
     assert_eq!(inspections, 1);
-    conn.raw()
+}
+
+#[tokio::test]
+async fn maintenance_refuses_a_new_scan() {
+    let contract = Contract::new();
+    contract
+        .conn
+        .raw()
         .execute(
             "UPDATE deployment_gate SET mode='maintenance' WHERE id=1",
             [],
         )
         .unwrap();
-    let fresh = auth
-        .issue_csrf(&session.token, "POST", "/api/v1/scans", "scan")
+    let fresh = contract
+        .auth()
+        .issue_csrf(&contract.session, "POST", "/api/v1/scans", "scan")
         .unwrap();
-    let denied = app
+    let denied = contract
+        .app
         .clone()
         .oneshot(
             Request::post("/api/v1/scans")
                 .header("origin", "http://testserver")
-                .header(
-                    "cookie",
-                    format!("__Host-atvprep_session={}", session.token),
-                )
+                .header("cookie", contract.cookie())
                 .header("x-csrf-token", fresh)
                 .header("idempotency-key", "new-scan")
                 .header("content-type", "application/json")
                 .body(Body::from(
-                    json!({"root_id":opaque.encode("r",1)}).to_string(),
+                    json!({"root_id":contract.opaque.encode("r",1)}).to_string(),
                 ))
                 .unwrap(),
         )
         .await
         .unwrap();
     assert_eq!(denied.status(), 503);
-    conn.raw()
+}
+
+#[tokio::test]
+async fn dismissing_missing_files_works_in_maintenance_and_replays() {
+    let contract = Contract::new();
+    contract
+        .conn
+        .raw()
+        .execute(
+            "UPDATE deployment_gate SET mode='maintenance' WHERE id=1",
+            [],
+        )
+        .unwrap();
+    contract
+        .conn
+        .raw()
         .execute(
             "UPDATE media_files SET discovery_state='missing' WHERE id=1",
             [],
         )
         .unwrap();
-    let csrf = auth
+    let csrf = contract
+        .auth()
         .issue_csrf(
-            &session.token,
+            &contract.session,
             "POST",
             "/api/v1/files/dismiss-missing",
             "dismiss-missing",
@@ -414,25 +598,27 @@ async fn read_routes_match_recorded_python_responses() {
     let dismiss = || {
         Request::post("/api/v1/files/dismiss-missing")
             .header("origin", "http://testserver")
-            .header(
-                "cookie",
-                format!("__Host-atvprep_session={}", session.token),
-            )
+            .header("cookie", contract.cookie())
             .header("x-csrf-token", &csrf)
             .header("idempotency-key", "dismiss-during-maintenance")
             .body(Body::empty())
             .unwrap()
     };
-    let response = app.clone().oneshot(dismiss()).await.unwrap();
+    let response = contract.app.clone().oneshot(dismiss()).await.unwrap();
     assert_eq!(response.status(), 200);
     let body = to_bytes(response.into_body(), 65536).await.unwrap();
     assert_eq!(
         serde_json::from_slice::<Value>(&body).unwrap()["data"]["removed"],
         1
     );
-    let replay = app.clone().oneshot(dismiss()).await.unwrap();
+    let replay = contract.app.clone().oneshot(dismiss()).await.unwrap();
     assert_eq!(body, to_bytes(replay.into_body(), 65536).await.unwrap());
-    assert_missing_file(app, &opaque, &session.token).await;
+}
+
+#[tokio::test]
+async fn an_unknown_file_has_no_jobs() {
+    let contract = Contract::new();
+    assert_missing_file(contract.app.clone(), &contract.opaque, &contract.session).await;
 }
 
 #[tokio::test]

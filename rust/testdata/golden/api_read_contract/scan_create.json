@@ -1,0 +1,21 @@
+{
+  "expected": {
+    "body": {
+      "data": {
+        "id": "<s:2>",
+        "status": "queued"
+      }
+    },
+    "status": 201
+  },
+  "input": {
+    "authenticated": true,
+    "body_json": "{\"root_id\":\"<r:1>\"}",
+    "csrf_action": "scan",
+    "idempotency_key": "scan_create",
+    "method": "POST",
+    "origin": "http://testserver",
+    "path": "/api/v1/scans"
+  },
+  "name": "scan_create"
+}

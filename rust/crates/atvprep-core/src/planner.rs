@@ -10,6 +10,7 @@ use serde_json::Value;
 use crate::analyzers::{analyze_audio, analyze_subs, analyze_video};
 use crate::compliance::atoms::is_fragmented;
 use crate::constants::{IMAGE_SUB_CODECS, handler_name};
+use crate::encode::PlanStep;
 use crate::ffprobe::Ffprobe;
 use crate::ffprobe::Prober;
 use crate::models::{AudioAction, AudioTrack, Plan, SubAction, VideoAction, VideoInfo};
@@ -573,13 +574,16 @@ pub struct RateChange {
 }
 
 impl RateChange {
-    /// One planned step, as `verify` reports it: `audio stream #1 ac3 44100Hz -> eac3 48000Hz`.
+    /// The planned step `verify` reports for this change.
     #[must_use]
-    pub fn step(&self) -> String {
-        format!(
-            "audio stream #{} {} {}Hz -> {} {}Hz",
-            self.index, self.codec, self.sample_rate, self.target_codec, self.target_rate
-        )
+    pub fn step(&self) -> PlanStep {
+        PlanStep::SampleRate {
+            stream: self.index,
+            from_codec: self.codec.clone(),
+            to_codec: self.target_codec.clone(),
+            from_hz: self.sample_rate.trim().parse().unwrap_or_default(),
+            to_hz: self.target_rate,
+        }
     }
 }
 
