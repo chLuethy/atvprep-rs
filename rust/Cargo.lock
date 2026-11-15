@@ -124,6 +124,7 @@ name = "atvprep-manager"
 version = "0.6.0"
 dependencies = [
  "atvprep-core",
+ "atvprep-fixtures",
  "atvprep-testkit",
  "chrono",
  "chrono-tz",

@@ -22,3 +22,4 @@ workspace = true
 
 [dev-dependencies]
 atvprep-testkit = { path = "../atvprep-testkit" }
+atvprep-fixtures = { path = "../atvprep-fixtures" }

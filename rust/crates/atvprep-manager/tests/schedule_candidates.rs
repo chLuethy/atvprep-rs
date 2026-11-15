@@ -1,4 +1,5 @@
 //! The count a schedule shows and the files a run queues come from one selection.
+use atvprep_fixtures::{Fixtures, Verdict};
 use atvprep_manager::{
     clock::FixedClock,
     db::{Conn, Db},
@@ -15,24 +16,30 @@ const NOW: i64 = 1_700_000_000_000_000;
 fn seed(db: &Db) -> Conn {
     let mut conn = db.conn().unwrap();
     schema::migrate(&mut conn).unwrap();
-    conn.raw()
-        .execute_batch(
-            "INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'a','/a'),(2,'b','/b');
-             INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action,encode_need) VALUES
-             (1,1,'none.mp4','video','.mp4',1,1,'1','present','warning','idle','none','none'),
-             (2,1,'audio.mp4','video','.mp4',1,1,'2','present','warning','idle','none','audio'),
-             (3,1,'video.m4v','video','.m4v',1,1,'3','present','blocker','idle','none','video'),
-             (4,1,'clean.mp4','video','.mp4',1,1,'4','present','clean','idle','none','none'),
-             (5,1,'old.mkv','video','.mkv',1,1,'5','present','warning','idle','none','none'),
-             (6,1,'done.mkv','video','.mkv',1,1,'6','present','warning','idle','none','none'),
-             (7,1,'done.mp4','video','.mp4',1,1,'7','present','clean','idle','none','none'),
-             (8,1,'busy.mp4','video','.mp4',1,1,'8','present','warning','idle','none','none'),
-             (9,1,'gone.mp4','video','.mp4',1,1,'9','missing','warning','idle','none','none'),
-             (10,2,'other.mp4','video','.mp4',1,1,'10','present','warning','idle','none','none');
-             INSERT INTO jobs(id,action,status) VALUES(1,'fix','running');
-             INSERT INTO job_items(job_id,media_file_id,action,position,status) VALUES(1,8,'fix',0,'running');",
-        )
-        .unwrap();
+    {
+        let fx = Fixtures::new(conn.raw());
+        let a = fx.library_at("a", "/a");
+        let b = fx.library_at("b", "/b");
+        let file = |root: i64, name: &str, verdict: Verdict, need: &'static str| {
+            fx.file(root, name)
+                .fingerprint(&name.to_owned())
+                .verdict(verdict)
+                .encode(need, "none")
+        };
+        let _ = file(a, "none.mp4", Verdict::Warning, "none").create();
+        let _ = file(a, "audio.mp4", Verdict::Warning, "audio").create();
+        let _ = file(a, "video.m4v", Verdict::Blocker, "video").create();
+        let _ = file(a, "clean.mp4", Verdict::Clean, "none").create();
+        let _ = file(a, "old.mkv", Verdict::Warning, "none").create();
+        let _ = file(a, "done.mkv", Verdict::Warning, "none").create();
+        let _ = file(a, "done.mp4", Verdict::Clean, "none").create();
+        let busy = file(a, "busy.mp4", Verdict::Warning, "none").create();
+        let _ = file(a, "gone.mp4", Verdict::Warning, "none")
+            .missing()
+            .create();
+        let _ = file(b, "other.mp4", Verdict::Warning, "none").create();
+        let _ = fx.job("fix", &[busy]).status("running").create();
+    }
     conn
 }
 
@@ -44,14 +51,23 @@ fn schedule(
     encode: &str,
     max: i64,
 ) {
-    conn.raw().execute("DELETE FROM schedules", []).unwrap();
-    conn.raw()
-        .execute(
-            "INSERT INTO schedules(id,name,action,root_id,compliance_state,days_mask,time_of_day,max_files,enabled,armed_at,encode,approved_by,approved_at,approval_mac)
-             VALUES(1,'t',?1,?2,?3,127,'03:00',?4,0,'2000-01-01',?5,1,1700000000,?6)",
-            rusqlite::params![action, root, compliance, max, encode, "a".repeat(64)],
-        )
-        .unwrap();
+    let fx = Fixtures::new(conn.raw());
+    let mut schedule = fx
+        .schedule("t", action)
+        .days_mask(127)
+        .time_of_day("03:00")
+        .max_files(max)
+        .enabled(false)
+        .armed_at("2000-01-01")
+        .encode(encode)
+        .approved(1, 1_700_000_000, &"a".repeat(64));
+    if let Some(root) = root {
+        schedule = schedule.library(root);
+    }
+    if let Some(compliance) = compliance {
+        schedule = schedule.compliance_state(compliance);
+    }
+    let _ = schedule.create();
 }
 
 fn queued(conn: &Conn) -> Vec<i64> {

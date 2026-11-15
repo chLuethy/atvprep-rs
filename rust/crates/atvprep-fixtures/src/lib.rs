@@ -613,6 +613,21 @@ impl NewSchedule<'_, '_> {
         self.set("armed_at", stored_time.to_owned())
     }
 
+    /// The Kodierfreigabe (`copy`, `audio`, `all`) of a schedule that prepares.
+    #[must_use]
+    pub fn encode(self, allowance: &str) -> Self {
+        self.set("encode", allowance.to_owned())
+    }
+
+    /// The operator approved the schedule (`approved_by` at `approved_at`, in seconds) with a
+    /// signature of the form `mac`. The signature is not verified here.
+    #[must_use]
+    pub fn approved(self, by: i64, at: i64, mac: &str) -> Self {
+        self.set("approved_by", by)
+            .set("approved_at", at)
+            .set("approval_mac", mac.to_owned())
+    }
+
     /// Lay the schedule down. Returns its id.
     ///
     /// # Panics
