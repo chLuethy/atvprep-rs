@@ -71,37 +71,43 @@ struct ItemSeed<'a> {
 
 /// At most this many planned steps are kept on an item.
 pub const MAX_PLANNED_STEPS: usize = 32;
-/// At most this many bytes are kept of one planned step.
+/// At most this many bytes are kept of one planned step given as text.
 pub const MAX_PLANNED_STEP_BYTES: usize = 512;
 
+use crate::evaluate::StoredResult;
 use crate::prepare_snapshot::{PlannedChange, PrepareSnapshot, is_prepare, with_item};
+use atvprep_core::encode::PlanStep;
 
-fn bounded_step(step: &str) -> String {
-    let mut end = step.len().min(MAX_PLANNED_STEP_BYTES);
-    while !step.is_char_boundary(end) {
-        end -= 1;
-    }
-    step[..end].to_owned()
+/// A step of the planner's own is kept as it is; a step given as text is bounded.
+fn bounded_step(step: PlanStep) -> PlanStep {
+    step.map_text(|text| {
+        let mut end = text.len().min(MAX_PLANNED_STEP_BYTES);
+        while !text.is_char_boundary(end) {
+            end -= 1;
+        }
+        text[..end].to_owned()
+    })
 }
 
 fn planned_change(conn: &rusqlite::Connection, media: i64) -> Result<Option<PlannedChange>> {
-    let row: Option<(String, String, String, String)> = conn
+    let row: Option<(String, String, String, String, String)> = conn
         .query_row(
-            "SELECT planned_change, compliance_reasons, relative_path, fingerprint
+            "SELECT planned_change, compliance_reasons, planned_steps, relative_path, fingerprint
              FROM media_files WHERE id=?1",
             [media],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
         )
         .optional()?;
-    let Some((change, reasons, path, fingerprint)) = row else {
+    let Some((change, reasons, planned, path, fingerprint)) = row else {
         return Ok(None);
     };
-    let mut steps: Vec<String> = serde_json::from_str::<Value>(&reasons)
-        .ok()
-        .and_then(|value| value.as_array().cloned())
-        .unwrap_or_default()
-        .iter()
-        .filter_map(Value::as_str)
+    // The findings the item resolves come first, as text; then what the planner named.
+    let stored = StoredResult::read(&reasons, &planned);
+    let mut steps: Vec<PlanStep> = stored
+        .reasons
+        .into_iter()
+        .map(|text| PlanStep::Text { text })
+        .chain(stored.steps)
         .map(bounded_step)
         .collect();
     let pending = crate::embed::classify_media(conn, media, &path, &fingerprint)?
@@ -109,7 +115,9 @@ fn planned_change(conn: &rusqlite::Connection, media: i64) -> Result<Option<Plan
         .filter(|(_, _, _, state)| state == "pending")
         .count();
     if pending > 0 {
-        steps.push(format!("[embed] subtitles: {pending}"));
+        steps.push(PlanStep::Text {
+            text: format!("[embed] subtitles: {pending}"),
+        });
     }
     steps.truncate(MAX_PLANNED_STEPS);
     Ok(Some(PlannedChange { change, steps }))

@@ -1,11 +1,9 @@
+import { type EncodeNeed, type PlannedChange } from "../../lib/encode";
 import { N, t } from "../../lib/i18n";
 import { isMp4Like } from "./container";
+import type { PlanStep } from "./planSteps";
 import { fixesAnything } from "./fixPlan";
 
-/** The Kodierbedarf the server stored for a file; a value it has not sent yet counts as unknown. */
-export type EncodeNeed = "none" | "audio" | "video" | "unknown";
-/** The Änderungsart the server stored for a file. */
-export type PlannedChange = "none" | "patch" | "remux" | "audio" | "reencode" | "unknown";
 
 const NEED_LABEL: Record<EncodeNeed, string> = { none: N("No encoding"), audio: N("Audio"), video: N("Video"), unknown: N("Unknown") };
 const CHANGE_LABEL: Record<PlannedChange, string> = { none: N("Unchanged"), patch: N("Patch"), remux: N("Remux"), audio: N("Audio encoding"), reencode: N("Re-encode"), unknown: N("Unknown") };
@@ -68,6 +66,7 @@ export function preparable(file: {
   pending_sidecars?: number | undefined;
   fix_status?: string | null | undefined;
   encode_need?: EncodeNeed | undefined;
+  planned_steps?: ReadonlyArray<PlanStep> | undefined;
 }): boolean {
   if (file.discovery_state !== "present" || file.fix_status || file.converted_kept) return false;
   if (!isMp4Like(file.suffix)) return true;

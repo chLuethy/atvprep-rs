@@ -243,15 +243,23 @@ fn item_view(row: &rusqlite::Row<'_>, opaque: &Opaque) -> rusqlite::Result<((i64
     // Analysieren) keeps its shape.
     if let Some(planned) = queued.and_then(|queued| queued.planned) {
         row_json["planned_change"] = json!(safe_head(&planned.change, 32));
-        let steps: Vec<String> = planned
-            .steps
-            .iter()
-            .take(atvprep_manager::jobs::MAX_PLANNED_STEPS)
-            .map(|step| safe_head(step, atvprep_manager::jobs::MAX_PLANNED_STEP_BYTES))
-            .collect();
-        row_json["planned_steps"] = json!(steps);
+        row_json["planned_steps"] = json!(safe_steps(planned.steps));
     }
     Ok(((position, id), row_json))
+}
+
+/// Planned steps for the API: at most `MAX_PLANNED_STEPS` of them, a step given as text redacted
+/// and bounded. A step of the planner's own is data and goes out as it is.
+pub fn safe_steps(
+    steps: Vec<atvprep_core::encode::PlanStep>,
+) -> Vec<atvprep_core::encode::PlanStep> {
+    steps
+        .into_iter()
+        .take(atvprep_manager::jobs::MAX_PLANNED_STEPS)
+        .map(|step| {
+            step.map_text(|text| safe_head(&text, atvprep_manager::jobs::MAX_PLANNED_STEP_BYTES))
+        })
+        .collect()
 }
 
 /// List a job's items in position order with an authenticated composite cursor.
