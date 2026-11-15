@@ -721,6 +721,7 @@ mod http_tests {
     use crate::router;
     use crate::routes_auth;
     use crate::test_support::state;
+    use atvprep_fixtures::{Fixtures, Verdict};
     use axum::body::to_bytes;
     use axum::http::StatusCode;
     use axum::http::header;
@@ -733,7 +734,27 @@ mod http_tests {
         state.clock = Arc::new(atvprep_manager::clock::FixedClock(1_700_000_000_000_000));
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private'); INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES(1,1,'a.mp4','video','.mp4',1,1,'a','present','clean','idle','none'),(2,1,'b.mp4','video','.mp4',1,1,'b','present','clean','idle','none'),(3,1,'c.mkv','video','.mkv',1,1,'c','present','clean','idle','none'); INSERT INTO jobs(id,action,status) VALUES(1,'fix','running'); INSERT INTO job_items(job_id,media_file_id,action,position,status) VALUES(1,2,'fix',0,'running'); INSERT INTO schedules(id,name,action,root_id,days_mask,time_of_day,max_files,enabled) VALUES(1,'Weekly','verify',1,127,'23:59',25,1);").unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let root = fx.library_at("Movies", "/private");
+        let files: Vec<i64> = ["a.mp4", "b.mp4", "c.mkv"]
+            .iter()
+            .map(|path| {
+                fx.file(root, path)
+                    .fingerprint(&path[..1])
+                    .verdict(Verdict::Clean)
+                    .create()
+            })
+            .collect();
+        // b.mp4 is busy with a running Vorbereiten job, so the schedule does not count it.
+        let _ = fx.job("fix", &files[1..2]).status("running").create();
+        let _ = fx
+            .schedule("Weekly", "verify")
+            .library(root)
+            .days_mask(127)
+            .time_of_day("23:59")
+            .max_files(25)
+            .enabled(true)
+            .create();
         let session = routes_auth::service(&state, &conn)
             .unwrap()
             .create()
@@ -1042,12 +1063,10 @@ mod http_tests {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw()
-            .execute_batch(
-                "INSERT INTO schedules(id,name,action,days_mask,time_of_day,enabled) VALUES(1,'Nightly','verify',1,'12:30',1);
-                 INSERT INTO schedule_runs(schedule_id,slot,started_at,trigger,result,kind) VALUES(1,'2026-11-05 12:30:00.000000','2026-11-05 20:00:00.000000','scheduled','Missed: not started within 360 minutes of its slot','missed');",
-            )
-            .unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let _ = fx.schedule("Nightly", "verify").enabled(true).create();
+        // The run history has no repository to write it.
+        fx.sql("INSERT INTO schedule_runs(schedule_id,slot,started_at,trigger,result,kind) VALUES(1,'2026-11-05 12:30:00.000000','2026-11-05 20:00:00.000000','scheduled','Missed: not started within 360 minutes of its slot','missed');");
         let auth = routes_auth::service(&state, &conn).unwrap();
         let session = auth.create().unwrap();
         let request = axum::http::Request::builder()
@@ -1079,11 +1098,11 @@ mod http_tests {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw()
-            .execute_batch(
-                "INSERT INTO schedules(id,name,action,days_mask,time_of_day,max_files,enabled) VALUES(1,'Old prepare','prepare',1,'12:30',20,0);",
-            )
-            .unwrap();
+        let _ = Fixtures::new(conn.raw())
+            .schedule("Old prepare", "prepare")
+            .max_files(20)
+            .enabled(false)
+            .create();
         let auth = routes_auth::service(&state, &conn).unwrap();
         let session = auth.create().unwrap();
         let app = router(state.clone());
@@ -1240,7 +1259,15 @@ mod http_tests {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private'); INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES(1,1,'film.mp4','video','.mp4',1,1,'a','present','clean','idle','none'); INSERT INTO schedules(id,name,action,days_mask,time_of_day,enabled) VALUES(1,'Verify','verify',1,'12:30',1),(2,'Legacy','prepare',1,'12:30',0);").unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let root = fx.library_at("Movies", "/private");
+        let _ = fx
+            .file(root, "film.mp4")
+            .fingerprint("a")
+            .verdict(Verdict::Clean)
+            .create();
+        let _ = fx.schedule("Verify", "verify").enabled(true).create();
+        let _ = fx.schedule("Legacy", "prepare").enabled(false).create();
         let auth = routes_auth::service(&state, &conn).unwrap();
         let session = auth.create().unwrap();
         let opaque = crate::opaque::Opaque::new(state.api_secret.as_bytes());
@@ -1350,7 +1377,20 @@ mod http_tests {
         state.clock = Arc::new(atvprep_manager::clock::FixedClock(1_700_000_000_000_000));
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private'); INSERT INTO schedules(id,name,action,root_id,compliance_state,days_mask,time_of_day,enabled,armed_at) VALUES(1,'Old','verify',1,'clean',1,'12:30',0,'2020-01-01 00:00:00'),(2,'Legacy','prepare',NULL,NULL,1,'12:30',0,'2020-01-01 00:00:00');").unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let root = fx.library_at("Movies", "/private");
+        let _ = fx
+            .schedule("Old", "verify")
+            .library(root)
+            .compliance_state("clean")
+            .enabled(false)
+            .armed_at("2020-01-01 00:00:00")
+            .create();
+        let _ = fx
+            .schedule("Legacy", "prepare")
+            .enabled(false)
+            .armed_at("2020-01-01 00:00:00")
+            .create();
         let auth = routes_auth::service(&state, &conn).unwrap();
         let session = auth.create().unwrap();
         let opaque = crate::opaque::Opaque::new(state.api_secret.as_bytes());
@@ -1427,7 +1467,10 @@ mod http_tests {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private'),(2,'Shows','/shows'); INSERT INTO schedules(id,name,action,days_mask,time_of_day,enabled) VALUES(1,'Old repair','prepare',1,'12:30',0);").unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let _ = fx.library_at("Movies", "/private");
+        let _ = fx.library_at("Shows", "/shows");
+        let _ = fx.schedule("Old repair", "prepare").enabled(false).create();
         let auth = routes_auth::service(&state, &conn).unwrap();
         let session = auth.create().unwrap();
         let opaque = crate::opaque::Opaque::new(state.api_secret.as_bytes());

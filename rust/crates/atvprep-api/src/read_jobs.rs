@@ -557,6 +557,7 @@ mod http_tests {
     use crate::router;
     use crate::routes_auth;
     use crate::test_support::state;
+    use atvprep_fixtures::Fixtures;
     use axum::body::to_bytes;
     use axum::http::StatusCode;
     use tower::ServiceExt;
@@ -566,7 +567,19 @@ mod http_tests {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw().execute_batch("INSERT INTO jobs(id,action,status,settings_snapshot_json) VALUES(1,'fix','queued','{\"pipeline\":\"prepare\",\"delete_original_confirmed\":true,\"delete_original\":true}'),(2,'verify','succeeded','{}'),(3,'convert','queued','{}'); UPDATE jobs SET cleared_at='2026-01-01' WHERE id=3;").unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let root = fx.library("Movies");
+        let files: Vec<i64> = ["a.mkv", "b.mkv", "c.mkv"]
+            .iter()
+            .map(|path| fx.file(root, path).create())
+            .collect();
+        let _ = fx
+            .job("fix", &files[..1])
+            .settings(serde_json::json!({"pipeline": "prepare", "delete_original_confirmed": true, "delete_original": true}))
+            .create();
+        let _ = fx.job("verify", &files[1..2]).status("succeeded").create();
+        let _ = fx.job("convert", &files[2..]).create();
+        fx.sql("UPDATE jobs SET cleared_at='2026-01-01' WHERE id=3;");
         let token = routes_auth::service(&state, &conn)
             .unwrap()
             .create()
@@ -622,7 +635,11 @@ mod http_tests {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw().execute_batch("INSERT INTO jobs(id,action,status) VALUES(1,'verify','queued'),(2,'verify','running'),(3,'verify','succeeded');").unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let file = fx.file(fx.library("Movies"), "a.mkv").create();
+        let _ = fx.job("verify", &[file]).create();
+        let _ = fx.job("verify", &[file]).status("running").create();
+        let _ = fx.job("verify", &[file]).status("succeeded").create();
         let token = routes_auth::service(&state, &conn)
             .unwrap()
             .create()
@@ -664,7 +681,10 @@ mod http_tests {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw().execute_batch("INSERT INTO jobs(id,action,status) VALUES(1,'verify','queued'),(2,'verify','running');").unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let file = fx.file(fx.library("Movies"), "a.mkv").create();
+        let _ = fx.job("verify", &[file]).create();
+        let _ = fx.job("verify", &[file]).status("running").create();
         let token = routes_auth::service(&state, &conn)
             .unwrap()
             .create()
@@ -710,7 +730,14 @@ mod http_tests {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private'); INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES(1,1,'/private/one.mkv','video','.mkv',1,1,'a','present','unknown','idle','none'),(2,1,'two.mkv','video','.mkv',1,1,'b','present','unknown','idle','none'); INSERT INTO jobs(id,action,status) VALUES(1,'verify','queued'); INSERT INTO job_items(id,job_id,media_file_id,action,position,error_detail) VALUES(1,1,1,'verify',0,'failed /private/one.mkv'),(2,1,2,'verify',0,NULL);").unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let root = fx.library_at("Movies", "/private");
+        let one = fx.file(root, "/private/one.mkv").fingerprint("a").create();
+        let two = fx.file(root, "two.mkv").fingerprint("b").create();
+        let _ = fx.job("verify", &[one, two]).create();
+        // Both items share position 0, which a job never produces: the tie is what the page
+        // boundary must survive.
+        fx.sql("UPDATE job_items SET position=0; UPDATE job_items SET error_detail='failed /private/one.mkv' WHERE id=1;");
         let job = crate::opaque::Opaque::new(state.api_secret.as_bytes()).encode("j", 1);
         let token = routes_auth::service(&state, &conn)
             .unwrap()
@@ -753,7 +780,12 @@ mod http_tests {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private'); INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES(1,1,'film.mkv','video','.mkv',1,1,'a','present','unknown','idle','none'); INSERT INTO jobs(id,action,status) VALUES(1,'verify','queued'); INSERT INTO job_items(id,job_id,media_file_id,action,position,status) VALUES(1,1,1,'verify',0,'queued');").unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let file = fx
+            .file(fx.library_at("Movies", "/private"), "film.mkv")
+            .fingerprint("a")
+            .create();
+        let _ = fx.job("verify", &[file]).create();
         conn.raw()
             .execute(
                 "UPDATE job_items SET log_tail=?1 WHERE id=1",

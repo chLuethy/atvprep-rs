@@ -228,6 +228,7 @@ mod http_tests {
     use crate::router;
     use crate::routes_auth;
     use crate::test_support::state;
+    use atvprep_fixtures::{Fixtures, Verdict};
     use axum::body::to_bytes;
     use axum::http::StatusCode;
     use tower::ServiceExt;
@@ -237,7 +238,8 @@ mod http_tests {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw().execute_batch("INSERT INTO jobs(id,action,status) VALUES(1,'verify','queued'); INSERT INTO events(id,job_id,topic,entity_type,entity_id,payload_json,created_at) VALUES(1,1,'first','job',1,'{}','2026-11-01 12:00:00'),(2,1,'second','job',1,'{}','2026-11-01 12:00:00'),(3,NULL,'excluded','job',1,'{}','2026-11-01 12:00:00');").unwrap();
+        // A job without a file and an event without a job: only raw SQL lays these down.
+        Fixtures::new(conn.raw()).sql("INSERT INTO jobs(id,action,status) VALUES(1,'verify','queued'); INSERT INTO events(id,job_id,topic,entity_type,entity_id,payload_json,created_at) VALUES(1,1,'first','job',1,'{}','2026-11-01 12:00:00'),(2,1,'second','job',1,'{}','2026-11-01 12:00:00'),(3,NULL,'excluded','job',1,'{}','2026-11-01 12:00:00');");
         let token = routes_auth::service(&state, &conn)
             .unwrap()
             .create()
@@ -278,7 +280,16 @@ mod http_tests {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private'); INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action) VALUES(1,1,'film.mp4','video','.mp4',1,1,'a','present','clean','idle','none'); INSERT INTO jobs(id,action,status) VALUES(1,'verify','queued'); INSERT INTO job_items(id,job_id,media_file_id,action,position,status) VALUES(1,1,1,'verify',0,'queued'); INSERT INTO events(id,job_id,item_id,topic,entity_type,entity_id,payload_json,created_at) VALUES(1,1,1,'job.log','job_item',1,'{}','2026-01-01 00:00:00.000000'),(2,1,1,'job.log','job_item',1,'{}','2026-01-01 00:00:00.100000'),(3,1,1,'job.progress','job_item',1,'{}','2026-01-01 00:00:01.000000');").unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let root = fx.library_at("Movies", "/private");
+        let _ = fx
+            .file(root, "film.mp4")
+            .fingerprint("a")
+            .verdict(Verdict::Clean)
+            .create();
+        // The sequence numbers are the point of this test, so the job and its events are laid down
+        // with exact ids; `Jobs::create` would add a `job.created` event in front of them.
+        fx.sql("INSERT INTO jobs(id,action,status) VALUES(1,'verify','queued'); INSERT INTO job_items(id,job_id,media_file_id,action,position,status) VALUES(1,1,1,'verify',0,'queued'); INSERT INTO events(id,job_id,item_id,topic,entity_type,entity_id,payload_json,created_at) VALUES(1,1,1,'job.log','job_item',1,'{}','2026-01-01 00:00:00.000000'),(2,1,1,'job.log','job_item',1,'{}','2026-01-01 00:00:00.100000'),(3,1,1,'job.progress','job_item',1,'{}','2026-01-01 00:00:01.000000');");
         let token = routes_auth::service(&state, &conn)
             .unwrap()
             .create()

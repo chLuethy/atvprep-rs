@@ -388,6 +388,7 @@ mod http_tests {
     use crate::router;
     use crate::routes_auth;
     use crate::test_support::state;
+    use atvprep_fixtures::{Fixtures, Verdict};
     use axum::body::to_bytes;
     use axum::http::StatusCode;
     use tower::ServiceExt;
@@ -397,7 +398,11 @@ mod http_tests {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private/library'),(2,'/secret/other','/secret/other'); INSERT INTO scan_runs(id,root_id,generation,status) VALUES(1,1,1,'failed'),(2,1,2,'succeeded');").unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let root = fx.library_at("Movies", "/private/library");
+        let _ = fx.library_at("/secret/other", "/secret/other");
+        let _ = fx.scan(root, 1, "failed");
+        let _ = fx.scan(root, 2, "succeeded");
         let token = routes_auth::service(&state, &conn)
             .unwrap()
             .create()
@@ -433,16 +438,34 @@ mod http_tests {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/private');
-        INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,discovery_state,compliance_state,workflow_state,desired_action,compliance_reasons,dismissed_at) VALUES
-        (1,1,'film.mkv','video','.mkv',1,1,'a','present','warning','idle','none','[\"[warning] video-reencode: required\"]',NULL),
-        (2,1,'film.mp4','video','.mp4',1,1,'b','present','clean','idle','none','[]',NULL),
-        (3,1,'other.mkv','video','.mkv',1,1,'c','present','unknown','idle','none','[]',NULL),
-        (4,1,'gone.mkv','video','.mkv',1,1,'d','missing','unknown','idle','none','[]',NULL),
-        (5,1,'dismissed.mkv','video','.mkv',1,1,'e','missing','unknown','idle','none','[]','2026-01-01');
-        UPDATE media_files SET encode_need='video' WHERE id=1;
-        INSERT INTO jobs(action,status) VALUES('verify','queued'); INSERT INTO scan_runs(root_id,generation,status) VALUES(1,1,'succeeded');
-        INSERT INTO runtime_settings(key,value_json,value_type,revision) VALUES('delete_original','true','bool',1);").unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let root = fx.library_at("Movies", "/private");
+        let warned = fx
+            .file(root, "film.mkv")
+            .fingerprint("a")
+            .verdict(Verdict::Warning)
+            .encode("video", "reencode")
+            .create();
+        let _ = fx
+            .file(root, "film.mp4")
+            .fingerprint("b")
+            .verdict(Verdict::Clean)
+            .create();
+        let _ = fx.file(root, "other.mkv").fingerprint("c").create();
+        let _ = fx
+            .file(root, "gone.mkv")
+            .fingerprint("d")
+            .missing()
+            .create();
+        let _ = fx
+            .file(root, "dismissed.mkv")
+            .fingerprint("e")
+            .missing()
+            .dismissed_at("2026-01-01")
+            .create();
+        let _ = fx.job("verify", &[warned]).create();
+        let _ = fx.scan(root, 1, "succeeded");
+        fx.setting("delete_original", &serde_json::json!(true), "bool", 1);
         let token = routes_auth::service(&state, &conn)
             .unwrap()
             .create()
@@ -479,12 +502,8 @@ mod http_tests {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw()
-            .execute(
-                "INSERT INTO library_roots(name,canonical_path) VALUES(?1,'/library')",
-                ["x".repeat(crate::bounds::MAX_ELEMENT_BYTES)],
-            )
-            .unwrap();
+        let _ = Fixtures::new(conn.raw())
+            .library_at(&"x".repeat(crate::bounds::MAX_ELEMENT_BYTES), "/library");
         let token = routes_auth::service(&state, &conn)
             .unwrap()
             .create()
@@ -513,7 +532,10 @@ mod http_tests {
         let state = state();
         let mut conn = state.db.conn().unwrap();
         atvprep_manager::schema::migrate(&mut conn).unwrap();
-        conn.raw().execute_batch("INSERT INTO library_roots(id,name,canonical_path) VALUES(1,'Movies','/library'); INSERT INTO scan_runs(id,root_id,generation,status) VALUES(1,1,1,'failed'),(2,1,2,'succeeded');").unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let root = fx.library_at("Movies", "/library");
+        let _ = fx.scan(root, 1, "failed");
+        let _ = fx.scan(root, 2, "succeeded");
         let token = routes_auth::service(&state, &conn)
             .unwrap()
             .create()
