@@ -307,6 +307,58 @@ fn the_verify_report_carries_the_need_of_the_planner() {
     assert_eq!(verify_report(&[], &video)["encode_need"], "video");
 }
 
+/// `file.mp4` in a new directory whose AC-3 5.1 track runs at 44.1 kHz.
+fn ac3_at_44_1_khz() -> (tempfile::TempDir, PathBuf) {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("file.mp4");
+    let status = std::process::Command::new("ffmpeg")
+        .args([
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=320x240:rate=25",
+        ])
+        .args(["-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100"])
+        .args(["-t", "1", "-map", "0:v", "-map", "1:a"])
+        .args([
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-profile:v",
+            "high",
+        ])
+        .args(["-c:a", "ac3", "-ac", "6", "-ar", "44100"])
+        .args([
+            "-metadata:s:v:0",
+            "language=deu",
+            "-metadata:s:a:0",
+            "language=deu",
+        ])
+        .args(["-disposition:a:0", "default", "-movflags", "+faststart"])
+        .arg(&path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    (dir, path)
+}
+
+#[test]
+fn the_verify_report_names_the_encodings_the_planner_plans() {
+    let (_dir, file) = ac3_at_44_1_khz();
+    let report = verify_report(&[], &file);
+    assert_eq!(report["encode_need"], "audio");
+    assert_eq!(
+        report["planned_steps"],
+        serde_json::json!(["audio stream #1 ac3 44100Hz -> eac3 48000Hz"])
+    );
+    let (_audio_dir, audio) = needs_audio();
+    assert!(verify_report(&[], &audio).get("planned_steps").is_none());
+}
+
 #[test]
 fn verify_takes_the_flags_of_the_target_profile() {
     let (_dir, video) = needs_video();

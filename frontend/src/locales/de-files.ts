@@ -67,6 +67,7 @@ export const deFixPlan: Record<string, string | readonly [string, string]> = {
   "Rewrite the file with the index at the front (faststart)": "Datei mit dem Index am Anfang neu schreiben (Faststart)",
   "Rewrite the fragmented file as a regular MP4": "Fragmentierte Datei als reguläre MP4 neu schreiben",
   "{message}. Only a re-encode changes this.": "{message}. Das ändert nur ein Re-Encode.",
+  "{message}. Check the file again to see what Prepare plans.": "{message}. Prüfe die Datei erneut, um zu sehen, was Vorbereiten plant.",
   "{message} (what Prepare does about this rule is unknown)": "{message} (für diese Regel ist unbekannt, was Vorbereiten bewirkt)",
   "Bitrate unknown": "Bitrate unbekannt",
   "Inspect the file to compare its bitrate with your Wave limit.": "Datei analysieren, um die Bitrate mit dem Wave-Limit zu vergleichen.",

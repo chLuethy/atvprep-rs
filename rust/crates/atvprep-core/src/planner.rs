@@ -558,6 +558,77 @@ fn streams_of_kind(probe: &Value, kind: &str) -> Vec<Value> {
         .collect()
 }
 
+/// An audio track the planner encodes only to bring it to its target sample rate.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RateChange {
+    /// The stream index in the input file.
+    pub index: u32,
+    /// The source codec, as ffprobe names it.
+    pub codec: String,
+    /// The source rate, as ffprobe reports it.
+    pub sample_rate: String,
+    /// The codec the track is encoded to.
+    pub target_codec: String,
+    pub target_rate: u32,
+}
+
+impl RateChange {
+    /// One planned step, as `verify` reports it: `audio stream #1 ac3 44100Hz -> eac3 48000Hz`.
+    #[must_use]
+    pub fn step(&self) -> String {
+        format!(
+            "audio stream #{} {} {}Hz -> {} {}Hz",
+            self.index, self.codec, self.sample_rate, self.target_codec, self.target_rate
+        )
+    }
+}
+
+fn source_codec(audio_streams: &[Value], track: &AudioTrack) -> String {
+    audio_streams
+        .iter()
+        .find(|s| py_int(s.get("index")) == i64::from(track.index))
+        .and_then(|s| s.get("codec_name"))
+        .and_then(Value::as_str)
+        .map_or_else(|| track.codec.clone(), str::to_lowercase)
+}
+
+fn rate_changes_of(audio_streams: &[Value], planned: &[AudioTrack]) -> Vec<RateChange> {
+    planned
+        .iter()
+        .filter(|t| {
+            matches!(
+                t.action,
+                AudioAction::TranscodeEac3 | AudioAction::TranscodeAac
+            )
+        })
+        .filter_map(|track| {
+            let codec = source_codec(audio_streams, track);
+            // Encoded only to reach the target rate: the codec stays (AC-3 becomes E-AC-3).
+            if codec != track.codec && !(codec == "ac3" && track.codec == "eac3") {
+                return None;
+            }
+            let source = audio_streams
+                .iter()
+                .find(|s| py_int(s.get("index")) == i64::from(track.index));
+            Some(RateChange {
+                index: track.index,
+                codec,
+                sample_rate: str_of(source.and_then(|s| s.get("sample_rate"))),
+                target_codec: track.codec.clone(),
+                target_rate: track.target_sample_rate.unwrap_or_default(),
+            })
+        })
+        .collect()
+}
+
+/// The audio tracks of `probe` the planner encodes only to reach their target sample rate,
+/// leaving out the `duplicates` it drops.
+#[must_use]
+pub fn rate_changes(probe: &Value, duplicates: &BTreeSet<i64>) -> Vec<RateChange> {
+    let audio_streams = streams_of_kind(probe, "audio");
+    rate_changes_of(&audio_streams, &analyze_audio(&audio_streams, duplicates))
+}
+
 /// Audio reasons: the planner keeps every stream, each language has a stereo track, no duplicates.
 fn audio_reasons(probe: &Value, duplicates: &BTreeSet<i64>, untagged_audio: bool) -> Vec<String> {
     let audio_streams = streams_of_kind(probe, "audio");
@@ -584,31 +655,20 @@ fn audio_reasons(probe: &Value, duplicates: &BTreeSet<i64>, untagged_audio: bool
             .iter()
             .map(|i| format!("audio stream #{i} duplicates an earlier stream")),
     );
-    let source_of = |track: &AudioTrack| {
-        audio_streams
-            .iter()
-            .find(|s| py_int(s.get("index")) == i64::from(track.index))
-    };
+    let rates = rate_changes_of(&audio_streams, &planned);
     for track in planned.iter().filter(|t| {
         matches!(
             t.action,
             AudioAction::TranscodeEac3 | AudioAction::TranscodeAac
         )
     }) {
-        let source = source_of(track);
-        let codec = source
-            .and_then(|s| s.get("codec_name"))
-            .and_then(Value::as_str)
-            .map_or_else(|| track.codec.clone(), str::to_lowercase);
-        if codec == track.codec || (codec == "ac3" && track.codec == "eac3") {
-            // Encoded only to reach the target rate.
+        if let Some(rate) = rates.iter().find(|r| r.index == track.index) {
             reasons.push(format!(
                 "audio stream #{} sample rate {}Hz needs {}Hz",
-                track.index,
-                str_of(source.and_then(|s| s.get("sample_rate"))),
-                track.target_sample_rate.unwrap_or_default()
+                rate.index, rate.sample_rate, rate.target_rate
             ));
         } else {
+            let codec = source_codec(&audio_streams, track);
             reasons.push(format!(
                 "audio stream #{} codec={codec} needs E-AC-3",
                 track.index
