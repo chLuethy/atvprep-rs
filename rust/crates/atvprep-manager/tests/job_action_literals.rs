@@ -5,31 +5,44 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Files that may spell the literals, each with the reason. Everything else asks `JobAction`.
-const ALLOWED: [(&str, &str); 7] = [
-    ("atvprep-manager/src/state_machine.rs", "JobAction itself"),
+const ALL: [&str; 4] = ["'fix'", "\"fix\"", "'convert'", "\"convert\""];
+const FILTER: [&str; 1] = ["\"convert\""];
+
+const ALLOWED: [(&str, &str, &[&str]); 7] = [
+    (
+        "atvprep-manager/src/state_machine.rs",
+        "JobAction itself",
+        &ALL,
+    ),
     (
         "atvprep-manager/src/schema.rs",
         "migrations of the history (ADR 0008)",
+        &ALL,
     ),
     (
         "atvprep-manager/src/file_state.rs",
         "`fix` and `convert` here are the media file's desired action and filter, not a job action",
+        &ALL,
     ),
     (
         "atvprep-api/src/read_files.rs",
         "`convert` here is the file filter and its counts, not a job action",
+        &FILTER,
     ),
     (
         "atvprep-api/src/read.rs",
         "`convert` here is the overview's file count, not a job action",
+        &FILTER,
     ),
     (
         "atvprep/src/main.rs",
         "`fix` and `convert` here are the CLI's command aliases, not a stored action",
+        &ALL,
     ),
     (
         "atvprep/src/args.rs",
         "`fix` and `convert` here are the CLI's command aliases, not a stored action",
+        &ALL,
     ),
 ];
 
@@ -69,15 +82,16 @@ fn stored_action_literals_stay_inside_the_job_action_type() {
                 .expect("file is below the crates")
                 .to_string_lossy()
                 .replace('\\', "/");
-            if ALLOWED.iter().any(|(allowed, _)| *allowed == relative) {
-                continue;
-            }
+            let exempt: &[&str] = ALLOWED
+                .iter()
+                .find(|(allowed, _, _)| *allowed == relative)
+                .map_or(&[], |(_, _, literals)| *literals);
             let text = fs::read_to_string(&file).expect("source is readable");
             for (number, line) in production(&text).lines().enumerate() {
                 let code = line.split("//").next().unwrap_or(line);
-                if ["'fix'", "\"fix\"", "'convert'", "\"convert\""]
+                if ALL
                     .iter()
-                    .any(|literal| code.contains(literal))
+                    .any(|literal| code.contains(literal) && !exempt.contains(literal))
                 {
                     offenders.push(format!("{relative}:{}: {}", number + 1, line.trim()));
                 }

@@ -10,21 +10,17 @@ use chrono::{DateTime, Datelike, Local, LocalResult, NaiveDate, Offset, TimeZone
 use atvprep_core::encode::EncodeAllowance;
 
 use crate::approval::ScheduleParams;
-use crate::clock::format_micros;
 use crate::cron::CronExpr;
 use crate::deployment_gate::DeploymentGate;
 use crate::jobs::{Jobs, NewJob};
 use crate::limits;
 use crate::repo::Ctx;
 use crate::scans::Scans;
+use crate::schedule_candidates::{ScheduleSelection, candidate_ids};
+use crate::schedule_due::{self, Decision};
 use crate::settings::TargetProfile;
-use crate::state_machine::{ItemStatus, JobAction};
+use crate::state_machine::JobAction;
 use crate::{Error, Result};
-
-const CATCH_UP_MICROS: i64 = 6 * 60 * 60 * 1_000_000;
-/// A schedule that changes files runs only in the minute of its slot (plus a little slack for the
-/// worker tick); a slot the worker missed, for any reason, is never caught up.
-const ON_TIME_MICROS: i64 = 2 * 60 * 1_000_000;
 
 /// A validated local wall-clock minute.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -194,36 +190,6 @@ pub fn mask_to_days(mask: u8) -> Vec<u8> {
     (0..7).filter(|day| mask & (1 << day) != 0).collect()
 }
 
-/// The latest selected local slot that is not later than `now`.
-#[must_use]
-pub fn latest_slot(now: LocalDateTime, days_mask: u8, time: TimeOfDay) -> Option<LocalDateTime> {
-    for back in 0..8 {
-        let day = now.add_days(-back);
-        if days_mask & (1 << day.weekday()) != 0 {
-            let slot = day.with_time(time);
-            if slot <= now {
-                return Some(slot);
-            }
-        }
-    }
-    None
-}
-
-/// The first selected local slot strictly later than `now`.
-#[must_use]
-pub fn next_slot(now: LocalDateTime, days_mask: u8, time: TimeOfDay) -> Option<LocalDateTime> {
-    for ahead in 0..8 {
-        let day = now.add_days(ahead);
-        if days_mask & (1 << day.weekday()) != 0 {
-            let slot = day.with_time(time);
-            if slot > now {
-                return Some(slot);
-            }
-        }
-    }
-    None
-}
-
 fn as_chrono(local: LocalDateTime) -> Option<chrono::NaiveDateTime> {
     NaiveDate::from_ymd_opt(local.year, u32::from(local.month), u32::from(local.day))?.and_hms_opt(
         u32::from(local.hour),
@@ -268,54 +234,21 @@ where
     }
 }
 
-/// Find the next future scheduled instant in an explicitly supplied timezone.
+/// The local wall-clock minute of an instant in `timezone`.
 #[must_use]
-pub fn next_run_at<Tz>(
-    now: DateTime<Utc>,
-    enabled: bool,
-    days_mask: u8,
-    time: TimeOfDay,
-    timezone: &Tz,
-) -> Option<DateTime<Utc>>
+pub fn local_of<Tz>(moment: DateTime<Utc>, timezone: &Tz) -> Option<LocalDateTime>
 where
     Tz: TimeZone,
-    Tz::Offset: Offset,
 {
-    if !enabled {
-        return None;
-    }
-    let local_now = now.with_timezone(timezone);
-    let mut slot = next_slot(
-        LocalDateTime::new(
-            local_now.year(),
-            u8::try_from(local_now.month()).ok()?,
-            u8::try_from(local_now.day()).ok()?,
-            u8::try_from(local_now.hour()).ok()?,
-            u8::try_from(local_now.minute()).ok()?,
-        )
-        .ok()?,
-        days_mask,
-        time,
-    );
-    while let Some(local_slot) = slot {
-        let utc = local_to_utc(local_slot, timezone)?;
-        if utc > now {
-            return Some(utc);
-        }
-        slot = next_slot(local_slot, days_mask, time);
-    }
-    None
-}
-
-/// Find the next future scheduled instant in the manager host's local timezone.
-#[must_use]
-pub fn next_run_at_system(
-    now: DateTime<Utc>,
-    enabled: bool,
-    days_mask: u8,
-    time: TimeOfDay,
-) -> Option<DateTime<Utc>> {
-    next_run_at(now, enabled, days_mask, time, &Local)
+    let local = moment.with_timezone(timezone);
+    LocalDateTime::new(
+        local.year(),
+        u8::try_from(local.month()).ok()?,
+        u8::try_from(local.day()).ok()?,
+        u8::try_from(local.hour()).ok()?,
+        u8::try_from(local.minute()).ok()?,
+    )
+    .ok()
 }
 
 /// The cron a schedule row runs on: its `cron` column, or, while that is empty (a row written
@@ -336,7 +269,8 @@ pub fn effective_cron(cron: Option<&str>, days_mask: u8, time_of_day: &str) -> R
 
 /// Find the next future cron slot as a UTC instant in an explicitly supplied timezone.
 ///
-/// DST is handled exactly like the weekly slots: see [`local_to_utc`].
+/// DST is handled by [`local_to_utc`]: a repeated wall-clock time is its first occurrence, a
+/// skipped one uses the offset before the gap.
 #[must_use]
 pub fn next_cron_run_at<Tz>(
     now: DateTime<Utc>,
@@ -351,17 +285,7 @@ where
     if !enabled {
         return None;
     }
-    let local_now = now.with_timezone(timezone);
-    let mut slot = cron.next_slot(
-        LocalDateTime::new(
-            local_now.year(),
-            u8::try_from(local_now.month()).ok()?,
-            u8::try_from(local_now.day()).ok()?,
-            u8::try_from(local_now.hour()).ok()?,
-            u8::try_from(local_now.minute()).ok()?,
-        )
-        .ok()?,
-    );
+    let mut slot = cron.next_slot(local_of(now, timezone)?);
     while let Some(local_slot) = slot {
         let utc = local_to_utc(local_slot, timezone)?;
         if utc > now {
@@ -434,34 +358,22 @@ fn run_recorded(ctx: Ctx<'_>, schedule_id: i64, slot: Option<&str>) -> Result<St
     if limits::changes_files(&action) {
         return run_change_schedule(ctx, schedule_id, &now, slot);
     }
-    let mut statement = ctx.conn.prepare(&format!(
-        "SELECT media_files.id FROM media_files
-         WHERE discovery_state='present'
-           AND lower(suffix) IN ('.mp4','.m4v','.mov')
-           AND (?1 IS NULL OR root_id=?1)
-           AND (?2 IS NULL OR compliance_state=?2)
-           AND id NOT IN (SELECT media_file_id FROM job_items
-                          WHERE action IN {}
-                            AND status NOT IN {})
-         ORDER BY (SELECT max(id) FROM job_items AS prior
-                   WHERE prior.media_file_id=media_files.id AND prior.action='verify') ASC,
-                  media_files.id ASC LIMIT ?3",
-        JobAction::Prepare.stored_sql_list(),
-        ItemStatus::terminal_sql_list()
-    ))?;
-    let media_ids = statement
-        .query_map(
-            rusqlite::params![root_id, compliance_state, max_files],
-            |row| row.get(0),
-        )?
-        .collect::<std::result::Result<Vec<i64>, _>>()?;
-    drop(statement);
+    let media_ids = candidate_ids(
+        ctx.conn,
+        &ScheduleSelection {
+            action,
+            root_id,
+            compliance_state,
+            encode: EncodeAllowance::Copy,
+        },
+        Some(max_files),
+    )?;
     if media_ids.is_empty() {
         let message = "No matching files";
         finish_run(ctx, schedule_id, slot, &now, message, None, None)?;
         return Ok(message.to_owned());
     }
-    let mut job = NewJob::new(crate::state_machine::JobAction::Verify, &media_ids);
+    let mut job = NewJob::new(JobAction::Verify, &media_ids);
     job.trigger = "manual";
     job.settings_snapshot =
         serde_json::json!({"manual_approval": false, "schedule_id": schedule_id});
@@ -589,34 +501,16 @@ fn run_change_schedule(
     }
     let delete_original = delete_original_setting(ctx.conn)?;
     let profile = crate::settings::target_profile(ctx.conn)?;
-    let mut statement = ctx.conn.prepare(&format!(
-        "SELECT m.id FROM media_files m
-         WHERE m.discovery_state='present'
-           AND (?1 IS NULL OR m.root_id=?1)
-           AND (?2 IS NULL OR m.compliance_state=?2)
-           AND NOT EXISTS (SELECT 1 FROM job_items i WHERE i.media_file_id=m.id
-                           AND i.action IN {}
-                           AND i.status NOT IN {})
-           AND {}
-         ORDER BY m.id LIMIT ?4",
-        JobAction::Prepare.stored_sql_list(),
-        ItemStatus::terminal_sql_list(),
-        crate::media_sql::change_candidate("?3", "?5")
-    ))?;
-    let embed_open = crate::embed::open_media_ids_json(ctx.conn)?;
-    let media_ids = statement
-        .query_map(
-            rusqlite::params![
-                row.root_id,
-                row.compliance_state,
-                row.encode.as_str(),
-                row.max_files,
-                embed_open
-            ],
-            |r| r.get::<_, i64>(0),
-        )?
-        .collect::<std::result::Result<Vec<_>, _>>()?;
-    drop(statement);
+    let media_ids = candidate_ids(
+        ctx.conn,
+        &ScheduleSelection {
+            action: row.action.clone(),
+            root_id: row.root_id,
+            compliance_state: row.compliance_state.clone(),
+            encode: row.encode,
+        },
+        Some(row.max_files),
+    )?;
     if media_ids.is_empty() {
         return finish("No matching files".to_owned(), None);
     }
@@ -779,20 +673,11 @@ pub fn run_due_schedules(ctx: Ctx<'_>) -> Result<usize> {
 fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
     let gate = DeploymentGate(ctx).status()?;
     let gate_open = gate.healthy && gate.mode == "open" && gate.phase == "steady";
-    let now_micros = ctx.clock.now_micros();
-    let Some(now_utc) = DateTime::<Utc>::from_timestamp_micros(now_micros) else {
+    let Some(now) = DateTime::<Utc>::from_timestamp_micros(ctx.clock.now_micros()) else {
         return Ok(0);
     };
-    let local_now = now_utc.with_timezone(&Local);
-    let local = LocalDateTime::new(
-        local_now.year(),
-        u8::try_from(local_now.month()).unwrap_or(0),
-        u8::try_from(local_now.day()).unwrap_or(0),
-        u8::try_from(local_now.hour()).unwrap_or(0),
-        u8::try_from(local_now.minute()).unwrap_or(0),
-    )?;
     let mut statement = ctx.conn.prepare(
-        "SELECT id, days_mask, time_of_day, armed_at, cron, action, max_files, encode FROM schedules WHERE enabled=1 ORDER BY id",
+        "SELECT id, days_mask, time_of_day, armed_at, last_slot_at, cron, action, max_files, encode FROM schedules WHERE enabled=1 ORDER BY id",
     )?;
     let schedules = statement
         .query_map([], |row| {
@@ -802,15 +687,16 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
                 row.get::<_, String>(2)?,
                 row.get::<_, String>(3)?,
                 row.get::<_, Option<String>>(4)?,
-                row.get::<_, String>(5)?,
-                row.get::<_, i64>(6)?,
-                row.get::<_, String>(7)?,
+                row.get::<_, Option<String>>(5)?,
+                row.get::<_, String>(6)?,
+                row.get::<_, i64>(7)?,
+                row.get::<_, String>(8)?,
             ))
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
     drop(statement);
     let mut ran = 0;
-    for (id, mask, time, armed_at, cron, action, max_files, encode) in schedules {
+    for (id, mask, time, armed_at, last_slot_at, cron, action, max_files, encode) in schedules {
         let encode = EncodeAllowance::parse(&encode).unwrap_or(EncodeAllowance::All);
         // One corrupt row must not stop every schedule after it.
         let Ok(cron) = effective_cron(cron.as_deref(), mask, &time) else {
@@ -823,51 +709,39 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
             pause_over_limit(ctx, id, &violation)?;
             continue;
         }
-        let Some(slot) = cron.latest_slot(local) else {
-            continue;
-        };
-        let Some(slot_utc) = local_to_utc(slot, &Local) else {
-            continue;
-        };
-        let slot_micros = slot_utc.timestamp_micros();
-        // A slot before arming never ran and never will; one in the future is not due yet.
-        if slot_micros > now_micros || format_micros(slot_micros) <= armed_at {
-            continue;
-        }
-        let window = if limits::changes_files(&action) {
-            ON_TIME_MICROS
-        } else {
-            CATCH_UP_MICROS
-        };
-        let missed = now_micros - slot_micros > window;
-        let slot_text = format_micros(slot_micros);
-        if !gate_open {
-            // Nothing runs behind a closed gate, and that is expected. A slot still inside its window
-            // stays open for the catch-up; one that has left it is used up silently, so reopening the
-            // gate never reports it as missed.
-            if missed {
-                ctx.conn.execute(
-                    "UPDATE schedules SET last_slot_at=?1 WHERE id=?2 AND (last_slot_at IS NULL OR last_slot_at < ?1)",
-                    rusqlite::params![slot_text, id],
-                )?;
+        let decision = schedule_due::decide(&schedule_due::Due {
+            now,
+            timezone: &Local,
+            cron: &cron,
+            armed_at: &armed_at,
+            last_slot_at: last_slot_at.as_deref(),
+            changes_files: limits::changes_files(&action),
+            gate_open,
+        });
+        let (slot_text, missed_window) = match decision {
+            Decision::Wait { .. } => continue,
+            Decision::Lapsed { slot } => {
+                claim_slot(ctx, id, &slot)?;
+                continue;
             }
-            continue;
-        }
+            Decision::Run { slot } => (slot, None),
+            Decision::Missed {
+                slot,
+                window_micros,
+            } => (slot, Some(window_micros)),
+        };
         // A failing schedule rolls back alone: its claim is retried next pass, the others still run.
         ctx.conn.execute_batch("SAVEPOINT schedule_run")?;
         let outcome = (|| -> Result<bool> {
-            if ctx.conn.execute(
-                "UPDATE schedules SET last_slot_at=?1 WHERE id=?2 AND (last_slot_at IS NULL OR last_slot_at < ?1)",
-                rusqlite::params![slot_text, id],
-            )? == 1 {
-                if missed {
-                    note_missed(ctx, id, &slot_text, window)?;
-                    return Ok(false);
-                }
-                let _ = run_recorded(ctx, id, Some(&slot_text))?;
-                return Ok(true);
+            if !claim_slot(ctx, id, &slot_text)? {
+                return Ok(false);
             }
-            Ok(false)
+            if let Some(window) = missed_window {
+                note_missed(ctx, id, &slot_text, window)?;
+                return Ok(false);
+            }
+            let _ = run_recorded(ctx, id, Some(&slot_text))?;
+            Ok(true)
         })();
         match outcome {
             Ok(did_run) => {
@@ -883,6 +757,14 @@ fn run_due_schedules_inner(ctx: Ctx<'_>) -> Result<usize> {
         }
     }
     Ok(ran)
+}
+
+/// Claim a slot with a compare-and-set: only the dispatcher that moves `last_slot_at` forward runs it.
+fn claim_slot(ctx: Ctx<'_>, schedule_id: i64, slot: &str) -> Result<bool> {
+    Ok(ctx.conn.execute(
+        "UPDATE schedules SET last_slot_at=?1 WHERE id=?2 AND (last_slot_at IS NULL OR last_slot_at < ?1)",
+        rusqlite::params![slot, schedule_id],
+    )? == 1)
 }
 
 const fn leap_year(year: i32) -> bool {
@@ -1100,40 +982,6 @@ mod tests {
     }
 
     #[test]
-    fn latest_slot_matches_python_boundaries() {
-        let mask = days_to_mask(&[0, 2, 4]);
-        assert_eq!(
-            latest_slot(local(2026, 10, 24, 12, 0), mask, time("03:00")),
-            Some(local(2026, 10, 23, 3, 0))
-        );
-        assert_eq!(
-            latest_slot(local(2026, 10, 23, 2, 59), mask, time("03:00")),
-            Some(local(2026, 10, 21, 3, 0))
-        );
-        assert_eq!(
-            latest_slot(local(2026, 10, 23, 3, 0), mask, time("03:00")),
-            Some(local(2026, 10, 23, 3, 0))
-        );
-    }
-
-    #[test]
-    fn next_slot_is_strictly_after_now() {
-        let mask = days_to_mask(&[0, 2, 4]);
-        assert_eq!(
-            next_slot(local(2026, 10, 24, 12, 0), mask, time("03:00")),
-            Some(local(2026, 10, 26, 3, 0))
-        );
-        assert_eq!(
-            next_slot(local(2026, 10, 26, 2, 0), mask, time("03:00")),
-            Some(local(2026, 10, 26, 3, 0))
-        );
-        assert_eq!(
-            next_slot(local(2026, 10, 26, 3, 0), mask, time("03:00")),
-            Some(local(2026, 10, 28, 3, 0))
-        );
-    }
-
-    #[test]
     fn calendar_arithmetic_crosses_leap_day() {
         assert_eq!(
             local(2028, 2, 28, 12, 0).next_day(),
@@ -1165,24 +1013,6 @@ mod tests {
     }
 
     #[test]
-    fn cron_runs_agree_with_weekly_runs_across_dst_boundaries() {
-        let timezone = chrono_tz::Europe::Zurich;
-        let mask = days_to_mask(&[0, 1, 2, 3, 4, 5, 6]);
-        let cron = effective_cron(None, mask, "02:30").unwrap();
-        for (year, month, day) in [(2026, 3, 28), (2026, 3, 29), (2026, 10, 24), (2026, 10, 25)] {
-            for hour in 0..24 {
-                let now = utc(year, month, day, hour, 0);
-                assert_eq!(
-                    next_cron_run_at(now, true, &cron, &timezone),
-                    next_run_at(now, true, mask, time("02:30"), &timezone),
-                    "{now}"
-                );
-            }
-        }
-        assert!(next_cron_run_at(utc(2026, 3, 29, 0, 0), false, &cron, &timezone).is_none());
-    }
-
-    #[test]
     fn a_blank_cron_falls_back_to_the_legacy_columns() {
         assert_eq!(
             effective_cron(Some(" "), 1, "03:00").unwrap().as_str(),
@@ -1193,28 +1023,19 @@ mod tests {
     }
 
     #[test]
-    fn next_run_is_future_across_dst_boundaries() {
+    fn the_next_cron_run_is_in_the_future_across_dst_boundaries() {
         let timezone = chrono_tz::Europe::Zurich;
-        let mask = days_to_mask(&[0, 1, 2, 3, 4, 5, 6]);
+        let cron = effective_cron(None, 127, "02:30").unwrap();
         for (year, month, day) in [(2026, 3, 28), (2026, 3, 29), (2026, 10, 24), (2026, 10, 25)] {
             for hour in 0..24 {
                 let now = utc(year, month, day, hour, 0);
-                let following = next_run_at(now, true, mask, time("02:30"), &timezone).unwrap();
+                let following = next_cron_run_at(now, true, &cron, &timezone).unwrap();
                 assert!(
                     following > now && following <= now + chrono::TimeDelta::hours(25),
                     "{now} -> {following}"
                 );
             }
         }
-        assert!(
-            next_run_at(
-                utc(2026, 3, 29, 0, 0),
-                false,
-                mask,
-                time("02:30"),
-                &timezone
-            )
-            .is_none()
-        );
+        assert!(next_cron_run_at(utc(2026, 3, 29, 0, 0), false, &cron, &timezone).is_none());
     }
 }

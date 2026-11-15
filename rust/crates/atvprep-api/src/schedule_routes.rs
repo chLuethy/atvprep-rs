@@ -12,14 +12,14 @@ use atvprep_core::encode::EncodeAllowance;
 use atvprep_manager::{
     approval::{ApprovalVerifier, ScheduleParams},
     cron::{CronExpr, Lang},
-    limits, media_sql,
+    limits,
     repo::Ctx,
+    schedule_candidates::{ScheduleSelection, candidate_count},
     schedules::{
         TimeOfDay, days_to_mask, delete_original_setting, effective_cron, mask_to_days,
         next_cron_run_at_system, run_schedule, upcoming_cron_runs_system,
     },
     settings::target_profile,
-    state_machine::{ItemStatus, JobAction},
 };
 use axum::{
     Json,
@@ -517,7 +517,6 @@ fn views(conn: &rusqlite::Connection, state: &AppState) -> Result<(Vec<Value>, b
             ))
         })
         .map_err(|_| ())?;
-    let embed_open = atvprep_manager::embed::open_media_ids_json(conn).map_err(|_| ())?;
     // What a schedule that prepares is signed against when it is turned on now.
     let profile = target_profile(conn).map_err(|_| ())?.to_json();
     let mut data: Vec<Value> = Vec::new();
@@ -548,7 +547,19 @@ fn views(conn: &rusqlite::Connection, state: &AppState) -> Result<(Vec<Value>, b
         let matching: Option<i64> = if scan {
             None
         } else {
-            Some(conn.query_row(&format!("SELECT count(*) FROM media_files m WHERE m.discovery_state='present' AND (?1 IS NULL OR m.root_id=?1) AND (?2 IS NULL OR m.compliance_state=?2) AND NOT EXISTS(SELECT 1 FROM job_items i WHERE i.media_file_id=m.id AND i.action IN {} AND i.status NOT IN {}) AND (CASE WHEN ?3='prepare' THEN {} ELSE {} END)",JobAction::Prepare.stored_sql_list(),ItemStatus::terminal_sql_list(),media_sql::change_candidate("?4","?5"),media_sql::MP4_LIKE),rusqlite::params![root,compliance,action,encode,embed_open],|row|row.get(0)).map_err(|_|())?)
+            Some(
+                candidate_count(
+                    conn,
+                    &ScheduleSelection {
+                        action: action.clone(),
+                        root_id: root,
+                        compliance_state: compliance.clone(),
+                        encode: EncodeAllowance::parse(&encode).unwrap_or(EncodeAllowance::Copy),
+                    },
+                    Some(max_files),
+                )
+                .map_err(|_| ())?,
+            )
         };
         let last_run = last_run.map(|value| timestamp(&value).replace('Z', "+00:00"));
         let runs = recent_runs(conn, &opaque, id)?;

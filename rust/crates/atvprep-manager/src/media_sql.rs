@@ -48,6 +48,18 @@ pub const TO_CONVERT: &str = concat!(
     ")"
 );
 
+/// The file is not already in an open prepare item of a job.
+#[must_use]
+pub fn no_open_prepare_item() -> String {
+    format!(
+        "NOT EXISTS (SELECT 1 FROM job_items open_item \
+         WHERE open_item.media_file_id=m.id AND open_item.action IN {} \
+         AND open_item.status NOT IN {})",
+        crate::state_machine::JobAction::Prepare.stored_sql_list(),
+        crate::state_machine::ItemStatus::terminal_sql_list()
+    )
+}
+
 /// The check found that audio has to be encoded (the video is copied).
 pub const NEEDS_AUDIO: &str = "m.encode_need='audio'";
 
