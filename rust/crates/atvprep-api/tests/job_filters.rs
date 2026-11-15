@@ -70,7 +70,7 @@ fn api_with(extra: impl FnOnce(&Fixtures<'_>)) -> Api {
         let root = fx.library_at("Movies", "/library");
         let file = |name: &str| {
             fx.file(root, name)
-                .fingerprint(&name.to_owned())
+                .fingerprint(name)
                 .verdict(Verdict::Clean)
                 .create()
         };

@@ -22,7 +22,7 @@ fn seed(db: &Db) -> Conn {
         let b = fx.library_at("b", "/b");
         let file = |root: i64, name: &str, verdict: Verdict, need: &'static str| {
             fx.file(root, name)
-                .fingerprint(&name.to_owned())
+                .fingerprint(name)
                 .verdict(verdict)
                 .encode(need, "none")
         };

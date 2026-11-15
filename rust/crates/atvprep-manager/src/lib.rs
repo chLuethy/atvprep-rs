@@ -2,6 +2,7 @@
 //! machine (port of `atvprep_manager/db/` and `jobs_state_machine.py`).
 
 pub mod approval;
+pub mod calendar;
 pub mod clock;
 pub mod cron;
 pub mod db;
