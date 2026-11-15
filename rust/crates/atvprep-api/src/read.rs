@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
 use crate::{extract::AuthenticatedSession, opaque::Opaque, state::AppState};
-use atvprep_manager::media_sql;
+use atvprep_manager::{file_state, media_sql};
 
 /// Aggregate the file, scan and job counts used by the dashboard.
 pub async fn dashboard(State(state): State<AppState>, _session: AuthenticatedSession) -> Response {
@@ -26,15 +26,14 @@ pub async fn dashboard(State(state): State<AppState>, _session: AuthenticatedSes
         };
         // The states split the files without overlap, so their counts add up to the total: a missing
         // file counts as missing only, whatever its last verdict was.
-        let mut files = counts("SELECT CASE WHEN discovery_state='missing' THEN 'missing' ELSE compliance_state END AS state,count(*) FROM media_files WHERE NOT (discovery_state='missing' AND dismissed_at IS NOT NULL) GROUP BY state ORDER BY state")?;
-        // "Ready" is a clean file with nothing left to embed; those with an open embedding count apart.
+        // The states split the files without overlap (`file_state`), so their counts add up to the total.
         let open = atvprep_manager::embed::open_media_ids(conn.raw()).map_err(|_| ())?;
         let open_json = serde_json::to_string(&open).map_err(|_| ())?;
-        let embed_open: i64 = conn.raw().query_row(&format!("SELECT count(*) FROM media_files m WHERE m.discovery_state<>'missing' AND m.compliance_state='clean' AND {}", media_sql::embed_open("?1")), [&open_json], |row| row.get(0)).map_err(|_| ())?;
-        if embed_open > 0 {
-            if let Some(clean) = files.get_mut("clean") { *clean -= embed_open; if *clean == 0 { files.remove("clean"); } }
-            files.insert("embed_open".to_owned(), embed_open);
-        }
+        let files: BTreeMap<String, i64> = {
+            let mut stmt = conn.raw().prepare(&format!("SELECT {state} AS state,count(*) FROM media_files m WHERE NOT (m.discovery_state='missing' AND m.dismissed_at IS NOT NULL) GROUP BY state ORDER BY state", state = file_state::state_sql("?1"))).map_err(|_| ())?;
+            let rows = stmt.query_map([&open_json], |row| Ok((row.get(0)?, row.get(1)?))).map_err(|_| ())?;
+            rows.collect::<Result<_,_>>().map_err(|_| ())?
+        };
         let embed = i64::try_from(open.len()).map_err(|_| ())?;
         let scans = counts("SELECT status,count(*) FROM scan_runs GROUP BY status ORDER BY status")?;
         let jobs = counts("SELECT status,count(*) FROM jobs GROUP BY status ORDER BY status")?;

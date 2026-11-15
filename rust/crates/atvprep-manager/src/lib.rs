@@ -10,6 +10,7 @@ pub mod embed;
 pub mod error;
 pub mod evaluate;
 pub mod events;
+pub mod file_state;
 pub mod inspections;
 pub mod jobs;
 pub mod leases;

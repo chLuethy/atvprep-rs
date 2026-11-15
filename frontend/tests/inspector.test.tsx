@@ -3,6 +3,7 @@ import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Inspector } from "../src/features/files/Inspector";
 import { SessionError } from "../src/lib/api";
+import { withServerState } from "./fakeServerState";
 
 type Api = { request: (path: string, init?: RequestInit) => Promise<Response> };
 
@@ -56,7 +57,7 @@ const job = {
 const sidecar = (id: string, name: string) => ({ id, media_id: "m_f1", name, size: 42, mtime_ns: 9, fingerprint: "fp", created_at: null });
 
 function response(data: unknown, status = 200, meta: unknown = {}) {
-  return new Response(JSON.stringify({ data, meta }), { status });
+  return new Response(JSON.stringify({ data: withServerState(data), meta }), { status });
 }
 
 function apiFor(handler: (path: string, init?: RequestInit) => Response | Promise<Response>): Api {

@@ -5,7 +5,6 @@ import {
   formatBitrate,
   formatDuration,
   formatSize,
-  isFixable,
   languageName,
   parseReason,
   summarizeInspection,
@@ -32,57 +31,31 @@ describe("parseReason", () => {
 });
 
 describe("verdictOf", () => {
-  it("names every compliance state in words and never calls an unverified file ready", () => {
-    expect(verdictOf({ compliance_state: "clean" })).toMatchObject({ kind: "ok", label: "Ready" });
-    expect(verdictOf({ compliance_state: "warning" })).toMatchObject({ kind: "warn", label: "Warning" });
-    expect(verdictOf({ compliance_state: "blocker" })).toMatchObject({ kind: "bad", label: "Blocker" });
-    expect(verdictOf({ compliance_state: "probe_failed" })).toMatchObject({ kind: "bad", label: "Inspection failed" });
-    expect(verdictOf({ compliance_state: "unknown" })).toMatchObject({ kind: "neutral", label: "Not verified" });
-    expect(verdictOf({ compliance_state: "something_new" })).toMatchObject({ kind: "neutral", label: "Something new" });
+  it("names every state the server sends in words and never calls an unverified file ready", () => {
+    expect(verdictOf({ state: "clean" })).toMatchObject({ kind: "ok", label: "Ready" });
+    expect(verdictOf({ state: "embed_open" })).toMatchObject({ kind: "warn", label: "Embedding open" });
+    expect(verdictOf({ state: "warning" })).toMatchObject({ kind: "warn", label: "Warning" });
+    expect(verdictOf({ state: "blocker" })).toMatchObject({ kind: "bad", label: "Blocker" });
+    expect(verdictOf({ state: "probe_failed" })).toMatchObject({ kind: "bad", label: "Inspection failed" });
+    expect(verdictOf({ state: "unknown" })).toMatchObject({ kind: "neutral", label: "Not verified" });
+    expect(verdictOf({ state: "missing" })).toMatchObject({ kind: "bad", label: "Missing" });
+    expect(verdictOf({ state: "something_new" })).toMatchObject({ kind: "neutral", label: "Something new" });
+  });
+
+  it("follows the state alone, not the other fields of the row", () => {
+    const row = { state: "embed_open", compliance_state: "clean", discovery_state: "present", pending_sidecars: 0 };
+    expect(verdictOf(row)).toMatchObject({ label: "Embedding open" });
+    const other = { ...row, state: "clean", pending_sidecars: 2 };
+    expect(verdictOf(other)).toMatchObject({ label: "Ready" });
   });
 });
 
 describe("verdictOf for blockers", () => {
   it("tells fixable, manual and failed checks apart", () => {
-    const of = (...compliance_reasons: string[]) => verdictOf({ compliance_state: "blocker", compliance_reasons });
+    const of = (...compliance_reasons: string[]) => verdictOf({ state: "blocker", compliance_reasons });
     expect(of("[blocker] no-fragments: fragmented")).toMatchObject({ kind: "bad", icon: "x", label: "Blocker, fixable" });
     expect(of("[blocker] avc-level-atv-limit: level 6.0")).toMatchObject({ kind: "bad", label: "Blocker" });
     expect(of("[blocker] fast-start: rule crashed: boom")).toMatchObject({ kind: "bad", label: "Check failed" });
-  });
-});
-
-describe("verdictOf for files with an open embed", () => {
-  it("does not call a clean file ready while a subtitle file can still be embedded", () => {
-    expect(verdictOf({ compliance_state: "clean", discovery_state: "present", pending_sidecars: 1 })).toMatchObject({ kind: "warn", label: "Embedding open" });
-    expect(verdictOf({ compliance_state: "clean", discovery_state: "present", pending_sidecars: 0 })).toMatchObject({ kind: "ok", label: "Ready" });
-  });
-
-  it("leaves every other verdict as it is", () => {
-    expect(verdictOf({ compliance_state: "warning", pending_sidecars: 1 })).toMatchObject({ label: "Warning" });
-    expect(verdictOf({ compliance_state: "clean", discovery_state: "missing", pending_sidecars: 1 })).toMatchObject({ label: "Missing" });
-  });
-});
-
-describe("verdictOf for files that left the disk", () => {
-  it("reports a missing file as missing whatever its last compliance state was", () => {
-    expect(verdictOf({ compliance_state: "clean", discovery_state: "missing" })).toMatchObject({ kind: "bad", label: "Missing" });
-    expect(verdictOf({ compliance_state: "clean", discovery_state: "present" })).toMatchObject({ label: "Ready" });
-  });
-});
-
-describe("isFixable", () => {
-  const base = { discovery_state: "present", compliance_state: "blocker", desired_action: "none" };
-
-  it("is true for present files with a warning or blocker, or when the server asks for a fix", () => {
-    expect(isFixable(base)).toBe(true);
-    expect(isFixable({ ...base, compliance_state: "warning" })).toBe(true);
-    expect(isFixable({ ...base, compliance_state: "clean", desired_action: "fix" })).toBe(true);
-  });
-
-  it("is false for clean, unverified and missing files", () => {
-    expect(isFixable({ ...base, compliance_state: "clean" })).toBe(false);
-    expect(isFixable({ ...base, compliance_state: "unknown" })).toBe(false);
-    expect(isFixable({ ...base, discovery_state: "missing" })).toBe(false);
   });
 });
 
@@ -173,15 +146,6 @@ describe("summarizeInspection", () => {
 });
 
 
-describe("pending subtitle files and fixability", () => {
-  const clean = { discovery_state: "present", compliance_state: "clean", desired_action: "none" };
-
-  it("is fixable once an external subtitle waits to be merged, even for a ready file", () => {
-    expect(isFixable(clean)).toBe(false);
-    expect(isFixable({ ...clean, pending_sidecars: 1 })).toBe(true);
-    expect(isFixable({ ...clean, discovery_state: "missing", pending_sidecars: 1 })).toBe(false);
-  });
-});
 
 describe("describeSidecar", () => {
   it("says what a fix does with each subtitle file", async () => {
