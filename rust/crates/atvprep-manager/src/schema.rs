@@ -1118,4 +1118,48 @@ mod tests {
             Err(Error::Constraint(_))
         ));
     }
+
+    /// A schedule saved before the cron column (#96) has only a weekday mask and a time. The upgrade
+    /// writes the equivalent cron expression, so the one calendar that is left runs it as before.
+    #[test]
+    fn a_schedule_with_only_a_weekday_mask_gets_the_equivalent_cron_and_the_same_next_run() {
+        use crate::cron::CronExpr;
+        use crate::schedules::{TimeOfDay, next_cron_run_at};
+        use chrono::{TimeZone, Utc};
+
+        let (_db, mut conn) = database_at(1);
+        let cases: [(i64, u8, &str); 4] = [
+            (1, 0b001_1111, "02:15"),
+            (2, 0b100_0000, "23:05"),
+            (3, 0b010_0101, "07:30"),
+            (4, 0b111_1111, "00:00"),
+        ];
+        for (id, mask, time) in cases {
+            exec(
+                &conn,
+                &format!(
+                    "INSERT INTO schedules(id, name, action, days_mask, time_of_day)
+                     VALUES ({id}, 's{id}', 'verify', {mask}, '{time}')"
+                ),
+            )
+            .unwrap();
+        }
+        migrate(&mut conn).unwrap();
+
+        let now = Utc.with_ymd_and_hms(2026, 11, 15, 12, 0, 0).unwrap();
+        for (id, mask, time) in cases {
+            let stored: String = conn
+                .raw()
+                .query_row("SELECT cron FROM schedules WHERE id=?1", [id], |r| r.get(0))
+                .unwrap();
+            let expected = CronExpr::from_weekdays(mask, TimeOfDay::parse(time).unwrap());
+            let migrated = CronExpr::parse(&stored).unwrap();
+            assert_eq!(migrated.as_str(), expected.as_str(), "schedule {id}");
+            assert_eq!(
+                next_cron_run_at(now, true, &migrated, &Utc),
+                next_cron_run_at(now, true, &expected, &Utc),
+                "schedule {id}"
+            );
+        }
+    }
 }
