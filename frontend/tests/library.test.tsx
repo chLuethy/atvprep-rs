@@ -6,6 +6,7 @@ import { EMPTY_FILTER, type FileFilter } from "../src/features/files/filters";
 import { SessionError } from "../src/lib/api";
 import { setLanguage } from "../src/lib/i18n";
 import { realtimeState } from "../src/lib/realtime";
+import { withServerState } from "./fakeServerState";
 
 type Api = { request: (path: string, init?: RequestInit) => Promise<Response> };
 
@@ -27,7 +28,7 @@ const ROWS = [
     compliance_reasons: ["Current ffprobe inspection is available, but AVPlayer compliance requires a verify report."] }),
 ];
 
-const json = (data: unknown, status = 200, meta: unknown = {}) => new Response(JSON.stringify({ data, meta }), { status });
+const json = (data: unknown, status = 200, meta: unknown = {}) => new Response(JSON.stringify({ data: withServerState(data), meta }), { status });
 
 let lastCalls: Array<{ path: string; init?: RequestInit }> = [];
 const calls = (_api: Api) => lastCalls;

@@ -1,0 +1,20 @@
+{
+  "expected": {
+    "body": {
+      "data": {
+        "id": "<j:3>",
+        "status": "queued"
+      }
+    },
+    "status": 201
+  },
+  "input": {
+    "authenticated": true,
+    "csrf_action": "inspect",
+    "idempotency_key": "inspect_file",
+    "method": "POST",
+    "origin": "http://testserver",
+    "path": "/api/v1/files/<m:1>/inspect"
+  },
+  "name": "inspect_file"
+}

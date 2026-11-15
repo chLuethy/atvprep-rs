@@ -1,0 +1,29 @@
+{
+  "expected": {
+    "body": {
+      "data": [
+        {
+          "id": "<r:1>",
+          "latest_scan": {
+            "finished_at": null,
+            "generation": 1,
+            "id": "<s:1>",
+            "root_id": "<r:1>",
+            "started_at": "<ts>",
+            "status": "succeeded"
+          },
+          "name": "Movies"
+        }
+      ],
+      "meta": {}
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "method": "GET",
+    "origin": "http://testserver",
+    "path": "/api/v1/roots"
+  },
+  "name": "roots"
+}

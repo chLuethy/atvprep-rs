@@ -1,0 +1,41 @@
+{
+  "expected": {
+    "body": {
+      "data": [
+        {
+          "action": "verify",
+          "attempt": 0,
+          "delete_confirmed": false,
+          "display_path": "Movie/film.mp4",
+          "error_code": null,
+          "error_detail": null,
+          "finished_at": null,
+          "id": "<i:1>",
+          "job_id": "<j:1>",
+          "media_id": "<m:1>",
+          "output_media_id": null,
+          "position": 0,
+          "progress": null,
+          "started_at": null,
+          "status": "queued"
+        }
+      ],
+      "meta": {
+        "current_cursor": null,
+        "current_sequence": null,
+        "facets": {},
+        "limit": 50,
+        "next_cursor": null,
+        "truncated": false
+      }
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "method": "GET",
+    "origin": "http://testserver",
+    "path": "/api/v1/jobs/<j:1>/items"
+  },
+  "name": "job_items"
+}

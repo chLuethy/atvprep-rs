@@ -1,0 +1,45 @@
+{
+  "expected": {
+    "body": {
+      "data": [
+        {
+          "actor": "session:1",
+          "key": "scan_interval_seconds",
+          "new_value": 600,
+          "old_value": null,
+          "revision": 2
+        },
+        {
+          "actor": "session:1",
+          "key": "delete_original",
+          "new_value": true,
+          "old_value": null,
+          "revision": 2
+        },
+        {
+          "actor": "session:1",
+          "key": "max_probe_workers",
+          "new_value": 4,
+          "old_value": 3,
+          "revision": 3
+        }
+      ],
+      "meta": {
+        "current_cursor": null,
+        "current_sequence": null,
+        "facets": {},
+        "limit": 50,
+        "next_cursor": null,
+        "truncated": false
+      }
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "method": "GET",
+    "origin": "http://testserver",
+    "path": "/api/v1/settings/audit"
+  },
+  "name": "settings_audit"
+}

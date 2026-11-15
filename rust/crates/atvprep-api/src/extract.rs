@@ -39,3 +39,73 @@ impl FromRequestParts<AppState> for AuthenticatedSession {
         Ok(Self { id })
     }
 }
+
+#[cfg(test)]
+mod http_tests {
+    use crate::routes_auth;
+    use crate::test_support::state;
+    use axum::Router;
+    use axum::http::StatusCode;
+    use axum::routing::get;
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn authenticated_extractor_checks_session_and_origin() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        let token = routes_auth::service(&state, &conn)
+            .unwrap()
+            .create()
+            .unwrap()
+            .token;
+        let cookie = format!("__Host-atvprep_session={token}");
+        let app = Router::new()
+            .route(
+                "/protected",
+                get(|_: crate::extract::AuthenticatedSession| async { StatusCode::OK }),
+            )
+            .with_state(state);
+        let request = |origin: Option<&str>, cookie: Option<&str>| {
+            let mut request = axum::http::Request::get("/protected");
+            if let Some(origin) = origin {
+                request = request.header("origin", origin);
+            }
+            if let Some(cookie) = cookie {
+                request = request.header("cookie", cookie);
+            }
+            request.body(axum::body::Body::empty()).unwrap()
+        };
+        assert_eq!(
+            app.clone()
+                .oneshot(request(Some("http://localhost"), None))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(
+            app.clone()
+                .oneshot(request(Some("http://evil"), Some(&cookie)))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::FORBIDDEN
+        );
+        assert_eq!(
+            app.clone()
+                .oneshot(request(None, Some(&cookie)))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::FORBIDDEN
+        );
+        assert_eq!(
+            app.oneshot(request(Some("http://localhost"), Some(&cookie)))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::OK
+        );
+    }
+}

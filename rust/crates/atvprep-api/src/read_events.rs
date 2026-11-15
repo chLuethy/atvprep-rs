@@ -222,3 +222,104 @@ mod tests {
         assert!(!value.to_string().contains("hidden"));
     }
 }
+
+#[cfg(test)]
+mod http_tests {
+    use crate::router;
+    use crate::routes_auth;
+    use crate::test_support::state;
+    use atvprep_fixtures::{Fixtures, Verdict};
+    use axum::body::to_bytes;
+    use axum::http::StatusCode;
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn dashboard_activity_paginates_events_with_equal_timestamps() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        // A job without a file and an event without a job: only raw SQL lays these down.
+        Fixtures::new(conn.raw()).sql("INSERT INTO jobs(id,action,status) VALUES(1,'verify','queued'); INSERT INTO events(id,job_id,topic,entity_type,entity_id,payload_json,created_at) VALUES(1,1,'first','job',1,'{}','2026-11-01 12:00:00'),(2,1,'second','job',1,'{}','2026-11-01 12:00:00'),(3,NULL,'excluded','job',1,'{}','2026-11-01 12:00:00');");
+        let token = routes_auth::service(&state, &conn)
+            .unwrap()
+            .create()
+            .unwrap()
+            .token;
+        let app = router(state);
+        let get = |path: &str| {
+            axum::http::Request::get(path)
+                .header("origin", "http://localhost")
+                .header("cookie", format!("__Host-atvprep_session={token}"))
+                .body(axum::body::Body::empty())
+                .unwrap()
+        };
+        let response = app
+            .clone()
+            .oneshot(get("/api/v1/dashboard/activity?limit=1"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(body["data"][0]["topic"], "second");
+        let cursor = body["meta"]["next_cursor"].as_str().unwrap();
+        let response = app
+            .oneshot(get(&format!(
+                "/api/v1/dashboard/activity?limit=1&cursor={cursor}"
+            )))
+            .await
+            .unwrap();
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(body["data"][0]["topic"], "first");
+        assert!(body["meta"]["next_cursor"].is_null());
+    }
+
+    #[tokio::test]
+    async fn global_events_coalesce_logs_without_skipping_next_page() {
+        let state = state();
+        let mut conn = state.db.conn().unwrap();
+        atvprep_manager::schema::migrate(&mut conn).unwrap();
+        let fx = Fixtures::new(conn.raw());
+        let root = fx.library_at("Movies", "/private");
+        let _ = fx
+            .file(root, "film.mp4")
+            .fingerprint("a")
+            .verdict(Verdict::Clean)
+            .create();
+        // The sequence numbers are the point of this test, so the job and its events are laid down
+        // with exact ids; `Jobs::create` would add a `job.created` event in front of them.
+        fx.sql("INSERT INTO jobs(id,action,status) VALUES(1,'verify','queued'); INSERT INTO job_items(id,job_id,media_file_id,action,position,status) VALUES(1,1,1,'verify',0,'queued'); INSERT INTO events(id,job_id,item_id,topic,entity_type,entity_id,payload_json,created_at) VALUES(1,1,1,'job.log','job_item',1,'{}','2026-01-01 00:00:00.000000'),(2,1,1,'job.log','job_item',1,'{}','2026-01-01 00:00:00.100000'),(3,1,1,'job.progress','job_item',1,'{}','2026-01-01 00:00:01.000000');");
+        let token = routes_auth::service(&state, &conn)
+            .unwrap()
+            .create()
+            .unwrap()
+            .token;
+        let app = router(state);
+        let get = |path: &str| {
+            axum::http::Request::get(path)
+                .header("origin", "http://localhost")
+                .header("cookie", format!("__Host-atvprep_session={token}"))
+                .body(axum::body::Body::empty())
+                .unwrap()
+        };
+        let response = app
+            .clone()
+            .oneshot(get("/api/v1/events?limit=1"))
+            .await
+            .unwrap();
+        let first: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(first["data"][0]["sequence"], 2);
+        assert_eq!(first["meta"]["current_sequence"], 3);
+        let cursor = first["meta"]["next_cursor"].as_str().unwrap();
+        let response = app
+            .oneshot(get(&format!("/api/v1/events?limit=1&after={cursor}")))
+            .await
+            .unwrap();
+        let second: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        assert_eq!(second["data"][0]["sequence"], 3);
+        assert!(second["meta"]["next_cursor"].is_null());
+    }
+}

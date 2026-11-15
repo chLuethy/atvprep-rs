@@ -86,9 +86,8 @@ pub fn embed_not_open(param: &str) -> String {
 #[must_use]
 pub fn change_candidate(encode_param: &str, open_ids_param: &str) -> String {
     format!(
-        "NOT {CONVERTED} AND ({NOT_MP4_LIKE} OR m.compliance_state IN ('warning','blocker') \
-         OR m.desired_action='fix' OR {open}) AND {within}",
-        open = embed_open(open_ids_param),
+        "NOT {CONVERTED} AND ({NOT_MP4_LIKE} OR {preparable}) AND {within}",
+        preparable = crate::file_state::preparable_sql(open_ids_param),
         within = need_within(encode_param)
     )
 }

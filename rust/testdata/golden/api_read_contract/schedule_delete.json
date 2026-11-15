@@ -1,0 +1,19 @@
+{
+  "expected": {
+    "body": {
+      "data": {
+        "deleted": true
+      }
+    },
+    "status": 200
+  },
+  "input": {
+    "authenticated": true,
+    "csrf_action": "delete-schedule",
+    "idempotency_key": "schedule_delete",
+    "method": "DELETE",
+    "origin": "http://testserver",
+    "path": "/api/v1/schedules/<sc:1>"
+  },
+  "name": "schedule_delete"
+}
