@@ -242,7 +242,12 @@ async fn an_unknown_library_is_found_missing_before_any_other_bad_value_of_the_j
     // The order of the refusals is the one from before the facet engine: the library is resolved first.
     let api = api();
     for path in ["/api/v1/jobs", "/api/v1/jobs/counts"] {
-        for other in ["status=nonsense", "action=nonsense", "from=yesterday", "trigger=nonsense"] {
+        for other in [
+            "status=nonsense",
+            "action=nonsense",
+            "from=yesterday",
+            "trigger=nonsense",
+        ] {
             let (status, body) = api.call(&format!("{path}?root_id=nonsense&{other}")).await;
             assert_eq!(status, 404, "{path}?{other}: {body}");
         }
