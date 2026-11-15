@@ -9,10 +9,9 @@ import { loadItems, loadJob, mutateJob, type Api, type ItemRow, type JobRow, typ
 import { LogViewer } from "./LogViewer";
 import { PlannedChange } from "./PlannedChange";
 import { RaiseEncode } from "./RaiseEncode";
-import { actionLabel, canCancel, canRetry, describeDetail, formatElapsed, isActive, itemDuration, itemTone, jobPercent, jobProgress, jobTitle, jobTone, runningFor } from "./model";
+import { actionLabel, canCancel, canRetry, describeDetail, formatElapsed, isActive, isItemFailed, itemDuration, itemTone, jobPercent, jobProgress, jobTitle, jobTone, runningFor, type ItemStatus } from "./model";
 
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
-const FAILED_ITEM = new Set(["failed", "stale_input", "interrupted"]);
 type Operation = "cancel" | "retry";
 
 /**
@@ -30,7 +29,7 @@ const sameRead = () => {
 const formatDate = (iso: string | null) => formatDateTime(iso);
 const itemName = (item: ItemRow) => baseName(item.display_path ?? "").title || t("Item {position}", { position: item.position });
 
-const ItemLog: Component<{ api: Api; itemId: string; status: string }> = (props) => {
+const ItemLog: Component<{ api: Api; itemId: string; status: ItemStatus }> = (props) => {
   const [open, setOpen] = createSignal(false);
   return (
     <div class="item-log">
@@ -181,7 +180,7 @@ export const JobDetail: Component<{
     }
   };
 
-  const failedItems = () => items().filter((item) => FAILED_ITEM.has(item.status));
+  const failedItems = () => items().filter((item) => isItemFailed(item.status));
 
   const jobFailure = createMemo(() => {
     const state = job();

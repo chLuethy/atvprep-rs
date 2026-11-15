@@ -2,7 +2,7 @@ import { createEffect, createResource, on, onCleanup, Show, type Component } fro
 import { Button } from "../../ui";
 import { N, t } from "../../lib/i18n";
 import { loadLog, type Api } from "./loaders";
-import { isItemTerminal } from "./model";
+import { isItemTerminal, type ItemStatus } from "./model";
 
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
 
@@ -10,7 +10,7 @@ const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
  * The tail of one item's log as plain text. Polls every three seconds while the item can still
  * change, and reads it one last time when the item ends.
  */
-export const LogViewer: Component<{ api: Api; itemId: string; status: string }> = (props) => {
+export const LogViewer: Component<{ api: Api; itemId: string; status: ItemStatus }> = (props) => {
   const ended = () => isItemTerminal(props.status);
   const [state, { refetch }] = createResource(() => props.itemId, (itemId) => loadLog(props.api, itemId));
 

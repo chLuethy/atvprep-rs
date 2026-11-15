@@ -3,11 +3,11 @@ import { N, t, tn } from "../../lib/i18n";
 import { Button, Icon } from "../../ui";
 import { allReady, describeCounts, loadBrowse, worstIn, type Browse, type BrowseFolder, type StateCounts } from "./browse";
 import type { Api, FileRow } from "./loaders";
-import { EMPTY_FILTER, fileFilterQuery, fileSortQuery, type FileFilter, type FileSort } from "./filters";
+import { EMPTY_FILTER, fileSortQuery, type FileFilter, type FileSort } from "./filters";
 import { verdictOf } from "./model";
 import { RowMenu, type MenuItem } from "./RowMenu";
 import { additive, copyText, selectionMenu, type SelectionAction } from "./selection";
-import type { ColumnPath } from "./columnPath";
+import { columnFilterKey, type ColumnPath } from "./columnPath";
 
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
 
@@ -23,9 +23,6 @@ export type Picked = {
   folders: Array<{ name: string; rootId: string | null; path: string }>;
 };
 export type ColumnAction = SelectionAction;
-
-/** What of the filter the column view follows (everything but the search), as one comparable string. */
-const viewKey = (filter: FileFilter) => fileFilterQuery({ ...filter, q: "" });
 
 /** The order a column asks for, as one comparable string; none given is the server's own order. */
 const sortKey = (sort: FileSort | undefined) => (sort === undefined ? "server" : fileSortQuery(sort));
@@ -75,7 +72,7 @@ const Column: Component<{
   onBackground: (index: number) => void;
 }> = (props) => {
   const [data, { refetch }] = createResource(
-    () => [props.place.rootId, props.place.path, viewKey(props.filter), sortKey(props.sort), props.version] as const,
+    () => [props.place.rootId, props.place.path, columnFilterKey(props.filter), sortKey(props.sort), props.version] as const,
     ([rootId, path]) => loadBrowse(props.api, { rootId, path, filter: props.filter, sort: props.sort }),
   );
   const loaded = () => data.latest;
@@ -112,7 +109,7 @@ const Column: Component<{
               <div class="col-note notice bad" role="alert"><p>{t("Unable to load this folder")}</p><Button onClick={() => void refetch()}>{t("Retry")}</Button></div>
             </Show>
             <Show when={value().kind === "ok" && entries().length === 0}>
-              <p class="col-note muted">{viewKey(props.filter) ? t("Nothing here matches the filters") : t("Empty folder")}</p>
+              <p class="col-note muted">{columnFilterKey(props.filter) ? t("Nothing here matches the filters") : t("Empty folder")}</p>
             </Show>
             <For each={entries()}>{(entry) => (
               <div
@@ -286,7 +283,7 @@ export const ColumnsView: Component<{
 
   // A different state filter makes the folders it names a different set, so start from the libraries.
   // A path given for the new filter (one remembered under it) is opened again from there.
-  createEffect(on(() => viewKey(props.filter ?? EMPTY_FILTER), () => {
+  createEffect(on(() => columnFilterKey(props.filter ?? EMPTY_FILTER), () => {
     const path = untrack(() => props.initialPath);
     batch(() => { setTrail([]); setSel([]); setAnchor(null); setCursor(null); setEntries({}); setRestoring(path ? { at: 0, path } : null); });
   }, { defer: true }));
