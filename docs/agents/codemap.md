@@ -22,7 +22,7 @@ Einstiegspunkte nach Modul und Konzept, nicht nach Funktion. Suche den Namen im 
 
 ## Manager (`rust/crates/atvprep-manager/src`)
 
-- **Worker-Ausführung.** `worker/execution.rs` führt beanspruchte Items aus, `worker/process.rs` startet die Prozesse.
+- **Worker-Ausführung.** `worker/execution.rs` ist die Hülle (Lease, Fencing, Permit, Zustandsübergänge des Items). `worker/action.rs` hält je Aktion (Vorbereiten, Prüfen, Analysieren) Argumente, Deutung des Prozessergebnisses und Protokollzeilen; Seams sind `ProcessAdapter` (echter Kindprozess oder festes Ergebnis), `Sink` und `Shell`. `worker/process.rs` startet die Prozesse.
 - **Item-Protokoll.** `worker/logs.rs` (`ItemLog`, begrenzt, Schrittzeilen bleiben ganz), `worker/report_log.rs` und `worker/prepare_log.rs` (Schrittzeilen aus dem, was das Werkzeug meldet).
 - **Zeitpläne.** `schedule_candidates.rs` (Kandidatenauswahl: die Zahl der API-Ansicht und die eingereihte Menge eines Laufs kommen aus derselben Abfrage), `schedule_due.rs` (reine Fälligkeitsentscheidung `decide`), `cron.rs` (der einzige Kalender), `schedules.rs` (Dispatch, Lauf, Zeitzonen-Umrechnung `local_to_utc`), `media_sql.rs` (gemeinsame SQL-Bausteine).
 - **Dateizustand.** `file_state.rs` entscheidet den Zustand einer Datei (Bereit, Einbettung offen, Warnung, …) an einer Stelle: SQL-Ausdruck `state_sql`, Rangfolge `RANKED`/`rank_sql`, Rust-Gegenstück `state_of`, dazu `is_preparable`. Filter, Sortierung, Spaltenansicht und Übersicht der API nutzen ihn; die Lese-API liefert `state` und `preparable` je Datei. Neuer Zustand: nur dort (Tabellentest) und in `frontend/src/features/files/filters.ts`.

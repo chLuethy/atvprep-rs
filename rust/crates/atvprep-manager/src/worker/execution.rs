@@ -1,11 +1,9 @@
 //! Execute claimed inspection and verification items under leases and gate permits.
+pub use super::action::{ENCODE_NOT_ALLOWED, REENCODE_TIMEOUT, prepare_timeout};
 use super::{
+    action::{Action, PinnedProcess, Report, Shell, Subject},
     execution_output::ClaimedOutput,
-    prepare_log::PrepareReports,
-    process::{
-        PrepareMode, ProcessResult, StopReason, prepare_arguments, probe_arguments,
-        run_pinned_prepare_observed, run_pinned_probe, run_pinned_verify, verify_arguments,
-    },
+    process::{PrepareMode, ProcessResult, StopReason},
     report_log,
 };
 use crate::{
@@ -13,62 +11,18 @@ use crate::{
     deployment_gate::DeploymentGate,
     jobs::Jobs,
     leases::MediaExecutorLease,
+    media::StoredVerdict,
     repo::Ctx,
     settings::{TargetProfile, target_profile},
     snapshots::{InputSnapshot, InputSnapshots},
     state_machine::{ItemStatus, JobStateMachine, JobStatus},
 };
-use atvprep_core::encode::{EncodeAllowance, EncodeNeed};
+use atvprep_core::encode::EncodeAllowance;
 use std::{
     collections::BTreeMap,
     path::PathBuf,
     time::{Duration, Instant},
 };
-
-/// How long an item that may encode video and needs it (or does not know yet) can run. Encoding a
-/// film takes hours; the lease keeps being renewed meanwhile. Every other item keeps the configured,
-/// shorter limit.
-pub const REENCODE_TIMEOUT: Duration = Duration::from_hours(4);
-
-/// The code of a successful item whose file needs more than its Kodierfreigabe (ADR 0008).
-pub const ENCODE_NOT_ALLOWED: &str = "encode_not_allowed";
-
-/// The machine line the media CLI prints when a file needs more than its Kodierfreigabe allows.
-const ENCODE_NOT_ALLOWED_LINE: &str = "ATVPREP-OUTCOME encode_not_allowed";
-
-/// The need and allowance of a refusal, from the CLI's `ATVPREP-ENCODE` line.
-fn encode_refusal(process: &ProcessResult) -> Option<String> {
-    if process.reason != StopReason::Exited || process.exit_code != Some(0) {
-        return None;
-    }
-    // Machine lines come on stdout alone; the merged log may interleave stderr with them.
-    let output = String::from_utf8_lossy(&process.stdout);
-    output
-        .lines()
-        .any(|line| line.trim() == ENCODE_NOT_ALLOWED_LINE)
-        .then(|| {
-            let detail = output
-                .lines()
-                .find_map(|line| line.trim().strip_prefix("ATVPREP-ENCODE "))
-                .unwrap_or("need=unknown allowance=unknown");
-            format!("Encoding not allowed ({detail}): the file stays as it was.")
-        })
-}
-
-/// The time limit of one changing item: longer only for „Audio und Video“ with a video or unknown
-/// Kodierbedarf (`need` is the stored one, `None` is „unbekannt“).
-#[must_use]
-pub fn prepare_timeout(
-    configured: Duration,
-    mode: PrepareMode,
-    need: Option<EncodeNeed>,
-) -> Duration {
-    if mode.encode == EncodeAllowance::All && matches!(need, None | Some(EncodeNeed::Video)) {
-        configured.max(REENCODE_TIMEOUT)
-    } else {
-        configured
-    }
-}
 
 /// Trusted runtime settings for the media CLI.
 #[derive(Clone)]
@@ -252,7 +206,6 @@ pub fn execute_claimed(
     })?;
     // The item's log: step lines of this run and the tool's output (see `ClaimedOutput`).
     let mut output = ClaimedOutput::new(ctx, owner, fence, item_id, item.job_id);
-    let started = Instant::now();
     let result = (|| {
         if !authority(ctx, item_id, owner, fence)? {
             return Err(Error::Conflict(
@@ -266,231 +219,54 @@ pub fn execute_claimed(
             Some(fence),
             None,
         )?;
-        let mut heartbeat = Instant::now();
-        let mut lost = false;
-        let mut shutdown_requested = false;
-        let mut cancelled = || {
-            if config
-                .shutdown
-                .as_ref()
-                .is_some_and(|stop| stop.load(std::sync::atomic::Ordering::Acquire))
-            {
-                shutdown_requested = true;
-                return true;
-            }
-            if heartbeat.elapsed() >= Duration::from_secs(1) {
-                heartbeat = Instant::now();
-                if !MediaExecutorLease::new(ctx)
-                    .heartbeat(Some(fence), config.lease_seconds)
-                    .unwrap_or(false)
-                    || !Jobs(ctx)
-                        .heartbeat_item(item_id, fence, config.lease_seconds)
-                        .unwrap_or(false)
-                {
-                    lost = true;
-                    return true;
-                }
-            }
-            if !authority(ctx, item_id, owner, fence).unwrap_or(false) {
-                lost = true;
-                return true;
-            }
-            let status: std::result::Result<JobStatus, _> = ctx.conn.query_row(
-                "SELECT status FROM jobs WHERE id=?1",
-                [item.job_id],
-                |row| row.get(0),
-            );
-            status.map_or(true, |status| {
-                !matches!(status, JobStatus::Queued | JobStatus::Running)
-            })
-        };
-        // „Prüfen“ runs against the profile of this moment; what it stored is checked again below.
+        // „Prüfen“ runs against the profile of this moment; what it stored is checked again later.
         let verify_profile = crate::db::retry_busy(|| target_profile(ctx.conn))?;
-        let inspect = !changing && item.action == "inspect";
-        for line in report_log::opening(if changing { "prepare" } else { &item.action }, &relative)
-        {
-            output.step(&line)?;
-        }
-        let arguments = if changing {
-            prepare_arguments(target.leaf_name(), target.identity(), mode)
-        } else if inspect {
-            probe_arguments()
-        } else {
-            verify_arguments(target.leaf_name(), target.identity(), verify_profile)
-        };
-        if !inspect {
-            output.step(&format!("Tool: atvprep {}", env!("CARGO_PKG_VERSION")))?;
-        }
-        output.step(&report_log::command(&config.executable, &arguments))?;
-        if changing {
-            for line in report_log::prepare_frame(mode) {
-                output.step(&line)?;
-            }
-        } else if !inspect {
-            output.step(&format!("Target profile: {}", verify_profile.summary()))?;
-        }
-        let mut reports = PrepareReports::default();
-        let process = if changing {
+        let action = if changing {
             let need = crate::media::Media(ctx)
                 .get(item.media_file_id)?
                 .and_then(|media| media.encode_need);
-            // The phase timing reports each phase on stderr, for the log.
-            let mut environment = config.environment.clone();
-            environment.insert(
-                atvprep_core::phase_timing::ENV_VAR.to_owned(),
-                "1".to_owned(),
-            );
-            run_pinned_prepare_observed(
-                &config.executable,
-                &target,
-                mode,
-                &environment,
-                prepare_timeout(config.timeout, mode, need),
-                config.grace,
-                &mut cancelled,
-                |stream, chunk| {
-                    output.feed(chunk, false)?;
-                    for line in reports.step_lines_keeping_error(stream, chunk, ctx.clock) {
-                        output.step(&line)?;
-                    }
-                    Ok(())
-                },
-            )
+            Action::Prepare { mode, need }
         } else if item.action == "inspect" {
-            run_pinned_probe(
-                &config.executable,
-                &target,
-                &config.environment,
-                config.timeout,
-                config.grace,
-                &mut cancelled,
-            )
+            Action::Inspect
         } else {
-            run_pinned_verify(
-                &config.executable,
-                &target,
-                verify_profile,
-                &config.environment,
-                config.timeout,
-                config.grace,
-                &mut cancelled,
-            )
-        }?;
-        // A check that worked leaves its report, not its output; one that failed leaves its output.
-        let reported = process.reason == StopReason::Exited
-            && (process.exit_code == Some(0)
-                || (item.action == "verify" && process.exit_code == Some(1)));
-        if changing {
-            output.feed(&[], true)?;
-        } else if !reported {
-            output.feed(&process.output, true)?;
-        }
-        if lost || !authority(ctx, item_id, owner, fence)? {
-            return Err(Error::Conflict(
-                "worker lost its execution lease".to_owned(),
-            ));
-        }
-        if !changing && reported {
-            target
-                .revalidate()
-                .map_err(|_| Error::Invalid("input changed during inspection".to_owned()))?;
-            if process.stdout.len() > 56 * 1024 {
-                return Err(Error::Invalid(
-                    "inspection report exceeds supported size".to_owned(),
-                ));
+            Action::Verify {
+                profile: verify_profile,
             }
-            let mut document: serde_json::Value = serde_json::from_slice(&process.stdout)
-                .map_err(|_| Error::Invalid("inspection returned an invalid report".to_owned()))?;
-            // ffprobe's version is for the log; the stored report stays as it was.
-            let tool_version = document
-                .as_object_mut()
-                .and_then(|report| report.remove("program_version"))
-                .and_then(|version| version.get("version")?.as_str().map(str::to_owned))
-                .unwrap_or_else(|| "unknown".to_owned());
-            let report = if item.action == "verify" {
-                document
-                    .get("reports")
-                    .and_then(serde_json::Value::as_array)
-                    .and_then(|reports| reports.first())
-                    .ok_or_else(|| Error::Invalid("verification returned no report".to_owned()))?
-            } else {
-                &document
-            };
-            let tx = rusqlite::Transaction::new_unchecked(
-                ctx.conn,
-                rusqlite::TransactionBehavior::Immediate,
-            )?;
-            let write = Ctx {
-                conn: &tx,
-                clock: ctx.clock,
-            };
-            if !authority(write, item_id, owner, fence)? {
-                return Err(Error::Conflict(
-                    "worker lost its inspection authority".to_owned(),
-                ));
-            }
-            crate::inspections::Inspections(write).record(
-                item.media_file_id,
-                &crate::inspections::NewInspection {
-                    source_fingerprint: &recorded.file_fingerprint,
-                    input_fingerprint: &recorded.file_fingerprint,
-                    tool_name: if item.action == "verify" {
-                        "verify"
-                    } else {
-                        "ffprobe"
-                    },
-                    tool_version: "unknown",
-                    result: report,
-                },
-                None,
-            )?;
-            if item.action == "verify" {
-                forget_need_of_a_superseded_profile(write, item.media_file_id, verify_profile)?;
-            }
-            tx.commit()?;
-            if inspect {
-                output.step(&format!("Tool: ffprobe {tool_version}"))?;
-                for line in report_log::streams(report) {
-                    output.step(&line)?;
-                }
-            } else {
-                for line in report_log::rules(report) {
-                    output.step(&line)?;
-                }
-                let stored = crate::db::retry_busy(|| {
-                    crate::media::Media(ctx).stored_verdict(item.media_file_id)
-                })?;
-                for line in report_log::stored_verdict(
-                    &stored.state,
-                    stored.encode_need.as_deref(),
-                    stored.planned_change.as_deref(),
-                ) {
-                    output.step(&line)?;
-                }
-            }
-        }
-        if changing {
-            complete_prepare(
-                ctx, &item, &target, &root, &relative, owner, fence, &process,
-            )?;
-        }
-        // A verify that reported violations (exit 1) still produced a valid report: the check ran.
-        let verified_with_findings =
-            item.action == "verify" && !changing && process.exit_code == Some(1);
+        };
+        let subject = Subject {
+            relative: &relative,
+            leaf: target.leaf_name(),
+            identity: target.identity(),
+            executable: &config.executable,
+            timeout: config.timeout,
+            clock: ctx.clock,
+        };
+        let mut process = PinnedProcess {
+            executable: &config.executable,
+            target: &target,
+            environment: &config.environment,
+            grace: config.grace,
+        };
+        let mut shell = ClaimedShell {
+            ctx,
+            owner,
+            fence,
+            item: &item,
+            config,
+            target: &target,
+            root: &root,
+            relative: &relative,
+            recorded_fingerprint: &recorded.file_fingerprint,
+            verify_profile: matches!(action, Action::Verify { .. }).then_some(verify_profile),
+            started: Instant::now(),
+            heartbeat: Instant::now(),
+            lost: false,
+            shutdown_requested: false,
+        };
+        let outcome = action.execute(&subject, &mut process, &mut output, &mut shell)?;
         let fresh = Jobs(ctx)
             .get_item(item_id)?
             .ok_or_else(|| Error::Invalid("job item not found".to_owned()))?;
-        let terminal = if shutdown_requested {
-            ItemStatus::Interrupted
-        } else if process.reason == StopReason::Cancelled {
-            ItemStatus::Cancelled
-        } else if process.reason == StopReason::Exited
-            && (process.exit_code == Some(0) || verified_with_findings)
-        {
-            ItemStatus::Succeeded
-        } else {
-            ItemStatus::Failed
-        };
         let version = if fresh.status == ItemStatus::CancelRequested {
             JobStateMachine(ctx)
                 .transition_item(
@@ -504,46 +280,28 @@ pub fn execute_claimed(
         } else {
             fresh.status_version
         };
-        // A file above its Kodierfreigabe stays unchanged: a success with a hint, not a failure.
-        let refusal = changing.then(|| encode_refusal(&process)).flatten();
-        let code = match process.reason {
-            StopReason::Exited if refusal.is_some() => Some(ENCODE_NOT_ALLOWED),
-            StopReason::TimedOut => Some("timeout"),
-            StopReason::Cancelled => Some("cancelled"),
-            StopReason::Exited if process.exit_code != Some(0) && !verified_with_findings => {
-                Some("verification_failed")
-            }
-            StopReason::Exited => None,
-        };
-        // The log is written while the item still runs: its last line comes before its end.
-        for line in report_log::ending(process.exit_code, started.elapsed()) {
-            output.step(&line)?;
-        }
-        if let Some(closing) = report_log::closing(
-            terminal,
-            code,
-            &process,
-            reports.error(),
-            refusal.as_deref(),
-        ) {
-            output.step(&closing)?;
-        }
         output.finish()?;
-        JobStateMachine(ctx).transition_item(item_id, terminal, version, Some(fence), None)?;
-        let changed=ctx.conn.execute("UPDATE job_items SET exit_code=?1,error_code=?2 WHERE id=?3 AND executor_fencing_token=?4 AND lease_expires_at>?5 AND EXISTS(SELECT 1 FROM media_executor_leases WHERE id=1 AND fencing_token=?4 AND lease_expires_at>?5)",rusqlite::params![process.exit_code,code,item_id,fence,ctx.clock.now()])?;
+        JobStateMachine(ctx).transition_item(
+            item_id,
+            outcome.terminal,
+            version,
+            Some(fence),
+            None,
+        )?;
+        let changed=ctx.conn.execute("UPDATE job_items SET exit_code=?1,error_code=?2 WHERE id=?3 AND executor_fencing_token=?4 AND lease_expires_at>?5 AND EXISTS(SELECT 1 FROM media_executor_leases WHERE id=1 AND fencing_token=?4 AND lease_expires_at>?5)",rusqlite::params![outcome.process.exit_code,outcome.code,item_id,fence,ctx.clock.now()])?;
         if changed != 1 {
             return Err(Error::Conflict(
                 "worker lost its completion authority".to_owned(),
             ));
         }
-        if let Some(refusal) = refusal {
+        if let Some(refusal) = outcome.refusal {
             ctx.conn.execute(
                 "UPDATE job_items SET error_detail=?1 WHERE id=?2",
                 rusqlite::params![refusal, item_id],
             )?;
         }
         super::recovery::Recovery(ctx).reconcile_idle_jobs()?;
-        Ok(process)
+        Ok(outcome.process)
     })();
     match result {
         Ok(process) => {
@@ -575,6 +333,132 @@ pub fn execute_claimed(
             cleanup?;
             Err(error)
         }
+    }
+}
+
+/// What the execution shell does for an action between its phases: the lease heartbeat and
+/// cancellation while the process runs, the fenced writes afterwards.
+struct ClaimedShell<'a> {
+    ctx: Ctx<'a>,
+    owner: &'a str,
+    fence: i64,
+    item: &'a crate::models::JobItem,
+    config: &'a ExecutionConfig,
+    target: &'a atvprep_core::fd_fix_contract::FdFixTarget,
+    root: &'a str,
+    relative: &'a str,
+    recorded_fingerprint: &'a str,
+    /// The profile a check ran against, to see whether it was superseded meanwhile.
+    verify_profile: Option<TargetProfile>,
+    started: Instant,
+    heartbeat: Instant,
+    lost: bool,
+    shutdown_requested: bool,
+}
+
+impl Shell for ClaimedShell<'_> {
+    fn cancelled(&mut self) -> bool {
+        let ctx = self.ctx;
+        if self
+            .config
+            .shutdown
+            .as_ref()
+            .is_some_and(|stop| stop.load(std::sync::atomic::Ordering::Acquire))
+        {
+            self.shutdown_requested = true;
+            return true;
+        }
+        if self.heartbeat.elapsed() >= Duration::from_secs(1) {
+            self.heartbeat = Instant::now();
+            if !MediaExecutorLease::new(ctx)
+                .heartbeat(Some(self.fence), self.config.lease_seconds)
+                .unwrap_or(false)
+                || !Jobs(ctx)
+                    .heartbeat_item(self.item.id, self.fence, self.config.lease_seconds)
+                    .unwrap_or(false)
+            {
+                self.lost = true;
+                return true;
+            }
+        }
+        if !authority(ctx, self.item.id, self.owner, self.fence).unwrap_or(false) {
+            self.lost = true;
+            return true;
+        }
+        let status: std::result::Result<JobStatus, _> = ctx.conn.query_row(
+            "SELECT status FROM jobs WHERE id=?1",
+            [self.item.job_id],
+            |row| row.get(0),
+        );
+        status.map_or(true, |status| {
+            !matches!(status, JobStatus::Queued | JobStatus::Running)
+        })
+    }
+
+    fn shutdown_requested(&self) -> bool {
+        self.shutdown_requested
+    }
+
+    fn authority_lost(&mut self) -> Result<bool> {
+        Ok(self.lost || !authority(self.ctx, self.item.id, self.owner, self.fence)?)
+    }
+
+    fn record_report(&mut self, report: &Report) -> Result<()> {
+        let ctx = self.ctx;
+        let tx = rusqlite::Transaction::new_unchecked(
+            ctx.conn,
+            rusqlite::TransactionBehavior::Immediate,
+        )?;
+        let write = Ctx {
+            conn: &tx,
+            clock: ctx.clock,
+        };
+        if !authority(write, self.item.id, self.owner, self.fence)? {
+            return Err(Error::Conflict(
+                "worker lost its inspection authority".to_owned(),
+            ));
+        }
+        crate::inspections::Inspections(write).record(
+            self.item.media_file_id,
+            &crate::inspections::NewInspection {
+                source_fingerprint: self.recorded_fingerprint,
+                input_fingerprint: self.recorded_fingerprint,
+                tool_name: report.tool_name,
+                // What the tool said, `unknown` where it said nothing; the stored report itself
+                // never carries it.
+                tool_version: &report.tool_version,
+                result: &report.document,
+            },
+            None,
+        )?;
+        if let Some(used) = self.verify_profile {
+            forget_need_of_a_superseded_profile(write, self.item.media_file_id, used)?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    fn stored_verdict(&mut self) -> Result<StoredVerdict> {
+        crate::db::retry_busy(|| {
+            crate::media::Media(self.ctx).stored_verdict(self.item.media_file_id)
+        })
+    }
+
+    fn complete_prepare(&mut self, process: &ProcessResult) -> Result<()> {
+        complete_prepare(
+            self.ctx,
+            self.item,
+            self.target,
+            self.root,
+            self.relative,
+            self.owner,
+            self.fence,
+            process,
+        )
+    }
+
+    fn elapsed(&self) -> Duration {
+        self.started.elapsed()
     }
 }
 
@@ -711,6 +595,7 @@ fn complete_prepare(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::worker::action::encode_refusal;
     use crate::{clock::FixedClock, db::Db, schema, settings::Settings};
     use serde_json::json;
 
