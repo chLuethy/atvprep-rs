@@ -531,6 +531,26 @@ mod tests {
         }
     }
 
+    /// The golden lines of a run, `name`.txt under `testdata/golden/worker_action`. The version of the
+    /// tool is written `{version}`. `UPDATE_GOLDEN=1` rewrites the file from the run.
+    fn assert_golden(name: &str, lines: &[String]) {
+        let path = format!(
+            "{}/../../testdata/golden/worker_action/{name}.txt",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let actual = lines
+            .iter()
+            .map(|line| line.replace(env!("CARGO_PKG_VERSION"), "{version}"))
+            .map(|line| line + "\n")
+            .collect::<String>();
+        if std::env::var_os("UPDATE_GOLDEN").is_some() {
+            std::fs::create_dir_all(std::path::Path::new(&path).parent().unwrap()).unwrap();
+            std::fs::write(&path, &actual).unwrap();
+        }
+        let golden = std::fs::read_to_string(&path).unwrap_or_else(|_| panic!("missing {path}"));
+        assert_eq!(actual, golden, "{name}");
+    }
+
     #[derive(Default)]
     struct TestShell {
         recorded: Vec<(String, String, Value)>,
@@ -604,18 +624,7 @@ mod tests {
         let outcome = outcome.unwrap();
         assert_eq!(outcome.terminal, ItemStatus::Succeeded);
         assert_eq!(outcome.code, None);
-        assert_eq!(
-            lines,
-            [
-                "Start: inspect",
-                "File: film.mp4",
-                "Command: atvprep -v error -show_program_version -show_format -show_streams -of json /dev/fd/0",
-                "Tool: ffprobe 7.1.1",
-                "Stream 0: video h264, default",
-                "Exit code: 0",
-                "Duration: 4.21 s",
-            ]
-        );
+        assert_golden("inspect", &lines);
         assert_eq!(shell.recorded.len(), 1);
         assert_eq!(shell.recorded[0].0, "ffprobe");
         assert_eq!(shell.recorded[0].1, "7.1.1");
@@ -642,25 +651,7 @@ mod tests {
         let outcome = outcome.unwrap();
         assert_eq!(outcome.terminal, ItemStatus::Succeeded);
         assert_eq!(outcome.code, None);
-        assert_eq!(&lines[..2], ["Start: verify", "File: film.mp4"]);
-        assert!(lines[2].starts_with("Tool: atvprep "));
-        assert!(lines[3].starts_with("Command: atvprep verify --json --crf 18 "));
-        assert_eq!(
-            lines[4],
-            "Target profile: crf 18, prefer HEVC 10-bit no, keep AV1 no, fix DTS no"
-        );
-        assert!(lines.contains(&"Rule fast-start: warning: moov at end".to_owned()));
-        assert!(lines.contains(&"Rule apple-tags: ok".to_owned()));
-        assert_eq!(
-            &lines[lines.len() - 5..],
-            [
-                "State: warning",
-                "Encode need: audio",
-                "Planned change: unknown",
-                "Exit code: 1",
-                "Duration: 4.21 s",
-            ]
-        );
+        assert_golden("verify_with_findings", &lines);
         // The stored result carries the tool version when the report names none: `unknown`.
         assert_eq!(shell.recorded[0].0, "verify");
         assert_eq!(shell.recorded[0].1, "unknown");
@@ -691,15 +682,7 @@ mod tests {
         assert_eq!(outcome.terminal, ItemStatus::Failed);
         assert_eq!(outcome.code, Some("verification_failed"));
         assert!(shell.recorded.is_empty());
-        assert_eq!(
-            &lines[lines.len() - 3..],
-            [
-                "Exit code: 2",
-                "Duration: 4.21 s",
-                "Failed: verification_failed: the tool exited with code 2",
-            ]
-        );
-        assert!(lines.contains(&"boom".to_owned()));
+        assert_golden("verify_tool_failure", &lines);
     }
 
     #[test]
@@ -806,21 +789,20 @@ mod tests {
         let outcome = outcome.unwrap();
         assert_eq!(outcome.terminal, ItemStatus::Succeeded);
         assert!(shell.completed);
-        assert_eq!(&lines[..2], ["Start: prepare", "File: film.mp4"]);
-        assert!(lines[3].starts_with("Command: atvprep prepare --yes --encode copy"));
-        assert_eq!(lines[4], "Encode allowance: copy");
-        assert_eq!(lines[6], "Delete original: yes");
-        assert!(lines.contains(&"Original: removed".to_owned()), "{lines:?}");
-        assert!(
-            lines
-                .iter()
-                .any(|line| line.starts_with("Phase remux: started ")),
-            "{lines:?}"
-        );
-        assert_eq!(
-            &lines[lines.len() - 2..],
-            ["Exit code: 0", "Duration: 4.21 s"]
-        );
+        // The time of day a phase started is local time: the golden file does not hold it.
+        let lines: Vec<String> = lines
+            .iter()
+            .map(|line| {
+                let started = line.starts_with("Phase remux: started ");
+                match line.find(", took") {
+                    Some(end) if started => {
+                        format!("Phase remux: started {{time}}{}", &line[end..])
+                    }
+                    _ => line.clone(),
+                }
+            })
+            .collect();
+        assert_golden("prepare_copy", &lines);
     }
 
     #[test]
@@ -838,10 +820,7 @@ mod tests {
         let outcome = outcome.unwrap();
         assert_eq!(outcome.terminal, ItemStatus::Succeeded);
         assert_eq!(outcome.code, Some(ENCODE_NOT_ALLOWED));
-        assert_eq!(
-            lines.last().unwrap(),
-            "Encoding not allowed (need=video allowance=audio): the file stays as it was."
-        );
+        assert_golden("prepare_encode_not_allowed", &lines);
     }
 
     #[test]
@@ -854,10 +833,7 @@ mod tests {
             &mut shell,
         );
         assert_eq!(outcome.unwrap().terminal, ItemStatus::Failed);
-        assert_eq!(
-            lines.last().unwrap(),
-            "Failed: verification_failed: disk full"
-        );
+        assert_golden("prepare_failed", &lines);
     }
 
     #[test]

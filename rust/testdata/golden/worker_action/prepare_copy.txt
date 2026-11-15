@@ -1,0 +1,13 @@
+Start: prepare
+File: film.mp4
+Tool: atvprep {version}
+Command: atvprep prepare --yes --encode copy --crf 18 --manager-parent-fd 0 --manager-leaf film.mp4 --manager-device 1 --manager-inode 2 --manager-ctime-ns 3 -- film.mp4
+Encode allowance: copy
+Target profile: crf 18, prefer HEVC 10-bit no, keep AV1 no, fix DTS no
+Delete original: yes
+ATVPREP-SOURCE removed
+Original: removed
+{"phase":"remux","seconds":2.5}
+Phase remux: started {time}, took 2.50 s
+Exit code: 0
+Duration: 4.21 s
