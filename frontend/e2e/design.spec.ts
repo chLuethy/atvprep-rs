@@ -21,6 +21,8 @@ const PAGES: ReadonlyArray<{ name: string; path: string; ready: string; prepare?
     },
   },
   { name: "Settings", path: "/settings", ready: "Runtime settings" },
+  // A failed job is open, so the list, the detail, its failure and the item row are all checked.
+  { name: "Activity", path: "/jobs/2", ready: "Activity" },
 ];
 
 for (const { name, path, ready, prepare } of PAGES) {
