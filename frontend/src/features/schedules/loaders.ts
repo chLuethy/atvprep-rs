@@ -175,8 +175,8 @@ export const runScheduleNow = (api: Api, id: string, key: string) => send(api, `
 /** What the person is told before turning on a schedule that changes files, read fresh from the server. */
 export type EnableFacts = { matching: number; deleteOriginal: boolean | null; encode: EncodeLevel | null; profile: TargetProfile | null };
 
-/** Aktuelle, durch die Laufgröße begrenzte Trefferzahl und `delete_original`; null bei nicht lesbarem Zeitplan.
- * Ein abgebrochenes Signal verhindert Folgereads und wird dem Dashboard-Read weitergereicht.
+/** Current match count, capped by the run size, and `delete_original`; null if the schedule is unreadable.
+ * An aborted signal prevents follow-up reads and is passed on to the dashboard read.
  */
 export async function loadEnableFacts(api: Api, id: string, signal?: AbortSignal): Promise<EnableFacts | { session: true } | null> {
   try {

@@ -471,7 +471,7 @@ describe("SchedulesPage", () => {
     view.unmount();
     const requests = state.calls.length;
     finish(json(schedule()));
-    // Die freigegebene Antwort samt nachfolgenden Microtasks vollständig verarbeiten.
+    // Fully process the released response including subsequent microtasks.
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
     expect(state.calls).toHaveLength(requests);
   });

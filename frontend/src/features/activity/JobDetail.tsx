@@ -71,7 +71,7 @@ const JobDetailView: Component<{
   const [moreError, setMoreError] = createSignal(false);
   const [moreSession, setMoreSession] = createSignal(false);
   let moreInFlight = false;
-  // Positionen entstehen im Job fortlaufend; fehlerhafte oder doppelte Werte erhalten keine gemeinsame UI-Identität.
+  // Positions are assigned sequentially within a job; invalid or duplicate values get no shared UI identity.
   const itemKey = createMemo(() => uniqueRowKeys(items(), (item) =>
     Number.isSafeInteger(item.position) && item.position >= 0 ? String(item.position) : undefined));
 
@@ -91,7 +91,7 @@ const JobDetailView: Component<{
       const keepFocus = focused instanceof HTMLElement && itemList?.contains(focused);
       setItems(page.items);
       setNextCursor(page.nextCursor);
-      // DOM-Verschiebungen können selbst bei erhaltener Zeile den Browserfokus lösen.
+      // DOM moves can drop browser focus even when the row is preserved.
       if (keepFocus) onSettled(() => {
         if (focused.isConnected && document.activeElement === document.body) focused.focus();
       });
@@ -112,7 +112,7 @@ const JobDetailView: Component<{
     const state = job();
     return state?.kind === "ok" ? state.data : undefined;
   };
-  // Ein aktiver Job wird weiter gelesen; ein Jobwechsel erhält eine neue Instanz.
+  // An active job keeps being read; switching jobs creates a new instance.
   createEffect(() => !!current() && isActive(current()!), (active) => {
     if (!active) return;
     let reading = false;
@@ -170,7 +170,7 @@ const JobDetailView: Component<{
     setMoreError(false);
     setMoreSession(false);
     try {
-      // Eine laufende Revalidierung bestimmt zuerst den aktuellen Cursor; Polls warten bis zum Nachladeende.
+      // A running revalidation determines the current cursor first; polls wait until loading more has finished.
       if (itemRefresh) await itemRefresh;
       if (disposed) return;
       const cursor = nextCursor();

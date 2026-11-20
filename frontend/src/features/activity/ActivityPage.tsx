@@ -27,7 +27,7 @@ const CLEARABLE: ReadonlyArray<{ id: string; label: string; statuses: ClearStatu
 
 type Phase = "loading" | "ready" | "error" | "session";
 
-/** Kein natürlich eindeutiger Jobschlüssel im API-Vertrag: nur vollständige, eindeutige Kandidaten verbinden. */
+/** The API contract has no naturally unique job key: only link complete, unique candidates. */
 const jobKey = (job: JobRow): string | undefined => job.requested_at && job.action && job.trigger
   ? JSON.stringify([job.requested_at, job.action, job.trigger, job.total_count, job.subject ?? null]) : undefined;
 
@@ -162,7 +162,7 @@ export const ActivityPage: Component<{
     setPhase("ready");
   };
 
-  /** Alle sichtbaren Seiten ersetzen; UI-Schlüssel bleiben auch bei wechselnden Antwort-IDs getrennt. */
+  /** Replace all visible pages; UI keys stay distinct even when response IDs change. */
   const readFreshRows = async () => {
     const mine = generation;
     const asked = filter();
@@ -189,7 +189,7 @@ export const ActivityPage: Component<{
     setNextCursor(cursor);
     await refreshCounts();
   };
-  // Aktive und relative Polls teilen denselben Read; Nachladen und Filterwechsel haben Vorrang.
+  // Active and relative polls share the same read; loading more and filter changes take precedence.
   const refresh = (): Promise<void> => {
     if (disposed || listLoading) return Promise.resolve();
     if (refreshFlight?.generation === generation) return refreshFlight.promise;
@@ -247,8 +247,8 @@ export const ActivityPage: Component<{
     const remembered = requestedId === previous?.requestedId ? previous?.key : undefined;
     const key = direct ? (typeof candidate === "string" ? candidate : undefined)
       : remembered !== undefined && rows().some((row) => rowKey()(row) === remembered) ? remembered : undefined;
-    // Die erste Zuordnung eines Deep Links ersetzt nicht dessen bereits bedienbare Detailinstanz.
-    // Eine verlorene oder mehrdeutige Zuordnung darf dagegen später keinen fremden Job verbinden.
+    // The first match of a deep link does not replace its already usable detail instance.
+    // A lost or ambiguous match, however, must not later attach to a different job.
     const same = previous && ((requestedId === previous.requestedId && (previous.key === undefined || previous.key === key))
       || (key !== undefined && key === previous.key));
     return { requestedId, key, identity: same ? previous.identity : {} };

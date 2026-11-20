@@ -183,7 +183,7 @@ export const SettingsPage: Component<{ api: SettingsApi }> = (props) => {
       const envelope = await readEnvelope(response);
       if (disposed) return;
       applyEnvelope(envelope, true, true);
-      // Nur bestätigte Entwurfswerte entfernen; während des Requests weiterbearbeitete Felder bleiben.
+      // Only remove confirmed draft values; fields edited during the request are kept.
       setDraft((current) => Object.fromEntries(Object.entries(current).filter(([key, value]) => !Object.is(value, submitted[key]))));
       setSavedMessage(t("Settings saved."));
     } catch (caught) {

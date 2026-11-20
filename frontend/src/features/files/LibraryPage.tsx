@@ -207,7 +207,7 @@ export const LibraryPage: Component<{
     });
     setNextCursor(cursor);
   };
-  // Polls teilen einen laufenden Refresh; eine neue Scan-Invalidierung verlangt danach einen weiteren Read.
+  // Polls share a running refresh; a new scan invalidation then requires another read.
   const refreshRows = (asked = { filter: filter(), sort: sort() }, api = props.api, invalidated = false): Promise<void> => {
     if (disposed) return Promise.resolve();
     if (listLoading) {

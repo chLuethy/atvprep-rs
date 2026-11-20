@@ -1,6 +1,6 @@
 /**
- * Nur vollständige, in dieser Liste eindeutige Fachschlüssel erhalten Zeilen über neue Antworten hinweg.
- * Bei fehlenden oder doppelten Schlüsseln bleibt Objektidentität die sichere Rückfallebene.
+ * Only complete domain keys that are unique within this list keep rows across new responses.
+ * With missing or duplicate keys, object identity remains the safe fallback.
  */
 export function uniqueRowKeys<T>(rows: readonly T[], keyOf: (row: T) => string | undefined): (row: T) => string | T {
   const counts = new Map<string, number>();

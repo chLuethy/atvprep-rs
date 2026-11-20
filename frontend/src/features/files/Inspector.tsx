@@ -106,7 +106,7 @@ const InspectorView: Component<{
     else if (wasConfirming) queueMicrotask(() => trigger?.focus());
     wasConfirming = open;
   });
-  // Ein Dateiwechsel erhält eine eigene Instanz samt Meldungen und Bestätigungen.
+  // Switching files creates its own instance, including messages and confirmations.
 
   const openConfirm = () => {
     idempotencyKey ??= crypto.randomUUID();

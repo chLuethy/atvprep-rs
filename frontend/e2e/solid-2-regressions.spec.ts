@@ -8,7 +8,7 @@ test("behält Dateiauswahl, DOM-Zeile und Fokus bei frischen Objekten und umgeke
   let release!: () => void;
   const ready = new Promise<void>((resolve) => { release = resolve; });
   await page.route("**/api/v1/dashboard", async (route) => {
-    // APIRequestContext besitzt keine Browser-Fetch-Metadaten: den tatsächlichen Seiten-Origin mitsenden.
+    // APIRequestContext has no browser fetch metadata: send the actual page origin.
     const response = await route.fetch({ headers: { ...await route.request().allHeaders(), Origin: new URL(page.url()).origin } });
     if (!response.ok()) { await route.fulfill({ response }); return; }
     const body = await response.json();

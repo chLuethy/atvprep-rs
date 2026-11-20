@@ -254,7 +254,7 @@ export const ColumnsView: Component<{
   };
 
   const onEntries = (index: number, list: Entry[]) => setEntries((all) => ({ ...all, [index]: list }));
-  // Geladene Spalten und Navigationszustand gemeinsam auswerten; Apply liest keine reaktiven Werte nach.
+  // Evaluate loaded columns and navigation state together; apply reads no reactive values afterwards.
   createEffect(() => {
     const wanted = restoring();
     const index = wanted?.at ?? wantFirstIn();

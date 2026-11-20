@@ -463,7 +463,7 @@ export const SchedulesPage: Component<{
       <div class="sched-line">
         <label class="sched-switch">
           <input type="checkbox" checked={schedule.enabled} disabled={busy()} aria-label={schedule.enabled ? t("Pause {name}", { name: schedule.name }) : t("Turn on {name}", { name: schedule.name })} onChange={(event) => {
-            // Der Schalter zeigt erst die bestätigte Serverantwort, nicht den lokalen Klick.
+            // The toggle shows the confirmed server response, not the local click.
             event.currentTarget.checked = schedule.enabled;
             toggle(schedule);
           }} />
