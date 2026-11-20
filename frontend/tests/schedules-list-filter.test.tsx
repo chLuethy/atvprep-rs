@@ -74,27 +74,27 @@ describe("schedule list toolbar", () => {
   it("defaults to next run and re-sorts by name", async () => {
     const view = await page(rows);
     expect(listNames(view)).toEqual(["Sooner", "Later", "Scanner"]);
-    fireEvent.change(view.getByLabelText("Sort by"), { target: { value: "name" } });
+    await fireEvent.change(view.getByLabelText("Sort by"), { target: { value: "name" } });
     expect(listNames(view)).toEqual(["Later", "Scanner", "Sooner"]);
   });
   it("filters by action chip and shows the pressed state", async () => {
     const view = await page(rows);
     const chip = view.getByRole("button", { name: "Scan" });
     expect(chip.getAttribute("aria-pressed")).toBe("false");
-    fireEvent.click(chip);
+    await fireEvent.click(chip);
     expect(chip.getAttribute("aria-pressed")).toBe("true");
     expect(listNames(view)).toEqual(["Scanner"]);
   });
   it("filters by status chip", async () => {
     const view = await page(rows);
-    fireEvent.click(view.getByRole("button", { name: "Paused" }));
+    await fireEvent.click(view.getByRole("button", { name: "Paused" }));
     expect(listNames(view)).toEqual(["Scanner"]);
   });
   it("shows an empty state with a reset when filters hide everything", async () => {
     const view = await page(rows);
-    fireEvent.click(view.getByRole("button", { name: "Prepare" }));
+    await fireEvent.click(view.getByRole("button", { name: "Prepare" }));
     expect(view.getByText("No schedule matches these filters")).toBeTruthy();
-    fireEvent.click(view.getByRole("button", { name: "Reset filters" }));
+    await fireEvent.click(view.getByRole("button", { name: "Reset filters" }));
     await waitFor(() => expect(listNames(view)).toHaveLength(3));
   });
 });

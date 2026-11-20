@@ -19,12 +19,12 @@ export const ListToolbar: Component<{
     </label>
     <div class="chips" role="group" aria-label={t("Filter schedules by action")}>
       <For each={LIST_ACTIONS}>{(action) => (
-        <button type="button" class="filter-chip" aria-pressed={props.filter.actions.includes(action)} onClick={() => props.onFilter({ ...props.filter, actions: toggled(props.filter.actions, action) })}>{actionName(action)}</button>
+        <button type="button" class="filter-chip" aria-pressed={props.filter.actions.includes(action) ? "true" : "false"} onClick={() => props.onFilter({ ...props.filter, actions: toggled(props.filter.actions, action) })}>{actionName(action)}</button>
       )}</For>
     </div>
     <div class="chips" role="group" aria-label={t("Filter schedules by status")}>
       <For each={LIST_STATUSES}>{(choice) => (
-        <button type="button" class="filter-chip" aria-pressed={props.filter.statuses.includes(choice.status)} onClick={() => props.onFilter({ ...props.filter, statuses: toggled(props.filter.statuses, choice.status) })}>{t(choice.label)}</button>
+        <button type="button" class="filter-chip" aria-pressed={props.filter.statuses.includes(choice.status) ? "true" : "false"} onClick={() => props.onFilter({ ...props.filter, statuses: toggled(props.filter.statuses, choice.status) })}>{t(choice.label)}</button>
       )}</For>
     </div>
     <Show when={props.filtered}><Button variant="quiet" onClick={props.onReset}>{t("Reset filters")}</Button></Show>

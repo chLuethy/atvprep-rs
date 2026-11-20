@@ -230,7 +230,10 @@ describe("OverviewPage: leftover partial rewrites", () => {
     expect(within(confirm).getByText("Delete 3 files, 2.5 GB in total?")).toBeInTheDocument();
     expect(calls.some((call) => call.init?.method === "POST")).toBe(false);
 
-    fireEvent.click(within(confirm).getByRole("button", { name: "Delete leftovers" }));
+    const submit = within(confirm).getByRole("button", { name: "Delete leftovers" });
+    fireEvent.click(submit);
+    fireEvent.click(submit);
+    expect(calls.filter((call) => call.init?.method === "POST")).toHaveLength(1);
 
     expect(await view.findByText("Removed 3 leftover files (2.5 GB).")).toBeInTheDocument();
     const post = calls.find((call) => call.init?.method === "POST");
@@ -246,7 +249,7 @@ describe("OverviewPage: leftover partial rewrites", () => {
     const section = await view.findByRole("region", { name: "Leftover files" });
 
     fireEvent.click(within(section).getByRole("button", { name: "Remove leftovers" }));
-    fireEvent.click(await view.findByRole("button", { name: "Keep" }));
+    await fireEvent.click(await view.findByRole("button", { name: "Keep" }));
 
     expect(view.queryByRole("region", { name: "Confirm removing leftovers" })).toBeNull();
     expect(mock.request.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === "POST")).toBe(false);

@@ -1,6 +1,7 @@
 import { fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
 import axe from "axe-core";
+import { flush } from "solid-js";
 import { SettingsPage } from "../src/features/settings/SettingsPage";
 import { SessionError } from "../src/lib/api";
 
@@ -39,6 +40,7 @@ describe("audited runtime settings UI", () => {
     const view = render(() => <SettingsPage api={api} />);
     await view.findByLabelText("Scan interval (seconds)");
     fireEvent.input(view.getByLabelText("Scan interval (seconds)"), { target: { value: "86401" } });
+    flush();
     expect(view.getAllByText(/between 5 and 86400/i).length).toBeGreaterThan(0);
     expect(view.getByRole("button", { name: "Save settings" })).toBeDisabled();
   });
@@ -54,6 +56,7 @@ describe("audited runtime settings UI", () => {
     const field = (await view.findByLabelText("Folders the scan skips")) as HTMLTextAreaElement;
     expect(field.value).toBe("Extras");
     fireEvent.input(field, { target: { value: "Extras\nFilm/Trailer" } });
+    flush();
     fireEvent.click(view.getByRole("button", { name: "Save settings" }));
     await waitFor(() => expect(view.getByText(/settings saved/i)).toBeInTheDocument());
   });
@@ -61,11 +64,12 @@ describe("audited runtime settings UI", () => {
   it("says why a refused folder list was not saved", async () => {
     const api = apiFor((path, init) => {
       if (path === "/settings" && init?.method !== "PATCH") return settingsResponse(7, [{ key: "scan_exclude_dirs", value: [], revision: 7 }]);
-      if (path === "/settings/audit") return response([]);
+      if (path.startsWith("/settings/audit?")) return response([]);
       return new Response(JSON.stringify({ detail: "invalid" }), { status: 422 });
     });
     const view = render(() => <SettingsPage api={api} />);
     fireEvent.input(await view.findByLabelText("Folders the scan skips"), { target: { value: "../x" } });
+    flush();
     fireEvent.click(view.getByRole("button", { name: "Save settings" }));
     expect(await view.findByRole("alert")).toHaveTextContent(/no leading \//i);
   });
@@ -81,15 +85,91 @@ describe("audited runtime settings UI", () => {
     const view = render(() => <SettingsPage api={api} />);
     await view.findByLabelText("Scan interval (seconds)");
     fireEvent.input(view.getByLabelText("Scan interval (seconds)"), { target: { value: "80" } });
+    flush();
     fireEvent.click(view.getByRole("button", { name: "Save settings" }));
     await waitFor(() => expect(view.getByText(/settings saved/i)).toBeInTheDocument());
   });
 
-  it("preserves the draft on server errors", async () => {
-    const api = apiFor((path, init) => path === "/settings" && init?.method !== "PATCH" ? settingsResponse() : path === "/settings/audit" ? response([]) : response({ detail: "bad" }, 422));
+  it("behält gleichzeitige Feldänderungen und sendet bei synchronem Doppelklick genau einmal", async () => {
+    let finish!: (response: Response) => void;
+    const patches: RequestInit[] = [];
+    const api = apiFor((path, init) => {
+      if (path === "/settings" && init?.method !== "PATCH") return settingsResponse();
+      if (path.startsWith("/settings/audit")) return response([]);
+      patches.push(init!);
+      return new Promise<Response>((resolve) => { finish = resolve; });
+    });
     const view = render(() => <SettingsPage api={api} />);
     await view.findByLabelText("Scan interval (seconds)");
     fireEvent.input(view.getByLabelText("Scan interval (seconds)"), { target: { value: "80" } });
+    fireEvent.input(view.getByLabelText("Parallel preparations"), { target: { value: "6" } });
+    flush();
+    const save = view.getByRole("button", { name: "Save settings" });
+    fireEvent.click(save);
+    fireEvent.click(save);
+
+    expect(patches).toHaveLength(1);
+    expect(JSON.parse(String(patches[0]?.body))).toEqual({
+      settings: { scan_interval_seconds: 80, max_ffmpeg_workers: 6 }, expected_revision: 7,
+    });
+    finish(settingsResponse(8));
+    expect(await view.findByText("Settings saved.")).toBeInTheDocument();
+  });
+
+  it("behält während des Speicherns neu bearbeitete Felder für den nächsten Submit", async () => {
+    let finish!: (response: Response) => void;
+    const patches: RequestInit[] = [];
+    const api = apiFor((path, init) => {
+      if (init?.method === "PATCH") {
+        patches.push(init);
+        return patches.length === 1 ? new Promise<Response>((resolve) => { finish = resolve; })
+          : settingsResponse(9, [{ key: "scan_interval_seconds", value: 90, revision: 9 }, { key: "max_ffmpeg_workers", value: 6, revision: 9 }]);
+      }
+      return path === "/settings" ? settingsResponse() : response([]);
+    });
+    const view = render(() => <SettingsPage api={api} />);
+    fireEvent.input(await view.findByLabelText("Scan interval (seconds)"), { target: { value: "80" } });
+    flush();
+    fireEvent.click(view.getByRole("button", { name: "Save settings" }));
+    fireEvent.input(view.getByLabelText("Scan interval (seconds)"), { target: { value: "90" } });
+    fireEvent.input(view.getByLabelText("Parallel preparations"), { target: { value: "6" } });
+    finish(settingsResponse(8, [{ key: "scan_interval_seconds", value: 80, revision: 8 }]));
+    await waitFor(() => expect(view.getByText("Revision 8")).toBeInTheDocument());
+    expect(view.getByLabelText("Scan interval (seconds)")).toHaveValue(90);
+    expect(view.getByLabelText("Parallel preparations")).toHaveValue(6);
+    expect(view.getByText("Unsaved changes")).toBeInTheDocument();
+    fireEvent.click(view.getByRole("button", { name: "Save settings" }));
+    await waitFor(() => expect(patches).toHaveLength(2));
+    expect(JSON.parse(String(patches[1]?.body))).toEqual({ settings: { scan_interval_seconds: 90, max_ffmpeg_workers: 6 }, expected_revision: 8 });
+  });
+
+  it("ordnet verspätete Verlaufsantworten nicht dem inzwischen gewählten Feld zu", async () => {
+    let finish!: (response: Response) => void;
+    let reads = 0;
+    const api = apiFor((path) => {
+      if (path === "/settings") return settingsResponse();
+      if (path.includes("scan_interval_seconds") && ++reads > 1) return new Promise<Response>((resolve) => { finish = resolve; });
+      if (path.includes("max_ffmpeg_workers")) return response([{ ...audit[0], actor: "new-history", key: "max_ffmpeg_workers" }]);
+      return response(audit);
+    });
+    const view = render(() => <SettingsPage api={api} />);
+    await view.findByText(/operator/);
+    fireEvent.click(view.getByRole("button", { name: "Show history of Scan interval (seconds)" }));
+    fireEvent.click(view.getByRole("button", { name: "Show history of Parallel preparations" }));
+    await view.findByText(/new-history/);
+    const stale = response([{ ...audit[0], actor: "stale-history" }]);
+    finish(stale);
+    await waitFor(() => expect(stale.bodyUsed).toBe(true));
+    expect(within(view.getByRole("region", { name: "Parallel preparations history" })).getByText(/new-history/)).toBeInTheDocument();
+    expect(view.queryByText(/stale-history/)).not.toBeInTheDocument();
+  });
+
+  it("preserves the draft on server errors", async () => {
+    const api = apiFor((path, init) => path === "/settings" && init?.method !== "PATCH" ? settingsResponse() : path.startsWith("/settings/audit?") ? response([]) : response({ detail: "bad" }, 422));
+    const view = render(() => <SettingsPage api={api} />);
+    await view.findByLabelText("Scan interval (seconds)");
+    fireEvent.input(view.getByLabelText("Scan interval (seconds)"), { target: { value: "80" } });
+    flush();
     fireEvent.click(view.getByRole("button", { name: "Save settings" }));
     expect(await view.findByRole("alert")).toHaveTextContent(/unable to save settings/i);
     expect(view.getByLabelText("Scan interval (seconds)")).toHaveValue(80);
@@ -105,6 +185,7 @@ describe("audited runtime settings UI", () => {
     const view = render(() => <SettingsPage api={api} />);
     await view.findByLabelText("Scan interval (seconds)");
     fireEvent.input(view.getByLabelText("Scan interval (seconds)"), { target: { value: "80" } });
+    flush();
     fireEvent.click(view.getByRole("button", { name: "Save settings" }));
     expect(await view.findByRole("alert")).toHaveTextContent(/changed these settings first/i);
     expect(view.getByLabelText("Scan interval (seconds)")).toHaveValue(80);
@@ -128,6 +209,7 @@ describe("audited runtime settings UI", () => {
     const view = render(() => <SettingsPage api={api} />);
     await view.findByLabelText("Scan interval (seconds)");
     fireEvent.input(view.getByLabelText("Scan interval (seconds)"), { target: { value: "90" } });
+    flush();
     fireEvent.click(view.getByRole("button", { name: "Save settings" }));
     await waitFor(() => expect(view.getByText(/settings saved/i)).toBeInTheDocument());
     expect(view.getByLabelText("Parallel preparations")).toHaveValue(4);
@@ -145,6 +227,7 @@ describe("audited runtime settings UI", () => {
     expect(view.getByLabelText("Server version")).toBeDisabled();
     expect(view.getByRole("region", { name: "Scan interval (seconds) history" })).toBeInTheDocument();
     fireEvent.input(interval, { target: { value: "86401" } });
+    flush();
     expect(view.getAllByRole("alert").length).toBeGreaterThan(0);
     expect(view.getByRole("button", { name: "Save settings" })).toBeDisabled();
     const results = await axe.run(view.container);
@@ -221,6 +304,7 @@ describe("audited runtime settings UI", () => {
 
       fireEvent.input(view.getByLabelText("CRF"), { target: { value: "22" } });
       fireEvent.click(view.getByLabelText("Keep AV1"));
+      flush();
       fireEvent.click(view.getByRole("button", { name: "Save settings" }));
 
       await waitFor(() => expect(bodies).toEqual([{ settings: { target_crf: 22, target_keep_av1: true }, expected_revision: 7 }]));
@@ -233,6 +317,7 @@ describe("audited runtime settings UI", () => {
       await view.findByLabelText("CRF");
 
       fireEvent.input(view.getByLabelText("CRF"), { target: { value: "52" } });
+      flush();
 
       expect(view.getAllByText(/between 0 and 51/i).length).toBeGreaterThan(0);
       expect(view.getByRole("button", { name: "Save settings" })).toBeDisabled();

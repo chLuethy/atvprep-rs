@@ -2,6 +2,7 @@ import { fireEvent, render, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ScanControl } from "../src/features/scan/ScanControl";
 import { SessionError } from "../src/lib/api";
+import { flush } from "solid-js";
 
 type Api = { request: (path: string, init?: RequestInit) => Promise<Response> };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify({ data, meta: {} }), { status });
@@ -67,10 +68,11 @@ describe("ScanControl", () => {
     const view = render(() => <ScanControl api={api} />);
     const button = await view.findByRole("button", { name: "Scan library" });
 
-    await fireEvent.click(button);
-    await fireEvent.click(button);
+    fireEvent.click(button);
+    fireEvent.click(button);
 
     expect(posts()).toHaveLength(1);
+    flush();
     expect(button).toBeDisabled();
     finish(json({ id: "s_9", status: "queued" }, 201));
   });

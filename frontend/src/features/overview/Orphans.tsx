@@ -1,4 +1,4 @@
-import { createSignal, For, Show, type Component } from "solid-js";
+import { createSignal, For, onSettled, Show, type Component } from "solid-js";
 import { Button } from "../../ui";
 import { N, t, tn } from "../../lib/i18n";
 import { formatSize } from "../../lib/size";
@@ -23,17 +23,23 @@ export const Orphans: Component<{ api: Api; hit: OrphanHit; onChanged: () => voi
   const [busy, setBusy] = createSignal(false);
   const [problem, setProblem] = createSignal<string | null>(null);
   let key = crypto.randomUUID();
+  let inFlight = false;
+  let disposed = false;
+  onSettled(() => () => { disposed = true; });
   let trigger: HTMLButtonElement | undefined;
 
   const open = () => { key = crypto.randomUUID(); setProblem(null); setConfirming(true); };
   const close = () => { setConfirming(false); queueMicrotask(() => trigger?.focus()); };
 
   const submit = async () => {
-    if (busy()) return;
+    if (inFlight) return;
+    inFlight = true;
     setBusy(true);
     setProblem(null);
     const result = await removeOrphans(props.api, props.hit.root_id, props.hit.count, props.hit.bytes, key);
+    inFlight = false;
     setBusy(false);
+    if (disposed) return;
     if (result.kind === "ok") {
       setConfirming(false);
       props.onDone(tn("Removed {count} leftover file ({size}).", "Removed {count} leftover files ({size}).", result.removed, { size: formatSize(result.bytes) }));
@@ -56,7 +62,7 @@ export const Orphans: Component<{ api: Api; hit: OrphanHit; onChanged: () => voi
         <For each={props.hit.files}>{(file) => <li>{`${file.relative_path} · ${formatSize(file.size)}`}</li>}</For>
         <Show when={more() > 0}><li>{t("and {count} more", { count: more() })}</li></Show>
       </ul>
-      <Button variant="quiet" ref={(element) => { trigger = element; }} aria-expanded={confirming()} onClick={() => (confirming() ? close() : open())}>{t("Remove leftovers")}</Button>
+      <Button variant="quiet" ref={(element) => { trigger = element; }} aria-expanded={confirming() ? "true" : "false"} onClick={() => (confirming() ? close() : open())}>{t("Remove leftovers")}</Button>
       <Show when={confirming()}>
         <div class="confirm" role="region" aria-label={t("Confirm removing leftovers")} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}>
           <p>{tn("Delete {count} file, {size} in total?", "Delete {count} files, {size} in total?", props.hit.count, { size: formatSize(props.hit.bytes) })}</p>

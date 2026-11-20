@@ -1,5 +1,6 @@
 import { fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
+import { flush } from "solid-js";
 import { setLanguage } from "../src/lib/i18n";
 import { SchedulesPage } from "../src/features/schedules/SchedulesPage";
 import { describeDays, describeProblem, describeProfile, describeResult, describeTarget, simpleForm, stateChoices, weeklyCron } from "../src/features/schedules/model";
@@ -72,6 +73,7 @@ describe("schedule wording", () => {
     expect(describeResult("Paused: the approval now covers the encoding allowance and the target profile. Turn the schedule on again to approve it."))
       .toBe("Paused: the approval now covers the encoding allowance and the target profile. Turn the schedule on again to approve it.");
     setLanguage("de");
+    flush();
     try {
       expect(describeResult("Paused: the approval now covers the encoding allowance and the target profile. Turn the schedule on again to approve it."))
         .toBe("Pausiert: Die Freigabe umfasst jetzt die Kodierfreigabe und das Zielprofil. Den Zeitplan erneut einschalten, um ihn freizugeben.");
@@ -149,7 +151,7 @@ describe("SchedulesPage", () => {
     expect(within(entries[0]!).getByRole("link", { name: "Open job" })).toHaveAttribute("href", "/jobs/j_9");
     expect(entries[1]).toHaveTextContent("No matching files");
     expect(within(entries[1]!).queryByRole("link")).toBeNull();
-    fireEvent.click(toggle);
+    await fireEvent.click(toggle);
     expect(view.queryByRole("list", { name: "History of Nightly verify" })).toBeNull();
   });
 
@@ -213,6 +215,34 @@ describe("SchedulesPage", () => {
       name: "Weekly check", action: "verify", root_id: null, compliance_state: "unknown",
       days: [0, 1, 2, 3, 4, 5], time: "03:00", max_files: 25,
     }));
+    expect(await view.findByRole("status")).toHaveTextContent("Schedule saved and on.");
+  });
+
+  it("behält zwei synchrone Wochentagsänderungen und verhindert doppelte Speicherung", async () => {
+    let finish!: (response: Response) => void;
+    const posts: RequestInit[] = [];
+    const base = makeApi([]);
+    const api: Api = { request: vi.fn(async (path, init) => {
+      if (path === "/schedules" && init?.method === "POST") {
+        posts.push(init);
+        return new Promise<Response>((resolve) => { finish = resolve; });
+      }
+      return base.api.request(path, init);
+    }) };
+    const view = render(() => <SchedulesPage api={api} />);
+    await fireEvent.click(await view.findByRole("button", { name: /New schedule/ }));
+    const editor = within(await view.findByRole("region", { name: "New schedule" }));
+    fireEvent.input(editor.getByLabelText("Name"), { target: { value: "Weekend too" } });
+    fireEvent.click(editor.getByRole("button", { name: "Saturday" }));
+    fireEvent.click(editor.getByRole("button", { name: "Sunday" }));
+    flush();
+    const save = editor.getByRole("button", { name: "Save schedule" });
+    fireEvent.click(save);
+    fireEvent.click(save);
+
+    expect(posts).toHaveLength(1);
+    expect(JSON.parse(String(posts[0]?.body)).days).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    finish(json(schedule(), 201));
     expect(await view.findByRole("status")).toHaveTextContent("Schedule saved and on.");
   });
 
@@ -467,6 +497,7 @@ describe("SchedulesPage", () => {
 
   it("shows the server's refusal of a limit in the chosen language", async () => {
     setLanguage("de");
+    flush();
     try {
       expect(describeProblem("Files per run may be at most 12 for this action.")).toBe("Dateien pro Lauf dürfen bei dieser Aktion höchstens 12 betragen.");
       expect(describeProblem("A schedule that changes files may run at most every 15 minutes; this one runs every 10.")).toBe("Ein Zeitplan, der Dateien ändert, darf höchstens alle 15 Minuten laufen; dieser läuft alle 10.");
@@ -549,6 +580,17 @@ describe('the cron editor', () => {
     expect(within(editor).queryByLabelText(/Cron expression/)).toBeNull();
   });
 
+  it('übernimmt die eben geänderte Uhrzeit beim synchronen Wechsel zu Cron', async () => {
+    const state = makeApi([]);
+    const view = render(() => <SchedulesPage api={state.api} />);
+    await fireEvent.click(await view.findByRole('button', { name: /New schedule/ }));
+    const editor = within(await view.findByRole('region', { name: 'New schedule' }));
+    fireEvent.input(editor.getByLabelText(/Time \(server time\)/), { target: { value: '08:15' } });
+    fireEvent.click(editor.getByRole('button', { name: 'Cron' }));
+    flush();
+    expect(editor.getByLabelText(/Cron expression/)).toHaveValue('15 8 * * 1,2,3,4,5');
+  });
+
   it('describes the expression and lists the next five runs while typing', async () => {
     const state = makeApi([], {
       'GET /schedules/cron-preview?expression=0%203%20*%20*%201%2C2%2C3%2C4%2C5&lang=en&action=verify': () => preview('0 3 * * 1,2,3,4,5', 'At 03:00, on weekdays'),
@@ -580,6 +622,34 @@ describe('the cron editor', () => {
     expect(within(editor).getByLabelText(/Cron expression/)).toHaveAttribute('aria-invalid', 'true');
     expect(within(editor).getByRole('button', { name: 'Save schedule' })).toBeDisabled();
     expect(within(editor).queryByRole('list', { name: 'Next runs' })).toBeNull();
+  });
+
+  it.each(['action', 'language'] as const)('ignoriert eine verspätete Vorschau nach Änderung von %s', async (change) => {
+    vi.useFakeTimers();
+    try {
+      let finish!: (response: Response) => void;
+      const base = makeApi([]);
+      const api: Api = { request: vi.fn(async (path, init) => {
+        if (!path.startsWith('/schedules/cron-preview?')) return base.api.request(path, init);
+        return path.includes('action=verify') && path.includes('lang=en') ? new Promise<Response>((resolve) => { finish = resolve; })
+          : preview('0 3 * * 1,2,3,4,5', 'Aktuelle Servervorschau');
+      }) };
+      const view = render(() => <SchedulesPage api={api} />);
+      await vi.advanceTimersByTimeAsync(0);
+      await fireEvent.click(view.getByRole('button', { name: /New schedule/ }));
+      const editor = within(view.getByRole('region', { name: 'New schedule' }));
+      await fireEvent.click(editor.getByRole('button', { name: 'Cron' }));
+      await vi.advanceTimersByTimeAsync(160);
+      if (change === 'action') await fireEvent.click(editor.getByRole('button', { name: /^Prepare$/ }));
+      else setLanguage('de');
+      await vi.advanceTimersByTimeAsync(160);
+      expect(editor.getByText('Aktuelle Servervorschau')).toBeInTheDocument();
+      finish(preview('0 3 * * 1,2,3,4,5', 'Veraltete Servervorschau'));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(editor.getByText('Aktuelle Servervorschau')).toBeInTheDocument();
+      expect(editor.queryByText('Veraltete Servervorschau')).not.toBeInTheDocument();
+      view.unmount();
+    } finally { setLanguage('en'); vi.useRealTimers(); }
   });
 
   it('saves the expression itself', async () => {

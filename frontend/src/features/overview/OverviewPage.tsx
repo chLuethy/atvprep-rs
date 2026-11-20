@@ -1,4 +1,5 @@
-import { createResource, createSignal, For, Index, Show, type Component, type JSX } from "solid-js";
+import { createMemo, createSignal, Errored, For, Loading, refresh, Show, type Component } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { Button, StatusChip } from "../../ui";
 import { actionLabel, jobProgress, jobTitle, jobTone } from "../activity/model";
 import { JOB_QUICK_FILTERS, jobFilterQuery } from "../activity/filters";
@@ -72,7 +73,8 @@ function attention(files: Record<string, number>, jobs: Record<string, number>):
 
 /** Where to look first: what needs you, how healthy the files are, what is running. */
 export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: string) => void }> = (props) => {
-  const [overview, { refetch }] = createResource(() => load(props.api));
+  const overview = createMemo(() => load(props.api));
+  const refetch = () => refresh(overview);
   const [removed, setRemoved] = createSignal<string | null>(null);
 
   const link = (href: string, content: JSX.Element, className = "") => (
@@ -90,9 +92,10 @@ export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: str
   return (
     <div class="overview">
       <h1>{t("Overview")}</h1>
-      <Show when={!overview.loading || overview()} fallback={<p class="muted">{t("Loading overview")}</p>}>
+      <Loading fallback={<p class="muted">{t("Loading overview")}</p>}>
+        <Errored fallback={(_error, retry) => <div class="notice bad" role="alert"><p>{t("Unable to load overview")}</p><Button onClick={retry}>{t("Retry")}</Button></div>}>
         <Show
-          when={!overview.error && overview()}
+          when={overview()}
           fallback={<div class="notice bad" role="alert"><p>{t("Unable to load overview")}</p><Button onClick={() => void refetch()}>{t("Retry")}</Button></div>}
         >
           {(data) => {
@@ -106,9 +109,9 @@ export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: str
                 <Show when={data().orphans.length > 0}>
                   <section class="ov-sec" role="region" aria-label={t("Leftover files")}>
                     <h2>{t("Leftover files")}</h2>
-                    <Index each={data().orphans}>{(hit) => (
+                    <For each={data().orphans} keyed={false}>{(hit) => (
                       <Orphans api={props.api} hit={hit()} onChanged={() => void refetch()} onDone={(message) => { setRemoved(message); void refetch(); }} />
-                    )}</Index>
+                    )}</For>
                   </section>
                 </Show>
 
@@ -130,7 +133,7 @@ export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: str
                         const draw = celebrateToday("all-ready");
                         return (
                           <p class="ready">
-                            <svg class="ready-check" classList={{ draw }} aria-hidden="true" viewBox="0 0 16 16" width="16" height="16"><path d="M3 8.5l3.2 3.2L13 4.8" /></svg>
+                            <svg class={["ready-check", { draw }]} aria-hidden="true" viewBox="0 0 16 16" width="16" height="16"><path d="M3 8.5l3.2 3.2L13 4.8" /></svg>
                             {total() === 1 ? t("The file is ready for Apple TV.") : t("All {count} files are ready for Apple TV.", { count: total() })}
                           </p>
                         );
@@ -161,11 +164,11 @@ export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: str
                     <p class="muted">{link(RUNNING_JOBS, tn("{count} active job", "{count} active jobs", data().queue.total))}</p>
                     <ul class="plain">
                       <For each={data().queue.jobs}>{(job) => {
-                        const tone = jobTone(job.status);
+                        const tone = () => jobTone(job.status);
                         return (
                           <li class="now-row">
                             {link(`/jobs/${encodeURIComponent(job.id)}`, `${job.subject ? `${actionLabel(job.action)}: ${jobTitle(job)}` : actionLabel(job.action)} · ${jobProgress(job)}`)}
-                            <StatusChip kind={tone.kind} icon={tone.icon}>{tone.label}</StatusChip>
+                            <StatusChip kind={tone().kind} icon={tone().icon}>{tone().label}</StatusChip>
                           </li>
                         );
                       }}</For>
@@ -183,7 +186,8 @@ export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: str
             );
           }}
         </Show>
-      </Show>
+        </Errored>
+      </Loading>
     </div>
   );
 };
