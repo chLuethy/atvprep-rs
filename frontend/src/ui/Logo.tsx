@@ -20,7 +20,7 @@ export const LogoMark: Component<{ size?: number }> = (props) => (
 export const Logo: Component<{ height?: number; busy?: boolean }> = (props) => {
   const height = () => props.height ?? 28;
   return (
-    <svg class="logo" classList={{ busy: !!props.busy }} height={height()} width={(height() * 271) / 64} viewBox="0 0 271 64" aria-hidden="true">
+    <svg class={["logo", { busy: !!props.busy }]} height={height()} width={(height() * 271) / 64} viewBox="0 0 271 64" aria-hidden="true">
       <rect width="64" height="64" rx="15" fill="var(--brand-lime)" />
       <g transform="translate(-2 0)">
         <path d="M17 12L55 32 17 52z" fill="var(--brand-ink)" stroke="var(--brand-ink)" stroke-width="5" stroke-linejoin="round" />

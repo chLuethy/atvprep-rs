@@ -9,7 +9,7 @@
  * and a quick filter.
  */
 import { useLocation, useNavigate } from "@solidjs/router";
-import { createEffect, createMemo, createSignal, on, onCleanup, type Accessor } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, type Accessor } from "solid-js";
 import type { FilterValue, QuickChoice } from "../ui/FilterBar";
 import { t } from "./i18n";
 import { recall, remember, type ViewPage } from "./viewMemory";
@@ -66,16 +66,17 @@ export function useFilterAddress<S>(spec: FilterAddressSpec<S>) {
   const navigate = useNavigate();
   const location = useLocation();
   const at = (query: string) => `${spec.path()}${query ? `?${query}` : ""}`;
-  const state = createMemo(() => spec.parse(new URLSearchParams(location.search)), undefined, { equals: spec.same });
-  createEffect(() => {
-    const search = location.search.replace(/^\?/, "");
-    if (search === "" && !isOwn(location.state)) {
-      return navigate(at(recall(spec.page) ?? ""), { replace: true, state: OWN });
-    }
-    const query = spec.query(state());
-    remember(spec.page, query);
-    if (search !== query) navigate(at(query), { replace: true, state: OWN });
-  });
+  const state = createMemo(() => spec.parse(new URLSearchParams(location.search)), { equals: spec.same });
+  createEffect(() => ({ search: location.search.replace(/^\?/, ""), own: isOwn(location.state), query: spec.query(state()), path: spec.path() }),
+    ({ search, own, query, path }) => {
+      const url = (value: string) => `${path}${value ? `?${value}` : ""}`;
+      if (search === "" && !own) {
+        navigate(url(recall(spec.page) ?? ""), { replace: true, state: OWN });
+        return;
+      }
+      remember(spec.page, query);
+      if (search !== query) navigate(url(query), { replace: true, state: OWN });
+    });
   const go = (next: S, how: { replace: boolean } = { replace: false }) =>
     navigate(at(spec.query(next)), { replace: how.replace, state: OWN });
   /** Another path of the same page (an item opened), keeping the query. */
@@ -117,14 +118,14 @@ export type FacetFilterSpec<F> = {
  * follows it when it changes from outside (Back, a link), and tells `input.onFilter` about every filter the page
  * chooses. `replace` is set for a search, so typing does not add a history entry per pause.
  */
-export function createFacetFilter<F>(
+export function createFacetFilter<F extends object>(
   spec: FacetFilterSpec<F>,
   input: { filter: Accessor<F | undefined>; onFilter?: ((filter: F, how: { replace: boolean }) => void) | undefined },
 ) {
-  const [filter, setFilter] = createSignal<F>(input.filter() ?? spec.empty, { equals: spec.same });
+  const [filter, setFilter] = createSignal<F>(() => input.filter() ?? spec.empty, { equals: spec.same });
   const searchOf = (value: F) => spec.searchOf?.(value) ?? "";
   /** What the search field shows; the filter takes it after a short pause. */
-  const [search, setSearch] = createSignal(searchOf(filter()));
+  const [search, setSearch] = createSignal(() => searchOf(filter()));
   let timer: ReturnType<typeof setTimeout> | undefined;
   onCleanup(() => clearTimeout(timer));
 
@@ -142,13 +143,7 @@ export function createFacetFilter<F>(
   };
   const kept = (): Partial<F> => spec.keep?.(filter()) ?? {};
 
-  createEffect(on(input.filter, (next) => {
-    const wanted = next ?? spec.empty;
-    if (spec.same(wanted, filter())) return;
-    clearTimeout(timer);
-    setSearch(searchOf(wanted));
-    setFilter(() => wanted);
-  }, { defer: true }));
+  createEffect(input.filter, () => { clearTimeout(timer); }, { defer: true });
 
   const onSearchInput = (value: string) => {
     setSearch(value);

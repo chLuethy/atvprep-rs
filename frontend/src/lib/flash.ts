@@ -1,4 +1,4 @@
-import { createEffect, on, onCleanup } from "solid-js";
+import { createEffect, onCleanup } from "solid-js";
 
 /** How long a changed element stays marked. Long enough to catch the eye, short enough not to nag. */
 export const FLASH_MS = 800;
@@ -23,11 +23,11 @@ export function flash(element: HTMLElement): void {
 
 /** A ref that flashes its element whenever `read()` changes, but not when the element first appears. */
 export function flashOnChange(read: () => unknown): (element: HTMLElement) => void {
-  return (element) => {
-    createEffect(on(read, () => flash(element), { defer: true }));
-    onCleanup(() => {
-      const running = timers.get(element);
-      if (running !== undefined) window.clearTimeout(running);
-    });
-  };
+  let element: HTMLElement | undefined;
+  createEffect(read, () => { if (element) flash(element); }, { defer: true });
+  onCleanup(() => {
+    const running = element && timers.get(element);
+    if (running !== undefined) window.clearTimeout(running);
+  });
+  return (next) => { element = next; };
 }

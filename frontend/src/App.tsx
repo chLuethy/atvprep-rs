@@ -1,5 +1,5 @@
-import { A, Navigate, Router, Route, useNavigate } from "@solidjs/router";
-import { createMemo, createSignal, onCleanup, onMount, Show, type ParentComponent } from "solid-js";
+import { createRouter, useNavigate, type RouteProps } from "@solidjs/router";
+import { createContext, createMemo, createSignal, onSettled, Show, useContext, type ParentComponent } from "solid-js";
 import "./styles/app.css";
 import type { ManagerApi } from "./lib/api";
 import type { SessionControls } from "./features/auth/AuthGate";
@@ -43,8 +43,8 @@ const Library: ParentComponent<{ api: ManagerApi | undefined; fileId: string | u
     query: ({ filter, sort }) => [fileFilterQuery(filter), fileSortQuery(sort)].filter(Boolean).join("&"),
     same: (a, b) => sameFilter(a.filter, b.filter) && fileSortQuery(a.sort) === fileSortQuery(b.sort),
   });
-  const filter = createMemo(() => address.state().filter, undefined, { equals: sameFilter });
-  const sort = createMemo(() => address.state().sort, undefined, { equals: (a, b) => fileSortQuery(a) === fileSortQuery(b) });
+  const filter = createMemo(() => address.state().filter, { equals: sameFilter });
+  const sort = createMemo(() => address.state().sort, { equals: (a, b) => fileSortQuery(a) === fileSortQuery(b) });
   return (
     <Show when={props.api} fallback={<Files />}>
       {(api) => (
@@ -202,15 +202,15 @@ const Shell: ParentComponent<{ session?: SessionControls; api?: ManagerApi }> = 
       toggleHelp();
     }
   };
-  onMount(() => {
+  onSettled(() => {
     document.addEventListener("keydown", onKeyDown);
     // Which release is running, for the person who just updated; a failure just leaves the line out.
     void props.api?.request("/version").then(async (response) => {
       const body = response.ok ? ((await response.json()) as { version?: unknown }) : null;
       if (typeof body?.version === "string") setVersion(body.version);
     }).catch(() => undefined);
+    return () => document.removeEventListener("keydown", onKeyDown);
   });
-  onCleanup(() => document.removeEventListener("keydown", onKeyDown));
 
   return (
     <div class="shell">
@@ -221,7 +221,7 @@ const Shell: ParentComponent<{ session?: SessionControls; api?: ManagerApi }> = 
           type="button"
           class="btn quiet menu-toggle"
           aria-controls="main-navigation"
-          aria-expanded={navOpen()}
+          aria-expanded={navOpen() ? "true" : "false"}
           aria-label={navOpen() ? t("Close navigation") : t("Open navigation")}
           onClick={() => setNavOpen((value) => !value)}
         >
@@ -229,20 +229,19 @@ const Shell: ParentComponent<{ session?: SessionControls; api?: ManagerApi }> = 
         </button>
         <nav id="main-navigation" aria-label={t("Main")} class={navOpen() ? "nav open" : "nav"}>
           {NAV.map((item) => (
-            <A href={item.href} class="nav-link" activeClass="current" inactiveClass="" onClick={() => setNavOpen(false)}>
+            <a href={item.href} class="nav-link" onClick={() => setNavOpen(false)}>
               <Icon name={item.icon} size={16} />
               <span>{t(item.label)}</span>
               <Show when={item.href === "/jobs" && workState().running + workState().queued > 0}>
                 <span
-                  class="nav-count num"
-                  classList={{ running: workState().running > 0 }}
+                  class={["nav-count num", { running: workState().running > 0 }]}
                   role="img"
                   aria-label={workState().running > 0
                     ? tn("{count} job running", "{count} jobs running", workState().running)
                     : tn("{count} job waiting", "{count} jobs waiting", workState().queued)}
                 >{workState().running > 0 ? workState().running : workState().queued}</span>
               </Show>
-            </A>
+            </a>
           ))}
         </nav>
         <div class="sidebar-foot">
@@ -296,9 +295,25 @@ const Shell: ParentComponent<{ session?: SessionControls; api?: ManagerApi }> = 
   );
 };
 
-const App: ParentComponent<{ api?: ManagerApi; session?: SessionControls }> = (props) => {
-  const api = props.api;
-  onMount(() => {
+type AppProps = { api?: ManagerApi; session?: SessionControls };
+const AppContext = createContext<AppProps>();
+const AppRouter = createRouter({
+  routes: [
+    { path: "/dashboard", component: () => <Overview api={useContext(AppContext).api} /> },
+    { path: "/files/:fileId?", component: (route: RouteProps<"/files/:fileId?">) => <Library api={useContext(AppContext).api} fileId={route.params.fileId} /> },
+    { path: "/jobs/:jobId?", component: (route: RouteProps<"/jobs/:jobId?">) => <Activity api={useContext(AppContext).api} jobId={route.params.jobId} /> },
+    { path: "/schedules", component: () => <SchedulesRoute api={useContext(AppContext).api} /> },
+    { path: "/settings", component: () => <Show when={useContext(AppContext).api} fallback={<Settings />}>{(api) => <SettingsPage api={api()} />}</Show> },
+    { path: "/", component: () => {
+      const navigate = useNavigate();
+      onSettled(() => { navigate("/files", { replace: true }); });
+      return null;
+    } },
+  ],
+});
+const App: ParentComponent<AppProps> = (props) => {
+  onSettled(() => {
+    const api = props.api;
     if (!api) return;
     const events = new EventClient({
       api,
@@ -307,17 +322,12 @@ const App: ParentComponent<{ api?: ManagerApi; session?: SessionControls }> = (p
       onResync: realtimeState.applySnapshot,
     });
     events.connect();
-    onCleanup(() => events.close());
+    return () => events.close();
   });
   return (
-    <Router root={(routed) => <Shell session={props.session} api={api}>{routed.children}</Shell>}>
-      <Route path="/dashboard" component={() => <Overview api={api} />} />
-      <Route path="/files/:fileId?" component={(route) => <Library api={api} fileId={route.params.fileId} />} />
-      <Route path="/jobs/:jobId?" component={(route) => <Activity api={api} jobId={route.params.jobId} />} />
-      <Route path="/schedules" component={() => <SchedulesRoute api={api} />} />
-      <Route path="/settings" component={() => (api ? <SettingsPage api={api} /> : <Settings />)} />
-      <Route path="/" component={() => <Navigate href="/files" />} />
-    </Router>
+    <AppContext value={props}>
+      <AppRouter>{(routed) => <Shell session={props.session} api={props.api}>{routed.children}</Shell>}</AppRouter>
+    </AppContext>
   );
 };
 

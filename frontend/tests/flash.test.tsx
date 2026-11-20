@@ -1,4 +1,4 @@
-import { createRoot, createSignal } from "solid-js";
+import { createRoot, createSignal, flush } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FLASH_MS, flash, flashOnChange } from "../src/lib/flash";
 
@@ -41,6 +41,7 @@ describe("flashOnChange", () => {
     setValue("warning");
     expect(element).not.toHaveClass("flash");
     setValue("ready");
+    flush();
     expect(element).toHaveClass("flash");
   });
 });

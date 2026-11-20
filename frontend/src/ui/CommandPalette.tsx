@@ -30,8 +30,8 @@ export const CommandPalette: Component<{ open: boolean; commands: Command[]; onC
       .map((entry) => entry.command);
   });
 
-  createEffect(() => {
-    if (props.open) {
+  createEffect(() => props.open, (open) => {
+    if (open) {
       previous = document.activeElement;
       setQuery("");
       setIndex(0);
@@ -80,7 +80,7 @@ export const CommandPalette: Component<{ open: boolean; commands: Command[]; onC
               <li
                 id={`palette-${command.id}`}
                 role="option"
-                aria-selected={index() === position()}
+                aria-selected={index() === position() ? "true" : "false"}
                 onMouseMove={() => setIndex(position())}
                 onClick={() => run(command)}
               >

@@ -1,4 +1,5 @@
-import { createSignal, onMount, Show, type JSX } from "solid-js";
+import { createSignal, onSettled, Show } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import type { ManagerApi } from "../../lib/api";
 import { t } from "../../lib/i18n";
 import { Button, Icon, Logo } from "../../ui";
@@ -20,17 +21,26 @@ export function AuthGate(props: AuthGateProps) {
   const [error, setError] = createSignal<string | null>(null);
   const [busy, setBusy] = createSignal(false);
 
-  onMount(() => {
-    void props.api.restore().then(() => setUnlocked(true)).catch(() => undefined);
+  let inFlight = false;
+  let generation = 0;
+  let disposed = false;
+  onSettled(() => {
+    const mine = generation;
+    void props.api.restore().then(() => { if (!disposed && mine === generation) setUnlocked(true); }).catch(() => undefined);
+    return () => { disposed = true; generation += 1; };
   });
 
   const lock = async () => {
+    if (inFlight || disposed) return;
+    inFlight = true;
+    generation += 1;
     setBusy(true);
     try {
       await props.api.logout();
     } catch {
       // Lock locally even when the network/session revocation request fails.
     } finally {
+      inFlight = false;
       setUnlocked(false);
       setBusy(false);
     }
@@ -38,16 +48,20 @@ export function AuthGate(props: AuthGateProps) {
 
   const unlock = async (event: SubmitEvent) => {
     event.preventDefault();
+    if (inFlight || disposed) return;
+    inFlight = true;
+    generation += 1;
     setBusy(true);
     setError(null);
     const candidate = masterToken();
     setMasterToken("");
     try {
       await props.api.bootstrap(candidate);
-      setUnlocked(true);
+      if (!disposed) setUnlocked(true);
     } catch {
       setError(t("Unable to unlock manager session."));
     } finally {
+      inFlight = false;
       setBusy(false);
     }
   };

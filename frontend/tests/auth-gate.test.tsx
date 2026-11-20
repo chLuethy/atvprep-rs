@@ -14,7 +14,7 @@ describe("AuthGate", () => {
 
   it("unlocks only after a successful bootstrap and does not persist the master token", async () => {
     const api = { bootstrap: vi.fn().mockResolvedValue(undefined), restore: vi.fn().mockRejectedValue(new Error("no session")), logout: vi.fn().mockResolvedValue(undefined) };
-    const { getByLabelText, getByRole, queryByText } = render(() => (
+    const { getByLabelText, getByRole, findByRole, queryByText } = render(() => (
       <AuthGate api={api as never}>
         <p>Protected manager</p>
       </AuthGate>
@@ -25,12 +25,26 @@ describe("AuthGate", () => {
     await fireEvent.click(getByRole("button", { name: "Unlock" }));
 
     expect(api.bootstrap).toHaveBeenCalledWith("secret");
-    expect(getByRole("button", { name: "Lock" })).toBeInTheDocument();
+    expect(await findByRole("button", { name: "Lock" })).toBeInTheDocument();
     expect(queryByText("Protected manager")).toBeInTheDocument();
     await fireEvent.click(getByRole("button", { name: "Lock" }));
     expect(api.logout).toHaveBeenCalledOnce();
+    await findByRole("heading", { name: "Unlock manager" });
     expect(queryByText("Protected manager")).not.toBeInTheDocument();
     expect(localStorage.length).toBe(0);
+  });
+
+  it("entsperrt bei zwei synchronen Submits nur einmal", async () => {
+    let finish!: () => void;
+    const api = { bootstrap: vi.fn(() => new Promise<void>((resolve) => { finish = resolve; })), restore: vi.fn().mockRejectedValue(new Error("no session")), logout: vi.fn() };
+    const view = render(() => <AuthGate api={api}><p>Protected manager</p></AuthGate>);
+    await fireEvent.input(view.getByLabelText("Master token"), { target: { value: "test-token" } });
+    const form = view.getByLabelText("Master token").closest("form")!;
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    expect(api.bootstrap).toHaveBeenCalledTimes(1);
+    finish();
+    expect(await view.findByRole("button", { name: "Lock" })).toBeInTheDocument();
   });
 
   it("shows one generic error for failed bootstrap", async () => {
@@ -50,7 +64,7 @@ describe("AuthGate", () => {
 
   it("hands the lock control to a render-function child instead of drawing its own", async () => {
     const api = { bootstrap: vi.fn(), restore: vi.fn().mockResolvedValue(undefined), logout: vi.fn().mockResolvedValue(undefined) };
-    const { findByRole, queryAllByRole, getByRole, queryByText } = render(() => (
+    const { findByRole, queryAllByRole, queryByText } = render(() => (
       <AuthGate api={api as never}>
         {(session) => <button type="button" onClick={() => session.lock()}>Lock from shell</button>}
       </AuthGate>
@@ -60,7 +74,7 @@ describe("AuthGate", () => {
     expect(queryAllByRole("button", { name: "Lock" })).toHaveLength(0);
     await fireEvent.click(lock);
     expect(api.logout).toHaveBeenCalledOnce();
-    expect(getByRole("heading", { name: "Unlock manager" })).toBeInTheDocument();
+    expect(await findByRole("heading", { name: "Unlock manager" })).toBeInTheDocument();
     expect(queryByText("Lock from shell")).not.toBeInTheDocument();
   });
 });

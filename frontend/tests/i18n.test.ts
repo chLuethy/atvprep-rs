@@ -1,11 +1,13 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { flush } from "solid-js";
 import { language, N, setLanguage, t, tn } from "../src/lib/i18n";
 import { de } from "../src/locales/de";
 
 afterEach(() => {
   setLanguage("en");
+  flush();
   window.localStorage.clear();
 });
 
@@ -24,6 +26,7 @@ describe("t and tn", () => {
     de["{count} __probe"] = ["{count} Probe", "{count} Proben"];
     try {
       setLanguage("de");
+      flush();
       expect(language()).toBe("de");
       expect(t("__probe")).toBe("Probe");
       expect(t("__probe {n}", { n: 2 })).toBe("Probe 2");
@@ -40,6 +43,7 @@ describe("t and tn", () => {
 
   it("remembers the choice", () => {
     setLanguage("de");
+    flush();
     expect(window.localStorage.getItem("atvprep.language")).toBe("de");
   });
 });
@@ -99,6 +103,7 @@ describe("the words for preparing (GLOSSARY.md)", () => {
     const wrong = german().filter(([, text]) => /Reparier|Reparatur|Konvertieren|[Kk]onvertierung|(?<!Teil)[Üü]berarbeit/.test(text));
     expect(wrong).toEqual([]);
     setLanguage("de");
+    flush();
     expect(t("Prepare")).toBe("Vorbereiten");
   });
 

@@ -1,4 +1,5 @@
-import { splitProps, type JSX, type ParentComponent } from "solid-js";
+import { omit, type ParentComponent } from "solid-js";
+import type { JSX } from "@solidjs/web";
 
 type Variant = "default" | "primary" | "quiet";
 
@@ -6,11 +7,11 @@ type ButtonProps = Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, "class"> & 
 
 /** The one button vocabulary: default, primary (one per surface), quiet (tertiary). */
 export const Button: ParentComponent<ButtonProps> = (props) => {
-  const [own, rest] = splitProps(props, ["variant", "children", "type", "class"]);
-  const variant = () => own.variant ?? "default";
+  const rest = omit(props, "variant", "children", "type", "class");
+  const variant = () => props.variant ?? "default";
   return (
-    <button type={own.type ?? "button"} class={["btn", variant() === "default" ? "" : variant(), own.class ?? ""].filter(Boolean).join(" ")} {...rest}>
-      {own.children}
+    <button type={props.type ?? "button"} class={["btn", variant() === "default" ? "" : variant(), props.class]} {...rest}>
+      {props.children}
     </button>
   );
 };

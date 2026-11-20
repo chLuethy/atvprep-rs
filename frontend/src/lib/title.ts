@@ -1,4 +1,4 @@
-import { onCleanup, onMount } from "solid-js";
+import { onSettled } from "solid-js";
 import { loadSummary } from "../features/files/loaders";
 import { t } from "./i18n";
 import { publishWork } from "./work";
@@ -43,14 +43,14 @@ export function useWorkTitle(api: { request: (path: string, init?: RequestInit) 
     }
   };
 
-  onMount(() => {
+  onSettled(() => {
     void poll();
     timer = window.setInterval(() => void poll(), POLL_MS);
     document.addEventListener("visibilitychange", onVisible);
-  });
-  onCleanup(() => {
-    window.clearInterval(timer);
-    document.removeEventListener("visibilitychange", onVisible);
-    document.title = APP_TITLE;
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      document.title = APP_TITLE;
+    };
   });
 }
