@@ -34,9 +34,10 @@ describe("the type scale", () => {
     expect(declarations("letter-spacing").filter(({ value }) => !allowed.has(value))).toEqual([]);
   });
 
-  it("states the capital-label style once, however many headings use it", () => {
-    const withCaps = files.flatMap((name) => [...css(name).matchAll(/text-transform:\s*uppercase/g)].map(() => name));
-    expect(withCaps).toHaveLength(1);
+  it("states the label style once, however many headings use it, and sets no capitals", () => {
+    const labels = files.flatMap((name) => [...css(name).matchAll(/\{[^{}]*letter-spacing:\s*var\(--tracking-caps\)[^{}]*\}/g)].map(() => name));
+    expect(labels).toHaveLength(1);
+    expect(files.flatMap((name) => css(name).match(/text-transform:\s*uppercase/g) ?? [])).toHaveLength(0);
   });
 
   it("keeps titles tight, wraps them evenly and limits the line length of prose", () => {
