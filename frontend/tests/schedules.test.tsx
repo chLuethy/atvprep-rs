@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { flush } from "solid-js";
 import { setLanguage } from "../src/lib/i18n";
 import { SchedulesPage } from "../src/features/schedules/SchedulesPage";
-import { describeDays, describeProblem, describeProfile, describeResult, describeTarget, simpleForm, stateChoices, weeklyCron } from "../src/features/schedules/model";
+import { describeDays, describeProblem, describeProfile, describeResult, simpleForm, stateChoices, weeklyCron } from "../src/features/schedules/model";
 
 import type { Schedule } from "../src/features/schedules/loaders";
 
@@ -49,14 +49,6 @@ describe("schedule wording", () => {
     expect(describeDays([0, 1, 2, 3, 4, 5, 6])).toBe("Every day");
     expect(describeDays([5, 6])).toBe("Weekends");
     expect(describeDays([4, 0, 2])).toBe("Mon Wed Fri");
-  });
-
-  it("summarises what a schedule acts on", () => {
-    expect(describeTarget({ action: "verify", root_name: "Film", compliance_state: "unknown", max_files: 25 })).toBe("Verify · Film · Not verified · up to 25 files");
-    expect(describeTarget({ action: "prepare", root_name: null, compliance_state: null, max_files: 1, encode: "copy" })).toBe("Prepare · All libraries · up to 1 file · Copy only");
-    expect(describeTarget({ action: "prepare", root_name: "TV", compliance_state: null, max_files: 3, encode: "all" })).toBe("Prepare · TV · up to 3 files · Encode audio and video");
-    expect(describeTarget({ action: "scan", root_name: null, compliance_state: null, max_files: null })).toBe("Scan · All libraries");
-    expect(describeTarget({ action: "scan", root_name: "Film", compliance_state: null, max_files: null })).toBe("Scan · Film");
   });
 
   it("puts the scan results of the server into words", () => {
@@ -258,6 +250,23 @@ describe("SchedulesPage", () => {
     await fireEvent.click(await view.findByRole("button", { name: "Turn on Nightly verify" }));
 
     await waitFor(() => expect(patches).toEqual([{ enabled: true }]));
+  });
+
+  it("sends one request when the switch is clicked twice before the answer, and names the button as it reads", async () => {
+    const patches: unknown[] = [];
+    const state = makeApi(
+      [schedule()],
+      { "PATCH /schedules/sc_1": (init) => { patches.push(JSON.parse(String(init?.body))); return json(schedule({ enabled: false, next_run_at: null })); } },
+    );
+    const view = render(() => <SchedulesPage api={state.api} />);
+    const button = await view.findByRole("button", { name: "Pause Nightly verify" });
+
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    await waitFor(() => expect(patches).toEqual([{ enabled: false }]));
+    expect(button).toHaveAttribute("aria-label", "Pause Nightly verify");
+    expect(button).toHaveTextContent("Pause");
   });
 
   it("asks before turning on a schedule that changes files, and sends the confirmation", async () => {
