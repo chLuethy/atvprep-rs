@@ -20,6 +20,7 @@ const PAGES: ReadonlyArray<{ name: string; path: string; ready: string; prepare?
       await page.waitForTimeout(400);
     },
   },
+  { name: "Settings", path: "/settings", ready: "Runtime settings" },
 ];
 
 for (const { name, path, ready, prepare } of PAGES) {
