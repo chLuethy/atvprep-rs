@@ -311,3 +311,18 @@ describe("OverviewPage: failure", () => {
     expect(view.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });
 });
+
+describe("OverviewPage: file health rows", () => {
+  it("shows each state as a badge with a bar sized to its share, in neutral or accent colours", async () => {
+    const view = render(() => <OverviewPage api={api(base({ "/dashboard": summary({ clean: 3, warning: 1 }) })) as never} />);
+
+    const health = await view.findByRole("region", { name: "File health" });
+    const ready = within(health).getByRole("link", { name: "3 Ready" });
+    expect(ready.querySelector(".chip")).toHaveTextContent("Ready");
+    expect(ready.querySelector("[data-health-bar] > span")).toHaveStyle({ width: "75%" });
+    const warning = within(health).getByRole("link", { name: "1 Warning" });
+    expect(warning.querySelector("[data-health-bar] > span")).toHaveStyle({ width: "25%" });
+    // A bar is not a status colour: no tone class on the bar.
+    expect(health.querySelector("[data-health-bar] [class*='seg-']")).toBeNull();
+  });
+});
