@@ -127,3 +127,52 @@ test.describe("files actions", () => {
     for (const name of [/^Verify selection/, /^Re-inspect selection/, /^Preview and prepare/]) await expect(bar(page).getByRole("button", { name })).toBeVisible();
   });
 });
+
+test.describe("columns view", () => {
+  const openColumns = async (page: Page, theme: "light" | "dark") => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openThemed(page, "/files", theme, "Files");
+    await page.getByRole("button", { name: "Columns" }).click();
+    const columns = page.getByRole("group", { name: /Files by folder/ });
+    await columns.getByRole("listbox", { name: "Libraries" }).getByRole("option").first().click();
+    await expect(columns.locator('.col[data-col="1"] [role=option]').first()).toBeVisible();
+    return columns;
+  };
+
+  for (const theme of ["light", "dark"] as const) {
+    test(`the dashed side line of a column is never covered, not even by a hovered or selected row (${theme})`, async ({ page }) => {
+      const columns = await openColumns(page, theme);
+      const second = columns.locator('.col[data-col="1"]');
+      const option = second.getByRole("option").first();
+      await option.click(); // selected row, and the pointer rests on it
+      await option.hover();
+      const result = await second.evaluate((col) => {
+        const frame = col.getBoundingClientRect();
+        const style = getComputedStyle(col);
+        // Probe the pixel column of the line next to every row: the topmost element there must be the column itself.
+        const covered = Array.from(col.querySelectorAll(".col-row")).filter((row) => {
+          const box = row.getBoundingClientRect();
+          const hit = document.elementFromPoint(frame.left + 0.01, box.top + box.height / 2);
+          return hit !== col;
+        }).length;
+        return { covered, line: style.backgroundImage, border: style.borderLeftWidth + "/" + style.borderRightWidth };
+      });
+      expect(result.line).toContain("linear-gradient");
+      expect(result.covered, JSON.stringify(result)).toBe(0);
+      // The line is the guide, not a solid border.
+      expect(result.border).toBe("0px/0px");
+    });
+  }
+
+  test("the first column has no side line, and no column has a solid one", async ({ page }) => {
+    const columns = await openColumns(page, "light");
+    const lines = await columns.locator(".col").evaluateAll((all) => all.map((col) => {
+      const style = getComputedStyle(col);
+      return { guide: style.backgroundImage !== "none", right: Number.parseFloat(style.borderRightWidth) };
+    }));
+    expect(lines.length).toBeGreaterThanOrEqual(2);
+    expect(lines[0]?.guide).toBe(false);
+    expect(lines.slice(1).every((line) => line.guide)).toBe(true);
+    expect(lines.every((line) => line.right === 0)).toBe(true);
+  });
+});
