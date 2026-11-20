@@ -85,7 +85,7 @@ describe("LibraryPage: the page title", () => {
 });
 
 describe("LibraryPage: the list", () => {
-  it("shows each file with a worded verdict and its first reason, and nothing redundant for clean files", async () => {
+  it("shows each file with a worded verdict, its need and its change, and no reason column", async () => {
     const { api } = makeApi();
     const view = renderLibrary(api);
 
@@ -95,9 +95,8 @@ describe("LibraryPage: the list", () => {
     expect(table).toHaveTextContent("Blocker");
     expect(table).toHaveTextContent("Ready");
     expect(table).toHaveTextContent("Not verified");
-    expect(table).toHaveTextContent("4 tracks lack an elng tag");
-    expect(table).toHaveTextContent("ftyp lists dby1 but no track is Atmos");
-    expect(table).not.toHaveTextContent("No compliance violations reported by verify");
+    expect(within(table).getAllByRole("columnheader").map((head) => head.textContent?.trim())).toEqual(["File", "Library", "Status", "Encoding need", "Change", "Size"]);
+    expect(table).not.toHaveTextContent("4 tracks lack an elng tag");
     expect(table).toHaveTextContent("10 GB");
   });
 
@@ -123,10 +122,11 @@ describe("LibraryPage: the list", () => {
     expect(open).toHaveBeenCalledWith("m_f2");
   });
 
-  it("shows the inspector for the active file and a prompt when none is chosen", async () => {
+  it("shows the inspector for the active file and no panel when none is chosen", async () => {
     const { api } = makeApi();
     const none = renderLibrary(api);
-    expect(await none.findByText(/select a file to inspect/i)).toBeInTheDocument();
+    await none.findByRole("link", { name: "Heat" });
+    expect(none.queryByRole("complementary", { name: "Details" })).not.toBeInTheDocument();
     none.unmount();
 
     const active = renderLibrary(api, "m_f1");
@@ -940,6 +940,43 @@ describe("LibraryPage: verifying from the keyboard", () => {
   });
 });
 
+describe("LibraryPage: the selection bar carries the actions for one file too", () => {
+  it("shows for the open file, with Verify, Re-inspect and Preview and prepare", async () => {
+    const { api } = makeApi();
+    const view = renderLibrary(api, "m_f2");
+    await view.findByRole("link", { name: "Heat" });
+
+    const bar = view.getByRole("region", { name: "Selection" });
+    expect(bar).toHaveTextContent("1 selected");
+    expect(within(bar).getByRole("button", { name: "Verify selection" })).toBeEnabled();
+    expect(within(bar).getByRole("button", { name: /Re-inspect selection/ })).toBeEnabled();
+    expect(within(bar).getByRole("button", { name: /Preview and prepare/ })).toBeEnabled();
+    expect(within(bar).getByRole("button", { name: "Clear selection" })).toBeInTheDocument();
+  });
+
+  it("verifies the open file from the bar", async () => {
+    const { api, posts } = makeApi();
+    const view = renderLibrary(api, "m_f2");
+    await view.findByRole("link", { name: "Heat" });
+
+    await fireEvent.click(view.getByRole("button", { name: "Verify selection" }));
+
+    await waitFor(() => expect(posts()).toHaveLength(1));
+    expect(JSON.parse(String(posts()[0]!.init?.body))).toMatchObject({ action: "verify", media_ids: ["m_f2"] });
+  });
+
+  it("clearing the selection closes the open file", async () => {
+    open.mockClear();
+    const { api } = makeApi();
+    const view = renderLibrary(api, "m_f2");
+    await view.findByRole("link", { name: "Heat" });
+
+    await fireEvent.click(view.getByRole("button", { name: "Clear selection" }));
+
+    expect(open).toHaveBeenCalledWith(undefined);
+  });
+});
+
 describe("LibraryPage: acting on the open file when every response has its own ids", () => {
   /** The real server issues a fresh id for the same file in each response, so list, URL and detail ids differ. */
   function makeRotatingApi() {
@@ -963,8 +1000,9 @@ describe("LibraryPage: acting on the open file when every response has its own i
   it("verifies the open file even though the detail id differs from the list and address ids", async () => {
     const { api, posts } = makeRotatingApi();
     const view = renderLibrary(api, "m_from_address");
+    await view.findAllByRole("heading", { name: "Heat" });
 
-    await fireEvent.click(await view.findByRole("button", { name: "Verify" }));
+    await fireEvent.click(await view.findByRole("button", { name: "Verify selection" }));
 
     await waitFor(() => expect(posts()).toHaveLength(1));
     expect(JSON.parse(String(posts()[0]!.init?.body))).toEqual({ action: "verify", media_ids: ["m_from_detail"], manual_approval: false });
@@ -974,8 +1012,9 @@ describe("LibraryPage: acting on the open file when every response has its own i
   it("opens the fix preview for the open file and queues the fix for it", async () => {
     const { api, posts } = makeRotatingApi();
     const view = renderLibrary(api, "m_from_address");
+    await view.findAllByRole("heading", { name: "Heat" });
 
-    await fireEvent.click(await view.findByRole("button", { name: /prepare preview/i }));
+    await fireEvent.click(await view.findByRole("button", { name: /preview and prepare/i }));
     const preview = await view.findByRole("region", { name: "Prepare preview" });
     await fireEvent.click(within(preview).getByRole("button", { name: /^(prepare|confirm)/i }));
 
@@ -1301,13 +1340,15 @@ describe("LibraryPage: a file whose fix is already in progress", () => {
       }),
     };
     const view = renderLibrary(api, "m_from_address");
+    await view.findAllByRole("heading", { name: "Heat" });
 
-    await fireEvent.click(await view.findByRole("button", { name: /prepare preview/i }));
+    await fireEvent.click(await view.findByRole("button", { name: /preview and prepare/i }));
     const preview = await view.findByRole("region", { name: "Prepare preview" });
     await fireEvent.click(within(preview).getByRole("button", { name: /^Prepare/ }));
 
     await waitFor(() => expect(calls.filter((call) => call.path === "/jobs")).toHaveLength(1));
-    expect(await view.findByRole("button", { name: "Prepare queued" })).toBeDisabled();
+    // The preparation is under way: the bar offers no second one.
+    expect(await view.findByRole("button", { name: /preview and prepare/i })).toBeDisabled();
   });
 });
 
@@ -1434,7 +1475,7 @@ describe("LibraryPage: removing missing files", () => {
 });
 
 describe("LibraryPage: files that are gone", () => {
-  it("says so in the reason column instead of repeating an old verify finding", async () => {
+  it("says Missing and repeats no old verify finding", async () => {
     const gone = file({ id: "m_gone", display_path: "Film/Gone (2001)/Gone.mp4", size: GB, compliance_state: "blocker", discovery_state: "missing",
       compliance_reasons: ["[blocker] ftyp-dby1-requires-atmos: ftyp lists dby1 but no track is Atmos"] });
     const { api } = makeApi({ rows: [gone] });
@@ -1442,7 +1483,6 @@ describe("LibraryPage: files that are gone", () => {
 
     const row = (await view.findByRole("link", { name: "Gone" })).closest("tr") as HTMLElement;
     expect(row).toHaveTextContent("Missing");
-    expect(row).toHaveTextContent("No longer on disk");
     expect(row).not.toHaveTextContent("ftyp lists dby1");
   });
 });
@@ -1608,14 +1648,14 @@ describe("LibraryPage: selecting in the list like the Finder", () => {
     expect(checked(view).length).toBeGreaterThanOrEqual(2);
   });
 
-  it("does not show a selection bar for the one file that is merely open", async () => {
+  it("shows the selection bar for the one file that is open, because its actions live there", async () => {
     const { api } = makeApi();
     const [active, setActive] = createSignal<string | undefined>(undefined);
     const view = render(() => <LibraryPage api={api} activeId={active()} onOpen={(id) => setActive(id)} />);
     await view.findByRole("link", { name: "Heat" });
 
     await fireEvent.click(rowOf(view, "Heat"));
-    expect(view.queryByRole("region", { name: "Selection" })).not.toBeInTheDocument();
+    expect(await view.findByRole("region", { name: "Selection" })).toHaveTextContent("1 selected");
 
     await fireEvent.click(rowOf(view, "Arrival (2016)"), { metaKey: true });
     expect(await view.findByRole("region", { name: "Selection" })).toHaveTextContent("2 selected");
@@ -1698,7 +1738,7 @@ describe("LibraryPage: the list has no tick boxes", () => {
 
     expect(view.container.querySelector("tbody input[type=checkbox]")).toBeNull();
     expect(within(view.getByRole("table", { name: "Media files" })).queryByRole("checkbox")).not.toBeInTheDocument();
-    expect(view.getByRole("table", { name: "Media files" }).querySelectorAll("thead th")).toHaveLength(4);
+    expect(view.getByRole("table", { name: "Media files" }).querySelectorAll("thead th")).toHaveLength(6);
 
     await pickRow(view, "Heat");
     await pickRow(view, "Arrival (2016)");

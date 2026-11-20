@@ -128,22 +128,21 @@ describe("Inspector: what the file is and why", () => {
     expect(await view.findByText(/no reason recorded/i)).toBeInTheDocument();
   });
 
-  it("offers Fix only for fixable files and reports both actions upward", async () => {
-    const onFix = vi.fn();
-    const onVerify = vi.fn();
-    const view = render(() => <Inspector api={standard()} fileId="m_f1" onFix={onFix} onVerify={onVerify} />);
+  it("has no action buttons but Copy path: Verify, Re-inspect and Prepare live in the selection bar", async () => {
+    const view = render(() => <Inspector api={standard()} fileId="m_f1" />);
+    await view.findAllByRole("heading", { name: "Pretty Woman (1990)" });
 
-    await fireEvent.click(await view.findByRole("button", { name: /prepare preview/i }));
-    await fireEvent.click(view.getByRole("button", { name: "Verify" }));
+    expect(view.getAllByRole("button").map((button) => button.textContent)).toEqual(["Copy path"]);
+  });
 
-    expect(onFix).toHaveBeenCalledWith(expect.objectContaining({ id: "m_f1", compliance_state: expect.any(String) }));
-    expect(onVerify).toHaveBeenCalledWith("m_f1");
-    view.unmount();
+  it("copies the path of the file", async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    const view = render(() => <Inspector api={standard()} fileId="m_f1" />);
 
-    const clean = { ...detail, compliance_state: "clean", desired_action: "none", compliance_reasons: ["No compliance violations reported by verify."] };
-    const cleanView = render(() => <Inspector api={standard({ "/files/m_f1": () => response(clean) })} fileId="m_f1" onFix={onFix} />);
-    await cleanView.findAllByRole("heading", { name: "Pretty Woman (1990)" });
-    expect(cleanView.queryByRole("button", { name: /prepare preview/i })).not.toBeInTheDocument();
+    await fireEvent.click(await view.findByRole("button", { name: "Copy path" }));
+
+    expect(writeText).toHaveBeenCalledWith("Film/Pretty Woman (1990)/Pretty Woman (1990).mp4");
   });
 });
 
@@ -173,32 +172,26 @@ describe("Inspector: tracks and inspection", () => {
   });
 
   it.each([["queued", "Prepare queued"], ["running", "Prepare running"], ["cancelling", "Prepare cancelling"]])(
-    "shows %s instead of Fix preview and offers no second fix",
+    "says %s in words while a preparation is going, without a button for it",
     async (fixStatus, label) => {
-      const onFix = vi.fn();
-      const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response({ ...detail, fix_status: fixStatus }) })} fileId="m_f1" onFix={onFix} />);
+      const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response({ ...detail, fix_status: fixStatus }) })} fileId="m_f1" />);
 
-      const status = await view.findByRole("button", { name: label });
-
-      expect(status).toBeDisabled();
-      expect(view.queryByRole("button", { name: /prepare preview/i })).not.toBeInTheDocument();
-      await fireEvent.click(status);
-      expect(onFix).not.toHaveBeenCalled();
+      expect(await view.findByText(label)).toBeInTheDocument();
+      expect(view.queryByRole("button", { name: label })).not.toBeInTheDocument();
     },
   );
 
-  it("follows an active fix and offers the preview again once it is over", async () => {
+  it("follows an active fix and drops the note once it is over", async () => {
     vi.useFakeTimers();
     let fixStatus: string | null = "running";
-    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response({ ...detail, fix_status: fixStatus }) })} fileId="m_f1" onFix={vi.fn()} />);
+    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response({ ...detail, fix_status: fixStatus }) })} fileId="m_f1" />);
     await vi.advanceTimersByTimeAsync(0);
-    expect(view.getByRole("button", { name: "Prepare running" })).toBeDisabled();
+    expect(view.getByText("Prepare running")).toBeInTheDocument();
 
     fixStatus = null;
     await vi.advanceTimersByTimeAsync(4100);
 
-    expect(view.getByRole("button", { name: /prepare preview/i })).toBeEnabled();
-    expect(view.queryByRole("button", { name: "Prepare running" })).not.toBeInTheDocument();
+    expect(view.queryByText("Prepare running")).not.toBeInTheDocument();
   });
 
   it("zeigt Sitzungsverlust bei stiller Revalidierung statt vorhandene Details als Erfolg zu behalten", async () => {
@@ -223,18 +216,18 @@ describe("Inspector: tracks and inspection", () => {
     vi.useFakeTimers();
     let serial = 0;
     const api = standard({ "/files/m_f1": () => response({ ...detail, id: `m_${++serial}`, fix_status: "running" }) });
-    const view = render(() => <Inspector api={api} fileId="m_f1" onFix={vi.fn()} />);
+    const view = render(() => <Inspector api={api} fileId="m_f1" />);
     await vi.advanceTimersByTimeAsync(0);
     const title = view.getByRole("heading", { name: "Pretty Woman (1990)" });
     const table = view.getByRole("table", { name: "Tracks" });
-    const status = view.getByRole("button", { name: "Prepare running" });
+    const status = view.getByText("Prepare running");
 
     await vi.advanceTimersByTimeAsync(13000);
 
     expect(serial).toBeGreaterThan(2);
     expect(view.getByRole("heading", { name: "Pretty Woman (1990)" })).toBe(title);
     expect(view.getByRole("table", { name: "Tracks" })).toBe(table);
-    expect(view.getByRole("button", { name: "Prepare running" })).toBe(status);
+    expect(view.getByText("Prepare running")).toBe(status);
     expect(view.queryByText(/loading/i)).not.toBeInTheDocument();
   });
 
@@ -242,7 +235,7 @@ describe("Inspector: tracks and inspection", () => {
     vi.useFakeTimers();
     let fixStatus: string | null = "running";
     const api = standard({ "/files/m_f1": () => response({ ...detail, fix_status: fixStatus }) });
-    const view = render(() => <Inspector api={api} fileId="m_f1" onFix={vi.fn()} />);
+    const view = render(() => <Inspector api={api} fileId="m_f1" />);
     await vi.advanceTimersByTimeAsync(0);
     const title = view.getByRole("heading", { name: "Pretty Woman (1990)" });
     const table = view.getByRole("table", { name: "Tracks" });
@@ -250,23 +243,9 @@ describe("Inspector: tracks and inspection", () => {
     fixStatus = null;
     await vi.advanceTimersByTimeAsync(4100);
 
-    expect(view.getByRole("button", { name: /prepare preview/i })).toBeEnabled();
-    expect(view.queryByRole("button", { name: "Prepare running" })).not.toBeInTheDocument();
+    expect(view.queryByText("Prepare running")).not.toBeInTheDocument();
     expect(view.getByRole("heading", { name: "Pretty Woman (1990)" })).toBe(title);
     expect(view.getByRole("table", { name: "Tracks" })).toBe(table);
-  });
-
-  it("puts Verify first once a fix is done, because the result is only known after it", async () => {
-    const fixed = { ...detail, compliance_state: "unknown", desired_action: "none", compliance_reasons: ["Fixed by atvprep. Verify to see the result."] };
-    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response(fixed) })} fileId="m_f1" onFix={vi.fn()} onVerify={vi.fn()} />);
-
-    const verify = await view.findByRole("button", { name: "Verify" });
-
-    expect(verify).toHaveClass("primary");
-    view.unmount();
-
-    const other = render(() => <Inspector api={standard()} fileId="m_f1" onFix={vi.fn()} onVerify={vi.fn()} />);
-    expect(await other.findByRole("button", { name: "Verify" })).not.toHaveClass("primary");
   });
 
   it("says why there is no track table when nothing has been inspected", async () => {
@@ -450,268 +429,10 @@ describe("Inspector: loading, errors, navigation", () => {
   });
 });
 
-describe("Inspector: re-inspect", () => {
-  const inspectPosts = (api: Api) => (api.request as ReturnType<typeof vi.fn>).mock.calls.filter(([path]) => path === "/files/m_f1/inspect");
-
-  it("asks for confirmation inline, not in a modal, and queues once", async () => {
-    const api = standard({ "/files/m_f1/inspect": () => new Response(JSON.stringify({ data: { id: "j_2" } }), { status: 201 }) });
-    const view = render(() => <Inspector api={api} fileId="m_f1" />);
-
-    await fireEvent.click(await view.findByRole("button", { name: "Re-inspect" }));
-    expect(view.queryByRole("dialog")).not.toBeInTheDocument();
-    const region = view.getByRole("region", { name: "Confirm re-inspection" });
-    expect(region).toHaveTextContent(/queue a new ffprobe inspection/i);
-    expect(inspectPosts(api)).toHaveLength(0);
-
-    await fireEvent.click(view.getByRole("button", { name: "Confirm re-inspect" }));
-    expect(await view.findByText(/re-inspection queued/i)).toBeInTheDocument();
-    expect(inspectPosts(api)).toHaveLength(1);
-    expect(view.queryByRole("region", { name: "Confirm re-inspection" })).not.toBeInTheDocument();
-  });
-
-  it("blocks a second submit while the first is in flight", async () => {
-    const api = standard({ "/files/m_f1/inspect": () => new Promise<Response>((resolve) => setTimeout(() => resolve(response({ id: "j_2" }, 201)), 10)) });
-    const view = render(() => <Inspector api={api} fileId="m_f1" />);
-    await fireEvent.click(await view.findByRole("button", { name: "Re-inspect" }));
-
-    const confirm = view.getByRole("button", { name: "Confirm re-inspect" });
-    await fireEvent.click(confirm);
-    expect(confirm).toBeDisabled();
-    await fireEvent.click(confirm);
-
-    await view.findByText(/re-inspection queued/i);
-    expect(inspectPosts(api)).toHaveLength(1);
-  });
-
-  it("startet nach Verlassen keine Hintergrundreads oder Seiten-Callbacks aus einer verspäteten Mutation", async () => {
-    vi.useFakeTimers();
-    let finish!: (response: Response) => void;
-    const onQueued = vi.fn();
-    const api = standard({ "/files/m_f1/inspect": () => new Promise<Response>((resolve) => { finish = resolve; }) });
-    const view = render(() => <Inspector api={api} fileId="m_f1" onQueued={onQueued} />);
-    await vi.advanceTimersByTimeAsync(0);
-    await fireEvent.click(view.getByRole("button", { name: "Re-inspect" }));
-    fireEvent.click(view.getByRole("button", { name: "Confirm re-inspect" }));
-    view.unmount();
-    const before = vi.mocked(api.request).mock.calls.length;
-    finish(response({}));
-    await vi.advanceTimersByTimeAsync(0);
-    expect(onQueued).not.toHaveBeenCalled();
-    expect(vi.mocked(api.request).mock.calls).toHaveLength(before);
-  });
-
-  it("übermittelt bei zwei Auslösungen im selben synchronen Ablauf nur eine Re-Inspektion", async () => {
-    let finish!: (value: Response) => void;
-    const api = standard({ "/files/m_f1/inspect": () => new Promise<Response>((resolve) => { finish = resolve; }) });
-    const view = render(() => <Inspector api={api} fileId="m_f1" />);
-    await fireEvent.click(await view.findByRole("button", { name: "Re-inspect" }));
-    const confirm = view.getByRole("button", { name: "Confirm re-inspect" });
-
-    fireEvent.click(confirm);
-    fireEvent.click(confirm);
-
-    expect(inspectPosts(api)).toHaveLength(1);
-    finish(response({ id: "j_2" }, 201));
-    expect(await view.findByText("Re-inspection queued")).toBeInTheDocument();
-  });
-
-  it("reuses one idempotency key when the same confirmation is retried", async () => {
-    let posts = 0;
-    const api = standard({ "/files/m_f1/inspect": () => (++posts === 1 ? response({}, 503) : response({ id: "j_2" }, 201)) });
-    const view = render(() => <Inspector api={api} fileId="m_f1" />);
-    await fireEvent.click(await view.findByRole("button", { name: "Re-inspect" }));
-
-    await fireEvent.click(view.getByRole("button", { name: "Confirm re-inspect" }));
-    await view.findByRole("alert");
-    await fireEvent.click(view.getByRole("button", { name: "Confirm re-inspect" }));
-    await waitFor(() => expect(posts).toBe(2));
-
-    const [first, second] = inspectPosts(api);
-    const firstKey = new Headers(first![1]?.headers).get("Idempotency-Key");
-    expect(firstKey).toBeTruthy();
-    expect(new Headers(second![1]?.headers).get("Idempotency-Key")).toBe(firstKey);
-  });
-
-  it("moves focus to Confirm, cancels on Escape and hands focus back to the trigger", async () => {
-    const view = render(() => <Inspector api={standard()} fileId="m_f1" />);
-    const trigger = await view.findByRole("button", { name: "Re-inspect" });
-    trigger.focus();
-    await fireEvent.click(trigger);
-
-    const confirm = view.getByRole("button", { name: "Confirm re-inspect" });
-    await waitFor(() => expect(document.activeElement).toBe(confirm));
-    await fireEvent.keyDown(view.getByRole("region", { name: "Confirm re-inspection" }), { key: "Escape" });
-
-    await waitFor(() => expect(view.queryByRole("region", { name: "Confirm re-inspection" })).not.toBeInTheDocument());
-    expect(document.activeElement).toBe(trigger);
-  });
-
-  it("reports an expired session and closes the confirmation", async () => {
-    const api = standard({ "/files/m_f1/inspect": () => Promise.reject(new SessionError()) });
-    const view = render(() => <Inspector api={api} fileId="m_f1" />);
-    await fireEvent.click(await view.findByRole("button", { name: "Re-inspect" }));
-    await fireEvent.click(view.getByRole("button", { name: "Confirm re-inspect" }));
-
-    await expect(view.findByRole("alert")).resolves.toHaveTextContent(/session expired.*lock.*unlock/i);
-    expect(view.queryByRole("region", { name: "Confirm re-inspection" })).not.toBeInTheDocument();
-  });
-});
-
-describe("Inspector: what the prepare confirmation says", () => {
-  const mkv = { ...detail, display_path: "Serie/Lynley.mkv", suffix: ".mkv", compliance_state: "unknown", compliance_reasons: [] };
-
-  it("keeps the original while the setting is off", async () => {
-    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response(mkv) })} fileId="m_f1" deleteOriginal={false} />);
-    await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
-    const region = await view.findByRole("region", { name: "Prepare" });
-    expect(region).toHaveTextContent("The original is kept.");
-    expect(region).not.toHaveTextContent(/delet/i);
-  });
-
-  it("says the original is removed after verification while the setting is on", async () => {
-    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response(mkv) })} fileId="m_f1" deleteOriginal />);
-    await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
-    expect(await view.findByRole("region", { name: "Prepare" })).toHaveTextContent("The original is removed once the new MP4 passes verification.");
-  });
-});
-
-describe("Inspector: converting a file that is not an MP4", () => {
-  const mkvDetail = { ...detail, display_path: "Serie/Lynley/Lynley S01E01.mkv", suffix: ".mkv", compliance_state: "unknown", compliance_reasons: [] };
-  const mkvInspection = (video: string, height = 1080, audio = "eac3") => ({
-    ...inspection,
-    result: { format: { format_name: "matroska,webm" }, streams: [
-      { index: 0, codec_type: "video", codec_name: video, width: 1920, height },
-      { index: 1, codec_type: "audio", codec_name: audio, channels: 6 },
-    ] },
-  });
-  const forMkv = (video: string, height?: number, audio?: string, extra: Record<string, () => Response | Promise<Response>> = {}, need: Record<string, unknown> = { encode_need: "none", planned_change: "remux" }) =>
-    standard({ "/files/m_f1": () => response({ ...mkvDetail, ...need }), "/files/m_f1/inspections": () => response([mkvInspection(video, height, audio)]), ...extra });
-
-  it("offers Convert instead of Verify and Fix, and a remux needs no long-running warning", async () => {
-    const view = render(() => <Inspector api={forMkv("h264")} fileId="m_f1" onVerify={() => {}} onFix={() => {}} />);
-
-    await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
-
-    expect(view.queryByRole("button", { name: "Verify" })).not.toBeInTheDocument();
-    const confirm = await view.findByRole("region", { name: "Prepare" });
-    await waitFor(() => expect(confirm).toHaveTextContent("Prepare writes an MP4 next to this .mkv file"));
-    expect(within(confirm).queryByRole("alert")).not.toBeInTheDocument();
-  });
-
-  it("shows need and change from the server and predicts nothing from the codecs", async () => {
-    // vp9 used to read as a predicted re-encode; the server says otherwise here.
-    const view = render(() => <Inspector api={forMkv("vp9")} fileId="m_f1" />);
-
-    expect(await view.findByText("No encoding")).toBeInTheDocument();
-    expect(view.getByText("Remux")).toBeInTheDocument();
-    await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
-    const confirm = await view.findByRole("region", { name: "Prepare" });
-    expect(within(confirm).queryByRole("alert")).not.toBeInTheDocument();
-  });
-
-  it("offers a file with an unknown need and says the run keeps to the level", async () => {
-    const view = render(() => <Inspector api={forMkv("h264", 1080, "eac3", {}, { encode_need: "unknown", planned_change: "unknown" })} fileId="m_f1" />);
-
-    await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
-    const confirm = await view.findByRole("region", { name: "Prepare" });
-    await waitFor(() => expect(confirm).toHaveTextContent(/not known yet/));
-  });
-
-  it("offers the allowance, audio preselected, and confirms the video level before it queues", async () => {
-    const posted: unknown[] = [];
-    const api = forMkv("vp9", 1080, "dts", { "/jobs": () => response({ id: "j_9" }, 201) }, { encode_need: "video", planned_change: "reencode" });
-    const original = api.request;
-    api.request = vi.fn(async (path: string, init?: RequestInit) => {
-      if (path === "/jobs") posted.push(JSON.parse(String(init?.body)));
-      return original(path, init);
-    });
-    const view = render(() => <Inspector api={api} fileId="m_f1" />);
-
-    await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
-    const confirm = await view.findByRole("region", { name: "Prepare" });
-    await waitFor(() => expect(within(confirm).getByRole("alert")).toHaveTextContent(/has to be re-encoded/));
-    expect(within(confirm).getByRole("radio", { name: /^Encode audio\b(?! and)/ })).toBeChecked();
-    expect(posted).toEqual([]);
-
-    await fireEvent.click(within(confirm).getByRole("radio", { name: /^Encode audio and video/ }));
-    expect(within(confirm).getByRole("button", { name: "Confirm prepare" })).toBeDisabled();
-    await fireEvent.click(within(confirm).getByRole("checkbox", { name: /re-encoded/ }));
-    await fireEvent.click(within(confirm).getByRole("button", { name: "Confirm prepare" }));
-    await waitFor(() => expect(posted).toEqual([{ action: "prepare", media_ids: ["m_f1"], manual_approval: true, encode: "all", confirm_video_encode: true }]));
-  });
-
-  it("queues with the preselected Encode audio without a further step", async () => {
-    const posted: unknown[] = [];
-    const api = forMkv("h264", 1080, "eac3", { "/jobs": () => response({ id: "j_9" }, 201) });
-    const original = api.request;
-    api.request = vi.fn(async (path: string, init?: RequestInit) => {
-      if (path === "/jobs") posted.push(JSON.parse(String(init?.body)));
-      return original(path, init);
-    });
-    const view = render(() => <Inspector api={api} fileId="m_f1" />);
-
-    await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
-    await fireEvent.click(within(await view.findByRole("region", { name: "Prepare" })).getByRole("button", { name: "Confirm prepare" }));
-    await waitFor(() => expect(posted).toEqual([{ action: "prepare", media_ids: ["m_f1"], manual_approval: true, encode: "audio" }]));
-  });
-
-  it("keeps Verify and Fix for MP4 files and never offers Convert there", async () => {
-    const view = render(() => <Inspector api={standard()} fileId="m_f1" onVerify={() => {}} onFix={() => {}} />);
-
-    expect(await view.findByRole("button", { name: "Verify" })).toBeInTheDocument();
-    expect(view.queryByRole("button", { name: "Prepare" })).not.toBeInTheDocument();
-  });
-});
-
-describe("Inspector: the convert confirmation", () => {
-  it("says the original is kept after a conversion", async () => {
-    const mkv = { ...detail, display_path: "Serie/Lynley.mkv", suffix: ".mkv", compliance_state: "unknown", compliance_reasons: [] };
-    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response(mkv) })} fileId="m_f1" deleteOriginal={false} />);
-
-    await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
-
-    expect(await view.findByRole("region", { name: "Prepare" })).toHaveTextContent("The original is kept.");
-  });
-});
-
-describe("Inspector: a refused conversion", () => {
-  it("shows the reason the server gave", async () => {
-    const mkv = { ...detail, display_path: "Serie/Lynley.mkv", suffix: ".mkv", compliance_state: "unknown", compliance_reasons: [] };
-    const api = standard({
-      "/files/m_f1": () => response(mkv),
-      "/jobs": () => new Response(JSON.stringify({ detail: "transcode jobs are disabled; only manual fix jobs are supported" }), { status: 422 }),
-    });
-    const view = render(() => <Inspector api={api} fileId="m_f1" />);
-
-    await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
-    await fireEvent.click(await view.findByRole("button", { name: "Confirm prepare" }));
-
-    expect(await view.findByText(/The server said: transcode jobs are disabled/)).toBeInTheDocument();
-  });
-});
-
-describe("Inspector: the id sent with a conversion", () => {
-  it("is the id from the file the server sent, not the one in the address", async () => {
-    const mkv = { ...detail, id: "m_RAW==", display_path: "Serie/Lynley.mkv", suffix: ".mkv", compliance_state: "unknown", compliance_reasons: [] };
-    let body: unknown;
-    const api = apiFor((path, init) => {
-      if (path === "/jobs") { body = JSON.parse(String(init?.body)); return response({ id: "j_1" }, 201); }
-      if (path === "/files/m_RAW%3D%3D") return response(mkv);
-      return response([]);
-    });
-    const view = render(() => <Inspector api={api} fileId="m_RAW%3D%3D" />);
-
-    await fireEvent.click(await view.findByRole("button", { name: "Prepare" }));
-    await fireEvent.click(await view.findByRole("button", { name: "Confirm prepare" }));
-
-    await waitFor(() => expect(body).toEqual({ action: "prepare", media_ids: ["m_RAW=="], manual_approval: true, encode: "audio" }));
-  });
-});
-
 describe("Inspector: external subtitle files", () => {
   const sidecarRow = (id: string, name: string, state: string, language: string) => ({ id, media_id: "m_f1", name, size: 42, mtime_ns: 9, fingerprint: "fp", created_at: null, state, language });
 
-  it("says what a fix does with each one and offers the fix for a ready file", async () => {
+  it("says what a fix does with each one", async () => {
     const ready = { ...detail, compliance_state: "clean", compliance_reasons: [], desired_action: "none", pending_sidecars: 1 };
     const api = standard({
       "/files/m_f1": () => response(ready),
@@ -721,13 +442,12 @@ describe("Inspector: external subtitle files", () => {
         sidecarRow("c_3", "Film.fr.srt", "ignored_language", "fra"),
       ]),
     });
-    const view = render(() => <Inspector api={api} fileId="m_f1" onFix={() => {}} />);
+    const view = render(() => <Inspector api={api} fileId="m_f1" />);
 
     const list = await view.findByRole("list", { name: "Sidecar files" });
     expect(list).toHaveTextContent("German: Prepare embeds it");
     expect(list).toHaveTextContent("Language not recognised from the name");
     expect(list).toHaveTextContent("only German, English and the audio languages are kept");
-    expect(view.getByRole("button", { name: /Prepare preview/ })).toBeInTheDocument();
   });
   it("reads the sidecars again when a job ends, so a finished re-inspection shows its outcome", async () => {
     let state = "unchecked";
@@ -748,21 +468,17 @@ describe("Inspector: external subtitle files", () => {
 });
 
 describe("Inspector: an interrupted preparation", () => {
-  it("notes the interruption and starts the normal manual preparation again, never on its own", async () => {
-    const onFix = vi.fn();
-    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response({ ...detail, last_interrupted: true }) })} fileId="m_f1" onFix={onFix} />);
+  it("notes the interruption in words and offers no button for it", async () => {
+    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response({ ...detail, last_interrupted: true }) })} fileId="m_f1" />);
 
     expect(await view.findByText("Last preparation interrupted")).toBeInTheDocument();
-    expect(onFix).not.toHaveBeenCalled();
-    await fireEvent.click(view.getByRole("button", { name: "Prepare again" }));
-    expect(onFix).toHaveBeenCalledTimes(1);
+    expect(view.queryByRole("button", { name: "Prepare again" })).not.toBeInTheDocument();
   });
 
   it("shows nothing when the last preparation was not interrupted", async () => {
-    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response({ ...detail, last_interrupted: false }) })} fileId="m_f1" onFix={vi.fn()} />);
+    const view = render(() => <Inspector api={standard({ "/files/m_f1": () => response({ ...detail, last_interrupted: false }) })} fileId="m_f1" />);
 
     await view.findByRole("heading", { name: "Pretty Woman (1990)" });
     expect(view.queryByText("Last preparation interrupted")).not.toBeInTheDocument();
-    expect(view.queryByRole("button", { name: "Prepare again" })).not.toBeInTheDocument();
   });
 });

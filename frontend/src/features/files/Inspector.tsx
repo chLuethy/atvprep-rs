@@ -1,7 +1,6 @@
-import { createEffect, createMemo, createSignal, For, Loading, Match, onSettled, refresh, Show, Switch, type Accessor, type Component } from "solid-js";
-import { SessionError } from "../../lib/api";
-import { Button, Icon, Kbd, StatusChip } from "../../ui";
-import { loadDetailMounted, loadInspectionsMounted, loadJobsMounted, queueJob, rawId, type Api, type FileDetail, type Inspection } from "./loaders";
+import { createEffect, createMemo, createSignal, For, Loading, Match, refresh, Show, Switch, type Accessor, type Component } from "solid-js";
+import { Button, Icon, StatusChip } from "../../ui";
+import { loadDetailMounted, loadInspectionsMounted, loadJobsMounted, type Api, type FileDetail, type Inspection } from "./loaders";
 import {
   baseName,
   formatBitrate,
@@ -11,12 +10,10 @@ import {
   parseReason,
   summarizeInspection,
   verdictOf,
-  wasJustFixed,
   type ParsedReason,
 } from "./model";
-import { isMp4Like } from "./container";
-import { changeLabel, needLabel, prepareConfirm, preparable } from "./preparePlan";
-import { createEncodeChoice, EncodeChoice } from "./EncodeChoice";
+import { changeLabel, needLabel } from "./preparePlan";
+import { copyText } from "./selection";
 import { LIMIT_OPTIONS_MBPS, readWaveLimit, waveVerdict, writeWaveLimit } from "./playback";
 import { Sidecars } from "./Sidecars";
 
@@ -25,7 +22,7 @@ import { N, t } from "../../lib/i18n";
 
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
 
-/** The button that stands in for a preparation that is still going. */
+/** What stands in for a preparation that is still going. */
 const BUSY: Record<string, string> = {
   "Prepare queued": N("Prepare queued"), "Prepare running": N("Prepare running"), "Prepare cancelling": N("Prepare cancelling"),
 };
@@ -63,14 +60,10 @@ const Reason: Component<{ reason: ParsedReason; state: string }> = (props) => (
 const InspectorView: Component<{
   api: Api;
   fileId: string;
-  onFix?: (file: FileDetail) => void;
-  onVerify?: (id: string) => void;
-  /** The setting „Delete original“, which decides what the confirmation says about another container; null when unknown. */
-  deleteOriginal?: boolean | null;
   /** Bumped by the page after it queued something, so the file is read again right away. */
   version?: number;
-  /** Told after this view queued a job itself (a re-inspection), so the page can follow the queue. */
-  onQueued?: () => void;
+  /** Told which file is shown (undefined once the view goes away), so the page can act on it when no row of its list has the same id. */
+  onFile?: (file: FileDetail | undefined) => void;
 }> = (props) => {
   const detail = createMemo(() => loadDetailMounted(props.api, props.fileId));
   const inspections = createMemo(() => loadInspectionsMounted(props.api, props.fileId), { loadingValue: undefined });
@@ -83,71 +76,7 @@ const InspectorView: Component<{
   }, { defer: true });
 
   const [limit, setLimit] = createSignal(readWaveLimit());
-  const [confirming, setConfirming] = createSignal(false);
-  const [inspecting, setInspecting] = createSignal(false);
-  const [message, setMessage] = createSignal<string | null>(null);
-  const [inspectError, setInspectError] = createSignal(false);
-  const [sessionExpired, setSessionExpired] = createSignal(false);
-  const [converting, setConverting] = createSignal(false);
-  const [convertBusy, setConvertBusy] = createSignal(false);
-  const [convertError, setConvertError] = createSignal<string | null>(null);
-  let convertKey = crypto.randomUUID();
-  let idempotencyKey: string | null = null;
-  let trigger: HTMLButtonElement | undefined;
-  let confirmButton: HTMLButtonElement | undefined;
-  let wasConfirming = false;
-  let inspectInFlight = false;
-  let convertInFlight = false;
-  let disposed = false;
-  onSettled(() => () => { disposed = true; });
-
-  createEffect(confirming, (open) => {
-    if (open) queueMicrotask(() => confirmButton?.focus());
-    else if (wasConfirming) queueMicrotask(() => trigger?.focus());
-    wasConfirming = open;
-  });
-  // Switching files creates its own instance, including messages and confirmations.
-
-  const openConfirm = () => {
-    idempotencyKey ??= crypto.randomUUID();
-    setMessage(null);
-    setInspectError(false);
-    setConfirming(true);
-  };
-  const closeConfirm = () => {
-    setConfirming(false);
-    idempotencyKey = null;
-  };
-  const reInspect = async () => {
-    if (inspectInFlight) return;
-    inspectInFlight = true;
-    setInspecting(true);
-    setInspectError(false);
-    try {
-      const response = await props.api.request(`/files/${props.fileId}/inspect`, {
-        method: "POST",
-        headers: { "Idempotency-Key": idempotencyKey ?? crypto.randomUUID() },
-      });
-      if (disposed) return;
-      if (!response.ok) throw new Error("inspect failed");
-      setMessage(t("Re-inspection queued"));
-      closeConfirm();
-      props.onQueued?.();
-      void refetchJobs();
-      void refetchInspections();
-    } catch (error) {
-      if (disposed) return;
-      if (error instanceof SessionError) {
-        setSessionExpired(true);
-        closeConfirm();
-      } else {
-        setInspectError(true);
-      }
-    } finally {
-      inspectInFlight = false;
-      setInspecting(false);
-    }
-  };
+  // Actions (verify, re-inspect, prepare) live in the selection bar of the page; this view only shows.
 
   // Everything below reads the file through accessors, so a refresh updates just the parts whose
   // data moved instead of building the whole page again.
@@ -155,6 +84,10 @@ const InspectorView: Component<{
   const file = createMemo(() => {
     const state = loaded();
     return state?.kind === "ok" ? state.data : undefined;
+  });
+  createEffect(file, (shown) => {
+    props.onFile?.(shown);
+    return () => props.onFile?.(undefined);
   });
   const failure = createMemo(() => {
     const state = loaded();
@@ -173,30 +106,6 @@ const InspectorView: Component<{
   const summary = () => {
     const inspection = latest();
     return inspection ? summarizeInspection(inspection.result) : undefined;
-  };
-  const confirm = (f: FileDetail) => prepareConfirm(f, props.deleteOriginal ?? null);
-  const encode = createEncodeChoice();
-  const submitConvert = async () => {
-    if (convertInFlight || !encode.ready()) return;
-    convertInFlight = true;
-    setConvertBusy(true);
-    setConvertError(null);
-    // The id the server put in the file it sent, as Verify does: the one in the address may be URL-encoded.
-    const id = file()?.id ?? rawId(props.fileId);
-    const level = encode.level();
-    const force = encode.force();
-    const result = await queueJob(props.api, "prepare", [id], `${convertKey}-${level}-${force}`, { encode: level, confirmVideoEncode: level === "all", force });
-    convertInFlight = false;
-    setConvertBusy(false);
-    if (disposed) return;
-    if (!result.ok) {
-      setConvertError(result.session ? t(SESSION_EXPIRED) : result.detail ? t("Unable to queue the preparation. The server said: {detail}.", { detail: result.detail }) : t("Unable to queue the preparation. Try again."));
-      return;
-    }
-    setConverting(false);
-    setMessage(t("Preparation queued. The new MP4 appears in Files after the next scan."));
-    props.onQueued?.();
-    void refetchJobs();
   };
   const mediaTracks = () => (summary()?.tracks ?? []).filter((track) => track.kind !== "other");
 
@@ -232,65 +141,15 @@ const InspectorView: Component<{
             <StatusChip kind={verdict().kind} icon={verdict().icon}>{verdict().label}</StatusChip>
           </div>
           <p class="muted insp-need">{t("Encoding need")}: <b>{needLabel(f().encode_need)}</b> · {t("Change")}: <b>{changeLabel(f().planned_change)}</b></p>
-          <div class="insp-actions">
-            <Show when={f().fix_status}>
-              {(status) => <Button variant="primary" disabled title={t("A preparation for this file is already in progress.")}>{(() => { const label = `Prepare ${status()}`; return BUSY[label] ? t(BUSY[label]) : label; })()}</Button>}
-            </Show>
-            <Show when={!f().fix_status && !isMp4Like(f().suffix) && preparable(f())}>
-              <Button variant="primary" aria-expanded={converting() ? "true" : "false"} onClick={() => { setConvertError(null); setConverting(!converting()); }}>{t("Prepare")}</Button>
-            </Show>
-            <Show when={!f().fix_status && props.onFix && isMp4Like(f().suffix) && preparable(f())}>
-              <Button variant="primary" onClick={() => props.onFix?.(f())}>{t("Prepare preview")} <Kbd>F</Kbd></Button>
-            </Show>
-            <Show when={props.onVerify && isMp4Like(f().suffix)}>
-              <Button variant={wasJustFixed(f()) ? "primary" : "default"} onClick={() => props.onVerify?.(f().id)}>{t("Verify")}</Button>
-            </Show>
-            <Button
-              disabled={!f().inspection_available}
-              aria-expanded={confirming() ? "true" : "false"}
-              ref={(element) => { trigger = element; }}
-              onClick={openConfirm}
-            >
-              {t("Re-inspect")}
-            </Button>
-          </div>
+          <Show when={f().fix_status}>
+            {(status) => <p><StatusChip kind="neutral" icon="dot" live>{(() => { const label = `Prepare ${status()}`; return BUSY[label] ? t(BUSY[label]) : label; })()}</StatusChip></p>}
+          </Show>
           <Show when={f().last_interrupted && !f().fix_status}>
-            <p class="notice warn" role="status">
-              {t("Last preparation interrupted")}
-              <Show when={preparable(f()) && (isMp4Like(f().suffix) ? props.onFix : true)}>
-                {" "}
-                <Button variant="quiet" onClick={() => { if (isMp4Like(f().suffix)) props.onFix?.(f()); else { setConvertError(null); setConverting(true); } }}>{t("Prepare again")}</Button>
-              </Show>
-            </p>
+            <p class="notice warn" role="status">{t("Last preparation interrupted")}</p>
           </Show>
-          <Show when={converting()}>
-            <div class="confirm" role="region" aria-label={t("Prepare")} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); setConverting(false); } }}>
-              <For each={confirm(f()).lines}>{(line, index) => <p class={confirm(f()).reencode && index() === 0 ? "notice warn" : undefined} role={confirm(f()).reencode && index() === 0 ? "alert" : undefined}>{line}</p>}</For>
-              <EncodeChoice choice={encode} offerForce />
-              <Show when={convertError()}><p class="notice bad" role="alert">{convertError()}</p></Show>
-              <div class="insp-actions">
-                <Button variant="primary" disabled={convertBusy() || !encode.ready()} onClick={() => void submitConvert()}>{t("Confirm prepare")}</Button>
-                <Button variant="quiet" onClick={() => setConverting(false)}>{t("Cancel")}</Button>
-              </div>
-            </div>
-          </Show>
-          <Show when={confirming()}>
-            <div
-              class="confirm"
-              role="region"
-              aria-label={t("Confirm re-inspection")}
-              onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); closeConfirm(); } }}
-            >
-              <p>{t("Queue a new ffprobe inspection for this file? Nothing is changed on disk.")}</p>
-              <div class="insp-actions">
-                <Button variant="primary" disabled={inspecting()} ref={(element) => { confirmButton = element; }} onClick={() => void reInspect()}>{t("Confirm re-inspect")}</Button>
-                <Button variant="quiet" onClick={closeConfirm}>{t("Cancel")}</Button>
-              </div>
-            </div>
-          </Show>
-          <Show when={message()}><p class="notice ok" role="status">{message()}</p></Show>
-          <Show when={inspectError()}><p class="notice bad" role="alert">{t("Unable to queue re-inspection")}</p></Show>
-          <Show when={sessionExpired()}><p class="notice bad" role="alert">{t(SESSION_EXPIRED)}</p></Show>
+          <div class="insp-actions">
+            <Button variant="quiet" onClick={() => copyText(f().display_path ?? "")}>{t("Copy path")}</Button>
+          </div>
           <dl class="facts">
             <div><dt>{t("Size")}</dt><dd>{formatSize(f().size)}</dd></div>
             <Show when={summary()?.durationSeconds}><div><dt>{t("Duration")}</dt><dd>{formatDuration(summary()?.durationSeconds)}</dd></div></Show>

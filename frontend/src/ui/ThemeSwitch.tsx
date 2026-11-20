@@ -49,7 +49,7 @@ export const ThemeSwitch: Component = () => {
     return () => window.removeEventListener(THEME_EVENT, follow);
   });
   return (
-    <div class="seg" role="group" aria-label={t("Appearance")}>
+    <div class="seg" role="group" aria-label={t("Appearance")} data-fit-bottom>
       <For each={CHOICES}>{(choice) => (
         <button type="button" aria-pressed={theme() === choice.value ? "true" : "false"} onClick={() => choose(choice.value)}>{t(choice.label)}</button>
       )}</For>

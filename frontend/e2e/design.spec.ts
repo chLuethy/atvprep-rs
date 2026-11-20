@@ -7,6 +7,7 @@ test.use({ trace: "off", screenshot: "off", video: "off" });
 const PAGES: ReadonlyArray<{ name: string; path: string; ready: string }> = [
   { name: "Overview", path: "/dashboard", ready: "Overview" },
   { name: "Settings", path: "/settings", ready: "Runtime settings" },
+  { name: "Files", path: "/files", ready: "Files" },
 ];
 
 for (const { name, path, ready } of PAGES) {

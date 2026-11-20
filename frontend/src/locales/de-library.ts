@@ -55,8 +55,6 @@ export const deLibrary: Record<string, string | readonly [string, string]> = {
   "Re-inspect the selected files": "Ausgewählte Dateien neu analysieren",
   "Details": "Details",
   "Back to list": "Zurück zur Liste",
-  "Select a file to inspect": "Eine Datei zum Ansehen auswählen",
-  "Click to select, Shift or Cmd to select more, right click for actions.": "Klicken zum Auswählen, mit Shift oder Cmd mehr auswählen, Rechtsklick für Aktionen.",
   "{count} item selected": ["{count} Objekt ausgewählt", "{count} Objekte ausgewählt"],
   "Actions for the selection": "Aktionen für die Auswahl",
 };

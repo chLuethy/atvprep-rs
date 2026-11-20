@@ -1,0 +1,85 @@
+/* Files page: filter bar and toolbar over a work area of list, selection bar and inspector
+   (reference: docs/design/manager-mockup.html, page #dateien).
+   The work area ends level with the appearance buttons in the sidebar (lib/fitBottom.ts sets its height);
+   below 1180 px it is one column and just flows. Only the list scrolls, and there are no row lines. */
+.files-page { height: 100%; overflow: auto; display: flex; flex-direction: column; gap: 16px; min-width: 0; padding: 20px max(16px, env(safe-area-inset-right, 0px)) 32px 24px; }
+/* Nothing shrinks to fit the window: the split has the height it is given or its content's, and the page scrolls. */
+.files-page > * { flex: none; min-width: 0; max-width: 1360px; width: 100%; margin: 0 auto; }
+.files-title { margin: 0; font-size: var(--text-md); letter-spacing: var(--tracking-title); }
+.files-top { display: grid; gap: 8px; }
+.files-top .notice { margin: 0; }
+.files-top .confirm { margin: 0; }
+
+/* The toolbar: view switch, search that takes the rest, then Remove missing. */
+.files-toolbar { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
+.files-toolbar > * { align-self: center; }
+.files-toolbar .seg { align-self: stretch; }
+.files-toolbar .seg button { min-height: 32px; padding: 0 16px; font-size: var(--text-base); }
+.files-toolbar .search { flex: 1 1 220px; min-width: 0; max-width: none; margin-left: 0; }
+.files-toolbar .search .input { padding-left: 32px; }
+.files-toolbar .remove-missing { white-space: nowrap; flex: none; }
+
+/* The work area. */
+.files-split { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 16px; align-items: stretch; min-height: 420px; }
+.files-split.has-detail { grid-template-columns: minmax(0, 1fr) minmax(340px, 420px); }
+.files-list { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
+.files-list > .selbar { margin-top: 16px; }
+.files-list > .lib-scroll, .files-list > .cols-wrap { border: 1px solid var(--line); background: var(--surface); }
+.files-list > .lib-scroll { container-type: inline-size; }
+.files-detail { min-width: 0; min-height: 0; overflow: auto; padding: 16px; background: var(--surface); border: 1px solid var(--line); }
+.files-detail .empty { padding: 32px 0; }
+
+/* The list: a heading row in the sand tone with an accent hairline, dashed column lines, nothing between the rows. */
+.files-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.files-table th { position: sticky; top: 0; z-index: 1; padding: 8px; background: var(--sand); border-bottom: 1px solid var(--accent); text-align: left; font-weight: 400; font-size: var(--text-sm); color: var(--ink); white-space: nowrap; }
+.files-table th[aria-sort="ascending"], .files-table th[aria-sort="descending"] { font-weight: 600; }
+.files-table td { padding: 8px; vertical-align: middle; white-space: nowrap; }
+.files-table .g { background-image: var(--guide); background-size: 1px 8px; background-repeat: repeat-y; background-position: left top; }
+.files-table th.g { background-color: var(--sand); }
+.files-table .num { text-align: right; }
+/* The first cell carries the mark of the open file, so no cell shifts when the mark appears. */
+.files-table td:first-child { border-left: 2px solid transparent; }
+.files-table tr.row[aria-selected="true"] td:first-child { border-left-color: var(--accent); }
+.files-table tr.row:hover td { background-color: var(--hover); }
+.files-table tr.row[aria-selected="true"] td, .files-table tr.row[data-picked="true"] td { background-color: var(--accent-weak); }
+.files-table tr.row:focus-visible { outline-offset: -2px; }
+.files-table tr.row { user-select: none; cursor: pointer; }
+.file-cell { width: 100%; min-width: 200px; white-space: normal; }
+.file-title { display: block; color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
+.file-title:hover { text-decoration: underline; text-underline-offset: 3px; }
+.file-folder { display: block; color: var(--ink-muted); overflow-wrap: anywhere; font-size: var(--text-sm); }
+.file-cell .interrupted-note { display: block; font-size: var(--text-sm); color: var(--warn); }
+/* A narrow list keeps the name, the status and the size. */
+@container (max-width: 700px) { .files-table .opt { display: none; } }
+
+/* The selection bar: a head with the count and Clear selection, then the actions. A button is as wide as its text and wraps to the next line instead of being cut. */
+.selbar { display: grid; gap: 8px; padding: 8px 16px; background: var(--surface); border: 1px solid var(--accent); }
+.selbar-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 16px; }
+.selbar-text { min-width: 0; }
+.selbar-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.selbar-acts .btn { flex: 1 1 auto; white-space: nowrap; }
+
+@media (max-width: 1180px) {
+  .files-split { min-height: 0; grid-template-rows: none; }
+  .files-split.has-detail { grid-template-columns: minmax(0, 1fr); }
+  .files-list { grid-template-rows: none; }
+  .files-list > .lib-scroll { max-height: 60vh; }
+  .files-list > .cols-wrap { height: 60vh; }
+  .files-detail { overflow: visible; }
+}
+
+/* Small screens: the search takes a line of its own and the controls are touch size. */
+@media (max-width: 720px) {
+  .files-toolbar .search { order: 3; flex: 1 1 100%; }
+  .files-toolbar .search .input { min-height: 44px; padding-right: 8px; }
+  .files-toolbar .search .kbd { display: none; }
+  .files-toolbar .view-switch { margin-left: auto; }
+  .files-toolbar .seg-label { display: none; }
+  .files-toolbar .seg button { min-width: 44px; min-height: 44px; justify-content: center; }
+  .files-toolbar .remove-missing { min-height: 44px; }
+  .selbar-acts .btn { min-height: 44px; }
+}
+@media (hover: none) and (pointer: coarse) {
+  .files-toolbar .search .kbd { display: none; }
+  .files-toolbar .search .input { padding-right: 8px; }
+}

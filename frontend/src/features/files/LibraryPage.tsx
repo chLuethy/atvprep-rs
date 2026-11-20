@@ -18,12 +18,13 @@ import type { EncodeLevel } from "./EncodeChoice";
 import { preparable } from "./preparePlan";
 import { isMp4Like } from "./container";
 import { Inspector } from "./Inspector";
-import { dismissMissing, loadFacetCounts, loadFiles, rawId, loadSummary, queueJob, type Api, type FileCounts, type FileRow, type JobResult } from "./loaders";
+import { dismissMissing, loadFacetCounts, loadFiles, rawId, loadSummary, queueJob, type Api, type FileCounts, type FileDetail, type FileRow, type JobResult } from "./loaders";
 import { formatSize, estimateMinutes, baseName, verdictOf } from "./model";
 import { isTyping } from "../../lib/keys";
 import { uniqueRowKeys } from "../../lib/rowKeys";
 import { fileKey } from "./identity";
 import { realtimeState } from "../../lib/realtime";
+import { fitBottomTo } from "../../lib/fitBottom";
 
 const readView = (): "list" | "columns" => (recall("layout") === "columns" ? "columns" : "list");
 
@@ -84,6 +85,8 @@ export const LibraryPage: Component<{
   autoDismiss(status, () => setStatus(null));
   const [actionError, setActionError] = createSignal<string | null>(null);
 
+  /** The file the inspector shows, as the server describes it: the open file when no row of the list has its id. */
+  const [openFile, setOpenFile] = createSignal<FileDetail | undefined>(undefined);
   const [jobsActive, setJobsActive] = createSignal(false);
   const [view, setViewState] = createSignal<"list" | "columns">(readView());
   // A search names files, not folders, so it always shows its hits as a list.
@@ -421,7 +424,9 @@ export const LibraryPage: Component<{
   const targets = (explicit?: string[]): FileRow[] => {
     const ids = explicit ?? (picked().size > 0 ? pickedRows().map((row) => row.id) : props.activeId ? [props.activeId] : []);
     const wanted = new Set(ids);
-    return visibleRows().filter((row) => wanted.has(row.id));
+    const found = visibleRows().filter((row) => wanted.has(row.id));
+    // Every response has its own ids, so the open file may have no row under the id of the address.
+    return found.length === 0 && !explicit && picked().size === 0 && openFile() ? [openFile()!] : found;
   };
   const keyFor = (slot: "preview" | "verify", signature: string) => {
     const current = slot === "preview" ? previewKey : verifyKey;
@@ -467,7 +472,7 @@ export const LibraryPage: Component<{
   const verify = async (explicit?: string[]) => {
     // Ids go to the server as given: it accepts any id it issued, so there is no need to find
     // a matching row, and the open file's id never matches the list's id.
-    const requested = explicit ?? (picked().size > 0 ? pickedRows().map((row) => row.id) : props.activeId ? [rawId(props.activeId)] : []);
+    const requested = explicit ?? (picked().size > 0 ? pickedRows().map((row) => row.id) : props.activeId ? [openFile()?.id ?? rawId(props.activeId)] : []);
     // Verify reads MP4, M4V and MOV only. A row the page knows to be another container is left out.
     const unverifiable = new Set(rows().filter((row) => !isMp4Like(row.suffix)).map((row) => row.id));
     const ids = requested.filter((id) => !unverifiable.has(id));
@@ -613,207 +618,222 @@ export const LibraryPage: Component<{
     }
   };
 
-  const selectionCount = () => pickedRows().length;
-  // A single row that is just the open file is not a "selection" worth a bar.
-  const barVisible = () => selectionCount() > 0 && !(selectionCount() === 1 && props.activeId !== undefined && picked().has(props.activeId));
-  const selectionPreparable = () => preparableRows(pickedRows());
+  /** What the selection bar acts on: the marked files, else the open file. One file is a selection too: the bar is where Verify, Re-inspect and Prepare live. */
+  const barRows = (): FileRow[] => (pickedRows().length > 0 ? pickedRows() : targets());
+  const selectionCount = () => (picked().size > 0 ? pickedRows().length : props.activeId ? 1 : 0);
+  const barVisible = () => selectionCount() > 0;
+  const selectionPreparable = () => preparableRows(barRows());
+  const clearSelection = () => {
+    setPicked(new Set<string>());
+    if (props.activeId) props.onOpen(undefined);
+  };
+  /** The panel beside the list: the preview, the open file, or a note for a selection of several. */
+  const detailOpen = () => !!previewRows() || !!props.activeId || selectionCount() > 1 || columnsBar();
+  let page: HTMLElement | undefined;
+  let split: HTMLDivElement | undefined;
+  // The page fills the height down to the bottom of the sidebar's appearance buttons; one column just flows.
+  onSettled(() => fitBottomTo({ page: () => page, split: () => split, anchor: () => document.querySelector<HTMLElement>("[data-fit-bottom]") }));
 
   return (
-    <div class="library" data-pane={props.activeId || previewRows() ? "detail" : "list"} onKeyDown={onKeyDown}>
-      <section class="lib-main" aria-label={t("Files")}>
-        <div class="lib-bar">
-          <div class="lib-bar-top lib-title-row">
-            <h1>{t("Files")}</h1>
-            {/* The search sits in the title row, outside the filter bar's landmark, so it gets its own. */}
-            <div class="search" role="search" aria-label={t("File search")}>
-              <Icon name="search" />
-              <input
-                ref={searchInput}
-                class="input"
-                type="search"
-                placeholder={t("Search files")}
-                aria-label={t("Search files")}
-                value={facet.search()}
-                onInput={(event) => facet.onSearchInput(event.currentTarget.value)}
-              />
-              <Kbd>/</Kbd>
+    <section class="files-page" ref={page} aria-label={t("Files")} onKeyDown={onKeyDown}>
+      <h1 class="files-title">{t("Files")}</h1>
+      <div class="files-top">
+        <FilterBar
+          label={t("Filter files")}
+          facets={facets().filter((facet) => facet.options.length > 0)}
+          value={facet.bar().value}
+          counts={facetCounts()?.facets ?? null}
+          summary={summaryText()}
+          countText={(count) => tn("{count} file", "{count} files", count)}
+          dirty={facet.bar().dirty}
+          onChange={facet.bar().onChange}
+          onReset={facet.reset}
+          quick={facet.bar().quick}
+          onQuick={facet.bar().onQuick}
+          tools={(
+            <div class="lib-sort">
+              <select class="select" aria-label={t("Sort by")} value={sortKey()} onChange={(event) => {
+                const key = event.currentTarget.value as FileSortKey;
+                changeSort({ key, dir: defaultDir(key) });
+              }}>
+                <For each={SORT_CHOICES}>{(choice) => <option value={choice.key}>{t(choice.label)}</option>}</For>
+              </select>
+              <button
+                type="button"
+                class="btn quiet lib-sort-dir"
+                aria-label={sortDir() === 1 ? t("Ascending") : t("Descending")}
+                title={sortDir() === 1 ? t("Ascending") : t("Descending")}
+                onClick={() => changeSort({ key: sortKey(), dir: sortDir() === 1 ? -1 : 1 })}
+              >
+                <span aria-hidden="true">{sortDir() === 1 ? "↑" : "↓"}</span>
+              </button>
             </div>
-            <div class="seg view-switch" role="group" aria-label={t("Files view")}>
-              <button type="button" aria-pressed={view() === "list" ? "true" : "false"} aria-label={t("List")} onClick={() => setView("list")}><Icon name="rows" size={14} /> <span class="seg-label">{t("List")}</span></button>
-              <button type="button" aria-pressed={view() === "columns" ? "true" : "false"} aria-label={t("Columns")} onClick={() => setView("columns")}><Icon name="columns" size={14} /> <span class="seg-label">{t("Columns")}</span></button>
-            </div>
-            <Show when={missing() > 0}>
-              <Button variant="quiet" class="remove-missing" ref={(element) => { removeTrigger = element; }} aria-expanded={removeOpen() ? "true" : "false"} onClick={() => (removeOpen() ? closeRemove() : openRemove())}>{t("Remove missing ({count})", { count: missing() })}</Button>
-            </Show>
+          )}
+        />
+        <div class="files-toolbar">
+          <div class="seg view-switch" role="group" aria-label={t("Files view")}>
+            <button type="button" aria-pressed={view() === "list" ? "true" : "false"} aria-label={t("List")} onClick={() => setView("list")}><Icon name="rows" size={14} /> <span class="seg-label">{t("List")}</span></button>
+            <button type="button" aria-pressed={view() === "columns" ? "true" : "false"} aria-label={t("Columns")} onClick={() => setView("columns")}><Icon name="columns" size={14} /> <span class="seg-label">{t("Columns")}</span></button>
           </div>
-          <Show when={removeOpen()}>
-            <div class="confirm" role="region" aria-label={t("Remove missing files")} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); closeRemove(); } }}>
-              <p>{tn("Remove {count} missing file from Files? Nothing is deleted from disk, and its job history stays.", "Remove {count} missing files from Files? Nothing is deleted from disk, and their job history stays.", missing())}</p>
-              <Show when={removeError()}><p class="notice bad" role="alert">{removeError()}</p></Show>
-              <div class="insp-actions">
-                <Button variant="primary" disabled={removeBusy()} onClick={() => void submitRemove()}>{t("Confirm remove")}</Button>
-                <Button variant="quiet" onClick={closeRemove}>{t("Keep")}</Button>
-              </div>
-            </div>
+          {/* The search sits in the toolbar, outside the filter bar's landmark, so it gets its own. */}
+          <div class="search" role="search" aria-label={t("File search")}>
+            <Icon name="search" />
+            <input
+              ref={searchInput}
+              class="input"
+              type="search"
+              placeholder={t("Search files")}
+              aria-label={t("Search files")}
+              value={facet.search()}
+              onInput={(event) => facet.onSearchInput(event.currentTarget.value)}
+            />
+            <Kbd>/</Kbd>
+          </div>
+          <Show when={missing() > 0}>
+            <Button variant="quiet" class="remove-missing" ref={(element) => { removeTrigger = element; }} aria-expanded={removeOpen() ? "true" : "false"} onClick={() => (removeOpen() ? closeRemove() : openRemove())}>{t("Remove missing ({count})", { count: missing() })}</Button>
           </Show>
-          <FilterBar
-            label={t("Filter files")}
-            facets={facets().filter((facet) => facet.options.length > 0)}
-            value={facet.bar().value}
-            counts={facetCounts()?.facets ?? null}
-            summary={summaryText()}
-            countText={(count) => tn("{count} file", "{count} files", count)}
-            dirty={facet.bar().dirty}
-            onChange={facet.bar().onChange}
-            onReset={facet.reset}
-            quick={facet.bar().quick}
-            onQuick={facet.bar().onQuick}
-            tools={(
-              <div class="lib-sort">
-                <select class="select" aria-label={t("Sort by")} value={sortKey()} onChange={(event) => {
-                  const key = event.currentTarget.value as FileSortKey;
-                  changeSort({ key, dir: defaultDir(key) });
-                }}>
-                  <For each={SORT_CHOICES}>{(choice) => <option value={choice.key}>{t(choice.label)}</option>}</For>
-                </select>
-                <button
-                  type="button"
-                  class="btn quiet lib-sort-dir"
-                  aria-label={sortDir() === 1 ? t("Ascending") : t("Descending")}
-                  title={sortDir() === 1 ? t("Ascending") : t("Descending")}
-                  onClick={() => changeSort({ key: sortKey(), dir: sortDir() === 1 ? -1 : 1 })}
-                >
-                  <span aria-hidden="true">{sortDir() === 1 ? "↑" : "↓"}</span>
-                </button>
-              </div>
-            )}
-          />
         </div>
-
+        <Show when={removeOpen()}>
+          <div class="confirm" role="region" aria-label={t("Remove missing files")} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); closeRemove(); } }}>
+            <p>{tn("Remove {count} missing file from Files? Nothing is deleted from disk, and its job history stays.", "Remove {count} missing files from Files? Nothing is deleted from disk, and their job history stays.", missing())}</p>
+            <Show when={removeError()}><p class="notice bad" role="alert">{removeError()}</p></Show>
+            <div class="insp-actions">
+              <Button variant="primary" disabled={removeBusy()} onClick={() => void submitRemove()}>{t("Confirm remove")}</Button>
+              <Button variant="quiet" onClick={closeRemove}>{t("Keep")}</Button>
+            </div>
+          </div>
+        </Show>
         <Show when={status()}><p class="notice ok lib-notice" role="status">{status()}</p></Show>
         <Show when={actionError()}><p class="notice bad lib-notice" role="alert">{actionError()}</p></Show>
+      </div>
 
-        <Show when={showColumns()}>
-          <ColumnsView api={props.api} filter={filter()} sort={sort()} version={inspectorVersion()} activeId={props.activeId} clearToken={clearToken()}
-            initialPath={recallColumnPath(filter())} onPath={(path, filter) => rememberColumnPath(filter, path)} onOpen={props.onOpen} onSelection={setColPicked} onAction={(action) => void actOnColumns(action)} />
-        </Show>
-        <div class="lib-scroll" hidden={showColumns()}>
-          <Show when={phase() !== "loading"} fallback={<p class="muted pad">{t("Loading files")}</p>}>
-            <Show when={phase() === "ready"} fallback={
-              <div class="notice bad lib-notice" role="alert">
-                <p>{phase() === "session" ? t(SESSION_EXPIRED) : t("Unable to load files")}</p>
-                <Show when={phase() === "error"}>
-                  <Button onClick={() => void load(true)}>{t("Retry")}</Button>
-                  {/* A link with a filter the server refuses fails every time; resetting gets out of it. */}
-                  <Show when={isFiltered(filter())}><Button variant="quiet" onClick={facet.reset}>{t("Reset filters")}</Button></Show>
-                </Show>
-              </div>
-            }>
-              <Show
-                when={visibleRows().length > 0}
-                fallback={(
-                  <Show
-                    when={firstRun()}
-                    fallback={(
-                      <NoMatches title={t("No files match the current filters")} facets={facets()} value={facet.bar().value} search={query()} onReset={facet.reset} />
-                    )}
-                  >
-                    <div class="empty">
-                      <b>{t("No files yet")}</b>
-                      {t("A scan reads your libraries and checks which files Apple TV will play, and why. Add a schedule with the Scan action, or choose Run now on an existing one.")}
-                      <a href="/schedules">{t("Schedules")}</a>
-                    </div>
+      <div class={["files-split", { "has-detail": detailOpen() }]} ref={split}>
+        <div class="files-list">
+          <Show when={showColumns()}>
+            <ColumnsView api={props.api} filter={filter()} sort={sort()} version={inspectorVersion()} activeId={props.activeId} clearToken={clearToken()}
+              initialPath={recallColumnPath(filter())} onPath={(path, filter) => rememberColumnPath(filter, path)} onOpen={props.onOpen} onSelection={setColPicked} onAction={(action) => void actOnColumns(action)} />
+          </Show>
+          <div class="lib-scroll" hidden={showColumns()}>
+            <Show when={phase() !== "loading"} fallback={<p class="muted pad">{t("Loading files")}</p>}>
+              <Show when={phase() === "ready"} fallback={
+                <div class="notice bad lib-notice" role="alert">
+                  <p>{phase() === "session" ? t(SESSION_EXPIRED) : t("Unable to load files")}</p>
+                  <Show when={phase() === "error"}>
+                    <Button onClick={() => void load(true)}>{t("Retry")}</Button>
+                    {/* A link with a filter the server refuses fails every time; resetting gets out of it. */}
+                    <Show when={isFiltered(filter())}><Button variant="quiet" onClick={facet.reset}>{t("Reset filters")}</Button></Show>
                   </Show>
-                )}
-              >
-                <FileTable
-                  rows={visibleRows()}
-                  activeId={props.activeId}
-                  picked={picked()}
-                  sort={sort()}
-                  onSort={toggleSort}
-                  onSelect={selectRow}
-                  onMenu={onRowMenu}
-                  flagged={(row) => flagged.has(row.id)}
-                />
-              </Show>
-              <Show when={nextCursor()}>
-                <div class="more">
-                  <Show when={moreProblem()}><p class="notice bad" role="alert">{moreProblem()}</p></Show>
-                  <Button disabled={loadingMore()} onClick={() => void load(false, nextCursor())}>{moreProblem() ? t("Retry loading more files") : t("Load more files")}</Button>
                 </div>
+              }>
+                <Show
+                  when={visibleRows().length > 0}
+                  fallback={(
+                    <Show
+                      when={firstRun()}
+                      fallback={(
+                        <NoMatches title={t("No files match the current filters")} facets={facets()} value={facet.bar().value} search={query()} onReset={facet.reset} />
+                      )}
+                    >
+                      <div class="empty">
+                        <b>{t("No files yet")}</b>
+                        {t("A scan reads your libraries and checks which files Apple TV will play, and why. Add a schedule with the Scan action, or choose Run now on an existing one.")}
+                        <a href="/schedules">{t("Schedules")}</a>
+                      </div>
+                    </Show>
+                  )}
+                >
+                  <FileTable
+                    rows={visibleRows()}
+                    activeId={props.activeId}
+                    picked={picked()}
+                    sort={sort()}
+                    onSort={toggleSort}
+                    onSelect={selectRow}
+                    onMenu={onRowMenu}
+                    flagged={(row) => flagged.has(row.id)}
+                    libraryName={(id) => roots().find((root) => root.id === id)?.name ?? id}
+                  />
+                </Show>
+                <Show when={nextCursor()}>
+                  <div class="more">
+                    <Show when={moreProblem()}><p class="notice bad" role="alert">{moreProblem()}</p></Show>
+                    <Button disabled={loadingMore()} onClick={() => void load(false, nextCursor())}>{moreProblem() ? t("Retry loading more files") : t("Load more files")}</Button>
+                  </div>
+                </Show>
               </Show>
             </Show>
+          </div>
+
+          <Show when={columnsBar()}>
+            <div class="selbar" role="region" aria-label={t("Selection")}>
+              <div class="selbar-head">
+                <span class="selbar-text">
+                  <b>{t("{count} selected", { count: colCount() })}</b>
+                  <span class="muted">{colPicked().folders.length > 0 ? ` · ${tn("{count} folder, with everything below", "{count} folders, with everything below", colPicked().folders.length)}` : ""}</span>
+                </span>
+                <Button variant="quiet" onClick={() => setClearToken((value) => value + 1)}>{t("Clear selection")}</Button>
+              </div>
+              <div class="selbar-acts">
+                <Button disabled={colBusy()} onClick={() => void actOnColumns("verify")}>{t("Verify")} <Kbd>V</Kbd></Button>
+                <Button disabled={colBusy()} onClick={() => void actOnColumns("inspect")}>{t("Re-inspect")} <Kbd>I</Kbd></Button>
+                <Button variant="primary" disabled={colBusy()} onClick={() => void actOnColumns("prepare")}>
+                  {t("Preview and prepare")} <Kbd>F</Kbd>
+                </Button>
+              </div>
+            </div>
+          </Show>
+          <Show when={!showColumns() && barVisible()}>
+            <div class="selbar" role="region" aria-label={t("Selection")}>
+              <div class="selbar-head">
+                <span class="selbar-text">
+                  <b>{t("{count} selected", { count: selectionCount() })}</b>
+                  <span class="muted">
+                    {` · ${t("{count} can be prepared", { count: selectionPreparable().length })}`}
+                    {selectionPreparable().length > 0
+                      ? ` · ${t("{size} to rewrite · about {minutes} min", { size: formatSize(selectionPreparable().reduce((sum, row) => sum + row.size, 0)), minutes: estimateMinutes(selectionPreparable().reduce((sum, row) => sum + row.size, 0)) })}`
+                      : ""}
+                  </span>
+                </span>
+                <Button variant="quiet" onClick={clearSelection}>{t("Clear selection")}</Button>
+              </div>
+              <div class="selbar-acts">
+                <Button onClick={() => void verify(picked().size > 0 ? pickedRows().map((row) => row.id) : undefined)}>{t("Verify selection")}</Button>
+                <Button disabled={colBusy()} onClick={() => void inspectRows(picked().size > 0 ? pickedRows().map((row) => row.id) : undefined)}>{t("Re-inspect selection")} <Kbd>I</Kbd></Button>
+                <Button variant="primary" disabled={selectionPreparable().length === 0} onClick={() => openPreview()}>
+                  {t("Preview and prepare")} <Kbd>F</Kbd>
+                </Button>
+              </div>
+            </div>
           </Show>
         </div>
 
-        <Show when={columnsBar()}>
-          <div class="selbar" role="region" aria-label={t("Selection")}>
-            <div class="selbar-text">
-              <b>{t("{count} selected", { count: colCount() })}</b>
-              <span class="muted">{colPicked().folders.length > 0 ? ` · ${tn("{count} folder, with everything below", "{count} folders, with everything below", colPicked().folders.length)}` : ""}</span>
-            </div>
-            <Button variant="quiet" onClick={() => setClearToken((value) => value + 1)}>{t("Clear selection")}</Button>
-            <Button disabled={colBusy()} onClick={() => void actOnColumns("verify")}>{t("Verify")} <Kbd>V</Kbd></Button>
-            <Button disabled={colBusy()} onClick={() => void actOnColumns("inspect")}>{t("Re-inspect")} <Kbd>I</Kbd></Button>
-            <Button variant="primary" disabled={colBusy()} onClick={() => void actOnColumns("prepare")}>
-              {t("Preview and prepare")} <Kbd>F</Kbd>
-            </Button>
-          </div>
-        </Show>
-        <Show when={!showColumns() && barVisible()}>
-          <div class="selbar" role="region" aria-label={t("Selection")}>
-            <div class="selbar-text">
-              <b>{t("{count} selected", { count: selectionCount() })}</b>
-              <span class="muted">
-                {` · ${t("{count} can be prepared", { count: selectionPreparable().length })}`}
-                {selectionPreparable().length > 0
-                  ? ` · ${t("{size} to rewrite · about {minutes} min", { size: formatSize(selectionPreparable().reduce((sum, row) => sum + row.size, 0)), minutes: estimateMinutes(selectionPreparable().reduce((sum, row) => sum + row.size, 0)) })}`
-                  : ""}
-              </span>
-            </div>
-            <Button variant="quiet" onClick={() => setPicked(new Set<string>())}>{t("Clear selection")}</Button>
-            <Button onClick={() => void verify(pickedRows().map((row) => row.id))}>{t("Verify selection")}</Button>
-            <Button disabled={colBusy()} onClick={() => void inspectRows(pickedRows().map((row) => row.id))}>{t("Re-inspect selection")} <Kbd>I</Kbd></Button>
-            <Button variant="primary" disabled={selectionPreparable().length === 0} onClick={() => openPreview()}>
-              {t("Preview and prepare")} <Kbd>F</Kbd>
-            </Button>
-          </div>
-        </Show>
-      </section>
-
-      <aside class="lib-side" aria-label={t("Details")}>
-        <Button variant="quiet" class="back-to-list" onClick={() => { setPreviewRows(null); props.onOpen(undefined); }}>
-          <Icon name="back" /> {t("Back to list")}
-        </Button>
-        <Show
-          when={previewRows()}
-          fallback={
-            <Show when={props.activeId} fallback={
-              <Show
-                when={columnsBar()}
-                fallback={<div class="empty"><b>{t("Select a file to inspect")}</b>{t("Click to select, Shift or Cmd to select more, right click for actions.")}</div>}
-              >
-                <div class="empty"><b>{tn("{count} item selected", "{count} items selected", colCount())}</b>{t("Use the bar below or right click for actions. V verifies, F previews the preparation.")}</div>
-              </Show>
-            }>
-              {(id) => <Inspector api={props.api} fileId={id()} deleteOriginal={deleteOriginal()} version={inspectorVersion()} onQueued={follow} onFix={(file) => openPreview([file])} onVerify={(fileId) => void verify([fileId])} />}
+        <Show when={detailOpen()}>
+          <aside class="files-detail" aria-label={t("Details")}>
+            <Show
+              when={previewRows()}
+              fallback={
+                <Show when={props.activeId} fallback={
+                  <div class="empty"><b>{tn("{count} item selected", "{count} items selected", Math.max(selectionCount(), colCount()))}</b>{t("Use the bar below or right click for actions. V verifies, F previews the preparation.")}</div>
+                }>
+                  {(id) => <Inspector api={props.api} fileId={id()} version={inspectorVersion()} onFile={setOpenFile} />}
+                </Show>
+              }
+            >
+              <FixPreview
+                files={preparableRows(previewFiles())}
+                skipped={previewFiles().length - preparableRows(previewFiles()).length}
+                deleteOriginal={deleteOriginal()}
+                onQueue={queuePrepare}
+                onClose={() => setPreviewRows(null)}
+              />
             </Show>
-          }
-        >
-          <FixPreview
-            files={preparableRows(previewFiles())}
-            skipped={previewFiles().length - preparableRows(previewFiles()).length}
-            deleteOriginal={deleteOriginal()}
-            onQueue={queuePrepare}
-            onClose={() => setPreviewRows(null)}
-          />
+          </aside>
         </Show>
-      </aside>
+      </div>
       <Show when={rowMenu()}>
         {(at) => <RowMenu x={at().x} y={at().y} label={t("Actions for the selection")} items={listMenuItems()} onClose={() => setRowMenu(null)} />}
       </Show>
-    </div>
+    </section>
   );
 };
 
