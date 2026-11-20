@@ -965,7 +965,7 @@ describe("LibraryPage: the selection bar carries the actions for one file too", 
     expect(JSON.parse(String(posts()[0]!.init?.body))).toMatchObject({ action: "verify", media_ids: ["m_f2"] });
   });
 
-  it("clearing the selection closes the open file", async () => {
+  it("clearing the selection leaves the open file open", async () => {
     open.mockClear();
     const { api } = makeApi();
     const view = renderLibrary(api, "m_f2");
@@ -973,7 +973,7 @@ describe("LibraryPage: the selection bar carries the actions for one file too", 
 
     await fireEvent.click(view.getByRole("button", { name: "Clear selection" }));
 
-    expect(open).toHaveBeenCalledWith(undefined);
+    expect(open).not.toHaveBeenCalled();
   });
 });
 
@@ -1761,6 +1761,8 @@ describe("LibraryPage: re-inspecting several files, like Verify", () => {
     await pickRow(view, "Arrival (2016)");
 
     await fireEvent.click(view.getByRole("button", { name: /Re-inspect selection/ }));
+    expect(jobs(calls)).toHaveLength(0); // asked first
+    await fireEvent.click(await view.findByRole("button", { name: "Confirm re-inspect" }));
 
     await waitFor(() => expect(jobs(calls)).toHaveLength(1));
     expect(jobs(calls)[0]).toMatchObject({ action: "inspect", manual_approval: false });
@@ -1777,9 +1779,26 @@ describe("LibraryPage: re-inspecting several files, like Verify", () => {
     await pickRow(view, "Whiplash (2014)");
 
     await fireEvent.keyDown(rowNamed(view, "Heat"), { key: "i" });
+    expect(jobs(calls)).toHaveLength(0);
+    await fireEvent.click(await view.findByRole("button", { name: "Confirm re-inspect" }));
 
     await waitFor(() => expect(jobs(calls)).toHaveLength(1));
     expect(jobs(calls)[0]!.media_ids).toHaveLength(2);
+  });
+
+  it("asks first for several files and queues nothing when the question is cancelled", async () => {
+    const { api, calls } = makeApi();
+    const view = renderLibrary(api);
+    await pickRow(view, "Heat");
+    await pickRow(view, "Arrival (2016)");
+
+    await fireEvent.click(view.getByRole("button", { name: /Re-inspect selection/ }));
+    const ask = await view.findByRole("region", { name: "Confirm re-inspection" });
+    expect(ask).toHaveTextContent(/inspection for 2 files/);
+    await fireEvent.click(within(ask).getByRole("button", { name: "Cancel" }));
+
+    expect(view.queryByRole("region", { name: "Confirm re-inspection" })).not.toBeInTheDocument();
+    expect(jobs(calls)).toHaveLength(0);
   });
 
   it("leaves files that are missing out, and says so when nothing is left", async () => {
@@ -1801,6 +1820,7 @@ describe("LibraryPage: re-inspecting several files, like Verify", () => {
     await view.findByRole("link", { name: "F0" });
     await fireEvent.keyDown(view.getByRole("table", { name: "Media files" }), { key: "a", metaKey: true });
     await fireEvent.click(await view.findByRole("button", { name: /Re-inspect selection/ }));
+    await fireEvent.click(await view.findByRole("button", { name: "Confirm re-inspect" }));
 
     await waitFor(() => expect(jobs(calls).map((job) => job.media_ids.length)).toEqual([100, 100, 30]));
     expect(await view.findByText(/Inspection queued for 230 files/)).toBeInTheDocument();
