@@ -73,6 +73,24 @@ describe("application shell accessibility", () => {
     expect(getByRole("group", { name: "Appearance" })).toBeInTheDocument();
   });
 
+  it("keeps Lock and Shortcuts in one row above the appearance switch", () => {
+    const view = render(() => <App session={{ lock: vi.fn(), busy: () => false }} />);
+    const lock = view.getByRole("button", { name: "Lock" });
+    const shortcuts = view.getByRole("button", { name: "Keyboard shortcuts" });
+    const appearance = view.getByRole("group", { name: "Appearance" });
+
+    expect(lock.parentElement).toBe(shortcuts.parentElement);
+    expect(lock.parentElement).not.toBe(appearance.parentElement);
+    expect(lock.compareDocumentPosition(shortcuts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(shortcuts.compareDocumentPosition(appearance) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("names the appearance switch with a visible label", () => {
+    const view = render(() => <App />);
+    const appearance = view.getByRole("group", { name: "Appearance" });
+    expect(appearance.parentElement?.querySelector(".label")?.textContent).toBe("Appearance");
+  });
+
   it("opens the navigation from the mobile toggle", async () => {
     const { getByRole } = render(() => <App />);
 
