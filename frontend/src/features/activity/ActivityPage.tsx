@@ -13,6 +13,7 @@ import { createFacetFilter } from "../../lib/facetFilter";
 import { N, t, tn } from "../../lib/i18n";
 import { autoDismiss } from "../../lib/autoDismiss";
 import { useClock } from "../../lib/clock";
+import { SINGLE_COLUMN_MAX } from "../../lib/fitBottom";
 import { baseName } from "../files/model";
 import { actionLabel, isActive, jobPercent, jobProgress, jobTitle, jobTone, partitionJobs, runningFor } from "./model";
 
@@ -288,10 +289,10 @@ export const ActivityPage: Component<{
     return () => window.clearInterval(timer);
   });
 
-  // Below 1180 px the detail stands under the list: bring it into view when a job is opened.
+  // Up to SINGLE_COLUMN_MAX the detail stands under the list: bring it into view when a job is opened.
   let side: HTMLElement | undefined;
   const revealDetail = () => {
-    if (window.matchMedia?.("(max-width: 1180px)").matches) side?.scrollIntoView?.({ block: "start" });
+    if (window.matchMedia?.(`(max-width: ${SINGLE_COLUMN_MAX}px)`).matches) side?.scrollIntoView?.({ block: "start" });
   };
 
   const move = (delta: number, from: string | undefined) => {

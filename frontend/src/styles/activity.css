@@ -57,7 +57,8 @@
 .item-steps { flex-basis: 100%; color: var(--ink-muted); min-width: 0; overflow-wrap: anywhere; }
 .log-tools { display: flex; gap: 4px; }
 
-/* Below 1180 px the detail stands under the list and the page scrolls as one. */
+/* Below 1180 px the detail stands under the list and the page scrolls as one.
+   1180px: SINGLE_COLUMN_MAX in src/lib/fitBottom.ts (kept equal by tests/theme-contract.test.ts). */
 @media (max-width: 1180px) {
   .library.activity { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; align-content: start; overflow: auto; height: 100%; }
   .activity .lib-main, .activity .lib-side { min-height: auto; overflow: visible; }
