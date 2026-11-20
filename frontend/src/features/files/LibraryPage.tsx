@@ -18,7 +18,7 @@ import type { EncodeLevel } from "./EncodeChoice";
 import { preparable } from "./preparePlan";
 import { isMp4Like } from "./container";
 import { Inspector } from "./Inspector";
-import { dismissMissing, loadFacetCounts, loadFiles, rawId, loadSummary, queueJob, type Api, type FileCounts, type FileDetail, type FileRow, type JobResult } from "./loaders";
+import { dismissMissing, loadFacetCounts, loadFiles, rawId, loadSummary, queueJob, type Api, type FileCounts, type FileDetail, type FileRow, type JobResult, rowOf } from "./loaders";
 import { formatSize, estimateMinutes, baseName, verdictOf } from "./model";
 import { isTyping } from "../../lib/keys";
 import { uniqueRowKeys } from "../../lib/rowKeys";
@@ -94,6 +94,8 @@ export const LibraryPage: Component<{
   const none: Picked = { files: [], folders: [] };
   const [colPicked, setColPicked] = createSignal<Picked>(none);
   const [colBusy, setColBusy] = createSignal(false);
+  /** The files a re-inspection waits to be confirmed for. */
+  const [inspectAsk, setInspectAsk] = createSignal<FileRow[] | null>(null);
   let colInFlight = false;
   let verifyInFlight = false;
   let removeInFlight = false;
@@ -426,7 +428,8 @@ export const LibraryPage: Component<{
     const wanted = new Set(ids);
     const found = visibleRows().filter((row) => wanted.has(row.id));
     // Every response has its own ids, so the open file may have no row under the id of the address.
-    return found.length === 0 && !explicit && picked().size === 0 && openFile() ? [openFile()!] : found;
+    const detail = openFile();
+    return found.length === 0 && !explicit && picked().size === 0 && detail ? [rowOf(detail)] : found;
   };
   const keyFor = (slot: "preview" | "verify", signature: string) => {
     const current = slot === "preview" ? previewKey : verifyKey;
@@ -498,13 +501,24 @@ export const LibraryPage: Component<{
   };
 
   /** Re-inspect the files: an explicit list, else the selection, else the open file. */
+  const inspectNow = async (chosen: FileRow[]) => {
+    if (colInFlight) return;
+    colInFlight = true;
+    setColBusy(true);
+    try { await runOnRows("inspect", chosen, false); } finally { colInFlight = false; setColBusy(false); }
+  };
+  /** Several files are asked about first: a new inspection of each is a job per hundred files. One file goes straight on. */
   const inspectRows = async (explicit?: string[]) => {
     if (colInFlight) return;
     const chosen = targets(explicit);
     if (chosen.length === 0) return;
-    colInFlight = true;
-    setColBusy(true);
-    try { await runOnRows("inspect", chosen, false); } finally { colInFlight = false; setColBusy(false); }
+    if (chosen.length > 1) { setInspectAsk(chosen); return; }
+    await inspectNow(chosen);
+  };
+  const confirmInspect = () => {
+    const chosen = inspectAsk();
+    setInspectAsk(null);
+    if (chosen) void inspectNow(chosen);
   };
 
   /** The files a column selection stands for: the files picked, plus every file below each folder picked. */
@@ -623,9 +637,10 @@ export const LibraryPage: Component<{
   const selectionCount = () => (picked().size > 0 ? pickedRows().length : props.activeId ? 1 : 0);
   const barVisible = () => selectionCount() > 0;
   const selectionPreparable = () => preparableRows(barRows());
+  /** Empties the marked files only; the open file stays open. */
   const clearSelection = () => {
     setPicked(new Set<string>());
-    if (props.activeId) props.onOpen(undefined);
+    setInspectAsk(null);
   };
   /** The panel beside the list: the preview, the open file, or a note for a selection of several. */
   const detailOpen = () => !!previewRows() || !!props.activeId || selectionCount() > 1 || columnsBar();
@@ -794,7 +809,7 @@ export const LibraryPage: Component<{
                       : ""}
                   </span>
                 </span>
-                <Button variant="quiet" onClick={clearSelection}>{t("Clear selection")}</Button>
+                <Button variant="quiet" disabled={picked().size === 0} onClick={clearSelection}>{t("Clear selection")}</Button>
               </div>
               <div class="selbar-acts">
                 <Button onClick={() => void verify(picked().size > 0 ? pickedRows().map((row) => row.id) : undefined)}>{t("Verify selection")}</Button>
@@ -803,6 +818,17 @@ export const LibraryPage: Component<{
                   {t("Preview and prepare")} <Kbd>F</Kbd>
                 </Button>
               </div>
+              <Show when={inspectAsk()}>
+                {(ask) => (
+                  <div class="confirm" role="region" aria-label={t("Confirm re-inspection")} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); setInspectAsk(null); } }}>
+                    <p>{tn("Queue a new ffprobe inspection for {count} file? Nothing is changed on disk.", "Queue a new ffprobe inspection for {count} files? Nothing is changed on disk.", ask().length)}</p>
+                    <div class="insp-actions">
+                      <Button variant="primary" disabled={colBusy()} ref={(element) => queueMicrotask(() => element.focus())} onClick={confirmInspect}>{t("Confirm re-inspect")}</Button>
+                      <Button variant="quiet" onClick={() => setInspectAsk(null)}>{t("Cancel")}</Button>
+                    </div>
+                  </div>
+                )}
+              </Show>
             </div>
           </Show>
         </div>

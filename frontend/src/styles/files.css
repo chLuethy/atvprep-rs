@@ -59,6 +59,7 @@
 .selbar-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .selbar-acts .btn { flex: 1 1 auto; white-space: nowrap; }
 
+/* 1180px: SINGLE_COLUMN_MAX in src/lib/fitBottom.ts (kept equal by tests/theme-contract.test.ts). */
 @media (max-width: 1180px) {
   .files-split { min-height: 0; grid-template-rows: none; }
   .files-split.has-detail { grid-template-columns: minmax(0, 1fr); }

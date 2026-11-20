@@ -188,3 +188,31 @@ describe("the fonts", () => {
     expect(components.filter((name) => /plex/i.test(raw(name)))).toEqual([]);
   });
 });
+
+describe("the single-column breakpoint", () => {
+  const constant = Number(/SINGLE_COLUMN_MAX\s*=\s*(\d+)/.exec(readFileSync(join(__dirname, "../src/lib/fitBottom.ts"), "utf8"))![1]);
+
+  it("is one number: every CSS media query of the single column repeats the constant", () => {
+    const literals = components.flatMap((name) => [...css(name).matchAll(/@media\s*\(max-width:\s*(\d+)px\)/g)].map((m) => ({ name, width: Number(m[1]) })));
+    const near = literals.filter(({ width }) => Math.abs(width - constant) < 40 && width !== constant);
+    expect(near).toEqual([]);
+    expect(literals.filter(({ width }) => width === constant).length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("is used by the code instead of a literal of its own", () => {
+    const activity = readFileSync(join(__dirname, "../src/features/activity/ActivityPage.tsx"), "utf8");
+    expect(activity).toContain("SINGLE_COLUMN_MAX");
+    expect(activity).not.toMatch(/max-width:\s*\d+px/);
+  });
+});
+
+describe("the favicon", () => {
+  it("is the one file outside the scaffold with colour literals, and uses only light seed values", () => {
+    // A favicon cannot read CSS variables, so its hex values repeat the light side of the seeds (public/favicon.svg).
+    const svg = readFileSync(join(__dirname, "../public/favicon.svg"), "utf8");
+    const used = [...new Set([...svg.matchAll(/#[0-9a-fA-F]{6}/g)].map((m) => m[0].toLowerCase()))];
+    const light = SEEDS.flatMap((seed) => [...(scaffold.get(seed) ?? "").matchAll(/light-dark\(\s*(#[0-9a-f]{6})/gi)].map((m) => m[1]!.toLowerCase()));
+    expect(used.length).toBeGreaterThan(0);
+    expect(used.filter((hex) => !light.includes(hex))).toEqual([]);
+  });
+});

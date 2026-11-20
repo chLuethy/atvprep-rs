@@ -1,4 +1,6 @@
 /** Width up to which a page with two columns is a single column and its height just follows the content. */
+/* The one source of this breakpoint in code. CSS cannot share a constant, so every `@media (max-width: 1180px)`
+   in src/styles repeats the literal; tests/theme-contract.test.ts keeps them equal to this number. */
 export const SINGLE_COLUMN_MAX = 1180;
 /** The least height of a work area, so a short window scrolls the page instead of squeezing the list to nothing. */
 const MIN_HEIGHT = 420;

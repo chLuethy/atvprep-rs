@@ -53,6 +53,13 @@ export type FileDetail = FileRow & {
   inspection_available: boolean;
 };
 
+/** The row of a file the server described in full: what the list knows, without the detail fields. */
+export function rowOf(detail: FileDetail): FileRow {
+  const { status_version, last_success_at, has_error, sidecar_count, inspection_available, ...row } = detail;
+  void [status_version, last_success_at, has_error, sidecar_count, inspection_available];
+  return row;
+}
+
 export type Job = {
   id: string;
   action: string;

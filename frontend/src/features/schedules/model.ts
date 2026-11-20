@@ -123,10 +123,6 @@ export function describeScope(schedule: Pick<Schedule, "action" | "root_name" | 
   return parts.join(" · ");
 }
 
-export function describeTarget(schedule: Pick<Schedule, "action" | "root_name" | "compliance_state" | "max_files" | "encode">): string {
-  return `${actionName(schedule.action)} · ${describeScope(schedule)}`;
-}
-
 export function describeNext(schedule: Pick<Schedule, "enabled" | "next_run_at">): string {
   if (!schedule.enabled) return t("Paused");
   return schedule.next_run_at ? t("Next {when}", { when: formatDateTime(schedule.next_run_at, t("unknown")) }) : t("No upcoming run");

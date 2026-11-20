@@ -43,8 +43,22 @@ export async function openThemed(page: Page, path: string, theme: Theme, heading
   if (heading) await expect(page.getByRole("heading", { name: heading })).toBeVisible();
 }
 
+/**
+ * Wait until nothing on the page still fades or rises into place, so axe never measures a colour half way.
+ * Animations and transitions that run for ever (a spinner) are not waited for.
+ */
+export async function settled(page: Page): Promise<void> {
+  await expect
+    .poll(
+      () => page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === "running" && animation.effect?.getComputedTiming().iterations !== Infinity).length),
+      { message: "animations still running" },
+    )
+    .toBe(0);
+}
+
 /** Colour-contrast findings of axe for the current page, one readable line per element. */
 export async function contrastViolations(page: Page): Promise<string[]> {
+  await settled(page);
   await page.addScriptTag({ path: AXE_SOURCE });
   const results = await page.evaluate(async () => {
     const axe = (window as unknown as { axe: { run: (ctx: Document, opts: object) => Promise<{ violations: Array<{ nodes: Array<{ target: unknown[]; any: Array<{ message: string }> }> }> }> } }).axe;

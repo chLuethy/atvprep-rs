@@ -198,6 +198,8 @@ export const SchedulesPage: Component<{
   };
 
   const toggle = async (schedule: Schedule) => {
+    // A second click while the first request runs must not even draw a new idempotency key.
+    if (operationInFlight) return;
     // Turning on a schedule that changes files needs a confirmation first, with fresh numbers from the server.
     if (!schedule.enabled && changesFiles(schedule.action)) {
       if (operationInFlight) return;
