@@ -1,4 +1,4 @@
-import { createEffect, createResource, on, onCleanup, Show, type Component } from "solid-js";
+import { createEffect, createMemo, refresh, Show, type Component } from "solid-js";
 import { Button } from "../../ui";
 import { N, t } from "../../lib/i18n";
 import { loadLog, type Api } from "./loaders";
@@ -11,20 +11,22 @@ const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
  * change, and reads it one last time when the item ends.
  */
 export const LogViewer: Component<{ api: Api; itemId: string; status: ItemStatus }> = (props) => {
-  const ended = () => isItemTerminal(props.status);
-  const [state, { refetch }] = createResource(() => props.itemId, (itemId) => loadLog(props.api, itemId));
+  const ended = createMemo(() => isItemTerminal(props.status));
+  const itemId = createMemo(() => props.itemId);
+  const state = createMemo(() => loadLog(props.api, itemId()), { loadingValue: undefined });
+  const refetch = () => refresh(state);
 
   // A growing log stays at its end for a reader who is at the end, and stays put for one who scrolled up.
   let box: HTMLPreElement | undefined;
   let following = true;
   const atEnd = () => !box || box.scrollHeight - box.scrollTop - box.clientHeight < 24;
-  createEffect(on(() => state()?.data?.log_tail, () => { if (box && following) box.scrollTop = box.scrollHeight; }));
+  createEffect(() => state()?.data?.log_tail, () => { if (box && following) box.scrollTop = box.scrollHeight; });
 
-  createEffect(on(ended, (isEnded, wasEnded) => { if (isEnded && wasEnded === false) void refetch(); }));
-  createEffect(() => {
-    if (ended()) return;
+  createEffect(ended, (isEnded, wasEnded) => { if (isEnded && wasEnded === false) void refetch(); });
+  createEffect(ended, (isEnded) => {
+    if (isEnded) return;
     const timer = window.setInterval(() => { if (!document.hidden) void refetch(); }, 3000);
-    onCleanup(() => window.clearInterval(timer));
+    return () => window.clearInterval(timer);
   });
 
   const download = () => {

@@ -1,11 +1,11 @@
-import { createEffect, createMemo, createResource, createSignal, For, Index, Match, onCleanup, Show, Switch, untrack, type Accessor, type Component } from "solid-js";
-import { keepIfSame, loadedFor, reuseUnchanged } from "../../lib/stable";
+import { createEffect, createMemo, createSignal, For, Loading, Match, onSettled, refresh, Show, Switch, type Accessor, type Component } from "solid-js";
+import { uniqueRowKeys } from "../../lib/rowKeys";
 import { Button, Icon, ProgressBar, StatusChip } from "../../ui";
 import { formatDateTime } from "../../lib/time";
 import { useClock } from "../../lib/clock";
 import { N, t } from "../../lib/i18n";
 import { baseName } from "../files/model";
-import { loadItems, loadJob, mutateJob, type Api, type ItemRow, type JobRow, type OneJob } from "./loaders";
+import { loadItems, loadJob, mutateJob, type Api, type ItemRow, type JobRow, type Page } from "./loaders";
 import { LogViewer } from "./LogViewer";
 import { PlannedChange } from "./PlannedChange";
 import { RaiseEncode } from "./RaiseEncode";
@@ -14,18 +14,6 @@ import { actionLabel, canCancel, canRetry, describeDetail, formatElapsed, isActi
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
 type Operation = "cancel" | "retry";
 
-/**
- * Keeps the previous object when a read of the same job finds only renamed ids. Opening another job
- * is not such a read: its entries can look identical to the last job's, and must not borrow its ids.
- */
-const sameRead = () => {
-  let last: string | undefined;
-  return <T,>(id: string, next: T, previous: T | undefined): T => {
-    const same = last === id;
-    last = id;
-    return same ? keepIfSame(next, previous) : next;
-  };
-};
 const formatDate = (iso: string | null) => formatDateTime(iso);
 const itemName = (item: ItemRow) => baseName(item.display_path ?? "").title || t("Item {position}", { position: item.position });
 
@@ -33,38 +21,59 @@ const ItemLog: Component<{ api: Api; itemId: string; status: ItemStatus }> = (pr
   const [open, setOpen] = createSignal(false);
   return (
     <div class="item-log">
-      <Button variant="quiet" aria-expanded={open()} onClick={() => setOpen((value) => !value)}>{t("Log")}</Button>
+      <Button variant="quiet" aria-expanded={open() ? "true" : "false"} onClick={() => setOpen((value) => !value)}>{t("Log")}</Button>
       <Show when={open()}><LogViewer api={props.api} itemId={props.itemId} status={props.status} /></Show>
     </div>
   );
 };
 
 /** One job: the outcome, why anything failed, its items, and the actions the server will accept. */
-export const JobDetail: Component<{
+const JobDetailView: Component<{
   api: Api;
   jobId: string;
   onChanged?: () => void;
   onRetried?: (newJobId: string) => void;
   onRaised?: (newJobId: string) => void;
 }> = (props) => {
-  const keepJob = sameRead();
-  const keepItems = sameRead();
-  // A read that finds only renamed ids keeps the previous object, so an unchanged job changes nothing on screen.
-  const [job, { refetch: refetchJob }] = createResource<OneJob, string>(
-    () => props.jobId,
-    async (id, info) => keepJob(id, await loadJob(props.api, id), info.value),
-  );
-  const [firstPage, { refetch: refetchItems }] = createResource<Awaited<ReturnType<typeof loadItems>>, string>(
-    () => props.jobId,
-    async (id, info) => keepItems(id, await loadItems(props.api, id), info.value),
-  );
-  const jobReady = loadedFor(job, () => props.jobId);
-  const itemsReady = loadedFor(firstPage, () => props.jobId);
+  const job = createMemo(() => loadJob(props.api, props.jobId));
+  let disposed = false;
+  onSettled(() => () => { disposed = true; });
+  let pages = 1;
+  const itemPages = createMemo(async (): Promise<Page<ItemRow>> => {
+    const api = props.api;
+    const jobId = props.jobId;
+    const count = pages;
+    const items: ItemRow[] = [];
+    let cursor: string | undefined;
+    for (let index = 0; index < count; index += 1) {
+      const page = await loadItems(api, jobId, cursor);
+      if (page.kind !== "ok") return page;
+      const known = new Set(items.map((item) => item.id));
+      items.push(...page.items.filter((item) => !known.has(item.id)));
+      cursor = page.nextCursor;
+      if (!cursor) break;
+    }
+    return { kind: "ok", items, nextCursor: cursor };
+  }, { loadingValue: undefined });
+  const refetchJob = () => refresh(job);
+  let itemRefresh: Promise<unknown> | undefined;
+  const refetchItems = async () => {
+    if (disposed || moreInFlight) return;
+    if (itemRefresh) return itemRefresh;
+    const request = refresh(itemPages);
+    itemRefresh = request;
+    try { return await request; }
+    finally { if (itemRefresh === request) itemRefresh = undefined; }
+  };
   const [items, setItems] = createSignal<ItemRow[]>([]);
   const [nextCursor, setNextCursor] = createSignal<string | undefined>();
   const [moreLoading, setMoreLoading] = createSignal(false);
   const [moreError, setMoreError] = createSignal(false);
   const [moreSession, setMoreSession] = createSignal(false);
+  let moreInFlight = false;
+  // Positionen entstehen im Job fortlaufend; fehlerhafte oder doppelte Werte erhalten keine gemeinsame UI-Identität.
+  const itemKey = createMemo(() => uniqueRowKeys(items(), (item) =>
+    Number.isSafeInteger(item.position) && item.position >= 0 ? String(item.position) : undefined));
 
   const [pending, setPending] = createSignal<Operation | null>(null);
   const [submitting, setSubmitting] = createSignal(false);
@@ -75,31 +84,20 @@ export const JobDetail: Component<{
   let confirmButton: HTMLButtonElement | undefined;
   let lastOperation: Operation | null = null;
 
-  let itemsOf: string | undefined;
-  createEffect(() => {
-    const page = firstPage();
+  let itemList: HTMLUListElement | undefined;
+  createEffect(itemPages, (page) => {
     if (page?.kind === "ok") {
-      // Rows are matched by position: one that did not change stays the same object, and a row that
-      // did keeps its id, so only what moved is touched and an open log stays open. Only within one
-      // job: entry 0 of another job looks the same but is a different entry with its own log.
-      const job = untrack(() => props.jobId);
-      const sameJob = itemsOf === job;
-      itemsOf = job;
-      setItems((existing) => reuseUnchanged(page.items, sameJob ? existing : [], (row) => String(row.position)));
+      const focused = document.activeElement;
+      const keepFocus = focused instanceof HTMLElement && itemList?.contains(focused);
+      setItems(page.items);
       setNextCursor(page.nextCursor);
+      // DOM-Verschiebungen können selbst bei erhaltener Zeile den Browserfokus lösen.
+      if (keepFocus) onSettled(() => {
+        if (focused.isConnected && document.activeElement === document.body) focused.focus();
+      });
     }
   });
-  createEffect(() => {
-    void props.jobId;
-    setPending(null);
-    setMessage(null);
-    setFailure(null);
-    setMoreError(false);
-    setMoreSession(false);
-    idempotencyKey = null;
-  });
-  createEffect(() => {
-    const operation = pending();
+  createEffect(pending, (operation) => {
     if (operation) {
       lastOperation = operation;
       queueMicrotask(() => confirmButton?.focus());
@@ -114,9 +112,8 @@ export const JobDetail: Component<{
     const state = job();
     return state?.kind === "ok" ? state.data : undefined;
   };
-  // An active job changes underneath us: reload it (and its first page of items) while it runs.
-  createEffect(() => {
-    const active = current() && isActive(current()!);
+  // Ein aktiver Job wird weiter gelesen; ein Jobwechsel erhält eine neue Instanz.
+  createEffect(() => !!current() && isActive(current()!), (active) => {
     if (!active) return;
     let reading = false;
     const timer = window.setInterval(() => {
@@ -124,7 +121,7 @@ export const JobDetail: Component<{
       reading = true;
       void Promise.allSettled([refetchJob(), refetchItems()]).finally(() => { reading = false; });
     }, 1000);
-    onCleanup(() => window.clearInterval(timer));
+    return () => window.clearInterval(timer);
   });
 
   const open = (operation: Operation, trigger: HTMLButtonElement) => {
@@ -138,13 +135,16 @@ export const JobDetail: Component<{
     setPending(null);
     idempotencyKey = null;
   };
+  let submitInFlight = false;
   const submit = async () => {
     const operation = pending();
-    if (!operation || submitting()) return;
+    if (!operation || submitInFlight) return;
+    submitInFlight = true;
     setSubmitting(true);
     setFailure(null);
     try {
       const result = await mutateJob(props.api, props.jobId, operation, idempotencyKey ?? crypto.randomUUID());
+      if (disposed) return;
       if (result.ok) {
         setMessage(operation === "cancel" ? t("Job cancellation requested") : t("Job retry requested"));
         close();
@@ -159,23 +159,32 @@ export const JobDetail: Component<{
         setFailure("update");
       }
     } finally {
+      submitInFlight = false;
       setSubmitting(false);
     }
   };
   const loadMore = async () => {
-    const cursor = nextCursor();
-    if (!cursor || moreLoading()) return;
+    if (!nextCursor() || moreInFlight) return;
+    moreInFlight = true;
     setMoreLoading(true);
     setMoreError(false);
     setMoreSession(false);
     try {
+      // Eine laufende Revalidierung bestimmt zuerst den aktuellen Cursor; Polls warten bis zum Nachladeende.
+      if (itemRefresh) await itemRefresh;
+      if (disposed) return;
+      const cursor = nextCursor();
+      if (!cursor) return;
       const page = await loadItems(props.api, props.jobId, cursor);
+      if (disposed) return;
       if (page.kind === "ok") {
+        pages += 1;
         setItems((existing) => [...existing, ...page.items.filter((next) => !existing.some((known) => known.id === next.id))]);
         setNextCursor(page.nextCursor);
       } else if (page.kind === "session") setMoreSession(true);
       else setMoreError(true);
     } finally {
+      moreInFlight = false;
       setMoreLoading(false);
     }
   };
@@ -234,10 +243,10 @@ export const JobDetail: Component<{
           <Show when={d().delete_original}><p class="muted">{t("The original of another container is removed once its new MP4 passes verification.")}</p></Show>
           <div class="insp-actions">
             <Show when={canCancel(d())}>
-              <Button ref={(element) => { triggers.cancel = element; }} aria-expanded={pending() === "cancel"} onClick={(event) => open("cancel", event.currentTarget)}>{t("Cancel job")}</Button>
+              <Button ref={(element) => { triggers.cancel = element; }} aria-expanded={pending() === "cancel" ? "true" : "false"} onClick={(event) => open("cancel", event.currentTarget)}>{t("Cancel job")}</Button>
             </Show>
             <Show when={canRetry(d())}>
-              <Button ref={(element) => { triggers.retry = element; }} aria-expanded={pending() === "retry"} onClick={(event) => open("retry", event.currentTarget)}>{t("Retry failed items")}</Button>
+              <Button ref={(element) => { triggers.retry = element; }} aria-expanded={pending() === "retry" ? "true" : "false"} onClick={(event) => open("retry", event.currentTarget)}>{t("Retry failed items")}</Button>
             </Show>
           </div>
           <Show when={pending()}>
@@ -256,16 +265,16 @@ export const JobDetail: Component<{
           <Show when={failure() === "session"}><p class="notice bad" role="alert">{t(SESSION_EXPIRED)}</p></Show>
         </header>
 
-        <Show when={(d().status === "failed" || d().status === "partial_success") && itemsReady()}>
+        <Show when={(d().status === "failed" || d().status === "partial_success") && itemPages() !== undefined}>
           <section class="insp-sec" role="region" aria-label={t("Why it failed")}>
             <h3>{t("Why it failed")}</h3>
             <Show when={failedItems().length > 0} fallback={<p class="muted">{t("The worker recorded no reason. Open an item's log below.")}</p>}>
               <ul class="why">
                 <For each={failedItems()}>{(item) => {
-                  const itemState = itemTone(item.status);
+                  const itemState = () => itemTone(item.status);
                   return (
                     <li class="why-item">
-                      <StatusChip kind={itemState.kind} icon={itemState.icon} live={itemState.live}>{itemState.label}</StatusChip>
+                      <StatusChip kind={itemState().kind} icon={itemState().icon} live={itemState().live}>{itemState().label}</StatusChip>
                       <div>
                         <b>{itemName(item)}</b>
                         <Show when={item.error_code}><span class="mono rule">{item.error_code}</span></Show>
@@ -281,7 +290,7 @@ export const JobDetail: Component<{
 
         <section class="insp-sec" aria-labelledby="items-title">
           <h3 id="items-title">{t("Items")}</h3>
-          <Show when={itemsReady() ? firstPage() : undefined} fallback={<p class="muted">{t("Loading items")}</p>}>
+          <Show when={itemPages()} fallback={<p class="muted">{t("Loading items")}</p>}>
             {(page) => (
               <Show when={page().kind === "ok"} fallback={
                 page().kind === "session"
@@ -289,8 +298,8 @@ export const JobDetail: Component<{
                   : <div class="notice bad" role="alert"><p>{t("Unable to load items")}</p><Button onClick={() => void refetchItems()}>{t("Retry loading items")}</Button></div>
               }>
                 <Show when={items().length > 0} fallback={<p class="muted">{t("No items")}</p>}>
-                  <ul class="plain items">
-                    <Show when={props.jobId} keyed><Index each={items()}>{(item) => {
+                  <ul class="plain items" ref={(element) => { itemList = element; }}>
+                    <For each={items()} keyed={(item) => itemKey()(item)}>{(item) => {
                       const itemState = () => itemTone(item().status);
                       const percent = () => Math.max(0, Math.min(100, Math.round(item().progress ?? 0)));
                       // A job of one file already names it in the heading above; repeat it quietly, on one line.
@@ -299,7 +308,7 @@ export const JobDetail: Component<{
                         <li class="item-row">
                           <div class="item-line">
                             <span class="mono muted item-pos">{`#${item().position}`}</span>
-                            <span class="item-name" classList={{ repeat: repeatsTitle() }} title={repeatsTitle() ? itemName(item()) : undefined}>{itemName(item())}</span>
+                            <span class={["item-name", { repeat: repeatsTitle() }]} title={repeatsTitle() ? itemName(item()) : undefined}>{itemName(item())}</span>
                             <StatusChip kind={itemState().kind} icon={itemState().icon} live={itemState().live}>{itemState().label}</StatusChip>
                             <Show when={item().attempt > 1 || (item().status === "running" && typeof item().progress === "number")}>
                               <span class="item-progress">
@@ -320,7 +329,7 @@ export const JobDetail: Component<{
                           <ItemLog api={props.api} itemId={item().id} status={item().status} />
                         </li>
                       );
-                    }}</Index></Show>
+                    }}</For>
                   </ul>
                 </Show>
                 <Show when={moreSession()}><p class="notice bad" role="alert">{t(SESSION_EXPIRED)}</p></Show>
@@ -338,7 +347,11 @@ export const JobDetail: Component<{
 
   return (
     <div class="inspector">
-      <Show when={jobReady()} fallback={<p class="muted"><Icon name="activity" /> {t("Loading job")}</p>}>{renderJob()}</Show>
+      <Loading fallback={<p class="muted"><Icon name="activity" /> {t("Loading job")}</p>}>{renderJob()}</Loading>
     </div>
   );
 };
+
+export const JobDetail: Component<Parameters<typeof JobDetailView>[0] & { identity?: string | object | undefined }> = (props) => (
+  <Show when={props.identity ?? props.jobId} keyed>{(_identity) => <JobDetailView {...props} />}</Show>
+);

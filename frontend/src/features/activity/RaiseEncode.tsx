@@ -1,4 +1,4 @@
-import { createSignal, Show, type Component } from "solid-js";
+import { createSignal, onSettled, Show, type Component } from "solid-js";
 import { t } from "../../lib/i18n";
 import { Button } from "../../ui";
 import { levelsAbove, requiredLevel, type EncodeLevel } from "../../lib/encode";
@@ -18,26 +18,32 @@ const preselected = (levels: EncodeLevel[], need: string | null | undefined): En
 export const RaiseEncode: Component<{ api: Api; item: ItemRow; onRaised: (jobId: string | undefined) => void }> = (props) => {
   const levels = () => higherLevels(props.item.encode);
   // „Audio und Video“ still waits for its own confirmation when the need preselects it.
-  const choice = createEncodeChoice(preselected(levels(), props.item.encode_need));
+  const choice = createEncodeChoice(() => preselected(levels(), props.item.encode_need) ?? "audio");
   const [open, setOpen] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
   const [failure, setFailure] = createSignal<"queue" | "session" | null>(null);
   let key = crypto.randomUUID();
   let trigger: HTMLButtonElement | undefined;
+  let disposed = false;
+  onSettled(() => () => { disposed = true; });
 
   const close = () => {
     setOpen(false);
     key = crypto.randomUUID();
     queueMicrotask(() => trigger?.focus());
   };
+  let submitInFlight = false;
   const submit = async () => {
-    if (busy() || !choice.ready()) return;
+    if (submitInFlight || !choice.ready()) return;
+    submitInFlight = true;
     setBusy(true);
     setFailure(null);
     const level = choice.level();
     // The key follows the level: a changed choice is a different request, a repeated click the same one.
     const result = await raiseEncode(props.api, props.item.id, level, `${key}-${level}`);
+    submitInFlight = false;
     setBusy(false);
+    if (disposed) return;
     if (result.ok) {
       setOpen(false);
       props.onRaised(result.id);
@@ -49,7 +55,7 @@ export const RaiseEncode: Component<{ api: Api; item: ItemRow; onRaised: (jobId:
   return (
     <Show when={levels().length > 0}>
       <div class="raise-encode">
-        <Button ref={(element) => { trigger = element; }} aria-expanded={open()} onClick={() => { setFailure(null); setOpen((value) => !value); }}>{t("Prepare with a higher allowance")}</Button>
+        <Button ref={(element) => { trigger = element; }} aria-expanded={open() ? "true" : "false"} onClick={() => { setFailure(null); setOpen((value) => !value); }}>{t("Prepare with a higher allowance")}</Button>
         <Show when={open()}>
           <div class="confirm" role="region" aria-label={t("Prepare with a higher allowance")} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}>
             <p>{t("This queues a new job for this file at the chosen level. The finished job stays as it is.")}</p>
