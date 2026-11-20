@@ -1,0 +1,68 @@
+/* Activity page: the job list and the open job as two panels, the detail beside the list and under it
+   below 1180 px (reference: docs/design/manager-mockup.html, page #aktivitaet). Widths live in classes,
+   never inline, so the media queries below can change them. */
+.library.activity {
+  grid-template-columns: minmax(300px, 440px) minmax(0, 1fr); gap: 16px;
+  padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px 24px; background: var(--ground);
+}
+.activity .lib-main, .activity .lib-side { background: var(--surface); border: 1px solid var(--line); }
+.activity .lib-side { padding: 16px; }
+.activity .lib-bar { padding: 16px 16px 8px; }
+.activity .lib-bar h1 { font-size: var(--text-md); font-weight: 500; }
+.activity .lib-bar-top .btn { margin-left: auto; }
+
+/* The list */
+.job-hidden { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 8px 16px 0; font-size: var(--text-sm); }
+.job-group { padding: 0 0 8px; }
+.job-group h2 { margin: 16px 16px 8px; }
+.job-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 4px 8px; padding: 8px 16px; border-bottom: 1px solid var(--line); }
+.job-row:hover { background: var(--hover); }
+.job-row { position: relative; }
+.job-row[aria-current="true"] { background: var(--sand); }
+/* The open job is marked by a copper edge: a drawn bar, not a shadow. */
+.job-row[aria-current="true"]::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 2px; background: var(--accent); }
+.job-link { min-width: 0; display: flex; flex-direction: column; gap: 2px; color: var(--ink); text-decoration: none; }
+.job-link:focus-visible { outline-offset: -2px; }
+.job-title { font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job-meta, .job-match { font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job-live { margin-top: 2px; }
+.job-live .bar { flex: 1; width: auto; min-width: 0; }
+
+/* The open job */
+.activity .insp-head h2 { font-size: var(--text-md); font-weight: 500; letter-spacing: var(--tracking-title); }
+.job-summary { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; margin: 8px 0; }
+.job-progress { flex: 1 1 100%; }
+.job-progress .bar { flex: 1; width: auto; min-width: 0; margin: 0; }
+/* Facts as labels in copper with a colon, values beside them. */
+.job-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 16px; align-items: baseline; margin: 16px 0 0; }
+.job-facts div { display: contents; }
+.job-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.activity .insp-actions { margin: 16px 0 0; }
+.activity .insp-sec h3 { margin: 24px 0 8px; }
+
+.items { gap: 0; }
+.item-row { padding: 8px 0; border: 0; border-bottom: 1px solid var(--line); }
+.item-line { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 8px; align-items: center; }
+.item-progress, .item-duration { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; }
+.item-progress .bar { flex: 1; width: auto; min-width: 0; }
+.item-name { font-weight: 400; }
+.item-name.repeat { color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
+.item-log { margin-top: 4px; }
+.item-log .btn.quiet, .log-tools .btn.quiet { padding-left: 0; }
+.item-plan { margin: 4px 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: var(--text-sm); min-width: 0; }
+.change-mark { border: 1px solid currentColor; padding: 0 6px; line-height: 1.5; color: var(--ink-muted); white-space: nowrap; }
+.change-mark.patch { color: var(--ok); }
+.change-mark.remux { color: var(--warn); }
+.change-mark.audio, .change-mark.reencode { color: var(--bad); }
+.item-steps { flex-basis: 100%; color: var(--ink-muted); min-width: 0; overflow-wrap: anywhere; }
+.log-tools { display: flex; gap: 4px; }
+
+/* Below 1180 px the detail stands under the list and the page scrolls as one. */
+@media (max-width: 1180px) {
+  .library.activity { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; align-content: start; overflow: auto; height: 100%; }
+  .activity .lib-main, .activity .lib-side { min-height: auto; overflow: visible; }
+  .activity .lib-scroll { overflow: visible; }
+}
+@media (max-width: 900px) {
+  .library.activity { padding: 12px max(12px, env(safe-area-inset-right, 0px)) 12px max(12px, env(safe-area-inset-left, 0px)); gap: 12px; }
+}

@@ -5,6 +5,7 @@
 @import "./filterbar.css";
 @import "./schedules.css";
 @import "./settings.css";
+@import "./activity.css";
 
 @tailwind base;
 @tailwind components;

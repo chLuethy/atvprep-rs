@@ -96,33 +96,6 @@ details summary { cursor: pointer; color: var(--ink-muted); }
 .change.audio .kind, .change.reencode .kind { color: var(--bad); }
 .change.none { color: var(--ink-muted); }
 
-/* activity */
-.job-hidden { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 10px 16px 0; font-size: var(--text-sm); }
-.job-group { padding: 4px 0 8px; }
-.job-group h2 { margin: 10px 16px 6px; }
-.job-row { display: flex; align-items: center; gap: 10px; padding: 7px 16px; border-bottom: 1px solid var(--line); }
-.job-row:hover { background: var(--hover); }
-.job-row[aria-current="true"] { background: var(--accent-weak); }
-.job-link { flex: 1; min-width: 0; display: flex; flex-direction: column; color: var(--ink); text-decoration: none; }
-.job-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.job-meta, .job-match { font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.job-summary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 2px; }
-.items { gap: 8px; }
-.item-row { border: 1px solid var(--line); padding: 8px 10px; }
-.item-line { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 10px; align-items: start; }
-.item-pos { padding-top: 2px; }
-.item-progress, .item-duration { grid-column: 2 / -1; display: flex; align-items: center; gap: 8px; }
-.item-name.repeat { font-weight: 400; color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
-.item-name { font-weight: 500; }
-.item-log { margin-top: 4px; }
-.item-plan { margin: 4px 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: var(--text-sm); min-width: 0; }
-.change-mark { border: 1px solid currentColor; padding: 0 6px; line-height: 1.5; color: var(--ink-muted); white-space: nowrap; }
-.change-mark.patch { color: var(--ok); }
-.change-mark.remux { color: var(--warn); }
-.change-mark.audio, .change-mark.reencode { color: var(--bad); }
-.item-steps { flex-basis: 100%; color: var(--ink-muted); min-width: 0; overflow-wrap: anywhere; }
-.log-tools { display: flex; gap: 4px; }
-
 .wave-limit { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .wave-limit label { color: var(--ink-muted); font-size: var(--text-sm); }
 
@@ -150,7 +123,6 @@ details summary { cursor: pointer; color: var(--ink-muted); }
 .now-row { display: flex; align-items: center; gap: 10px; }
 .now-row a { flex: 1; min-width: 0; color: var(--ink); text-decoration: none; }
 
-.activity .lib-bar-top .btn { margin-left: auto; }
 .scan-control { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; margin: 8px 0 0; }
 .scan-control .scan-status { margin: 0; font-size: var(--text-base); }
 .scan-control .notice { flex-basis: 100%; margin: 0; }
