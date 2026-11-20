@@ -1,6 +1,5 @@
-import { createEffect, createMemo, createResource, createSignal, For, Match, on, onCleanup, Show, Switch, type Accessor, type Component } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Loading, Match, onSettled, refresh, Show, Switch, type Accessor, type Component } from "solid-js";
 import { SessionError } from "../../lib/api";
-import { keepIfSame, loadedFor } from "../../lib/stable";
 import { Button, Icon, Kbd, StatusChip } from "../../ui";
 import { loadDetailMounted, loadInspectionsMounted, loadJobsMounted, queueJob, rawId, type Api, type FileDetail, type Inspection } from "./loaders";
 import {
@@ -61,7 +60,7 @@ const Reason: Component<{ reason: ParsedReason; state: string }> = (props) => (
 );
 
 /** Everything the manager knows about one file: verdict and reasons first, evidence below. */
-export const Inspector: Component<{
+const InspectorView: Component<{
   api: Api;
   fileId: string;
   onFix?: (file: FileDetail) => void;
@@ -73,33 +72,15 @@ export const Inspector: Component<{
   /** Told after this view queued a job itself (a re-inspection), so the page can follow the queue. */
   onQueued?: () => void;
 }> = (props) => {
-  const [reload, setReload] = createSignal(0);
-  // Each read keeps the previous object when only ids changed, so a refresh that finds nothing new
-  // changes nothing on screen.
-  const [detail] = createResource<Awaited<ReturnType<typeof loadDetailMounted>>, readonly [string, number, number]>(
-    () => [props.fileId, reload(), props.version ?? 0] as const,
-    async ([id], info) => keepIfSame(await loadDetailMounted(props.api, id), info.value),
-  );
-  // While a fix is queued or running, read the file again until it is over.
-  createEffect(() => {
-    const state = detail();
-    if (state?.kind !== "ok" || !state.data.fix_status) return;
-    const timer = window.setInterval(() => { if (!document.hidden) setReload((value) => value + 1); }, 4000);
-    onCleanup(() => window.clearInterval(timer));
-  });
-  const [inspections, { refetch: refetchInspections }] = createResource<Awaited<ReturnType<typeof loadInspectionsMounted>>, string>(
-    () => props.fileId,
-    async (id, info) => keepIfSame(await loadInspectionsMounted(props.api, id), info.value),
-  );
-  const [jobs, { refetch: refetchJobs }] = createResource<Awaited<ReturnType<typeof loadJobsMounted>>, string>(
-    () => props.fileId,
-    async (id, info) => keepIfSame(await loadJobsMounted(props.api, id), info.value),
-  );
-  const detailReady = loadedFor(detail, () => props.fileId);
-  const inspectionsReady = loadedFor(inspections, () => props.fileId);
-  const jobsReady = loadedFor(jobs, () => props.fileId);
-  // The page says something changed (a job ended): read what a job leaves behind again.
-  createEffect(on(() => props.version, () => { void refetchInspections(); void refetchJobs(); }, { defer: true }));
+  const detail = createMemo(() => loadDetailMounted(props.api, props.fileId));
+  const inspections = createMemo(() => loadInspectionsMounted(props.api, props.fileId), { loadingValue: undefined });
+  const jobs = createMemo(() => loadJobsMounted(props.api, props.fileId), { loadingValue: undefined });
+  const reload = () => refresh(detail);
+  const refetchInspections = () => refresh(inspections);
+  const refetchJobs = () => refresh(jobs);
+  createEffect(() => props.version, () => {
+    void reload(); void refetchInspections(); void refetchJobs();
+  }, { defer: true });
 
   const [limit, setLimit] = createSignal(readWaveLimit());
   const [confirming, setConfirming] = createSignal(false);
@@ -115,25 +96,17 @@ export const Inspector: Component<{
   let trigger: HTMLButtonElement | undefined;
   let confirmButton: HTMLButtonElement | undefined;
   let wasConfirming = false;
+  let inspectInFlight = false;
+  let convertInFlight = false;
+  let disposed = false;
+  onSettled(() => () => { disposed = true; });
 
-  createEffect(() => {
-    const open = confirming();
+  createEffect(confirming, (open) => {
     if (open) queueMicrotask(() => confirmButton?.focus());
     else if (wasConfirming) queueMicrotask(() => trigger?.focus());
     wasConfirming = open;
   });
-  // A different file starts from a clean slate: no stale message, no half-open confirmation.
-  createEffect(() => {
-    void props.fileId;
-    setConfirming(false);
-    setMessage(null);
-    setInspectError(false);
-    setSessionExpired(false);
-    setConverting(false);
-    setConvertError(null);
-    convertKey = crypto.randomUUID();
-    idempotencyKey = null;
-  });
+  // Ein Dateiwechsel erhält eine eigene Instanz samt Meldungen und Bestätigungen.
 
   const openConfirm = () => {
     idempotencyKey ??= crypto.randomUUID();
@@ -146,7 +119,8 @@ export const Inspector: Component<{
     idempotencyKey = null;
   };
   const reInspect = async () => {
-    if (inspecting()) return;
+    if (inspectInFlight) return;
+    inspectInFlight = true;
     setInspecting(true);
     setInspectError(false);
     try {
@@ -154,6 +128,7 @@ export const Inspector: Component<{
         method: "POST",
         headers: { "Idempotency-Key": idempotencyKey ?? crypto.randomUUID() },
       });
+      if (disposed) return;
       if (!response.ok) throw new Error("inspect failed");
       setMessage(t("Re-inspection queued"));
       closeConfirm();
@@ -161,6 +136,7 @@ export const Inspector: Component<{
       void refetchJobs();
       void refetchInspections();
     } catch (error) {
+      if (disposed) return;
       if (error instanceof SessionError) {
         setSessionExpired(true);
         closeConfirm();
@@ -168,6 +144,7 @@ export const Inspector: Component<{
         setInspectError(true);
       }
     } finally {
+      inspectInFlight = false;
       setInspecting(false);
     }
   };
@@ -183,7 +160,7 @@ export const Inspector: Component<{
     const state = loaded();
     return !state || state.kind === "error" ? "error" : state.kind === "session" ? "session" : undefined;
   });
-  const reasonTexts = createMemo(() => file()?.compliance_reasons ?? [], [], {
+  const reasonTexts = createMemo(() => file()?.compliance_reasons ?? [], {
     equals: (a, b) => a.length === b.length && a.every((text, index) => text === b[index]),
   });
   const reasons = createMemo(() => reasonTexts().map(parseReason));
@@ -200,7 +177,8 @@ export const Inspector: Component<{
   const confirm = (f: FileDetail) => prepareConfirm(f, props.deleteOriginal ?? null);
   const encode = createEncodeChoice();
   const submitConvert = async () => {
-    if (convertBusy() || !encode.ready()) return;
+    if (convertInFlight || !encode.ready()) return;
+    convertInFlight = true;
     setConvertBusy(true);
     setConvertError(null);
     // The id the server put in the file it sent, as Verify does: the one in the address may be URL-encoded.
@@ -208,7 +186,9 @@ export const Inspector: Component<{
     const level = encode.level();
     const force = encode.force();
     const result = await queueJob(props.api, "prepare", [id], `${convertKey}-${level}-${force}`, { encode: level, confirmVideoEncode: level === "all", force });
+    convertInFlight = false;
     setConvertBusy(false);
+    if (disposed) return;
     if (!result.ok) {
       setConvertError(result.session ? t(SESSION_EXPIRED) : result.detail ? t("Unable to queue the preparation. The server said: {detail}.", { detail: result.detail }) : t("Unable to queue the preparation. Try again."));
       return;
@@ -225,7 +205,7 @@ export const Inspector: Component<{
       <Match when={failure() === "error"}>
         <div class="notice bad" role="alert">
           <p>{t("Unable to load file detail")}</p>
-          <Button onClick={() => setReload((value) => value + 1)}>{t("Retry")}</Button>
+          <Button onClick={() => void reload()}>{t("Retry")}</Button>
         </div>
       </Match>
       <Match when={failure() === "session"}>
@@ -236,6 +216,11 @@ export const Inspector: Component<{
   );
 
   const renderFile = (f: Accessor<FileDetail>) => {
+    createEffect(() => f().fix_status, (status) => {
+      if (!status) return;
+      const timer = window.setInterval(() => { if (!document.hidden) void reload(); }, 4000);
+      return () => window.clearInterval(timer);
+    });
     const verdict = () => verdictOf(f());
     const name = () => baseName(f().display_path ?? "");
     return (
@@ -252,7 +237,7 @@ export const Inspector: Component<{
               {(status) => <Button variant="primary" disabled title={t("A preparation for this file is already in progress.")}>{(() => { const label = `Prepare ${status()}`; return BUSY[label] ? t(BUSY[label]) : label; })()}</Button>}
             </Show>
             <Show when={!f().fix_status && !isMp4Like(f().suffix) && preparable(f())}>
-              <Button variant="primary" aria-expanded={converting()} onClick={() => { setConvertError(null); setConverting(!converting()); }}>{t("Prepare")}</Button>
+              <Button variant="primary" aria-expanded={converting() ? "true" : "false"} onClick={() => { setConvertError(null); setConverting(!converting()); }}>{t("Prepare")}</Button>
             </Show>
             <Show when={!f().fix_status && props.onFix && isMp4Like(f().suffix) && preparable(f())}>
               <Button variant="primary" onClick={() => props.onFix?.(f())}>{t("Prepare preview")} <Kbd>F</Kbd></Button>
@@ -262,7 +247,7 @@ export const Inspector: Component<{
             </Show>
             <Button
               disabled={!f().inspection_available}
-              aria-expanded={confirming()}
+              aria-expanded={confirming() ? "true" : "false"}
               ref={(element) => { trigger = element; }}
               onClick={openConfirm}
             >
@@ -280,7 +265,7 @@ export const Inspector: Component<{
           </Show>
           <Show when={converting()}>
             <div class="confirm" role="region" aria-label={t("Prepare")} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); setConverting(false); } }}>
-              <For each={confirm(f()).lines}>{(line, index) => (confirm(f()).reencode && index() === 0 ? <p class="notice warn" role="alert">{line}</p> : <p>{line}</p>)}</For>
+              <For each={confirm(f()).lines}>{(line, index) => <p class={confirm(f()).reencode && index() === 0 ? "notice warn" : undefined} role={confirm(f()).reencode && index() === 0 ? "alert" : undefined}>{line}</p>}</For>
               <EncodeChoice choice={encode} offerForce />
               <Show when={convertError()}><p class="notice bad" role="alert">{convertError()}</p></Show>
               <div class="insp-actions">
@@ -328,7 +313,7 @@ export const Inspector: Component<{
 
         <section class="insp-sec" aria-labelledby="tracks-title">
           <h3 id="tracks-title">{t("Tracks")}</h3>
-          <Show when={inspectionsReady()} fallback={<p class="muted">{t("Loading inspection")}</p>}>
+          <Show when={inspections() !== undefined} fallback={<p class="muted">{t("Loading inspection")}</p>}>
             <Show when={inspections()?.kind !== "session"} fallback={<p class="notice bad" role="alert">{t(SESSION_EXPIRED)}</p>}>
               <Show when={!inspections()?.error} fallback={<div class="notice bad" role="alert"><p>{t("Unable to load inspections")}</p><Button onClick={() => void refetchInspections()}>{t("Retry")}</Button></div>}>
                 <Show when={mediaTracks().length > 0} fallback={<p class="muted">{t("No tracks yet: the file has not been inspected.")}</p>}>
@@ -402,7 +387,7 @@ export const Inspector: Component<{
 
         <section class="insp-sec" aria-labelledby="history-title">
           <h3 id="history-title">{t("Job history")}</h3>
-          <Show when={jobsReady()} fallback={<p class="muted">{t("Loading job history")}</p>}>
+          <Show when={jobs() !== undefined} fallback={<p class="muted">{t("Loading job history")}</p>}>
             {(() => {
               const value = jobs();
               if (!value) return null;
@@ -422,7 +407,11 @@ export const Inspector: Component<{
 
   return (
     <div class="inspector">
-      <Show when={detailReady()} fallback={<p class="muted">{t("Loading file detail")}</p>}>{renderBody()}</Show>
+      <Loading fallback={<p class="muted">{t("Loading file detail")}</p>}>{renderBody()}</Loading>
     </div>
   );
 };
+
+export const Inspector: Component<Parameters<typeof InspectorView>[0]> = (props) => (
+  <Show when={props.fileId} keyed>{(fileId) => <InspectorView {...props} fileId={fileId} />}</Show>
+);

@@ -1,4 +1,4 @@
-import { batch, createEffect, createMemo, createResource, createSignal, For, on, Show, untrack, type Component } from "solid-js";
+import { createEffect, createMemo, createSignal, For, refresh, Show, untrack, type Component } from "solid-js";
 import { N, t, tn } from "../../lib/i18n";
 import { Button, Icon } from "../../ui";
 import { allReady, describeCounts, loadBrowse, worstIn, type Browse, type BrowseFolder, type StateCounts } from "./browse";
@@ -71,30 +71,32 @@ const Column: Component<{
   onMenu: (index: number, entry: Entry, event: MouseEvent) => void;
   onBackground: (index: number) => void;
 }> = (props) => {
-  const [data, { refetch }] = createResource(
-    () => [props.place.rootId, props.place.path, columnFilterKey(props.filter), sortKey(props.sort), props.version] as const,
-    ([rootId, path]) => loadBrowse(props.api, { rootId, path, filter: props.filter, sort: props.sort }),
-  );
-  const loaded = () => data.latest;
+  const request = createMemo(() => ({
+    rootId: props.place.rootId, path: props.place.path, filter: props.filter, sort: props.sort, version: props.version,
+  }), {
+    equals: (a, b) => a.rootId === b.rootId && a.path === b.path && a.version === b.version
+      && columnFilterKey(a.filter) === columnFilterKey(b.filter) && sortKey(a.sort) === sortKey(b.sort),
+  });
+  const data = createMemo(() => loadBrowse(props.api, request()), { loadingValue: undefined });
+  const refetch = () => refresh(data);
+  const loaded = data;
   // The libraries are the first column, so the library facet leaves out the ones not chosen there.
   const shown = (value: Browse): Entry[] => {
     const roots = props.filter.root;
     const entries = entriesOf(value);
     return roots.length === 0 || props.index > 0 ? entries : entries.filter((entry) => entry.kind !== "folder" || roots.includes(entry.folder.id ?? ""));
   };
-  createEffect(() => {
-    const value = loaded();
-    if (value?.kind === "ok") props.onEntries(props.index, shown(value));
-  });
   const entries = createMemo(() => {
     const value = loaded();
     return value?.kind === "ok" ? shown(value) : [];
   });
+  createEffect(() => ({ ready: loaded()?.kind === "ok", index: props.index, entries: entries() }), ({ ready, index, entries }) => {
+    if (ready) props.onEntries(index, entries);
+  });
 
   return (
     <div
-      class="col"
-      classList={{ focused: props.focused }}
+      class={["col", { focused: props.focused }]}
       data-col={props.index}
       role="listbox"
       aria-multiselectable="true"
@@ -113,10 +115,9 @@ const Column: Component<{
             </Show>
             <For each={entries()}>{(entry) => (
               <div
-                class="col-row"
-                classList={{ selected: props.selected(entry.key) }}
+                class={["col-row", { selected: props.selected(entry.key) }]}
                 role="option"
-                aria-selected={props.selected(entry.key)}
+                aria-selected={props.selected(entry.key) ? "true" : "false"}
                 data-key={entry.key}
                 onClick={(event) => props.onRow(props.index, entry, event)}
                 onContextMenu={(event) => props.onMenu(props.index, entry, event)}
@@ -181,7 +182,7 @@ export const ColumnsView: Component<{
    */
   initialPath?: ColumnPath | null;
   /** Raised whenever the open folder path changes; null is the libraries. */
-  onPath?: (path: ColumnPath | null) => void;
+  onPath?: (path: ColumnPath | null, filter: FileFilter) => void;
   onOpen: (id: string | undefined) => void;
   onSelection?: (picked: Picked) => void;
   onAction?: (action: ColumnAction) => void;
@@ -195,7 +196,7 @@ export const ColumnsView: Component<{
   /** A path being opened again: the column whose entries are awaited next, and the path to follow. */
   const [restoring, setRestoring] = createSignal<{ at: number; path: ColumnPath } | null>(untrack(() => props.initialPath) ? { at: 0, path: untrack(() => props.initialPath)! } : null);
   let scroller: HTMLDivElement | undefined;
-  let wantFirstIn = -1;
+  const [wantFirstIn, setWantFirstIn] = createSignal(-1);
 
   /** The column the selection lives in: one more than the folders opened to get there. */
   const active = () => trail().length;
@@ -224,18 +225,16 @@ export const ColumnsView: Component<{
   const closeInspector = () => { if (props.activeId) props.onOpen(undefined); };
 
   /** Make `list` the selection of column `index`, dropping the columns to its right. */
-  const commit = (index: number, list: Entry[], anchorKey: string | null, cursorKey: string | null, restored = false) => {
+  const commit = (index: number, list: Entry[], anchorKey: string | null, cursorKey: string | null, restored = false, context = { chain: chain(), activeId: props.activeId }) => {
     if (!restored) setRestoring(null);
-    batch(() => {
-      if (index !== active()) setTrail(chain().slice(0, index));
-      setEntries((all) => Object.fromEntries(Object.entries(all).filter(([key]) => Number(key) <= index)));
-      setSel(list);
-      setAnchor(anchorKey);
-      setCursor(cursorKey);
-    });
+    setTrail(context.chain.slice(0, index));
+    setEntries((all) => Object.fromEntries(Object.entries(all).filter(([key]) => Number(key) <= index)));
+    setSel(list);
+    setAnchor(anchorKey);
+    setCursor(cursorKey);
     const only = list.length === 1 ? list[0] : undefined;
     // Opening a path again only selects folders, and leaves an inspector the address opened alone.
-    if (only?.kind === "file") props.onOpen(only.file.id); else if (!restored) closeInspector();
+    if (only?.kind === "file") props.onOpen(only.file.id); else if (!restored && context.activeId) props.onOpen(undefined);
     reveal();
   };
   const selectOnly = (index: number, entry: Entry) => commit(index, [entry], entry.key, entry.key);
@@ -254,25 +253,29 @@ export const ColumnsView: Component<{
     commit(index, list.slice(low, high + 1), anchor() ?? entry.key, entry.key);
   };
 
-  const onEntries = (index: number, list: Entry[]) => {
-    setEntries((all) => ({ ...all, [index]: list }));
+  const onEntries = (index: number, list: Entry[]) => setEntries((all) => ({ ...all, [index]: list }));
+  // Geladene Spalten und Navigationszustand gemeinsam auswerten; Apply liest keine reaktiven Werte nach.
+  createEffect(() => {
     const wanted = restoring();
-    if (wanted && wanted.at === index) {
-      // The library by its id, then each folder by its name; a missing one ends the path at the folder before.
-      const name = wanted.path.folders[index - 1];
-      const entry = list.find((item) => item.kind === "folder" && (index === 0 ? item.folder.id === wanted.path.rootId : item.folder.name === name));
-      batch(() => {
-        if (entry) commit(index, [entry], entry.key, entry.key, true);
-        setRestoring(entry && index < wanted.path.folders.length ? { at: index + 1, path: wanted.path } : null);
-      });
-      return;
+    const index = wanted?.at ?? wantFirstIn();
+    const list = entries()[index];
+    if (!list || (!wanted && active() !== index)) return undefined;
+    const name = wanted?.path.folders[index - 1];
+    const entry = wanted
+      ? list.find((item) => item.kind === "folder" && (index === 0 ? item.folder.id === wanted.path.rootId : item.folder.name === name))
+      : list[0];
+    return { wanted, index, entry, context: { chain: chain(), activeId: props.activeId } };
+  }, (next) => {
+    if (!next) return;
+    const { wanted, index, entry, context } = next;
+    if (wanted) {
+      if (entry) commit(index, [entry], entry.key, entry.key, true, context);
+      setRestoring(entry && index < wanted.path.folders.length ? { at: index + 1, path: wanted.path } : null);
+    } else if (entry) {
+      setWantFirstIn(-1);
+      commit(index, [entry], entry.key, entry.key, false, context);
     }
-    if (wantFirstIn === index && list.length > 0 && active() === index) {
-      wantFirstIn = -1;
-      const first = list[0];
-      if (first) selectOnly(index, first);
-    }
-  };
+  });
 
   const onRow = (index: number, entry: Entry, event: MouseEvent) => {
     if (additive(event)) toggle(index, entry);
@@ -283,21 +286,24 @@ export const ColumnsView: Component<{
 
   // A different state filter makes the folders it names a different set, so start from the libraries.
   // A path given for the new filter (one remembered under it) is opened again from there.
-  createEffect(on(() => columnFilterKey(props.filter ?? EMPTY_FILTER), () => {
-    const path = untrack(() => props.initialPath);
-    batch(() => { setTrail([]); setSel([]); setAnchor(null); setCursor(null); setEntries({}); setRestoring(path ? { at: 0, path } : null); });
-  }, { defer: true }));
+  const filterPath = createMemo(() => ({ key: columnFilterKey(props.filter ?? EMPTY_FILTER), path: props.initialPath }), { equals: (a, b) => a.key === b.key });
+  createEffect(filterPath, ({ path }) => {
+    setTrail([]); setSel([]); setAnchor(null); setCursor(null); setEntries({}); setRestoring(path ? { at: 0, path } : null);
+  }, { defer: true });
   // Tell the page where the view is, once a path being opened again has got as far as it can.
   const path = createMemo<ColumnPath | null>(() => {
     const [root, ...folders] = chain();
     return root?.id ? { rootId: root.id, folders: folders.map((step) => step.name) } : null;
-  }, null, { equals: (a, b) => JSON.stringify(a) === JSON.stringify(b) });
-  createEffect(on(path, (value) => { if (!restoring()) props.onPath?.(value); }, { defer: true }));
+  }, { equals: (a, b) => JSON.stringify(a) === JSON.stringify(b) });
+  createEffect(() => ({ path: path(), restoring: restoring(), filter: props.filter ?? EMPTY_FILTER }), (value) => { if (!value.restoring) props.onPath?.(value.path, value.filter); }, { defer: true });
   // The inspector was closed from outside: a file that was open is no longer selected.
-  createEffect(on(() => props.activeId, (id) => {
-    if (!id && sel().length === 1 && sel()[0]?.kind === "file") batch(() => { setSel([]); setAnchor(null); setCursor(null); });
-  }, { defer: true }));
-  createEffect(on(() => props.clearToken, () => { if (sel().length > 0) commit(active(), [], null, null); }, { defer: true }));
+  createEffect(() => ({ id: props.activeId, selected: sel() }), ({ id, selected }, previous) => {
+    if (previous?.id && !id && selected.length === 1 && selected[0]?.kind === "file") { setSel([]); setAnchor(null); setCursor(null); }
+  }, { defer: true });
+  const clearRequest = createMemo(() => ({ token: props.clearToken, selected: sel().length, index: active(), context: { chain: chain(), activeId: props.activeId } }), { equals: (a, b) => a.token === b.token });
+  createEffect(clearRequest, (value) => {
+    if (value.selected > 0) commit(value.index, [], null, null, false, value.context);
+  }, { defer: true });
 
   // Tell the page what is selected, as files and as folders it can reach files through.
   createEffect(() => {
@@ -307,8 +313,8 @@ export const ColumnsView: Component<{
     const folders = list.flatMap((entry) => entry.kind === "folder"
       ? [{ name: entry.folder.name, rootId: level === 0 ? entry.folder.id ?? null : trail()[0]?.id ?? null, path: level === 0 ? "" : parent ? `${parent}/${entry.folder.name}` : entry.folder.name }]
       : []);
-    props.onSelection?.({ files: list.flatMap((entry) => (entry.kind === "file" ? [entry.file] : [])), folders });
-  });
+    return { files: list.flatMap((entry) => (entry.kind === "file" ? [entry.file] : [])), folders };
+  }, (picked) => { props.onSelection?.(picked); });
 
   const move = (delta: number, extend: boolean) => {
     const list = listOf(active());
@@ -323,15 +329,18 @@ export const ColumnsView: Component<{
     const folder = selFolder();
     if (!folder) return;
     const next = active() + 1;
-    batch(() => { setTrail(chain()); setSel([]); setAnchor(null); setCursor(null); });
     const first = listOf(next)[0];
-    if (first) selectOnly(next, first); else wantFirstIn = next;
+    if (first) selectOnly(next, first);
+    else {
+      setTrail(chain()); setSel([]); setAnchor(null); setCursor(null);
+      setWantFirstIn(next);
+    }
   };
   const out = () => {
     if (active() === 0) return;
     const step = trail()[active() - 1];
     const entry = listOf(active() - 1).find((item) => item.key === `d:${step?.name}`);
-    batch(() => { setTrail(trail().slice(0, -1)); setSel(entry ? [entry] : []); setAnchor(entry?.key ?? null); setCursor(entry?.key ?? null); });
+    setTrail(trail().slice(0, -1)); setSel(entry ? [entry] : []); setAnchor(entry?.key ?? null); setCursor(entry?.key ?? null);
     closeInspector();
     reveal();
   };

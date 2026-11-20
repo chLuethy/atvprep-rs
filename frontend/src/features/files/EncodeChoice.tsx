@@ -11,8 +11,8 @@ const LEVELS: ReadonlyArray<{ value: EncodeLevel; label: string; hint: string }>
 ];
 
 /** The level and its confirmation, so that the choice reads the same in the preview and the inspector. */
-export function createEncodeChoice(initial: EncodeLevel = "audio") {
-  const [level, setLevel] = createSignal<EncodeLevel>(initial);
+export function createEncodeChoice(initial: EncodeLevel | (() => EncodeLevel) = "audio") {
+  const [level, setLevel] = createSignal<EncodeLevel>(() => typeof initial === "function" ? initial() : initial);
   const [confirmed, setConfirmed] = createSignal(false);
   const [force, setForce] = createSignal(false);
   return {

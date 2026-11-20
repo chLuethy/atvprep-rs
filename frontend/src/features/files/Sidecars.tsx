@@ -1,4 +1,4 @@
-import { createEffect, createResource, createSignal, For, on, Show, type Component } from "solid-js";
+import { createEffect, createMemo, createSignal, For, refresh, Show, type Component } from "solid-js";
 import { Button } from "../../ui";
 import { N, t } from "../../lib/i18n";
 import { describeSidecar, formatSize } from "./model";
@@ -8,18 +8,18 @@ const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
 
 /** Sidecar files next to the media file, loaded page by page. */
 export const Sidecars: Component<{ api: Api; mediaId: string; count: number; version?: number }> = (props) => {
-  const [state, { refetch }] = createResource(() => props.mediaId, (mediaId) => loadSidecars(props.api, mediaId));
+  const state = createMemo(() => loadSidecars(props.api, props.mediaId), { loadingValue: undefined });
+  const refetch = () => refresh(state);
   // What happens to a sidecar depends on the newest inspection: read the list again once a job ends,
   // or a finished re-inspection still shows "re-inspect first".
-  createEffect(on(() => props.version, () => { void refetch(); }, { defer: true }));
+  createEffect(() => props.version, () => { void refetch(); }, { defer: true });
   const [items, setItems] = createSignal<Sidecar[]>([]);
   const [nextCursor, setNextCursor] = createSignal<string | null>(null);
   const [pageLoading, setPageLoading] = createSignal(false);
   const [pageError, setPageError] = createSignal(false);
   const [pageSession, setPageSession] = createSignal(false);
 
-  createEffect(() => {
-    const value = state();
+  createEffect(state, (value) => {
     if (value?.kind === "ok") {
       setItems(value.items);
       setNextCursor(value.nextCursor);
@@ -28,9 +28,11 @@ export const Sidecars: Component<{ api: Api; mediaId: string; count: number; ver
     }
   });
 
+  let moreInFlight = false;
   const loadMore = async () => {
     const cursor = nextCursor();
-    if (!cursor || pageLoading()) return;
+    if (!cursor || moreInFlight) return;
+    moreInFlight = true;
     setPageLoading(true);
     setPageError(false);
     setPageSession(false);
@@ -44,6 +46,7 @@ export const Sidecars: Component<{ api: Api; mediaId: string; count: number; ver
         setNextCursor(page.nextCursor);
       }
     } finally {
+      moreInFlight = false;
       setPageLoading(false);
     }
   };
@@ -51,7 +54,7 @@ export const Sidecars: Component<{ api: Api; mediaId: string; count: number; ver
   return (
     <section class="insp-sec" aria-labelledby="sidecars-title">
       <h3 id="sidecars-title">{t("Sidecars")}</h3>
-      <Show when={!state.loading} fallback={<p class="muted">{t("Loading sidecars")}</p>}>
+      <Show when={state() !== undefined} fallback={<p class="muted">{t("Loading sidecars")}</p>}>
         <Show when={state()}>
           {(current) => (
             <Show
@@ -73,7 +76,7 @@ export const Sidecars: Component<{ api: Api; mediaId: string; count: number; ver
                   <For each={items()}>{(sidecar) => (
                     <li class="sidecar">
                       <span>{sidecar.name}</span> <span class="muted">{formatSize(sidecar.size)}</span>
-                      <Show when={describeSidecar(sidecar.state, sidecar.language)}>{(text) => <span class="muted sidecar-state" classList={{ pending: sidecar.state === "pending" }}>{text()}</span>}</Show>
+                      <Show when={describeSidecar(sidecar.state, sidecar.language)}>{(text) => <span class={["muted sidecar-state", { pending: sidecar.state === "pending" }]}>{text()}</span>}</Show>
                     </li>
                   )}</For>
                 </ul>

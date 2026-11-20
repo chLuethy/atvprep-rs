@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, onMount, Show, type Component } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onSettled, Show, type Component } from "solid-js";
 import { Button, Icon, Kbd } from "../../ui";
 import { FilterBar, MANY_OPTIONS, NoMatches, type Facet } from "../../ui/FilterBar";
 import { N, t, tn } from "../../lib/i18n";
@@ -21,7 +21,8 @@ import { Inspector } from "./Inspector";
 import { dismissMissing, loadFacetCounts, loadFiles, rawId, loadSummary, queueJob, type Api, type FileCounts, type FileRow, type JobResult } from "./loaders";
 import { formatSize, estimateMinutes, baseName, verdictOf } from "./model";
 import { isTyping } from "../../lib/keys";
-import { reuseUnchanged } from "../../lib/stable";
+import { uniqueRowKeys } from "../../lib/rowKeys";
+import { fileKey } from "./identity";
 import { realtimeState } from "../../lib/realtime";
 
 const readView = (): "list" | "columns" => (recall("layout") === "columns" ? "columns" : "list");
@@ -69,12 +70,12 @@ export const LibraryPage: Component<{
   const [facetCounts, setFacetCounts] = createSignal<FileCounts | null>(null);
   const query = () => filter().q;
   const sameSort = (a: Sort, b: Sort) => fileSortQuery(a) === fileSortQuery(b);
-  const [sort, setSort] = createSignal<Sort>(props.sort ?? null, { equals: sameSort });
+  const [sort, setSort] = createSignal<Sort>(() => props.sort ?? null, { equals: sameSort });
   /** The libraries by name, for the library facet; without an answer the facet shows only what is chosen. */
-  const [roots] = createResource(async () => {
+  const roots = createMemo(async () => {
     const answer = await loadRoots(props.api);
     return answer.kind === "ok" ? answer.items : [];
-  }, { initialValue: [] });
+  }, { loadingValue: [] });
   const [picked, setPicked] = createSignal<ReadonlySet<string>>(new Set());
   /** The files a fix preview is open for, kept as rows because ids differ between responses. */
   const [inspectorVersion, setInspectorVersion] = createSignal(0);
@@ -90,11 +91,14 @@ export const LibraryPage: Component<{
   const none: Picked = { files: [], folders: [] };
   const [colPicked, setColPicked] = createSignal<Picked>(none);
   const [colBusy, setColBusy] = createSignal(false);
+  let colInFlight = false;
+  let verifyInFlight = false;
+  let removeInFlight = false;
   const [clearToken, setClearToken] = createSignal(0);
   const colCount = () => colPicked().files.length + colPicked().folders.length;
   // One file has the inspector; several files, or any folder, wait for an action in the bar below.
   const columnsBar = () => showColumns() && (colCount() > 1 || colPicked().folders.length > 0);
-  createEffect(() => { if (!showColumns()) setColPicked(none); });
+  createEffect(showColumns, (columns) => { if (!columns) setColPicked(none); });
   const setView = (next: "list" | "columns") => {
     setViewState(next);
     setPicked(new Set<string>());
@@ -116,7 +120,15 @@ export const LibraryPage: Component<{
   let previewKey: { signature: string; key: string } | undefined;
   let verifyKey: { signature: string; key: string } | undefined;
 
-  const load = async (reset: boolean, cursor: string | null = null, quiet = false) => {
+  let moreInFlight = false;
+  let listLoading = false;
+  let disposed = false;
+  let refreshAfterLoad = false;
+  let refreshFlight: { generation: number; again: boolean; promise: Promise<void> } | undefined;
+  const load = async (reset: boolean, cursor: string | null = null, quiet = false, asked = { filter: filter(), sort: sort() }, api = props.api) => {
+    if (disposed || (!reset && moreInFlight)) return;
+    listLoading = true;
+    moreInFlight = !reset;
     const mine = ++generation;
     flagged = new Set();
     setMoreProblem(null);
@@ -128,8 +140,10 @@ export const LibraryPage: Component<{
     } else {
       setLoadingMore(true);
     }
-    const page = await loadFiles(props.api, { ...filter(), cursor, sort: sort() });
+    const page = await loadFiles(api, { ...asked.filter, cursor, sort: asked.sort });
     if (mine !== generation) return;
+    moreInFlight = false;
+    listLoading = false;
     setLoadingMore(false);
     if (page.error) {
       // A failed "load more" must not take the rows already on screen away.
@@ -149,37 +163,83 @@ export const LibraryPage: Component<{
     }
     setNextCursor(page.nextCursor);
     setPhase("ready");
+    if (refreshAfterLoad) {
+      refreshAfterLoad = false;
+      void refreshRows(asked, api);
+    }
   };
 
   /** Read every page loaded so far again and replace the rows in place; selection and open file stay. */
-  const refreshRows = async () => {
+  const readFreshRows = async (asked: { filter: FileFilter; sort: Sort }, api: Api) => {
     const mine = generation;
     let cursor: string | null = null;
     const fresh: FileRow[] = [];
     for (let index = 0; index < pages; index += 1) {
-      const page = await loadFiles(props.api, { ...filter(), cursor, sort: sort() });
+      const page = await loadFiles(api, { ...asked.filter, cursor, sort: asked.sort });
       if (mine !== generation || page.error) return;
       fresh.push(...page.items);
       cursor = page.nextCursor;
       if (!cursor) break;
     }
-    const before = new Map(rows().map((row) => [row.display_path, row]));
+    const previous = rows();
+    const oldKey = uniqueRowKeys(previous, fileKey);
+    const newKey = uniqueRowKeys(fresh, fileKey);
+    const before = new Map(previous.map((row) => [oldKey(row), row]));
+    const after = new Map(fresh.map((row) => [newKey(row), row]));
+    const ids = new Map(previous.flatMap((row) => {
+      const next = after.get(oldKey(row));
+      return next ? [[row.id, next.id] as const] : [];
+    }));
     const stateOf = (row: FileRow) => `${row.compliance_state}|${row.fix_status ?? ""}|${row.discovery_state}`;
-    flagged = new Set(
-      fresh.flatMap((row) => (row.display_path !== undefined && (!before.has(row.display_path) || stateOf(before.get(row.display_path)!) !== stateOf(row)) ? [row.display_path] : [])),
-    );
-    setRows(reuseUnchanged(fresh, rows(), (row) => row.display_path));
+    flagged = new Set(fresh.filter((row) => {
+      const old = before.get(newKey(row));
+      return !old || stateOf(old) !== stateOf(row);
+    }).map((row) => row.id));
+    const focused = document.activeElement;
+    const keepFocus = focused instanceof HTMLElement && !!focused.closest(".files-table");
+    setRows(fresh);
+    setPicked((selected) => new Set([...selected].flatMap((id) => ids.has(id) ? [ids.get(id)!] : [])));
+    anchorId = anchorId ? ids.get(anchorId) : undefined;
+    cursorId = cursorId ? ids.get(cursorId) : undefined;
+    if (props.activeId && ids.has(props.activeId) && ids.get(props.activeId) !== props.activeId) props.onOpen(ids.get(props.activeId));
+    if (keepFocus) onSettled(() => {
+      if (focused.isConnected && document.activeElement === document.body) focused.focus();
+    });
     setNextCursor(cursor);
   };
-  /** What each option would show with the other filters, and how many files match; without an answer no counts show. */
-  const refreshFacetCounts = async () => {
-    const asked = filter();
-    const answer = await loadFacetCounts(props.api, asked);
-    if (sameFilter(asked, filter())) setFacetCounts(answer);
+  // Polls teilen einen laufenden Refresh; eine neue Scan-Invalidierung verlangt danach einen weiteren Read.
+  const refreshRows = (asked = { filter: filter(), sort: sort() }, api = props.api, invalidated = false): Promise<void> => {
+    if (disposed) return Promise.resolve();
+    if (listLoading) {
+      refreshAfterLoad ||= invalidated;
+      return Promise.resolve();
+    }
+    if (refreshFlight?.generation === generation) {
+      refreshFlight.again ||= invalidated;
+      return refreshFlight.promise;
+    }
+    const flight = { generation, again: false, promise: Promise.resolve() };
+    refreshFlight = flight;
+    flight.promise = (async () => {
+      do {
+        flight.again = false;
+        await readFreshRows(asked, api);
+      } while (!disposed && flight.generation === generation && flight.again);
+    })().finally(() => { if (refreshFlight === flight) refreshFlight = undefined; });
+    return flight.promise;
   };
+  /** What each option would show with the other filters, and how many files match; without an answer no counts show. */
+  let countsGeneration = 0;
+  const refreshFacetCounts = async (asked = filter(), api = props.api) => {
+    const mine = ++countsGeneration;
+    const answer = await loadFacetCounts(api, asked);
+    if (!disposed && mine === countsGeneration && sameFilter(asked, filter())) setFacetCounts(answer);
+  };
+  let summaryGeneration = 0;
   const refreshSummary = async () => {
+    const mine = ++summaryGeneration;
     const summary = await loadSummary(props.api);
-    if (!summary) return;
+    if (disposed || mine !== summaryGeneration || !summary) return;
     if (summary.counts) setCounts(summary.counts);
     setJobsActive(summary.jobsActive);
     void refreshFacetCounts();
@@ -189,11 +249,14 @@ export const LibraryPage: Component<{
   const openRemove = () => { removeKey = crypto.randomUUID(); setRemoveError(null); setRemoveOpen(true); };
   const closeRemove = () => { setRemoveOpen(false); queueMicrotask(() => removeTrigger?.focus()); };
   const submitRemove = async () => {
-    if (removeBusy()) return;
+    if (removeInFlight) return;
+    removeInFlight = true;
     setRemoveBusy(true);
     setRemoveError(null);
     const result = await dismissMissing(props.api, removeKey);
+    removeInFlight = false;
     setRemoveBusy(false);
+    if (disposed) return;
     if (!result.ok) { setRemoveError(result.session ? t(SESSION_EXPIRED) : t("Unable to remove missing files. Try again.")); return; }
     setRemoveOpen(false);
     setStatus(tn("Removed {count} missing file from Files. A file that turns up again in a scan is shown again.", "Removed {count} missing files from Files. A file that turns up again in a scan is shown again.", result.removed));
@@ -206,36 +269,45 @@ export const LibraryPage: Component<{
 
   // While a job waits or runs, keep the table and the open file current. The summary is read first
   // so that the last refresh after the final job still sees its result.
-  createEffect(() => {
-    if (!jobsActive()) return;
+  createEffect(jobsActive, (active) => {
+    if (!active) return;
+    let reading = false;
     const timer = window.setInterval(() => {
-      if (document.hidden) return;
+      if (document.hidden || reading) return;
+      reading = true;
       void (async () => {
         await refreshSummary();
+        if (disposed) return;
         await refreshRows();
-        setInspectorVersion((value) => value + 1);
-      })();
+        if (!disposed) setInspectorVersion((value) => value + 1);
+      })().finally(() => { reading = false; });
     }, 4000);
-    onCleanup(() => window.clearInterval(timer));
+    return () => window.clearInterval(timer);
   });
 
-  createEffect(on(() => props.sort, (next) => setSort(next ?? null), { defer: true }));
-  createEffect(on(filter, () => { void load(true); void refreshFacetCounts(); }));
-  createEffect(on(sort, () => void load(true, null, true), { defer: true }));
-  onMount(() => void refreshSummary());
+  createEffect(() => ({ filter: filter(), sort: sort(), api: props.api }), (asked, previous) => {
+    const sortOnly = !!previous && sameFilter(asked.filter, previous.filter);
+    void load(true, null, sortOnly, asked, asked.api);
+    if (!sortOnly) void refreshFacetCounts(asked.filter, asked.api);
+  });
+  onSettled(() => {
+    void refreshSummary();
+    return () => { disposed = true; generation += 1; };
+  });
 
   // A scan that ends (from a schedule or Run now) can bring new files: read list, counts and columns again.
   // Only scans that end while the page is open count; the feed also holds older events.
-  let seenSequence = realtimeState.events().reduce((highest, event) => Math.max(highest, event.sequence), 0);
-  createEffect(on(realtimeState.events, (events) => {
+  const scanUpdate = createMemo(() => ({ events: realtimeState.events(), phase: phase(), filter: filter(), sort: sort(), api: props.api }), { equals: (a, b) => a.events === b.events });
+  createEffect(scanUpdate, (asked, previous) => {
+    const events = asked.events;
+    const seenSequence = (previous?.events ?? []).reduce((highest, event) => Math.max(highest, event.sequence), 0);
     const fresh = events.filter((event) => event.sequence > seenSequence);
     if (fresh.length === 0) return;
-    seenSequence = Math.max(seenSequence, ...fresh.map((event) => event.sequence));
     if (!fresh.some((event) => event.topic === "scan.finished")) return;
-    if (phase() === "ready") void refreshRows(); else void load(true);
+    if (asked.phase === "ready") void refreshRows(asked, asked.api, true); else void load(true, null, false, asked, asked.api);
     void refreshSummary();
     setInspectorVersion((value) => value + 1);
-  }, { defer: true }));
+  }, { defer: true });
 
   const visibleRows = createMemo(() => rows());
   /** The picked files in list order, so job bodies are stable whatever order they were clicked in. */
@@ -320,9 +392,10 @@ export const LibraryPage: Component<{
       many: chosen.length > 1,
       things: chosen.length > 1 ? tn("{count} file", "{count} files", chosen.length) : t("file"),
       act: (action) => void (async () => {
-        if (colBusy()) return;
+        if (colInFlight) return;
+        colInFlight = true;
         setColBusy(true);
-        try { await runOnRows(action, chosen, false); } finally { setColBusy(false); }
+        try { await runOnRows(action, chosen, false); } finally { colInFlight = false; setColBusy(false); }
       })(),
       copyNames: () => copyText(chosen.map((row) => baseName(row.display_path ?? "").title || row.kind).join("\n")),
       copyPaths: () => copyText(chosen.map((row) => row.display_path ?? "").join("\n")),
@@ -405,7 +478,11 @@ export const LibraryPage: Component<{
     }
     setStatus(null);
     setActionError(null);
-    const result = await queueJob(props.api, "verify", ids, keyFor("verify", ids.join(",")));
+    if (verifyInFlight) return;
+    verifyInFlight = true;
+    let result: JobResult;
+    try { result = await queueJob(props.api, "verify", ids, keyFor("verify", ids.join(","))); }
+    finally { verifyInFlight = false; }
     if (result.ok) {
       setPicked(new Set<string>());
       setStatus(skipped > 0 ? tn("Verification job queued. {count} file was left out because only MP4 files can be verified.", "Verification job queued. {count} files were left out because only MP4 files can be verified.", skipped) : t("Verification job queued. Results appear here when it finishes."));
@@ -417,18 +494,19 @@ export const LibraryPage: Component<{
 
   /** Re-inspect the files: an explicit list, else the selection, else the open file. */
   const inspectRows = async (explicit?: string[]) => {
-    if (colBusy()) return;
+    if (colInFlight) return;
     const chosen = targets(explicit);
     if (chosen.length === 0) return;
+    colInFlight = true;
     setColBusy(true);
-    try { await runOnRows("inspect", chosen, false); } finally { setColBusy(false); }
+    try { await runOnRows("inspect", chosen, false); } finally { colInFlight = false; setColBusy(false); }
   };
 
   /** The files a column selection stands for: the files picked, plus every file below each folder picked. */
   const filesOfColumns = async () => {
     const seen = new Set<string>();
     const found: FileRow[] = [];
-    const add = (row: FileRow) => { const key = row.display_path ?? row.id; if (!seen.has(key)) { seen.add(key); found.push(row); } };
+    const add = (row: FileRow) => { const key = fileKey(row) ?? row.id; if (!seen.has(key)) { seen.add(key); found.push(row); } };
     colPicked().files.forEach(add);
     let truncated = false;
     for (const folder of colPicked().folders) {
@@ -479,13 +557,15 @@ export const LibraryPage: Component<{
     }
   };
   const actOnColumns = async (action: ColumnAction) => {
-    if (colBusy() || colCount() === 0) return;
+    if (colInFlight || colCount() === 0) return;
+    colInFlight = true;
     setColBusy(true);
     try {
       const found = await filesOfColumns();
       if (found.error) { setStatus(null); setActionError(found.error === "session" ? t(SESSION_EXPIRED) : t("Unable to read the folders. Try again.")); return; }
       await runOnRows(action, found.rows, found.truncated);
     } finally {
+      colInFlight = false;
       setColBusy(false);
     }
   };
@@ -559,11 +639,11 @@ export const LibraryPage: Component<{
               <Kbd>/</Kbd>
             </div>
             <div class="seg view-switch" role="group" aria-label={t("Files view")}>
-              <button type="button" aria-pressed={view() === "list"} aria-label={t("List")} onClick={() => setView("list")}><Icon name="rows" size={14} /> <span class="seg-label">{t("List")}</span></button>
-              <button type="button" aria-pressed={view() === "columns"} aria-label={t("Columns")} onClick={() => setView("columns")}><Icon name="columns" size={14} /> <span class="seg-label">{t("Columns")}</span></button>
+              <button type="button" aria-pressed={view() === "list" ? "true" : "false"} aria-label={t("List")} onClick={() => setView("list")}><Icon name="rows" size={14} /> <span class="seg-label">{t("List")}</span></button>
+              <button type="button" aria-pressed={view() === "columns" ? "true" : "false"} aria-label={t("Columns")} onClick={() => setView("columns")}><Icon name="columns" size={14} /> <span class="seg-label">{t("Columns")}</span></button>
             </div>
             <Show when={missing() > 0}>
-              <Button variant="quiet" class="remove-missing" ref={(element) => { removeTrigger = element; }} aria-expanded={removeOpen()} onClick={() => (removeOpen() ? closeRemove() : openRemove())}>{t("Remove missing ({count})", { count: missing() })}</Button>
+              <Button variant="quiet" class="remove-missing" ref={(element) => { removeTrigger = element; }} aria-expanded={removeOpen() ? "true" : "false"} onClick={() => (removeOpen() ? closeRemove() : openRemove())}>{t("Remove missing ({count})", { count: missing() })}</Button>
             </Show>
           </div>
           <Show when={removeOpen()}>
@@ -615,7 +695,7 @@ export const LibraryPage: Component<{
 
         <Show when={showColumns()}>
           <ColumnsView api={props.api} filter={filter()} sort={sort()} version={inspectorVersion()} activeId={props.activeId} clearToken={clearToken()}
-            initialPath={recallColumnPath(filter())} onPath={(path) => rememberColumnPath(filter(), path)} onOpen={props.onOpen} onSelection={setColPicked} onAction={(action) => void actOnColumns(action)} />
+            initialPath={recallColumnPath(filter())} onPath={(path, filter) => rememberColumnPath(filter, path)} onOpen={props.onOpen} onSelection={setColPicked} onAction={(action) => void actOnColumns(action)} />
         </Show>
         <div class="lib-scroll" hidden={showColumns()}>
           <Show when={phase() !== "loading"} fallback={<p class="muted pad">{t("Loading files")}</p>}>
@@ -654,7 +734,7 @@ export const LibraryPage: Component<{
                   onSort={toggleSort}
                   onSelect={selectRow}
                   onMenu={onRowMenu}
-                  flagged={(row) => row.display_path !== undefined && flagged.has(row.display_path)}
+                  flagged={(row) => flagged.has(row.id)}
                 />
               </Show>
               <Show when={nextCursor()}>

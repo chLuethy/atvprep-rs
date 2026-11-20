@@ -1,5 +1,5 @@
-import { createSignal, For, onCleanup, onMount, Show, type Component } from "solid-js";
-import { Portal } from "solid-js/web";
+import { createSignal, For, onSettled, Show, type Component } from "solid-js";
+import { Portal } from "@solidjs/web";
 
 export type MenuItem = {
   id: string;
@@ -19,7 +19,7 @@ export type MenuItem = {
 export const RowMenu: Component<{ x: number; y: number; label: string; items: MenuItem[]; onClose: () => void }> = (props) => {
   let menu: HTMLDivElement | undefined;
   const opener = document.activeElement;
-  const [position, setPosition] = createSignal({ left: props.x, top: props.y });
+  const [position, setPosition] = createSignal(() => ({ left: props.x, top: props.y }));
 
   const buttons = () => Array.from(menu?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? []);
   const close = () => {
@@ -27,7 +27,7 @@ export const RowMenu: Component<{ x: number; y: number; label: string; items: Me
     if (opener instanceof HTMLElement) queueMicrotask(() => opener.focus());
   };
 
-  onMount(() => {
+  onSettled(() => {
     // Keep the menu on screen: flip it to the other side of the pointer when it would run off.
     const rect = menu?.getBoundingClientRect();
     if (rect) {
@@ -48,13 +48,13 @@ export const RowMenu: Component<{ x: number; y: number; label: string; items: Me
     window.addEventListener("resize", away);
     window.addEventListener("blur", away);
     document.addEventListener("scroll", scrolled, true);
-    onCleanup(() => {
+    return () => {
       document.removeEventListener("mousedown", outside, true);
       document.removeEventListener("contextmenu", outside, true);
       window.removeEventListener("resize", away);
       window.removeEventListener("blur", away);
       document.removeEventListener("scroll", scrolled, true);
-    });
+    };
   });
 
   const onKeyDown = (event: KeyboardEvent) => {

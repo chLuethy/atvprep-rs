@@ -1,4 +1,6 @@
-import { For, onMount, Show, type Component } from "solid-js";
+import { createEffect, createMemo, For, Show, type Component } from "solid-js";
+import { uniqueRowKeys } from "../../lib/rowKeys";
+import { fileKey } from "./identity";
 import { flash } from "../../lib/flash";
 import { StatusChip } from "../../ui";
 import type { FileRow } from "./loaders";
@@ -29,6 +31,7 @@ export const FileTable: Component<{
   /** Rows to mark as they are built: files that turned up or changed state while the list was open. */
   flagged?: (file: FileRow) => boolean;
 }> = (props) => {
+  const rowKey = createMemo(() => uniqueRowKeys(props.rows, fileKey));
   const tabbable = (id: string, index: number) => (props.activeId ? props.activeId === id : index === 0);
   const header = (column: (typeof COLUMNS)[number]) => {
     const direction = () => (props.sort?.key === column.key ? (props.sort.dir === 1 ? "ascending" : "descending") : undefined);
@@ -52,44 +55,44 @@ export const FileTable: Component<{
         </tr>
       </thead>
       <tbody>
-        <For each={props.rows}>{(file, index) => {
-          const name = () => baseName(file.display_path ?? "");
-          const title = () => name().title || file.kind;
-          const verdict = () => verdictOf(file);
+        <For each={props.rows} keyed={(file) => rowKey()(file)}>{(file, index) => {
+          const name = () => baseName(file().display_path ?? "");
+          const title = () => name().title || file().kind;
+          const verdict = () => verdictOf(file());
           const reason = () => {
             // A file that is gone has nothing to say about its streams; the old verify reason would mislead.
-            if (file.discovery_state === "missing") return t("No longer on disk");
-            const first = (file.compliance_reasons ?? [])[0];
-            return first && file.compliance_state !== "clean" ? parseReason(first).message : "";
+            if (file().discovery_state === "missing") return t("No longer on disk");
+            const first = (file().compliance_reasons ?? [])[0];
+            return first && file().compliance_state !== "clean" ? parseReason(first).message : "";
           };
           let row: HTMLTableRowElement | undefined;
-          onMount(() => { if (row && props.flagged?.(file)) flash(row); });
+          createEffect(() => ({ file: file(), flagged: props.flagged?.(file()) }), ({ flagged }) => { if (row && flagged) flash(row); });
           return (
             <tr
               ref={row}
               class="row"
-              data-id={file.id}
-              tabindex={tabbable(file.id, index()) ? 0 : -1}
-              aria-selected={props.activeId === file.id || props.picked.has(file.id)}
-              data-picked={props.picked.has(file.id) ? "true" : undefined}
+              data-id={file().id}
+              tabindex={tabbable(file().id, index()) ? 0 : -1}
+              aria-selected={props.activeId === file().id || props.picked.has(file().id) ? "true" : "false"}
+              data-picked={props.picked.has(file().id) ? "true" : undefined}
               onClick={(event) => {
                 if ((event.target as HTMLElement).closest("input, a")) return;
-                props.onSelect(file, event);
+                props.onSelect(file(), event);
               }}
-              onContextMenu={(event) => props.onMenu(file, event)}
+              onContextMenu={(event) => props.onMenu(file(), event)}
             >
               <td class="file-cell">
                 <a
                   class="file-title"
-                  href={`/files/${file.id}`}
-                  onClick={(event) => { event.preventDefault(); props.onSelect(file, event); }}
+                  href={`/files/${file().id}`}
+                  onClick={(event) => { event.preventDefault(); props.onSelect(file(), event); }}
                 >{title()}</a>
                 <Show when={name().folder}><span class="file-folder mono">{name().folder}</span></Show>
-                <Show when={file.last_interrupted && !file.fix_status}><span class="interrupted-note">{t("Last preparation interrupted")}</span></Show>
+                <Show when={file().last_interrupted && !file().fix_status}><span class="interrupted-note">{t("Last preparation interrupted")}</span></Show>
               </td>
               <td class="col-status"><StatusChip kind={verdict().kind} icon={verdict().icon}>{verdict().label}</StatusChip></td>
               <td class="col-reason muted"><span class="reason-text">{reason()}</span></td>
-              <td class="num">{formatSize(file.size)}</td>
+              <td class="num">{formatSize(file().size)}</td>
             </tr>
           );
         }}</For>
