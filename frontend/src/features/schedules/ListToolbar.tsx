@@ -12,17 +12,19 @@ export const ListToolbar: Component<{
 }> = (props) => (
   <div class="sched-toolbar">
     <label class="sched-sort">
-      <span class="muted">{t("Sort by")}</span>
+      <span class="label">{t("Sort by")}</span>
       <select class="select" value={props.sort} onChange={(event) => props.onSort(event.currentTarget.value as SortKey)}>
         <For each={SORT_KEYS}>{(choice) => <option value={choice.key}>{t(choice.label)}</option>}</For>
       </select>
     </label>
     <div class="chips" role="group" aria-label={t("Filter schedules by action")}>
+      <span class="label">{t("Action")}</span>
       <For each={LIST_ACTIONS}>{(action) => (
         <button type="button" class="filter-chip" aria-pressed={props.filter.actions.includes(action) ? "true" : "false"} onClick={() => props.onFilter({ ...props.filter, actions: toggled(props.filter.actions, action) })}>{actionName(action)}</button>
       )}</For>
     </div>
     <div class="chips" role="group" aria-label={t("Filter schedules by status")}>
+      <span class="label">{t("Run state")}</span>
       <For each={LIST_STATUSES}>{(choice) => (
         <button type="button" class="filter-chip" aria-pressed={props.filter.statuses.includes(choice.status) ? "true" : "false"} onClick={() => props.onFilter({ ...props.filter, statuses: toggled(props.filter.statuses, choice.status) })}>{t(choice.label)}</button>
       )}</For>

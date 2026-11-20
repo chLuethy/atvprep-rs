@@ -2,8 +2,6 @@ export const dePreview: Record<string, string | readonly [string, string]> = {
   "File": "Datei",
   "Status": "Status",
   "Media files": "Mediendateien",
-  "First reason": "Erster Grund",
-  "No longer on disk": "Nicht mehr auf der Platte",
   "Patch": "Patch",
   "Remux": "Remux",
   "Unchanged": "Unverändert",

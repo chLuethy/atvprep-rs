@@ -40,10 +40,13 @@ const DEFINITIONS: Record<string, Definition> = {
 /** How settings are grouped on the page; anything not listed lands in "Other", read-only. */
 const GROUPS: ReadonlyArray<{ id: string; title: string; keys: readonly string[] }> = [
   { id: "scanning", title: N("Library scan"), keys: ["scan_interval_seconds", "settle_seconds", "max_probe_workers", "scan_exclude_dirs"] },
-  { id: "target", title: N("Target profile"), keys: ["target_crf", "target_prefer_hevc10", "target_keep_av1", "target_fix_dts"] },
   { id: "automation", title: N("Automation"), keys: ["max_ffmpeg_workers"] },
+  { id: "target", title: N("Target profile"), keys: ["target_crf", "target_prefer_hevc10", "target_keep_av1", "target_fix_dts"] },
   { id: "retention", title: N("Retention"), keys: ["event_retention_days", "log_retention_days", "job_retention_days"] },
 ];
+
+/** Groups in the left column of the page; the others (automation, target profile, read-only values) stand on the right. */
+const LEFT_GROUPS: ReadonlySet<string> = new Set(["scanning", "retention"]);
 
 const labelOf = (definition: Definition | undefined) => (definition ? t(definition.label) : undefined);
 /** Settings shown without a control, with the sentence that says what they do. */
@@ -218,6 +221,19 @@ export const SettingsPage: Component<{ api: SettingsApi }> = (props) => {
     return [...listed, other].filter((group) => group.items.length > 0);
   });
 
+  const renderGroup = (group: ReturnType<typeof groups>[number]) => (
+    <section class="setting-group" role="region" aria-label={t(group.title)}>
+      <h3>{t(group.title)}</h3>
+      <Show when={group.id === "other"}>
+        <p class="muted">{t("Read-only. These come from the configuration file; change them there and restart the manager.")}</p>
+      </Show>
+      <Show when={group.id === "target"}>
+        <p class="muted">{t("Verify and Prepare in the manager calculate against these values. Changing a value sets the encoding need of every file to unknown and checks the files again. Jobs already queued have to be queued again. The command line and the import hook do not read it.")}</p>
+      </Show>
+      <For each={group.items}>{renderSetting}</For>
+    </section>
+  );
+
   const renderSetting = (setting: Setting) => {
     const definition = DEFINITIONS[setting.key];
     const currentValue = () => draft()[setting.key] ?? setting.value;
@@ -284,6 +300,7 @@ export const SettingsPage: Component<{ api: SettingsApi }> = (props) => {
       <Show when={loading()}><p class="muted">{t("Loading settings")}</p></Show>
       <Show when={sessionExpired()}><div class="notice bad" role="alert">{t("Session expired. Sign in again to view runtime settings.")}</div></Show>
       <Show when={!loading() && !sessionExpired()}>
+        <div class="settings-body">
         <Show when={error()}><div class="notice bad" role="alert">{error()}</div></Show>
         <Show when={conflict()}>
           <div class="notice bad" role="alert">{t("Someone changed these settings first. The current values were loaded; your edits are still here.")}</div>
@@ -292,27 +309,24 @@ export const SettingsPage: Component<{ api: SettingsApi }> = (props) => {
             <Button variant="quiet" onClick={discard}>{t("Discard my edits")}</Button>
           </div>
         </Show>
-        <For each={groups()}>{(group) => (
-          <section class="setting-group" role="region" aria-label={t(group.title)}>
-            <h3>{t(group.title)}</h3>
-            <Show when={group.id === "other"}>
-              <p class="muted">{t("Read-only. These come from the configuration file; change them there and restart the manager.")}</p>
-            </Show>
-            <Show when={group.id === "target"}>
-              <p class="muted">{t("Verify and Prepare in the manager calculate against these values. Changing a value sets the encoding need of every file to unknown and checks the files again. Jobs already queued have to be queued again. The command line and the import hook do not read it.")}</p>
-            </Show>
-            <For each={group.items}>{renderSetting}</For>
-          </section>
-        )}</For>
-        <section class="setting-group" role="region" aria-label={t("Keyboard shortcuts")}>
-          <h3>{t("Keyboard shortcuts")}</h3>
-          <ShortcutsPanel />
-        </section>
+        <div class="settings-cols">
+          <div class="settings-col">
+            <For each={groups().filter((group) => LEFT_GROUPS.has(group.id))}>{renderGroup}</For>
+            <section class="setting-group" role="region" aria-label={t("Keyboard shortcuts")}>
+              <h3>{t("Keyboard shortcuts")}</h3>
+              <ShortcutsPanel />
+            </section>
+          </div>
+          <div class="settings-col">
+            <For each={groups().filter((group) => !LEFT_GROUPS.has(group.id))}>{renderGroup}</For>
+          </div>
+        </div>
         <Show when={validationErrors().length > 0}><div class="notice bad" role="alert">{validationErrors()[0]}</div></Show>
         <div class="savebar">
           <Show when={hasDraft()}><p role="status">{t("Unsaved changes")}</p></Show>
           <Show when={savedMessage()}><p role="status">{savedMessage()}</p></Show>
           <Button variant="primary" disabled={!hasDraft() || validationErrors().length > 0 || saving()} onClick={() => void save()}>{t("Save settings")}</Button>
+        </div>
         </div>
       </Show>
     </section>

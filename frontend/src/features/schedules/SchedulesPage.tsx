@@ -1,5 +1,5 @@
 import { createEffect, createSignal, For, onSettled, Show, type Component } from "solid-js";
-import { Button, Kbd } from "../../ui";
+import { Button, Kbd, StatusChip } from "../../ui";
 import { language, N, t, tn } from "../../lib/i18n";
 import { isTyping } from "../../lib/keys";
 import { formatDateTime } from "../../lib/time";
@@ -10,8 +10,8 @@ import {
   type Schedule, type ScheduleInput, type TargetProfile,
 } from "./loaders";
 import {
-  actionName, CRON_EXAMPLES, DAYS, defaultState, describeLast, describeNext, describeProfile, describeResult,
-  describeProblem, describeTarget, describeWhen, encodeHint, encodeName, EVERY_DAY, filterSchedules, simpleForm, sortSchedules,
+  actionName, CRON_EXAMPLES, DAYS, defaultState, describeLast, describeProfile, describeResult,
+  describeProblem, describeScope, describeWhen, encodeHint, encodeName, EVERY_DAY, filterSchedules, simpleForm, sortSchedules,
   stateChoices, WEEKDAYS, weeklyCron, type ListFilter, type SortKey,
 } from "./model";
 import { ListToolbar } from "./ListToolbar";
@@ -198,6 +198,8 @@ export const SchedulesPage: Component<{
   };
 
   const toggle = async (schedule: Schedule) => {
+    // A second click while the first request runs must not even draw a new idempotency key.
+    if (operationInFlight) return;
     // Turning on a schedule that changes files needs a confirmation first, with fresh numbers from the server.
     if (!schedule.enabled && changesFiles(schedule.action)) {
       if (operationInFlight) return;
@@ -225,7 +227,7 @@ export const SchedulesPage: Component<{
   const renderCron = () => (
     <>
       <div class="sched-field wide">
-        <label for="sched-cron">{t("Cron expression (server time)")}</label>
+        <label class="label" for="sched-cron">{t("Cron expression (server time)")}</label>
         <input
           id="sched-cron" class="input mono" type="text" spellcheck={false} autocomplete="off"
           value={draft().cron ?? ""} aria-invalid={preview()?.kind === "invalid" ? "true" : "false"} aria-describedby="sched-cron-result"
@@ -241,7 +243,7 @@ export const SchedulesPage: Component<{
               <>
                 <p class="cron-description">{state.description}</p>
                 <Show when={state.nextRuns.length > 0}>
-                  <span class="muted">{t("Next runs")}</span>
+                  <span class="label">{t("Next runs")}</span>
                   <ul class="plain cron-runs" aria-label={t("Next runs")}>
                     <For each={state.nextRuns}>{(run) => <li>{formatDateTime(run, "")}</li>}</For>
                   </ul>
@@ -285,11 +287,11 @@ export const SchedulesPage: Component<{
     >
       <div class="sched-grid">
         <label class="sched-field wide">
-          <span>{t("Name")}</span>
+          <span class="label">{t("Name")}</span>
           <input ref={nameInput} class="input" type="text" maxlength={80} value={draft().name} onInput={(event) => patch({ name: event.currentTarget.value })} />
         </label>
         <div class="sched-field action">
-          <span id="sched-action-label">{t("Action")}</span>
+          <span class="label" id="sched-action-label">{t("Action")}</span>
           <div class="seg" role="group" aria-labelledby="sched-action-label">
             <For each={["verify", "prepare", "scan"] as Action[]}>{(action) => (
               <button type="button" aria-pressed={draft().action === action ? "true" : "false"} disabled={editing()?.id !== null} onClick={() => chooseAction(action)}>{actionName(action)}</button>
@@ -297,7 +299,7 @@ export const SchedulesPage: Component<{
           </div>
         </div>
         <label class="sched-field">
-          <span>{t("Library")}</span>
+          <span class="label">{t("Library")}</span>
           <select class="select" value={draft().rootId ?? ""} onChange={(event) => patch({ rootId: event.currentTarget.value || null })}>
             <option value="">{t("All libraries")}</option>
             <For each={roots()}>{(root) => <option value={root.id}>{root.name}</option>}</For>
@@ -305,14 +307,14 @@ export const SchedulesPage: Component<{
         </label>
         <Show when={stateChoices(draft().action).length > 0}>
           <label class="sched-field">
-            <span>{t("Files that are")}</span>
+            <span class="label">{t("Files that are")}</span>
             <select class="select" value={draft().complianceState ?? ""} onChange={(event) => patch({ complianceState: event.currentTarget.value || null })}>
               <For each={stateChoices(draft().action)}>{(choice) => <option value={choice.value ?? ""}>{choice.label}</option>}</For>
             </select>
           </label>
         </Show>
         <div class="sched-field">
-          <span id="sched-mode-label">{t("Timing")}</span>
+          <span class="label" id="sched-mode-label">{t("Timing")}</span>
           <div class="seg" role="group" aria-labelledby="sched-mode-label">
             <button type="button" aria-pressed={draft().cron === null ? "true" : "false"} onClick={() => chooseMode("simple")}>{t("Simple")}</button>
             <button type="button" aria-pressed={draft().cron !== null ? "true" : "false"} onClick={() => chooseMode("cron")}>{t("Cron")}</button>
@@ -320,7 +322,7 @@ export const SchedulesPage: Component<{
         </div>
         <Show when={draft().cron === null} fallback={renderCron()}>
         <div class="sched-field wide">
-          <span id="sched-days-label">{t("Days")}</span>
+          <span class="label" id="sched-days-label">{t("Days")}</span>
           <div class="chips" role="group" aria-labelledby="sched-days-label">
             <For each={DAYS}>{(day) => (
               <button type="button" class="filter-chip" aria-pressed={draft().days.includes(day.index) ? "true" : "false"} aria-label={t(day.long)} onClick={() => toggleDay(day.index)}>{t(day.short)}</button>
@@ -330,20 +332,20 @@ export const SchedulesPage: Component<{
           </div>
         </div>
         <label class="sched-field">
-          <span>{t("Time (server time)")}</span>
+          <span class="label">{t("Time (server time)")}</span>
           <input class="input" type="time" value={draft().time} onInput={(event) => patch({ time: event.currentTarget.value })} />
         </label>
         </Show>
         <Show when={draft().action !== "scan"}>
           <div class="sched-field">
-            <label for="sched-max-files">{t("Files per run")}</label>
+            <label class="label" for="sched-max-files">{t("Files per run")}</label>
             <input id="sched-max-files" class="input" type="number" min="1" max={maxFilesFor(draft().action, draft().encode) ?? undefined} value={draft().maxFiles} aria-describedby="sched-max-files-hint" onInput={(event) => patch({ maxFiles: Number(event.currentTarget.value) })} />
             <span id="sched-max-files-hint" class="muted">{(() => { const cap = maxFilesFor(draft().action, draft().encode); return cap === null ? "" : t("At most {max} files per run.", { max: cap }); })()}</span>
           </div>
         </Show>
         <Show when={changesFiles(draft().action)}>
           <div class="sched-field wide" role="radiogroup" aria-labelledby="sched-encode-label" aria-describedby="sched-encode-hint">
-            <span id="sched-encode-label">{t("Encoding allowance")}</span>
+            <span class="label" id="sched-encode-label">{t("Encoding allowance")}</span>
             <For each={ENCODE_LEVELS}>{(level) => (
               <div class="sched-encode">
                 <label>
@@ -396,13 +398,15 @@ export const SchedulesPage: Component<{
       <For each={schedule.runs ?? []}>
         {(run) => (
           <li>
-            <span class="muted">{formatDateTime(run.started_at, "")}</span>
+            <span class="mono muted">{formatDateTime(run.started_at, "")}</span>
             <span>{run.trigger === "scheduled" ? t("Scheduled") : t("By hand")}</span>
-            <span>{describeResult(run.result)}</span>
-            <Show when={run.kind === "missed"}><span class="muted">{t("Adjust the schedule or check that the manager is running.")}</span></Show>
-            <Show when={run.job_id}>
-              {(job) => <a href={`/jobs/${encodeURIComponent(job())}`}>{t("Open job")}</a>}
-            </Show>
+            <span class="sched-result">
+              <span class={run.kind === "missed" ? "warn-text" : ""}>{run.kind === "missed" ? "\u25B2 " : ""}{describeResult(run.result)}</span>
+              <Show when={run.kind === "missed"}><span class="muted">{t("Adjust the schedule or check that the manager is running.")}</span></Show>
+              <Show when={run.job_id}>
+                {(job) => <a href={`/jobs/${encodeURIComponent(job())}`}>{t("Open job")}</a>}
+              </Show>
+            </span>
           </li>
         )}
       </For>
@@ -459,57 +463,86 @@ export const SchedulesPage: Component<{
   );
 
   const renderRow = (schedule: Schedule) => (
-    <li class={["sched-row", { paused: !schedule.enabled }]} data-id={schedule.id}>
-      <div class="sched-line">
-        <label class="sched-switch">
-          <input type="checkbox" checked={schedule.enabled} disabled={busy()} aria-label={schedule.enabled ? t("Pause {name}", { name: schedule.name }) : t("Turn on {name}", { name: schedule.name })} onChange={(event) => {
-            // The toggle shows the confirmed server response, not the local click.
-            event.currentTarget.checked = schedule.enabled;
-            toggle(schedule);
-          }} />
-        </label>
-        <div class="sched-main">
-          <b class="sched-name">{schedule.name}</b>
-          <span class="muted sched-target">{describeTarget(schedule)}</span>
-        </div>
-        <div class="sched-when">
-          <span>{describeWhen(schedule)}</span>
-          <span class="muted">{describeNext(schedule)}</span>
-        </div>
-        <div class="sched-last">
-          <Show when={schedule.last_run_at} fallback={<span class="muted">{t("Never run")}</span>}>
-            <span>{describeLast(schedule)}</span>
-            <Show when={schedule.last_job_id}>
-              {(job) => <a href={`/jobs/${encodeURIComponent(job())}`}>{t("Open job")}</a>}
+    <li class="sched-item" data-id={schedule.id}>
+      <article class={["sched-card", { paused: !schedule.enabled }]} aria-label={schedule.name}>
+        {/* Five columns of the same widths in every card, so the dashed column lines stand under one another. */}
+        <div class="sched">
+          <div class="sched-main">
+            <b class="sched-name">{schedule.name}</b>
+            <span class="chip neutral">{actionName(schedule.action)}</span>
+          </div>
+          <div class="sched-when guide-l">
+            <span class="label">{t("Timing")}</span>
+            <span>{describeWhen(schedule)}</span>
+            <Show when={simpleForm(schedule.cron)}><span class="mono muted">{schedule.cron}</span></Show>
+          </div>
+          <div class="sched-scope guide-l">
+            <span class="label">{t("Scope")}</span>
+            <span>{describeScope(schedule)}</span>
+            <Show when={schedule.matching !== null}>
+              <span class="muted sched-small">{tn("{count} file matches now", "{count} files match now", schedule.matching ?? 0)}</span>
             </Show>
-          </Show>
-          <Show when={schedule.matching !== null}>
-            <span class="muted">{tn("{count} file matches now", "{count} files match now", schedule.matching ?? 0)}</span>
-          </Show>
+          </div>
+          <div class="sched-last guide-l">
+            <Show when={schedule.enabled}>
+              <span class="label">{t("Next run")}</span>
+              <span>{schedule.next_run_at ? formatDateTime(schedule.next_run_at, t("unknown")) : t("No upcoming run")}</span>
+            </Show>
+            <span class="label">{t("Last run")}</span>
+            <Show when={schedule.last_run_at} fallback={<span class="muted">{t("Never run")}</span>}>
+              <span>{describeLast(schedule)}</span>
+              <Show when={schedule.last_job_id}>
+                {(job) => <a href={`/jobs/${encodeURIComponent(job())}`}>{t("Open job")}</a>}
+              </Show>
+            </Show>
+          </div>
+          <div class="sched-state guide-l">
+            <Show when={schedule.enabled} fallback={<StatusChip kind="neutral" icon="dot">{t("Paused")}</StatusChip>}>
+              <StatusChip kind="ok" icon="check">{t("On")}</StatusChip>
+            </Show>
+          </div>
         </div>
+        {/* Frequent actions at the left, rare ones at the right; the band wraps when the card is narrow. */}
         <div class="sched-actions">
-          <Button variant="quiet" disabled={busy()} onClick={() => { fresh(); void act(() => runScheduleNow(props.api, schedule.id, key), t("Run started. The result is on the schedule."), t("Unable to run the schedule.")); }}>{t("Run now")}</Button>
-          <Button variant="quiet" disabled={busy()} onClick={() => openEdit(schedule)}>{t("Edit")}</Button>
-          <Button variant="quiet" disabled={busy()} onClick={() => openDuplicate(schedule)}>{t("Duplicate")}</Button>
-          <Button variant="quiet" disabled={busy()} onClick={() => ask(schedule.id, "delete")}>{t("Delete")}</Button>
+          <div class="sched-actions-main">
+            <Button
+              variant={schedule.enabled ? "default" : "primary"} disabled={busy()}
+              aria-label={schedule.enabled ? t("Pause {name}", { name: schedule.name }) : t("Turn on {name}", { name: schedule.name })}
+              onClick={() => toggle(schedule)}
+            >
+              {schedule.enabled ? t("Pause") : t("Turn on")}
+            </Button>
+            <Button disabled={busy()} onClick={() => { fresh(); void act(() => runScheduleNow(props.api, schedule.id, key), t("Run started. The result is on the schedule."), t("Unable to run the schedule.")); }}>{t("Run now")}</Button>
+            <Button disabled={busy()} onClick={() => openEdit(schedule)}>{t("Edit")}</Button>
+          </div>
+          <div class="sched-actions-end">
+            <Button variant="quiet" disabled={busy()} onClick={() => openDuplicate(schedule)}>{t("Duplicate")}</Button>
+            <Button variant="quiet" disabled={busy()} onClick={() => ask(schedule.id, "delete")}>{t("Delete")}</Button>
+            <Show when={(schedule.runs ?? []).length > 0}>
+              <Button variant="quiet" aria-expanded={openHistory().has(schedule.id) ? "true" : "false"} aria-label={t("History of {name}", { name: schedule.name })} onClick={() => toggleHistory(schedule.id)}>
+                {t("History")} ({(schedule.runs ?? []).length})
+              </Button>
+            </Show>
+          </div>
         </div>
-      </div>
-      <Show when={(schedule.runs ?? []).length > 0}>
-        <button type="button" class="sched-history-toggle" aria-expanded={openHistory().has(schedule.id) ? "true" : "false"} aria-label={t("History of {name}", { name: schedule.name })} onClick={() => toggleHistory(schedule.id)}>
-          {t("History")} ({(schedule.runs ?? []).length})
-        </button>
-        <Show when={openHistory().has(schedule.id)}>{renderHistory(schedule)}</Show>
-      </Show>
-      <Show when={asking()?.id === schedule.id && asking()?.kind === "delete"}>{renderQuestion(schedule)}</Show>
-      <Show when={asking()?.id === schedule.id && asking()?.kind === "enable"}>{renderEnableQuestion(schedule)}</Show>
-      <Show when={rowError() && asking() === null}><p class="notice bad" role="alert">{rowError()}</p></Show>
+        <Show when={openHistory().has(schedule.id) && (schedule.runs ?? []).length > 0}>{renderHistory(schedule)}</Show>
+        <Show when={asking()?.id === schedule.id && asking()?.kind === "delete"}>{renderQuestion(schedule)}</Show>
+        <Show when={asking()?.id === schedule.id && asking()?.kind === "enable"}>{renderEnableQuestion(schedule)}</Show>
+        <Show when={rowError() && asking() === null}><p class="notice bad" role="alert">{rowError()}</p></Show>
+      </article>
     </li>
   );
 
   return (
     <section class="schedules" aria-labelledby="schedules-title" onKeyDown={onKeyDown}>
+      <div class="sched-page">
       <header class="sched-head">
-        <h1 id="schedules-title">{t("Schedules")}</h1>
+        <div class="sched-titlebar">
+          <h1 id="schedules-title">{t("Schedules")}</h1>
+          <Show when={phase() === "ready" && rows().length > 0}>
+            <span class="sched-count">{t("{on} of {total} on", { on: rows().filter((row) => row.enabled).length, total: rows().length })}</span>
+          </Show>
+        </div>
         <Button variant="primary" ref={(element) => { newButton = element; }} aria-expanded={editing() !== null ? "true" : "false"} onClick={openNew}>{t("New schedule")} <Kbd>N</Kbd></Button>
       </header>
       <p class="muted sched-lede">{t("Check or prepare the files that match a filter, or scan your libraries, on the days and time you choose. Times are the server's.")}</p>
@@ -554,6 +587,7 @@ export const SchedulesPage: Component<{
           </Show>
         </Show>
       </Show>
+      </div>
     </section>
   );
 };

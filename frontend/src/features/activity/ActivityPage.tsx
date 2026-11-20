@@ -13,6 +13,7 @@ import { createFacetFilter } from "../../lib/facetFilter";
 import { N, t, tn } from "../../lib/i18n";
 import { autoDismiss } from "../../lib/autoDismiss";
 import { useClock } from "../../lib/clock";
+import { SINGLE_COLUMN_MAX } from "../../lib/fitBottom";
 import { baseName } from "../files/model";
 import { actionLabel, isActive, jobPercent, jobProgress, jobTitle, jobTone, partitionJobs, runningFor } from "./model";
 
@@ -288,6 +289,12 @@ export const ActivityPage: Component<{
     return () => window.clearInterval(timer);
   });
 
+  // Up to SINGLE_COLUMN_MAX the detail stands under the list: bring it into view when a job is opened.
+  let side: HTMLElement | undefined;
+  const revealDetail = () => {
+    if (window.matchMedia?.(`(max-width: ${SINGLE_COLUMN_MAX}px)`).matches) side?.scrollIntoView?.({ block: "start" });
+  };
+
   const move = (delta: number, from: string | undefined) => {
     const list = [...grouped().active, ...grouped().history];
     const index = from ? list.findIndex((row) => row.id === from) : -1;
@@ -312,14 +319,14 @@ export const ActivityPage: Component<{
       <section class="job-group" role="region" aria-label={label}>
         <h2>{label}</h2>
         <ul class="plain">
-          <For each={list()} keyed={(job) => rowKey()(job)}>{(job) => <Row job={job()} current={isCurrent(job())} flagged={flagged.has(job().id)} onOpen={(id) => { setNotice(null); props.onOpen(id); }} />}</For>
+          <For each={list()} keyed={(job) => rowKey()(job)}>{(job) => <Row job={job()} current={isCurrent(job())} flagged={flagged.has(job().id)} onOpen={(id) => { setNotice(null); props.onOpen(id); revealDetail(); }} />}</For>
         </ul>
       </section>
     </Show>
   );
 
   return (
-    <div class="library activity" data-pane={props.activeId ? "detail" : "list"} onKeyDown={onKeyDown}>
+    <div class="library activity" onKeyDown={onKeyDown}>
       <section class="lib-main" aria-label={t("Activity")}>
         <div class="lib-bar">
           <div class="lib-bar-top">
@@ -410,8 +417,7 @@ export const ActivityPage: Component<{
           </Show>
         </div>
       </section>
-      <aside class="lib-side" aria-label={t("Job details")}>
-        <Button variant="quiet" class="back-to-list" onClick={() => props.onOpen(undefined)}>{t("Back to list")}</Button>
+      <aside class="lib-side" ref={(element) => { side = element; }} aria-label={t("Job details")}>
         <Show when={props.activeId} fallback={<div class="empty"><b>{t("Select a job to see what it did")}</b>{t("Use the arrow keys to move through the list.")}</div>}>
           {(_id) => <JobDetail api={props.api} jobId={currentJobId()!} identity={opened().identity} onChanged={() => void refresh()} onRetried={(newId) => { void refresh(); setNotice(t("Retry queued. Showing the new job.")); props.onOpen(newId); }} onRaised={(newId) => { void refresh(); setNotice(t("Preparation queued. Showing the new job.")); props.onOpen(newId); }} />}
         </Show>

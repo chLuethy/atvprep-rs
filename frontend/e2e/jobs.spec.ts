@@ -127,4 +127,33 @@ test.describe("activity journey", () => {
     await page.getByRole("button", { name: "Confirm retry" }).click();
     await expect(page.getByRole("status")).toContainText("Retry queued");
   });
+  test("puts the detail beside the list, and under it below 1180 px, with widths in classes", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openAndUnlock(page, "/jobs");
+    await page.getByRole("region", { name: "History" }).getByRole("link", { name: /Failed Movie/ }).first().click();
+    await expect(page.getByRole("heading", { name: "Failed Movie" })).toBeVisible();
+    const list = page.getByRole("region", { name: "Activity" });
+    const detail = page.getByRole("complementary", { name: "Job details" });
+    const box = async (locator: typeof list) => (await locator.boundingBox())!;
+
+    const wideList = await box(list);
+    const wideDetail = await box(detail);
+    expect(wideDetail.x).toBeGreaterThan(wideList.x + wideList.width - 1);
+    expect(Math.abs(wideDetail.y - wideList.y)).toBeLessThan(40);
+    // The detail takes the rest of the width; the list stays a column.
+    expect(wideDetail.width).toBeGreaterThan(wideList.width);
+
+    // Column widths are classes, so a media query can change them: nothing on the page sets a width inline.
+    expect(await page.locator(".activity [style*='width'], .activity [style*='grid-template']").count()).toBe(0);
+
+    await page.setViewportSize({ width: 1000, height: 900 });
+    const narrowList = await box(list);
+    const narrowDetail = await box(detail);
+    expect(narrowDetail.x).toBeCloseTo(narrowList.x, 0);
+    expect(narrowDetail.y).toBeGreaterThan(narrowList.y + narrowList.height - 1);
+    await expect(page.getByRole("heading", { name: "Failed Movie" })).toBeVisible();
+    // The page itself scrolls to the detail; no pane is cut off.
+    const cut = await page.locator(".activity").evaluate((el) => el.scrollWidth - el.clientWidth);
+    expect(cut).toBeLessThanOrEqual(0);
+  });
 });

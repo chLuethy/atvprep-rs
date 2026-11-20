@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { flush } from "solid-js";
 import { setLanguage } from "../src/lib/i18n";
 import { SchedulesPage } from "../src/features/schedules/SchedulesPage";
-import { describeDays, describeProblem, describeProfile, describeResult, describeTarget, simpleForm, stateChoices, weeklyCron } from "../src/features/schedules/model";
+import { describeDays, describeProblem, describeProfile, describeResult, simpleForm, stateChoices, weeklyCron } from "../src/features/schedules/model";
 
 import type { Schedule } from "../src/features/schedules/loaders";
 
@@ -49,14 +49,6 @@ describe("schedule wording", () => {
     expect(describeDays([0, 1, 2, 3, 4, 5, 6])).toBe("Every day");
     expect(describeDays([5, 6])).toBe("Weekends");
     expect(describeDays([4, 0, 2])).toBe("Mon Wed Fri");
-  });
-
-  it("summarises what a schedule acts on", () => {
-    expect(describeTarget({ action: "verify", root_name: "Film", compliance_state: "unknown", max_files: 25 })).toBe("Verify · Film · Not verified · up to 25 files");
-    expect(describeTarget({ action: "prepare", root_name: null, compliance_state: null, max_files: 1, encode: "copy" })).toBe("Prepare · All libraries · up to 1 file · Copy only");
-    expect(describeTarget({ action: "prepare", root_name: "TV", compliance_state: null, max_files: 3, encode: "all" })).toBe("Prepare · TV · up to 3 files · Encode audio and video");
-    expect(describeTarget({ action: "scan", root_name: null, compliance_state: null, max_files: null })).toBe("Scan · All libraries");
-    expect(describeTarget({ action: "scan", root_name: "Film", compliance_state: null, max_files: null })).toBe("Scan · Film");
   });
 
   it("puts the scan results of the server into words", () => {
@@ -183,7 +175,8 @@ describe("SchedulesPage", () => {
 
     const list = await view.findByRole("list", { name: "Schedules" });
     expect(list).toHaveTextContent("Nightly verify");
-    expect(list).toHaveTextContent("Verify · Film · Not verified · up to 25 files");
+    expect(list).toHaveTextContent("Verify");
+    expect(list).toHaveTextContent("Film · Not verified · up to 25 files");
     expect(list).toHaveTextContent("Weekdays · 03:00");
     expect(list).toHaveTextContent("Queued 12 files");
     expect(list).toHaveTextContent("12 files match now");
@@ -196,7 +189,7 @@ describe("SchedulesPage", () => {
 
     const list = await view.findByRole("list", { name: "Schedules" });
     expect(within(list).getByText("Paused")).toBeInTheDocument();
-    expect(view.getByRole("checkbox", { name: "Turn on Nightly verify" })).not.toBeChecked();
+    expect(view.getByRole("button", { name: "Turn on Nightly verify" })).toBeInTheDocument();
   });
 
   it("creates a verify schedule from the editor, and it is on", async () => {
@@ -254,9 +247,26 @@ describe("SchedulesPage", () => {
     );
     const view = render(() => <SchedulesPage api={state.api} />);
 
-    await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Nightly verify" }));
+    await fireEvent.click(await view.findByRole("button", { name: "Turn on Nightly verify" }));
 
     await waitFor(() => expect(patches).toEqual([{ enabled: true }]));
+  });
+
+  it("sends one request when the switch is clicked twice before the answer, and names the button as it reads", async () => {
+    const patches: unknown[] = [];
+    const state = makeApi(
+      [schedule()],
+      { "PATCH /schedules/sc_1": (init) => { patches.push(JSON.parse(String(init?.body))); return json(schedule({ enabled: false, next_run_at: null })); } },
+    );
+    const view = render(() => <SchedulesPage api={state.api} />);
+    const button = await view.findByRole("button", { name: "Pause Nightly verify" });
+
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    await waitFor(() => expect(patches).toEqual([{ enabled: false }]));
+    expect(button).toHaveAttribute("aria-label", "Pause Nightly verify");
+    expect(button).toHaveTextContent("Pause");
   });
 
   it("asks before turning on a schedule that changes files, and sends the confirmation", async () => {
@@ -267,7 +277,7 @@ describe("SchedulesPage", () => {
     );
     const view = render(() => <SchedulesPage api={state.api} />);
 
-    await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Weekly prepare" }));
+    await fireEvent.click(await view.findByRole("button", { name: "Turn on Weekly prepare" }));
     const question = await view.findByRole("region", { name: "Turn on Weekly prepare" });
     expect(question).toHaveTextContent("up to 10");
     expect(question).toHaveTextContent("originals are kept");
@@ -276,7 +286,7 @@ describe("SchedulesPage", () => {
     expect(patches).toEqual([]);
     expect(view.queryByRole("region", { name: "Turn on Weekly prepare" })).toBeNull();
 
-    await fireEvent.click(view.getByRole("checkbox", { name: "Turn on Weekly prepare" }));
+    await fireEvent.click(view.getByRole("button", { name: "Turn on Weekly prepare" }));
     await fireEvent.click(within(await view.findByRole("region", { name: "Turn on Weekly prepare" })).getByRole("button", { name: "Confirm turn on" }));
     await waitFor(() => expect(patches).toEqual([{ enabled: true, confirm_changes_files: true }]));
   });
@@ -291,7 +301,7 @@ describe("SchedulesPage", () => {
     for (const { encode, deleteOriginal, text, not } of cases) {
       const state = makeApi([prepareSchedule({ enabled: false, encode, profile: { ...PROFILE, crf: 21 } })], {}, { deleteOriginal });
       const view = render(() => <SchedulesPage api={state.api} />);
-      await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Weekly prepare" }));
+      await fireEvent.click(await view.findByRole("button", { name: "Turn on Weekly prepare" }));
       const question = await view.findByRole("region", { name: "Turn on Weekly prepare" });
       expect(question).toHaveTextContent(text);
       expect(question).toHaveTextContent("Target profile: CRF 21, HEVC10 off, keep AV1 off, DTS fix off");
@@ -308,7 +318,7 @@ describe("SchedulesPage", () => {
     ] as const) {
       const state = makeApi([prepareSchedule({ enabled: false, encode })]);
       const view = render(() => <SchedulesPage api={state.api} />);
-      await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Weekly prepare" }));
+      await fireEvent.click(await view.findByRole("button", { name: "Turn on Weekly prepare" }));
       expect(await view.findByRole("region", { name: "Turn on Weekly prepare" })).toHaveTextContent(text);
       view.unmount();
     }
@@ -323,7 +333,7 @@ describe("SchedulesPage", () => {
     await view.findByText("Weekly prepare");
     state.set([prepareSchedule({ enabled: false, matching: 37, encode: "all" })]);
 
-    await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Weekly prepare" }));
+    await fireEvent.click(await view.findByRole("button", { name: "Turn on Weekly prepare" }));
     const question = await view.findByRole("region", { name: "Turn on Weekly prepare" });
 
     expect(question).toHaveTextContent("10 files match now");
@@ -339,7 +349,7 @@ describe("SchedulesPage", () => {
       { deleteOriginal: true },
     );
     const view = render(() => <SchedulesPage api={state.api} />);
-    await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Nightly scan" }));
+    await fireEvent.click(await view.findByRole("button", { name: "Turn on Nightly scan" }));
     await waitFor(() => expect(patches).toEqual([{ enabled: true }]));
     expect(view.queryByRole("region", { name: "Turn on Nightly scan" })).toBeNull();
   });
@@ -352,7 +362,7 @@ describe("SchedulesPage", () => {
     );
     const view = render(() => <SchedulesPage api={state.api} />);
 
-    await fireEvent.click(await view.findByRole("checkbox", { name: "Pause Weekly convert" }));
+    await fireEvent.click(await view.findByRole("button", { name: "Pause Weekly convert" }));
 
     await waitFor(() => expect(patches).toEqual([{ enabled: false }]));
   });
@@ -416,7 +426,8 @@ describe("SchedulesPage", () => {
     const view = render(() => <SchedulesPage api={api} />);
 
     const list = await view.findByRole("list", { name: "Schedules" });
-    expect(list).toHaveTextContent("Prepare · Film · up to 25 files · Encode audio");
+    expect(list).toHaveTextContent("Prepare");
+    expect(list).toHaveTextContent("Film · up to 25 files · Encode audio");
   });
 
   it("creates a scan schedule without file filter or files per run", async () => {
@@ -449,10 +460,11 @@ describe("SchedulesPage", () => {
     const view = render(() => <SchedulesPage api={state.api} />);
 
     const list = await view.findByRole("list", { name: "Schedules" });
-    expect(list).toHaveTextContent("Scan · Film");
+    expect(list).toHaveTextContent("Scan");
+    expect(list).toHaveTextContent("Film");
     expect(list).toHaveTextContent("Queued 1 scan");
     expect(list.textContent).not.toMatch(/files? match/);
-    await fireEvent.click(view.getByRole("checkbox", { name: "Turn on Nightly scan" }));
+    await fireEvent.click(view.getByRole("button", { name: "Turn on Nightly scan" }));
     await waitFor(() => expect(patches).toEqual([{ enabled: true }]));
     const runNow = await view.findByRole("button", { name: "Run now" });
     await waitFor(() => expect(runNow).toBeEnabled());
@@ -485,7 +497,7 @@ describe("SchedulesPage", () => {
     const view = render(() => <SchedulesPage api={state.api} />);
     await view.findByRole("list", { name: "Schedules" });
     if (operation === "pause") {
-      await fireEvent.click(view.getByRole("checkbox", { name: "Pause Nightly verify" }));
+      await fireEvent.click(view.getByRole("button", { name: "Pause Nightly verify" }));
     } else if (operation === "delete") {
       await fireEvent.click(view.getByRole("button", { name: "Delete" }));
       await fireEvent.click(await view.findByRole("button", { name: "Confirm delete" }));
@@ -512,7 +524,7 @@ describe("SchedulesPage", () => {
         : new Promise<Response>((resolve) => { finish = resolve; }),
     });
     const view = render(() => <SchedulesPage api={state.api} />);
-    await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Weekly prepare" }));
+    await fireEvent.click(await view.findByRole("button", { name: "Turn on Weekly prepare" }));
     await waitFor(() => expect(finish).toBeTypeOf("function"));
     view.unmount();
     const requests = state.calls.length;

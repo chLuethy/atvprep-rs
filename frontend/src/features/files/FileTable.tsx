@@ -6,17 +6,19 @@ import { StatusChip } from "../../ui";
 import type { FileRow } from "./loaders";
 import type { FileSort } from "./filters";
 import { N, t } from "../../lib/i18n";
-import { baseName, formatSize, parseReason, verdictOf } from "./model";
+import { baseName, formatSize, verdictOf } from "./model";
+import { changeLabel, needLabel } from "./preparePlan";
 
 /** The keys a column header sorts by; "recently added" has no column. */
 export type SortKey = "title" | "status" | "size";
 export type Sort = FileSort;
 
-const COLUMNS: ReadonlyArray<{ key: SortKey; label: string; className?: string }> = [
-  { key: "title", label: N("File") },
-  { key: "status", label: N("Status") },
-  { key: "size", label: N("Size"), className: "num" },
-];
+/** Library, Encoding need and Change drop out of a narrow list (`opt`): the name and the status stay. */
+const SORTABLE: Record<SortKey, { label: string; className: string }> = {
+  title: { label: N("File"), className: "" },
+  status: { label: N("Status"), className: "g" },
+  size: { label: N("Size"), className: "g num" },
+};
 
 /** The dense list. It only renders and reports; selection and loading live in the page. */
 export const FileTable: Component<{
@@ -30,14 +32,17 @@ export const FileTable: Component<{
   onMenu: (file: FileRow, event: MouseEvent) => void;
   /** Rows to mark as they are built: files that turned up or changed state while the list was open. */
   flagged?: (file: FileRow) => boolean;
+  /** The name of a library by its id; an unknown id shows as it is. */
+  libraryName?: (rootId: string) => string;
 }> = (props) => {
   const rowKey = createMemo(() => uniqueRowKeys(props.rows, fileKey));
   const tabbable = (id: string, index: number) => (props.activeId ? props.activeId === id : index === 0);
-  const header = (column: (typeof COLUMNS)[number]) => {
-    const direction = () => (props.sort?.key === column.key ? (props.sort.dir === 1 ? "ascending" : "descending") : undefined);
+  const header = (key: SortKey) => {
+    const column = SORTABLE[key];
+    const direction = () => (props.sort?.key === key ? (props.sort.dir === 1 ? "ascending" : "descending") : undefined);
     return (
-      <th scope="col" class={[column.className, column.key === "status" ? "col-status" : ""].filter(Boolean).join(" ")} aria-sort={direction() ?? "none"}>
-        <button type="button" class="th-btn" onClick={() => props.onSort(column.key)}>
+      <th scope="col" class={column.className} aria-sort={direction() ?? "none"}>
+        <button type="button" class="th-btn" onClick={() => props.onSort(key)}>
           {t(column.label)}
           <span aria-hidden="true">{direction() === "ascending" ? " ↑" : direction() === "descending" ? " ↓" : ""}</span>
         </button>
@@ -49,9 +54,12 @@ export const FileTable: Component<{
     <table class="files-table" aria-label={t("Media files")}>
       <thead>
         <tr>
-          <For each={COLUMNS.slice(0, 2)}>{header}</For>
-          <th scope="col" class="col-reason">{t("First reason")}</th>
-          {header(COLUMNS[2]!)}
+          {header("title")}
+          <th scope="col" class="g opt">{t("Library")}</th>
+          {header("status")}
+          <th scope="col" class="g opt">{t("Encoding need")}</th>
+          <th scope="col" class="g opt">{t("Change")}</th>
+          {header("size")}
         </tr>
       </thead>
       <tbody>
@@ -59,12 +67,6 @@ export const FileTable: Component<{
           const name = () => baseName(file().display_path ?? "");
           const title = () => name().title || file().kind;
           const verdict = () => verdictOf(file());
-          const reason = () => {
-            // A file that is gone has nothing to say about its streams; the old verify reason would mislead.
-            if (file().discovery_state === "missing") return t("No longer on disk");
-            const first = (file().compliance_reasons ?? [])[0];
-            return first && file().compliance_state !== "clean" ? parseReason(first).message : "";
-          };
           let row: HTMLTableRowElement | undefined;
           createEffect(() => ({ file: file(), flagged: props.flagged?.(file()) }), ({ flagged }) => { if (row && flagged) flash(row); });
           return (
@@ -90,9 +92,11 @@ export const FileTable: Component<{
                 <Show when={name().folder}><span class="file-folder mono">{name().folder}</span></Show>
                 <Show when={file().last_interrupted && !file().fix_status}><span class="interrupted-note">{t("Last preparation interrupted")}</span></Show>
               </td>
-              <td class="col-status"><StatusChip kind={verdict().kind} icon={verdict().icon}>{verdict().label}</StatusChip></td>
-              <td class="col-reason muted"><span class="reason-text">{reason()}</span></td>
-              <td class="num">{formatSize(file().size)}</td>
+              <td class="g opt muted">{props.libraryName?.(file().root_id) ?? file().root_id}</td>
+              <td class="g col-status"><StatusChip kind={verdict().kind} icon={verdict().icon}>{verdict().label}</StatusChip></td>
+              <td class="g opt">{needLabel(file().encode_need)}</td>
+              <td class="g opt">{changeLabel(file().planned_change)}</td>
+              <td class="g num">{formatSize(file().size)}</td>
             </tr>
           );
         }}</For>

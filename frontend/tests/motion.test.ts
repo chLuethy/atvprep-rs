@@ -52,11 +52,13 @@ describe("motion", () => {
     const loops = [...all.matchAll(/([^{}]+)\{[^}]*animation:[^;]*infinite/g)].map((match) => match[1]!.trim());
     expect(loops.sort()).toEqual([".chip.live::before", ".logo.busy .logo-cursor"]);
     expect(ms("--dur-loop")).toBeGreaterThanOrEqual(2000);
-    expect(all).toMatch(/\.chip\.live\s*\{[^}]*background:/); // the steady tint is there when animation is off
+    expect(all).toMatch(/\.chip\.live\s*\{[^}]*border-color:\s*var\(--accent\)/); // the steady accent hairline is there when animation is off
     expect(all).not.toMatch(/@keyframes pulse\b/);
   });
 
   it("has a tint for what just changed, in light and dark", () => {
-    expect(tokens.match(/--changed:/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
+    // One derived token in the theme scaffold: it follows the seeds, so it holds in light and dark.
+    const theme = readFileSync(join(dir, "theme.css"), "utf8");
+    expect(theme).toMatch(/--changed:\s*color-mix\(/);
   });
 });
