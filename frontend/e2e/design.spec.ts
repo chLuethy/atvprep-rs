@@ -16,16 +16,15 @@ const PAGES: ReadonlyArray<{ name: string; path: string; ready: string; prepare?
       await editor.getByRole("button", { name: "Cron", exact: true }).click();
       await editor.getByRole("button", { name: "Cron guide" }).click();
       await expect(editor.getByText("Examples. Click one to use it.")).toBeVisible();
-      // The pressed button fades to its colour; axe must not measure it half way.
-      await page.waitForTimeout(400);
     },
   },
   { name: "Settings", path: "/settings", ready: "Runtime settings" },
   // A failed job is open, so the list, the detail, its failure and the item row are all checked.
   {
     name: "Activity", path: "/jobs/2", ready: "Activity",
+    // The failure is in the page before contrastViolations waits for what rises into place to settle.
     prepare: async (page) => {
-      await page.waitForTimeout(400); // the notice fades in; axe must not measure it half way
+      await expect(page.getByRole("region", { name: "Why it failed" })).toBeVisible();
     },
   },
   { name: "Files", path: "/files", ready: "Files" },
@@ -39,7 +38,6 @@ const PAGES: ReadonlyArray<{ name: string; path: string; ready: string; prepare?
       await columns.getByRole("option", { name: /Failed Movie/ }).click();
       await columns.getByRole("option", { name: /Old Codec Movie/ }).click({ modifiers: ["ControlOrMeta"] });
       await expect(page.getByRole("region", { name: "Selection", exact: true })).toContainText(/\d+ selected/);
-      await page.waitForTimeout(400); // what rises into place must not be measured half way
     },
   },
   {
@@ -49,7 +47,6 @@ const PAGES: ReadonlyArray<{ name: string; path: string; ready: string; prepare?
       await page.getByRole("link", { name: "Old Codec Movie" }).click();
       await page.getByRole("button", { name: /Preview and prepare/ }).click();
       await expect(page.getByRole("region", { name: "Prepare preview" })).toBeVisible();
-      await page.waitForTimeout(400); // what rises into place must not be measured half way
     },
   },
 ];

@@ -10,6 +10,7 @@ Einstiegspunkte nach Modul und Konzept, nicht nach Funktion. Suche den Namen im 
 - **Dateien und Spaltenansicht.** `features/files/`: `LibraryPage.tsx` (Liste), `ColumnsView.tsx` mit `browse.ts` (Ordner nachladen) und `columnPath.ts` (offener Pfad, über `viewMemory`), `filters.ts`, `loaders.ts`, `Inspector.tsx`. `preparePlan.ts` und `fixPlan.ts` stellen Planer-Ergebnisse des Servers dar.
 - **Aktivität und Protokollansicht.** `features/activity/`: `ActivityPage.tsx` (Jobliste), `JobDetail.tsx` (Job und Items), `LogViewer.tsx` (Item-Protokoll), `filters.ts`, `loaders.ts`, `model.ts`.
 - **Texte.** `lib/i18n.ts` und `locales/de*.ts`.
+- **Farben, Breakpoint und Mindestversionen.** `styles/theme.css` ist die einzige Quelle der Farben (Seeds mit `light-dark()`, alle anderen Töne per `color-mix(in oklch, …)`). Das setzt Browser ab Chrome/Edge 123, Firefox 120 und Safari 17.5 voraus (`light-dark()`); `color-mix` und `oklch` brauchen weniger (Chrome 111, Firefox 113, Safari 16.2). Es gibt bewusst keinen Fallback im Code: ältere Browser zeigen die Seiten ohne Farbschema-Töne. Der Einspalten-Breakpoint 1180px steht als `SINGLE_COLUMN_MAX` in `lib/fitBottom.ts`; die CSS-Literale wiederholen ihn, `tests/theme-contract.test.ts` hält beide gleich. `public/favicon.svg` ist die einzige Datei mit Hex-Farben ausserhalb des Gerüsts (ein Favicon kennt keine CSS-Variablen); der Vertragstest erlaubt dort nur die hellen Seed-Werte.
 
 ## API (`rust/crates/atvprep-api/src`)
 
