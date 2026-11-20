@@ -9,7 +9,7 @@
  * and a quick filter.
  */
 import { useLocation, useNavigate } from "@solidjs/router";
-import { createEffect, createMemo, createSignal, onCleanup, type Accessor } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, untrack, type Accessor } from "solid-js";
 import type { FilterValue, QuickChoice } from "../ui/FilterBar";
 import { t } from "./i18n";
 import { recall, remember, type ViewPage } from "./viewMemory";
@@ -125,13 +125,16 @@ export function createFacetFilter<F extends object>(
   const [filter, setFilter] = createSignal<F>(() => input.filter() ?? spec.empty, { equals: spec.same });
   const searchOf = (value: F) => spec.searchOf?.(value) ?? "";
   /** What the search field shows; the filter takes it after a short pause. */
-  const [search, setSearch] = createSignal(() => searchOf(filter()));
+  const [search, setSearch] = createSignal(untrack(() => searchOf(filter())));
+  /** The filter the page last chose or the address last asked for; an echo of it is no outside change. */
+  let shown = untrack(filter);
   let timer: ReturnType<typeof setTimeout> | undefined;
   onCleanup(() => clearTimeout(timer));
 
   /** Chooses a filter: the page follows it at once and the address after it. */
   const change = (next: F, replace = false) => {
     if (spec.same(next, filter())) return;
+    shown = next;
     setFilter(() => next);
     input.onFilter?.(next, { replace });
   };
@@ -143,7 +146,15 @@ export function createFacetFilter<F extends object>(
   };
   const kept = (): Partial<F> => spec.keep?.(filter()) ?? {};
 
-  createEffect(input.filter, () => { clearTimeout(timer); }, { defer: true });
+  // Only a filter that differs from what the page shows is a change from outside: it takes the search field
+  // and drops a pending search. The echo of the page's own choice leaves both alone.
+  createEffect(input.filter, (next) => {
+    const wanted = next ?? spec.empty;
+    if (spec.same(wanted, shown)) return;
+    shown = wanted;
+    clearTimeout(timer);
+    setSearch(searchOf(wanted));
+  }, { defer: true });
 
   const onSearchInput = (value: string) => {
     setSearch(value);

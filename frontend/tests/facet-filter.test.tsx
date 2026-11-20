@@ -100,4 +100,35 @@ describe("createFacetFilter", () => {
     facet.bar().onChange({ color: ["red"] });
     expect(calls).toEqual([]);
   });
+
+  // The address echoes the filter the page just chose; that must not disturb what is typed meanwhile.
+  it("keeps a pending search when the address only echoes the filter the page chose", () => {
+    const { facet, calls, set } = setup();
+    facet.onSearchInput("du");
+    vi.advanceTimersByTime(250);
+    flush();
+    facet.onSearchInput("dun");
+    set(calls[0]!.filter);
+    flush();
+    vi.advanceTimersByTime(250);
+    expect(calls.map((call) => call.filter.q)).toEqual(["du", "dun"]);
+  });
+
+  it("keeps what the field shows while typing, trailing space included", () => {
+    const { facet } = setup();
+    facet.onSearchInput("du ");
+    vi.advanceTimersByTime(250);
+    flush();
+    expect(facet.search()).toBe("du ");
+  });
+
+  it("keeps the typed search in the field when a facet is chosen meanwhile", () => {
+    const { facet, calls } = setup();
+    facet.onSearchInput("du");
+    facet.bar().onChange({ color: ["green"] });
+    flush();
+    expect(facet.search()).toBe("du");
+    vi.advanceTimersByTime(250);
+    expect(calls.at(-1)?.filter).toEqual({ ...EMPTY, q: "du", color: ["green"] });
+  });
 });
