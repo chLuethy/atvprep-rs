@@ -115,12 +115,16 @@ export function stateChoices(action: Action): ReadonlyArray<{ value: string | nu
 export const defaultState = (action: Action): string | null => (action === "verify" ? "unknown" : null);
 
 /** What a schedule acts on, in one line; a schedule that prepares also names its Kodierfreigabe. */
-export function describeTarget(schedule: Pick<Schedule, "action" | "root_name" | "compliance_state" | "max_files" | "encode">): string {
-  const parts = [actionName(schedule.action), schedule.root_name ?? t("All libraries")];
+export function describeScope(schedule: Pick<Schedule, "action" | "root_name" | "compliance_state" | "max_files" | "encode">): string {
+  const parts = [schedule.root_name ?? t("All libraries")];
   if (schedule.compliance_state) parts.push(stateName(schedule.compliance_state));
   if (schedule.max_files !== null) parts.push(tn("up to {count} file", "up to {count} files", schedule.max_files));
   if (schedule.action === "prepare" && schedule.encode) parts.push(encodeName(schedule.encode));
   return parts.join(" · ");
+}
+
+export function describeTarget(schedule: Pick<Schedule, "action" | "root_name" | "compliance_state" | "max_files" | "encode">): string {
+  return `${actionName(schedule.action)} · ${describeScope(schedule)}`;
 }
 
 export function describeNext(schedule: Pick<Schedule, "enabled" | "next_run_at">): string {

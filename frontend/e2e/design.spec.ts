@@ -1,16 +1,30 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { contrastViolations, expectDesignHolds, narrowOverflow, openThemed } from "./design";
 
 test.use({ trace: "off", screenshot: "off", video: "off" });
 
 // Pages under the design check. Page tickets append their route here.
-const PAGES: ReadonlyArray<{ name: string; path: string; ready: string }> = [
+const PAGES: ReadonlyArray<{ name: string; path: string; ready: string; prepare?: (page: Page) => Promise<unknown> }> = [
   { name: "Overview", path: "/dashboard", ready: "Overview" },
+  {
+    name: "Schedules", path: "/schedules", ready: "Schedules",
+    // Everything the page can show: the history of the seeded schedule, and the editor in cron mode with its guide.
+    prepare: async (page) => {
+      await page.getByRole("button", { name: /^History/ }).click();
+      await page.getByRole("button", { name: /New schedule/ }).click();
+      const editor = page.getByRole("region", { name: "New schedule" });
+      await editor.getByRole("button", { name: "Cron", exact: true }).click();
+      await editor.getByRole("button", { name: "Cron guide" }).click();
+      await expect(editor.getByText("Examples. Click one to use it.")).toBeVisible();
+      // The pressed button fades to its colour; axe must not measure it half way.
+      await page.waitForTimeout(400);
+    },
+  },
 ];
 
-for (const { name, path, ready } of PAGES) {
+for (const { name, path, ready, prepare } of PAGES) {
   test(`${name}: contrast in light and dark, no horizontal scroll at 560 px`, async ({ page }) => {
-    await expectDesignHolds(page, path, { heading: ready });
+    await expectDesignHolds(page, path, { heading: ready, prepare });
   });
 }
 
