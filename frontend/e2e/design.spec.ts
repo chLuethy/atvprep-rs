@@ -21,9 +21,11 @@ const PAGES: ReadonlyArray<{ name: string; path: string; ready: string; prepare?
   { name: "Settings", path: "/settings", ready: "Runtime settings" },
   // A failed job is open, so the list, the detail, its failure and the item row are all checked.
   {
-    name: "Activity", path: "/jobs/2", ready: "Activity",
-    // The failure is in the page before contrastViolations waits for what rises into place to settle.
+    name: "Activity", path: "/jobs", ready: "Activity",
+    // Job ids are opaque, so the failed job is opened from the list; the failure is in the page
+    // before contrastViolations waits for what rises into place to settle.
     prepare: async (page) => {
+      await page.getByRole("region", { name: "History" }).getByRole("link", { name: /Failed Movie Prepare/ }).click();
       await expect(page.getByRole("region", { name: "Why it failed" })).toBeVisible();
     },
   },
