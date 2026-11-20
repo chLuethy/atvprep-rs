@@ -226,6 +226,31 @@ describe("ActivityPage: the list", () => {
     expect(listCalls(api).length).toBe(initial + 1);
   });
 
+  it("keeps the same row, and its focus, while a running job's total and subject change under fresh ids (#117)", async () => {
+    vi.useFakeTimers();
+    let serial = 0;
+    const state = { total: 1, subject: null as string | null };
+    const api = apiFor(() => {
+      serial += 1;
+      return json([
+        job({ id: `j_r${serial}`, status: "running", progress: 10, total_count: state.total, subject: state.subject, requested_at: "2026-07-20T10:05:00Z", started_at: "2026-07-20T10:05:01Z", finished_at: null }),
+        job({ id: `j_d${serial}`, status: "succeeded", requested_at: "2026-07-20T09:00:00Z", subject: "Film/Done (2024)/Done (2024).mp4" }),
+      ]);
+    });
+    const view = render(() => <ActivityPage api={api} onOpen={vi.fn()} />);
+    await vi.advanceTimersByTimeAsync(0);
+    const running = view.getAllByRole("link")[0]!.closest("li") as HTMLElement;
+    const link = running.querySelector("a") as HTMLAnchorElement;
+    link.focus();
+
+    state.total = 3;
+    state.subject = "Film/Running (2025)/Running (2025).mp4";
+    await vi.advanceTimersByTimeAsync(4100);
+
+    expect(view.getAllByRole("link")[0]!.closest("li")).toBe(running);
+    expect(document.activeElement).toBe(link);
+  });
+
   it("does not repeat jobs when the server issues fresh ids on every response", async () => {
     vi.useFakeTimers();
     let serial = 0;

@@ -27,9 +27,12 @@ const CLEARABLE: ReadonlyArray<{ id: string; label: string; statuses: ClearStatu
 
 type Phase = "loading" | "ready" | "error" | "session";
 
-/** The API contract has no naturally unique job key: only link complete, unique candidates. */
+/**
+ * The API contract has no naturally unique job key: only link complete, unique candidates. Only fields that
+ * cannot change while a job runs are part of it (not the total or the subject), so a row keeps its focus.
+ */
 const jobKey = (job: JobRow): string | undefined => job.requested_at && job.action && job.trigger
-  ? JSON.stringify([job.requested_at, job.action, job.trigger, job.total_count, job.subject ?? null]) : undefined;
+  ? JSON.stringify([job.requested_at, job.action, job.trigger]) : undefined;
 
 const Row: Component<{ job: JobRow; current: boolean; flagged: boolean; onOpen: (id: string) => void }> = (props) => {
   const tone = () => jobTone(props.job.status);
