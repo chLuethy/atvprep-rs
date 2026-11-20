@@ -24,6 +24,29 @@ const PAGES: ReadonlyArray<{ name: string; path: string; ready: string; prepare?
   // A failed job is open, so the list, the detail, its failure and the item row are all checked.
   { name: "Activity", path: "/jobs/2", ready: "Activity" },
   { name: "Files", path: "/files", ready: "Files" },
+  {
+    // The columns view with a library open and two files picked, so the selection bar and the details show.
+    name: "Files, columns view", path: "/files", ready: "Files",
+    prepare: async (page) => {
+      await page.getByRole("button", { name: "Columns" }).click();
+      const columns = page.getByRole("group", { name: /Files by folder/ });
+      await columns.getByRole("listbox", { name: "Libraries" }).getByRole("option").first().click();
+      await columns.getByRole("option", { name: /Failed Movie/ }).click();
+      await columns.getByRole("option", { name: /Old Codec Movie/ }).click({ modifiers: ["ControlOrMeta"] });
+      await expect(page.getByRole("region", { name: "Selection", exact: true })).toContainText(/\d+ selected/);
+      await page.waitForTimeout(400); // what rises into place must not be measured half way
+    },
+  },
+  {
+    // The prepare preview for one file, with the encoding allowance choice.
+    name: "Files, prepare preview", path: "/files", ready: "Files",
+    prepare: async (page) => {
+      await page.getByRole("link", { name: "Old Codec Movie" }).click();
+      await page.getByRole("button", { name: /Preview and prepare/ }).click();
+      await expect(page.getByRole("region", { name: "Prepare preview" })).toBeVisible();
+      await page.waitForTimeout(400); // what rises into place must not be measured half way
+    },
+  },
 ];
 
 for (const { name, path, ready, prepare } of PAGES) {
