@@ -6,6 +6,7 @@ test.use({ trace: "off", screenshot: "off", video: "off" });
 // Pages under the design check. Page tickets append their route here.
 const PAGES: ReadonlyArray<{ name: string; path: string; ready: string }> = [
   { name: "Overview", path: "/dashboard", ready: "Overview" },
+  { name: "Settings", path: "/settings", ready: "Runtime settings" },
 ];
 
 for (const { name, path, ready } of PAGES) {

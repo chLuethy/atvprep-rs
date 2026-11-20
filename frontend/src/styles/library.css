@@ -168,24 +168,6 @@ details summary { cursor: pointer; color: var(--ink-muted); }
 .now-row a { flex: 1; min-width: 0; color: var(--ink); text-decoration: none; }
 .now-row a:hover { color: var(--accent); }
 
-/* settings */
-.settings { height: 100%; overflow: auto; padding: 20px max(16px, env(safe-area-inset-right, 0px)) 0 24px; max-width: 760px; }
-.settings-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.settings-head h2 { margin: 0; font-size: var(--text-md); letter-spacing: var(--tracking-title); }
-.setting-group { margin-top: 22px; }
-.setting-group h3 { margin: 0 0 8px; }
-.setting { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: start; padding: 10px 12px; margin-bottom: 8px; border: 1px solid var(--line); }
-.setting > :not(.btn):not(.audit) { grid-column: 1; }
-.setting > .btn { grid-column: 2; grid-row: 1; }
-.setting .audit { grid-column: 1 / -1; padding: 8px 10px; background: var(--ground); }
-.setting label { display: block; margin-bottom: 4px; font-weight: 500; }
-.setting input[type="number"], .setting input.input { width: 160px; }
-.setting input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
-.help { display: block; margin-top: 4px; color: var(--ink-muted); font-size: var(--text-sm); }
-.help.caution { color: var(--warn); }
-.settings-actions { display: flex; gap: 8px; margin: 8px 0; }
-.savebar { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 12px 0; margin-top: 12px; background: var(--surface); border-top: 1px solid var(--line); }
-.savebar p { margin: 0 auto 0 0; color: var(--ink-muted); }
 .activity .lib-bar-top .btn { margin-left: auto; }
 .scan-control { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; margin: 8px 0 0; }
 .scan-control .scan-status { margin: 0; font-size: var(--text-base); }
@@ -195,7 +177,6 @@ details summary { cursor: pointer; color: var(--ink-muted); }
 .insp-head h2, .preview h2, .job-title, .item-name, .why-item p, .why-item b, .rule, .notice p, .pv-file, .change > *, .facts dd, .setting label, .help, .now-row a, .needs a, .legend a { overflow-wrap: anywhere; }
 .why-item > div, .item-row, .item-line > *, .pv-file, .change > * { min-width: 0; }
 .more .notice { margin: 0 0 10px; }
-.setting textarea.lines { width: 100%; max-width: 420px; font-family: var(--font-mono); font-size: var(--text-sm); resize: vertical; }
 .setting-group > p.muted { margin: -2px 0 8px; font-size: var(--text-sm); }
 /* Files: title, search, the view switch and Remove missing share one row; narrow, the search takes a line of its own. */
 .lib-title-row { flex-wrap: wrap; gap: 8px 12px; min-width: 0; }
