@@ -14,7 +14,8 @@ test.describe("overview layout (design reference: docs/design/manager-mockup.htm
   test("two independent columns without a gap under short panels", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openThemed(page, "/dashboard", "light", "Overview");
-    const first = await box(region(page, "Leftover files")); // the fixture has leftovers: first panel of the left column
+    // The first panel of the left column: leftovers when a scan found some (another journey removes them), else needs.
+    const first = await box(page.locator(".ov-col").first().locator(".ov-sec").first());
     const needs = await box(region(page, "Needs you"));
     const running = await box(region(page, "Running now"));
     const health = await box(region(page, "File health"));
