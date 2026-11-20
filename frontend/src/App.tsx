@@ -245,18 +245,23 @@ const Shell: ParentComponent<{ session?: SessionControls; api?: ManagerApi }> = 
           ))}
         </nav>
         <div class="sidebar-foot">
+          <div class="foot-row">
+            <Show when={props.session}>
+              {(session) => (
+                <Button variant="quiet" disabled={session().busy()} onClick={() => session().lock()}>
+                  <Icon name="lock" /> {t("Lock")}
+                </Button>
+              )}
+            </Show>
+            <Button variant="quiet" aria-label={t("Keyboard shortcuts")} onClick={toggleHelp}>
+              <Icon name="keyboard" /> {t("Shortcuts")} <Kbd>?</Kbd>
+            </Button>
+          </div>
+          <div class="foot-appearance">
+            <span class="label">{t("Appearance")}</span>
+            <ThemeSwitch />
+          </div>
           <LanguageSwitch />
-          <ThemeSwitch />
-          <Button variant="quiet" aria-label={t("Keyboard shortcuts")} onClick={toggleHelp}>
-            <Icon name="keyboard" /> {t("Shortcuts")} <Kbd>?</Kbd>
-          </Button>
-          <Show when={props.session}>
-            {(session) => (
-              <Button variant="quiet" disabled={session().busy()} onClick={() => session().lock()}>
-                <Icon name="lock" /> {t("Lock")}
-              </Button>
-            )}
-          </Show>
           <Show when={version()}>{(value) => <p class="app-version">{t("Version {version}", { version: value() })}</p>}</Show>
         </div>
       </aside>

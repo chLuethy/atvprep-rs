@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -103,5 +103,88 @@ describe("the theme scaffold", () => {
     const sources = [...files.map(css), readFileSync(join(__dirname, "../src/ui/Logo.tsx"), "utf8")].join("\n");
     const found = old.filter((name) => new RegExp(`var\\(${name}[,)]|(?<![-\\w])${name}\\s*:`).test(sources));
     expect(found).toEqual([]);
+  });
+});
+
+/* The building blocks of the design (#123): square, hairline, no shadow, no status fill. */
+
+type Rule = { selector: string; body: string };
+/** Innermost rules of a stylesheet, so rules inside @media and @keyframes are seen too. */
+const rules = (name: string): Rule[] => [...css(name).matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: m[1]!.trim(), body: m[2]! }));
+const allRules = components.flatMap((name) => rules(name).map((rule) => ({ ...rule, file: name })));
+
+describe("the building blocks", () => {
+  it("are square: every radius is 0", () => {
+    const round = allRules.flatMap(({ file, selector, body }) =>
+      [...body.matchAll(/(?<![-\w])[\w-]*radius\s*:\s*([^;]+)/g)].filter((m) => !/^0(px)?(\s+0(px)?)*$/.test(m[1]!.trim())).map((m) => `${file}: ${selector} -> ${m[0]}`));
+    expect(round).toEqual([]);
+  });
+
+  it("have a shadow only on dialogs and the command palette; everything else is a hairline", () => {
+    const OVERLAYS = new Set([".pal", ".help-panel"]);
+    const shadowed = allRules.filter(({ body }) => /(?<![-\w])box-shadow\s*:/.test(body)).map(({ file, selector }) => `${file}: ${selector}`);
+    expect(shadowed.filter((entry) => !OVERLAYS.has(entry.split(": ")[1]!))).toEqual([]);
+    expect(shadowed.map((entry) => entry.split(": ")[1])).toEqual(expect.arrayContaining([".pal"]));
+  });
+
+  it("never show a status as a filled area: chips, badges and counts are text, symbol and hairline", () => {
+    const filled = allRules
+      .filter(({ selector }) => /\.(chip|nav-count)(?![-\w])/.test(selector) && !/filter-chip/.test(selector))
+      .filter(({ body }) => [...body.matchAll(/(?<![-\w])background(?:-color)?\s*:\s*([^;]+)/g)].some((m) => !/^(none|transparent)$/.test(m[1]!.trim())))
+      .map(({ file, selector }) => `${file}: ${selector}`);
+    expect(filled).toEqual([]);
+  });
+
+  it("states the dashed column line once, as a token that two edge classes reuse", () => {
+    const text = components.map(css).join("\n");
+    expect(text.match(/linear-gradient\(var\(--accent\) 50%, transparent 0\)/g) ?? []).toHaveLength(1);
+    expect(css("tokens.css")).toMatch(/--guide:\s*linear-gradient\(var\(--accent\) 50%, transparent 0\)/);
+    const edges = allRules.filter(({ body }) => /var\(--guide\)/.test(body)).map(({ selector }) => selector);
+    expect(edges).toEqual(expect.arrayContaining([".guide-l", ".guide-r", ".sidebar::after"]));
+  });
+
+  it("draws the label style once: accent colour and a colon", () => {
+    const label = allRules.find(({ selector }) => /\.label(?![-\w])/.test(selector) && /color:\s*var\(--accent\)/.test(selector + allRules[0]!.body) || /\.label/.test(selector));
+    expect(label, "a shared label rule").toBeDefined();
+    const colon = allRules.find(({ selector, body }) => /\.label/.test(selector) && selector.endsWith("::after") && /content:\s*":"/.test(body));
+    expect(colon, "the colon").toBeDefined();
+    expect(allRules.find(({ selector, body }) => /\.label/.test(selector) && /color:\s*var\(--accent\)/.test(body))).toBeDefined();
+  });
+
+  it("puts the arrow of a select at its right edge, without the browser's own arrow", () => {
+    const select = allRules.find(({ selector }) => selector === ".select")!;
+    expect(select.body).toMatch(/appearance:\s*none/);
+    expect(select.body).toMatch(/background-image:[^;]*linear-gradient/);
+    expect(select.body).toMatch(/background-position:\s*calc\(100% -/);
+  });
+
+  it("draws the logo from theme tokens, square, with no colour of its own", () => {
+    const logo = readFileSync(join(__dirname, "../src/ui/Logo.tsx"), "utf8");
+    expect(logo).not.toMatch(/#[0-9a-fA-F]{3,8}\b|\brx=|rgb\(/);
+    expect(logo).toMatch(/var\(--accent\)/);
+    expect(logo).toMatch(/var\(--on-accent\)/);
+    expect(css("app.css")).toMatch(/\.logo\.busy \.logo-cursor[^{]*\{[^}]*animation:\s*blink/); // the cursor still lights up at work
+  });
+});
+
+describe("the fonts", () => {
+  const fontDir = join(__dirname, "../src/assets/fonts");
+  const faces = [...css("fonts.css").matchAll(/font-family:\s*"([^"]+)"[^}]*url\("([^"]+)"\)/g)].map((m) => ({ family: m[1]!, url: m[2]! }));
+
+  it("set text in the Helvetica system stack and technical values in JetBrains Mono", () => {
+    expect(declared(css("tokens.css")).get("--font-ui")).toMatch(/^"Helvetica Neue", Helvetica, Arial/);
+    expect(declared(css("tokens.css")).get("--font-mono")).toMatch(/^"JetBrains Mono"/);
+  });
+
+  it("ship with the app, so the manager looks the same offline: every font file is there, with its licence", () => {
+    expect(faces.length).toBeGreaterThan(0);
+    for (const { url } of faces) expect(existsSync(join(dir, url)), url).toBe(true);
+    expect(existsSync(join(fontDir, "OFL-JetBrains-Mono.txt"))).toBe(true);
+    expect(new Set(faces.map(({ family }) => family))).toEqual(new Set(["JetBrains Mono"]));
+  });
+
+  it("no longer carry IBM Plex Sans, neither as a face, a licence nor a file", () => {
+    expect(readdirSync(fontDir).filter((name) => /plex/i.test(name))).toEqual([]);
+    expect(components.filter((name) => /plex/i.test(raw(name)))).toEqual([]);
   });
 });
