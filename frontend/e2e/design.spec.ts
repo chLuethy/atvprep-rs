@@ -22,7 +22,12 @@ const PAGES: ReadonlyArray<{ name: string; path: string; ready: string; prepare?
   },
   { name: "Settings", path: "/settings", ready: "Runtime settings" },
   // A failed job is open, so the list, the detail, its failure and the item row are all checked.
-  { name: "Activity", path: "/jobs/2", ready: "Activity" },
+  {
+    name: "Activity", path: "/jobs/2", ready: "Activity",
+    prepare: async (page) => {
+      await page.waitForTimeout(400); // the notice fades in; axe must not measure it half way
+    },
+  },
   { name: "Files", path: "/files", ready: "Files" },
   {
     // The columns view with a library open and two files picked, so the selection bar and the details show.
