@@ -1,0 +1,47 @@
+/* Theme scaffold: the one place where the manager's colour is decided.
+   Reference: docs/design/manager-mockup.html (copper theme, light and dark).
+
+   Layers:
+   1. Seeds (--seed-*): the few values a theme sets, each once, as light-dark(<light>, <dark>).
+      "System" follows the OS and "Dark" forces dark; both read the same dark value, because the
+      variants below only switch `color-scheme`. To recolour the manager, change a seed.
+   2. Semantic tokens: what stylesheets use. Plain names for a seed, or a tone derived from seeds
+      by colour mixing in OKLCH (hover, selection, muted text, borders, scrim, shadow).
+   Stylesheets never name a seed and never hold a colour literal (tests/theme-contract.test.ts).
+   A hand-set colour that is not a seed would need a comment starting "Exception:" with the
+   contrast reason; there is none today. */
+:root {
+  color-scheme: light dark;
+
+  --seed-accent: light-dark(#805c3a, #c99d74);   /* copper: the one colour of the design; text, lines and fills */
+  --seed-ink: light-dark(#1a171b, #efebe6);      /* main text */
+  --seed-ground: light-dark(#faf9f7, #141312);   /* page background */
+  --seed-surface: light-dark(#ffffff, #1e1c1a);  /* raised: panels, cards, dialogs */
+  --seed-line: light-dark(#d8c9ba, #4d4238);     /* hairlines */
+  --seed-ok: light-dark(#3c6878, #8db3c2);       /* slate blue, deliberately not green */
+  --seed-warn: light-dark(#86661c, #cfae63);
+  --seed-bad: light-dark(#a13a2b, #df8a7a);
+
+  /* Seeds under their semantic names. */
+  --accent: var(--seed-accent);
+  --ink: var(--seed-ink);
+  --ground: var(--seed-ground);
+  --surface: var(--seed-surface);
+  --line: var(--seed-line);
+  --ok: var(--seed-ok);
+  --warn: var(--seed-warn);
+  --bad: var(--seed-bad);
+  --on-accent: var(--seed-surface); /* text on a copper fill: white on dark copper, dark on light copper */
+
+  /* Derived tones. */
+  --ink-muted: color-mix(in oklch, var(--seed-ink) 66%, var(--seed-ground)); /* secondary text */
+  --border: color-mix(in oklch, var(--seed-ink) 45%, var(--seed-ground));    /* control borders */
+  --sand: color-mix(in oklch, var(--seed-accent) 7%, var(--seed-ground));   /* sidebar, table heads: ground warmed by the accent */
+  --accent-weak: color-mix(in oklch, var(--seed-accent) 10%, var(--seed-surface)); /* selection, quiet backgrounds */
+  --hover: color-mix(in oklch, var(--seed-accent) 7%, var(--seed-surface));
+  --changed: color-mix(in oklch, var(--seed-warn) 24%, var(--seed-surface));  /* flash of a changed value */
+  --scrim: color-mix(in oklch, var(--seed-ink) 40%, transparent);
+  --shadow: 0 1px 2px color-mix(in oklch, var(--seed-ink) 12%, transparent), 0 8px 24px color-mix(in oklch, var(--seed-ink) 14%, transparent);
+}
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }

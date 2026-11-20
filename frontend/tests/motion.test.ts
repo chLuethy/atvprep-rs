@@ -57,6 +57,8 @@ describe("motion", () => {
   });
 
   it("has a tint for what just changed, in light and dark", () => {
-    expect(tokens.match(/--changed:/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
+    // One derived token in the theme scaffold: it follows the seeds, so it holds in light and dark.
+    const theme = readFileSync(join(dir, "theme.css"), "utf8");
+    expect(theme).toMatch(/--changed:\s*color-mix\(/);
   });
 });
