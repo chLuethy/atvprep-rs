@@ -230,13 +230,37 @@ describe("OverviewPage: leftover partial rewrites", () => {
     expect(within(confirm).getByText("Delete 3 files, 2.5 GB in total?")).toBeInTheDocument();
     expect(calls.some((call) => call.init?.method === "POST")).toBe(false);
 
-    fireEvent.click(within(confirm).getByRole("button", { name: "Delete leftovers" }));
+    const submit = within(confirm).getByRole("button", { name: "Delete leftovers" });
+    fireEvent.click(submit);
+    fireEvent.click(submit);
+    expect(calls.filter((call) => call.init?.method === "POST")).toHaveLength(1);
 
     expect(await view.findByText("Removed 3 leftover files (2.5 GB).")).toBeInTheDocument();
     const post = calls.find((call) => call.init?.method === "POST");
     expect(post?.path).toBe("/roots/r_1/orphans/remove");
     expect(JSON.parse(String(post?.init?.body))).toEqual({ count: 3, bytes: 2_684_354_560 });
     await waitFor(() => expect(view.queryByRole("region", { name: "Leftover files" })).toBeNull());
+  });
+
+  it.each([200, 409])("startet nach Verlassen bei verspäteter Bereinigungsantwort %s keine Aktualisierung", async (status) => {
+    let finish!: (response: Response) => void;
+    const responses = withHits();
+    const mock = {
+      request: vi.fn(async (path: string, init?: RequestInit) => {
+        if (init?.method === "POST") return new Promise<Response>((resolve) => { finish = resolve; });
+        return new Response(JSON.stringify(responses[path as keyof typeof responses] ?? {}));
+      }),
+    };
+    const view = render(() => <OverviewPage api={mock} />);
+    const section = await view.findByRole("region", { name: "Leftover files" });
+    await fireEvent.click(within(section).getByRole("button", { name: "Remove leftovers" }));
+    await fireEvent.click(await view.findByRole("button", { name: "Delete leftovers" }));
+    await waitFor(() => expect(finish).toBeTypeOf("function"));
+    view.unmount();
+    const requests = mock.request.mock.calls.length;
+    finish(new Response(JSON.stringify({ data: { removed: 3, bytes: 2_684_354_560 } }), { status }));
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(mock.request).toHaveBeenCalledTimes(requests);
   });
 
   it("keeps everything when the operator keeps the files", async () => {
@@ -246,7 +270,7 @@ describe("OverviewPage: leftover partial rewrites", () => {
     const section = await view.findByRole("region", { name: "Leftover files" });
 
     fireEvent.click(within(section).getByRole("button", { name: "Remove leftovers" }));
-    fireEvent.click(await view.findByRole("button", { name: "Keep" }));
+    await fireEvent.click(await view.findByRole("button", { name: "Keep" }));
 
     expect(view.queryByRole("region", { name: "Confirm removing leftovers" })).toBeNull();
     expect(mock.request.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === "POST")).toBe(false);

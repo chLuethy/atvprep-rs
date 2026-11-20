@@ -1,6 +1,7 @@
 import { fireEvent, render } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import App from "../src/App";
+import { flush } from "solid-js";
 import { setLanguage } from "../src/lib/i18n";
 import { formatSize } from "../src/features/files/model";
 
@@ -28,6 +29,7 @@ describe("the language switch in the shell", () => {
   it("formats numbers the way the language does", () => {
     expect(formatSize(1536)).toBe("1.5 KB");
     setLanguage("de");
+    flush();
     expect(formatSize(1536)).toBe("1,5 KB");
   });
 });

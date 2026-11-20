@@ -1,4 +1,4 @@
-import { createSignal, getOwner, onCleanup, type Accessor } from "solid-js";
+import { createSignal, getOwner, onSettled, type Accessor } from "solid-js";
 
 const [stamp, setStamp] = createSignal(Date.now());
 let users = 0;
@@ -12,17 +12,19 @@ const sync = () => { if (!document.hidden) setStamp(Date.now()); };
  */
 export function useClock(): Accessor<Date> {
   if (getOwner()) {
-    if (users === 0) {
-      setStamp(Date.now());
-      timer = window.setInterval(sync, 1000);
-      document.addEventListener("visibilitychange", sync);
-    }
-    users += 1;
-    onCleanup(() => {
-      users -= 1;
-      if (users > 0) return;
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", sync);
+    onSettled(() => {
+      if (users === 0) {
+        setStamp(Date.now());
+        timer = window.setInterval(sync, 1000);
+        document.addEventListener("visibilitychange", sync);
+      }
+      users += 1;
+      return () => {
+        users -= 1;
+        if (users > 0) return;
+        window.clearInterval(timer);
+        document.removeEventListener("visibilitychange", sync);
+      };
     });
   }
   return () => new Date(stamp());

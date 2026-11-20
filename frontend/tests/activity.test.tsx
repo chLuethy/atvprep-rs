@@ -29,6 +29,34 @@ const item = (over: Record<string, unknown> = {}) => ({
 afterEach(() => { vi.useRealTimers(); });
 
 describe("ActivityPage: after a retry", () => {
+  it("erhält eine laufende Detailaktion beim verspäteten ersten Zuordnen des Deep Links zur Liste", async () => {
+    vi.useFakeTimers();
+    let finishList!: (response: Response) => void;
+    let finishRetry!: (response: Response) => void;
+    let reads = 0;
+    const failed = job({ status: "failed", failed_count: 1, succeeded_count: 0 });
+    const api = apiFor((path, init) => {
+      if (path.startsWith("/jobs?")) return ++reads === 1 ? new Promise<Response>((resolve) => { finishList = resolve; }) : json([failed]);
+      if (path === "/jobs/j_1/retry" && init?.method === "POST") return new Promise<Response>((resolve) => { finishRetry = resolve; });
+      if (path === "/jobs/j_1") return json(failed);
+      if (path.startsWith("/jobs/j_1/items")) return json([item({ status: "failed" })]);
+      return json([]);
+    });
+    const onOpen = vi.fn();
+    const view = render(() => <ActivityPage api={api} activeId="j_1" onOpen={onOpen} />);
+    await vi.advanceTimersByTimeAsync(0);
+    await fireEvent.click(view.getByRole("button", { name: "Retry failed items" }));
+    fireEvent.click(view.getByRole("button", { name: "Confirm retry" }));
+    finishList(json([failed]));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(view.getByRole("region", { name: "Confirm retry" })).toBeInTheDocument();
+    finishRetry(json({ id: "j_new", status: "queued" }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onOpen).toHaveBeenCalledExactlyOnceWith("j_new");
+    expect(view.getByText(/Retry queued/)).toBeInTheDocument();
+    view.unmount();
+  });
+
   it("opens the new job and says why the view changed", async () => {
     const onOpen = vi.fn();
     const api = apiFor((path, init) => {
@@ -198,6 +226,31 @@ describe("ActivityPage: the list", () => {
     expect(listCalls(api).length).toBe(initial + 1);
   });
 
+  it("keeps the same row, and its focus, while a running job's total and subject change under fresh ids (#117)", async () => {
+    vi.useFakeTimers();
+    let serial = 0;
+    const state = { total: 1, subject: null as string | null };
+    const api = apiFor(() => {
+      serial += 1;
+      return json([
+        job({ id: `j_r${serial}`, status: "running", progress: 10, total_count: state.total, subject: state.subject, requested_at: "2026-07-20T10:05:00Z", started_at: "2026-07-20T10:05:01Z", finished_at: null }),
+        job({ id: `j_d${serial}`, status: "succeeded", requested_at: "2026-07-20T09:00:00Z", subject: "Film/Done (2024)/Done (2024).mp4" }),
+      ]);
+    });
+    const view = render(() => <ActivityPage api={api} onOpen={vi.fn()} />);
+    await vi.advanceTimersByTimeAsync(0);
+    const running = view.getAllByRole("link")[0]!.closest("li") as HTMLElement;
+    const link = running.querySelector("a") as HTMLAnchorElement;
+    link.focus();
+
+    state.total = 3;
+    state.subject = "Film/Running (2025)/Running (2025).mp4";
+    await vi.advanceTimersByTimeAsync(4100);
+
+    expect(view.getAllByRole("link")[0]!.closest("li")).toBe(running);
+    expect(document.activeElement).toBe(link);
+  });
+
   it("does not repeat jobs when the server issues fresh ids on every response", async () => {
     vi.useFakeTimers();
     let serial = 0;
@@ -234,6 +287,60 @@ describe("ActivityPage: the list", () => {
     await vi.advanceTimersByTimeAsync(4100);
 
     expect(view.getByRole("link", { name: /heat/i }).closest("li")).toHaveAttribute("aria-current", "true");
+  });
+
+  it("verwirft verspätete aktive Poll-Antworten nach einem Filterwechsel", async () => {
+    vi.useFakeTimers();
+    let finish!: (response: Response) => void;
+    let reads = 0;
+    const api = apiFor((path) => {
+      if (!path.startsWith("/jobs?")) return json([]);
+      if (path.includes("q=New")) return json([job({ id: "j_new", subject: "New.mp4" })]);
+      if (++reads === 2) return new Promise<Response>((resolve) => { finish = resolve; });
+      return json([job({ status: "queued", subject: "Old.mp4" })]);
+    });
+    const [filter, setFilter] = createSignal(EMPTY_JOB_FILTER);
+    const view = render(() => <ActivityPage api={api} filter={filter()} onOpen={vi.fn()} />);
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(1100);
+    setFilter({ ...EMPTY_JOB_FILTER, q: "New" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(view.getByRole("link", { name: /New/ })).toHaveAttribute("href", "/jobs/j_new");
+    finish(json([job({ id: "j_old", subject: "Old.mp4" })]));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(view.getByRole("link", { name: /New/ })).toHaveAttribute("href", "/jobs/j_new");
+    expect(view.queryByRole("link", { name: /Old/ })).not.toBeInTheDocument();
+    view.unmount();
+  });
+
+  it("startet während langsamen Nachladens keinen Poll, behält beide Seiten und revalidiert sie danach", async () => {
+    vi.useFakeTimers();
+    let finish!: (response: Response) => void;
+    let reads = 0;
+    let delayed = true;
+    const api = apiFor((path) => {
+      if (!path.startsWith("/jobs?")) return json([]);
+      reads += 1;
+      if (path.includes("cursor=")) return delayed ? new Promise<Response>((resolve) => { finish = resolve; })
+        : json([job({ id: "j_old_fresh", subject: "Old.mp4" })]);
+      return json([job({ id: "j_active", status: "queued", subject: "Active.mp4" })], 200, { next_cursor: "page2" });
+    });
+    const view = render(() => <ActivityPage api={api} onOpen={vi.fn()} />);
+    await vi.advanceTimersByTimeAsync(0);
+    fireEvent.click(view.getByRole("button", { name: "Load more jobs" }));
+    await vi.advanceTimersByTimeAsync(4100);
+    expect(reads).toBe(2);
+    delayed = false;
+    finish(json([job({ id: "j_old", subject: "Old.mp4" })]));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(view.getByRole("link", { name: /Old/ })).toBeInTheDocument();
+    await vi.advanceTimersByTimeAsync(1100);
+    expect(view.getByRole("link", { name: /Old/ })).toHaveAttribute("href", "/jobs/j_old_fresh");
+    expect(view.getByRole("link", { name: /Active/ })).toBeInTheDocument();
+    view.unmount();
+    const stopped = reads;
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(reads).toBe(stopped);
   });
 
   it("reloads every page it has loaded, not only the newest", async () => {
@@ -431,6 +538,30 @@ describe("JobDetail: what happened", () => {
     expect(raisedBodies(api)).toEqual([{ encode: "all", confirm_video_encode: true }]);
   });
 
+  it("öffnet nach Verlassen der Jobdetails keinen Job aus einer verspäteten Freigabeantwort", async () => {
+    vi.useFakeTimers();
+    let finish!: (response: Response) => void;
+    const api = detailApi({}, [refused("copy")], (path, init) =>
+      path === "/job-items/i_1/raise-encode" && init?.method === "POST"
+        ? new Promise<Response>((resolve) => { finish = resolve; }) : undefined);
+    const onRaised = vi.fn();
+    const onChanged = vi.fn();
+    const view = render(() => <JobDetail api={api} jobId="j_1" onRaised={onRaised} onChanged={onChanged} />);
+    await vi.advanceTimersByTimeAsync(0);
+    await fireEvent.click(view.getByRole("button", { name: "Prepare with a higher allowance" }));
+    await vi.advanceTimersByTimeAsync(0);
+    const panel = within(view.getByRole("region", { name: "Prepare with a higher allowance" }));
+    fireEvent.click(panel.getByRole("button", { name: "Confirm" }));
+    expect(raisedBodies(api)).toEqual([{ encode: "audio" }]);
+    view.unmount();
+    const reads = calls(api).length;
+    finish(json({ id: "j_new", status: "queued" }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onRaised).not.toHaveBeenCalled();
+    expect(onChanged).not.toHaveBeenCalled();
+    expect(calls(api)).toHaveLength(reads);
+  });
+
   it("raises a copy item to audio without a further confirmation", async () => {
     const api = detailApi({}, [refused("copy")], raising());
     const view = render(() => <JobDetail api={api} jobId="j_1" />);
@@ -559,6 +690,34 @@ describe("JobDetail: what happened", () => {
 
     expect(await view.findByLabelText("Plain text log")).toHaveTextContent("log line");
     expect(calls(api).some(([path]) => path === "/job-items/i_1/log")).toBe(true);
+  });
+
+  it("verwirft verspätete Job- und Item-Antworten nach einem Jobwechsel", async () => {
+    let finishJob!: (value: Response) => void;
+    let finishItems!: (value: Response) => void;
+    const api = apiFor((path) => {
+      if (path === "/jobs/j_a") return new Promise<Response>((resolve) => { finishJob = resolve; });
+      if (path.startsWith("/jobs/j_a/items")) return new Promise<Response>((resolve) => { finishItems = resolve; });
+      if (path === "/jobs/j_b") return json(job({ id: "j_b", subject: "Film/Sisu.mp4" }));
+      if (path.startsWith("/jobs/j_b/items")) return json([item({ id: "i_b", job_id: "j_b", display_path: "Film/Sisu.mp4" })]);
+      if (path === "/job-items/i_b/log") return json({ log_tail: "Protokoll von B" });
+      return json({});
+    });
+    const [jobId, setJobId] = createSignal("j_a");
+    const view = render(() => <JobDetail api={api} jobId={jobId()} />);
+    await waitFor(() => expect(finishItems).toBeTypeOf("function"));
+
+    setJobId("j_b");
+    await view.findByRole("heading", { name: "Sisu" });
+    await view.findByText("#1");
+    finishJob(json(job({ id: "j_a" })));
+    finishItems(json([item({ id: "i_a", job_id: "j_a" })]));
+    await fireEvent.click(view.getByRole("button", { name: "Log" }));
+
+    expect(await view.findByLabelText("Plain text log")).toHaveTextContent("Protokoll von B");
+    expect(view.getByRole("heading", { name: "Sisu" })).toBeInTheDocument();
+    expect(view.queryByText("Heat")).not.toBeInTheDocument();
+    expect(calls(api).map(([path]) => path)).not.toContain("/job-items/i_a/log");
   });
 
   it("opens the log of the entry in the job on screen, not of the same-looking entry of the job before", async () => {
@@ -737,6 +896,241 @@ describe("JobDetail: refreshing a running job", () => {
   });
 });
 
+describe("ActivityPage: aktuelle IDs und eindeutige Zeilen", () => {
+  it("behält das offene Protokoll desselben Jobs und liest nach Aktualisierung mit aktuellen IDs", async () => {
+    vi.useFakeTimers();
+    let id = "j_old";
+    const api = apiFor((path) => {
+      if (path.startsWith("/jobs?")) return json([job({ id, status: "running" })]);
+      if (path.startsWith("/job-items/")) return json({ log_tail: path });
+      if (path.includes("/items")) return json([item({ id: id === "j_old" ? "i_old" : "i_current" })]);
+      if (path.startsWith("/jobs/")) return json(job({ id, status: "running" }));
+      return json([]);
+    });
+    const view = render(() => <ActivityPage api={api} activeId="j_old" onOpen={vi.fn()} />);
+    await vi.advanceTimersByTimeAsync(0);
+    const toggle = view.getByRole("button", { name: "Log" });
+    await fireEvent.click(toggle);
+    await vi.advanceTimersByTimeAsync(0);
+
+    id = "j_current";
+    await vi.advanceTimersByTimeAsync(1100);
+
+    expect(view.getByRole("button", { name: "Log" })).toBe(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(view.getByLabelText("Plain text log")).toHaveTextContent("/job-items/i_current/log");
+    expect(calls(api).map(([path]) => path)).toContain("/jobs/j_current");
+  });
+
+  it("verwirft die Zuordnung des offenen Jobs nach einer mehrdeutigen Zwischenantwort", async () => {
+    vi.useFakeTimers();
+    let rows = [job({ id: "j_original", status: "running" })];
+    const api = apiFor((path) => path.startsWith("/jobs?") ? json(rows)
+      : path.includes("/items") ? json([]) : json(job({ status: "running" })));
+    const view = render(() => <ActivityPage api={api} activeId="j_original" onOpen={vi.fn()} />);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(view.getByRole("link", { name: /Heat/ }).closest("li")).toHaveAttribute("aria-current", "true");
+    rows = [job({ id: "j_duplicate_a", status: "running" }), job({ id: "j_duplicate_b", status: "running" })];
+    await vi.advanceTimersByTimeAsync(1100);
+    expect(view.container.querySelectorAll('[aria-current="true"]')).toHaveLength(0);
+
+    rows = [job({ id: "j_remaining", status: "running" })];
+    await vi.advanceTimersByTimeAsync(1100);
+    expect(view.getByRole("link", { name: /Heat/ }).closest("li")).not.toHaveAttribute("aria-current");
+  });
+
+  it("verhindert doppelte nächste Seiten und behält vorhandene Jobs bei Nachladefehlern", async () => {
+    let finish!: (response: Response) => void;
+    let attempts = 0;
+    const api = apiFor((path) => {
+      if (path.includes("cursor=")) {
+        attempts += 1;
+        if (attempts === 1) return new Promise<Response>((resolve) => { finish = resolve; });
+        return json([job({ id: "j_second", requested_at: "2026-07-20T09:00:00Z", subject: "Film/Second.mp4" })]);
+      }
+      return path.startsWith("/jobs?") ? json([job()], 200, { next_cursor: "next" }) : json([]);
+    });
+    const view = render(() => <ActivityPage api={api} onOpen={vi.fn()} />);
+    const more = await view.findByRole("button", { name: "Load more jobs" });
+    fireEvent.click(more);
+    fireEvent.click(more);
+    expect(attempts).toBe(1);
+    finish(json([], 503));
+    expect(await view.findByRole("alert")).toHaveTextContent("Unable to load jobs");
+    expect(view.getByRole("link", { name: /Heat/ })).toBeInTheDocument();
+    await fireEvent.click(view.getByRole("button", { name: "Load more jobs" }));
+    expect(await view.findByRole("link", { name: /Second/ })).toBeInTheDocument();
+    expect(view.getByRole("link", { name: /Heat/ })).toBeInTheDocument();
+  });
+
+  it("erhält Fokus beim Umsortieren und öffnet die aktuelle Job-ID", async () => {
+    vi.useFakeTimers();
+    let rows = [
+      job({ id: "j_a", status: "running" }),
+      job({ id: "j_b", status: "running", requested_at: "2026-07-20T11:00:00Z", subject: "Film/Other.mp4" }),
+    ];
+    const api = apiFor((path) => path.startsWith("/jobs?") ? json(rows) : json([]));
+    const onOpen = vi.fn();
+    const view = render(() => <ActivityPage api={api} onOpen={onOpen} />);
+    await vi.advanceTimersByTimeAsync(0);
+    const link = view.getByRole("link", { name: /Heat/ });
+    link.focus();
+    const old = link.closest("li");
+    rows = [
+      { ...rows[1]!, id: "j_b_new" },
+      job({ id: "j_inserted", status: "queued", requested_at: "2026-07-20T12:00:00Z", subject: "Film/Inserted.mp4" }),
+      job({ ...rows[0]!, id: "j_a_new", progress: 75 }),
+    ];
+    await vi.advanceTimersByTimeAsync(1100);
+
+    expect(view.getByRole("link", { name: /Heat/ }).closest("li")).toBe(old);
+    expect(link).toHaveFocus();
+    expect(link).toHaveAttribute("href", "/jobs/j_a_new");
+    await fireEvent.click(link);
+    expect(onOpen).toHaveBeenCalledWith("j_a_new");
+
+    rows = [rows[0]!];
+    await vi.advanceTimersByTimeAsync(1100);
+    expect(view.queryByRole("link", { name: /Heat/ })).not.toBeInTheDocument();
+  });
+
+  it.each(["missing", "duplicate"])("verbindet Jobs bei %s Schlüsseln nicht", async (kind) => {
+    vi.useFakeTimers();
+    let rows = [job({ id: "j_a", status: "running", requested_at: kind === "missing" ? null : "2026-07-20T10:00:00Z" })];
+    if (kind === "duplicate") rows.push({ ...rows[0]!, id: "j_b" });
+    const api = apiFor((path) => path.startsWith("/jobs?") ? json(rows) : json([]));
+    const view = render(() => <ActivityPage api={api} onOpen={vi.fn()} />);
+    await vi.advanceTimersByTimeAsync(0);
+    const old = view.getAllByRole("link", { name: /Heat/ })[0]!.closest("li")!;
+    rows = rows.map((row) => ({ ...row, id: row.id + "_new" }));
+    await vi.advanceTimersByTimeAsync(1100);
+
+    expect(old.isConnected).toBe(false);
+    expect(view.getAllByRole("link", { name: /Heat/ })).toHaveLength(rows.length);
+    expect(view.container.querySelectorAll('[aria-current="true"]')).toHaveLength(0);
+  });
+});
+
+describe("JobDetail: Item-Identität bei Revalidierung", () => {
+  function changingItems(initial: ReturnType<typeof item>[]) {
+    const state = { rows: initial };
+    const api = apiFor((path) => {
+      if (path === "/jobs/j_1") return json(job({ status: "running", total_count: state.rows.length }));
+      if (path.startsWith("/jobs/j_1/items")) return json(state.rows);
+      if (path.startsWith("/job-items/")) return json({ log_tail: path });
+      return json({});
+    });
+    return { state, api };
+  }
+
+  it("erhält Fokus und offenes Protokoll beim Ändern, Einfügen und Umsortieren mit aktuellen API-IDs", async () => {
+    vi.useFakeTimers();
+    const { state, api } = changingItems([item(), item({ id: "i_2", position: 2 })]);
+    const view = render(() => <JobDetail api={api} jobId="j_1" />);
+    await vi.advanceTimersByTimeAsync(0);
+    const row = view.getByText("#1").closest("li")!;
+    const toggle = within(row).getByRole("button", { name: "Log" });
+    await fireEvent.click(toggle);
+    await vi.advanceTimersByTimeAsync(0);
+    toggle.focus();
+
+    state.rows = [
+      item({ id: "i_inserted", position: 3 }),
+      item({ id: "i_2_new", position: 2 }),
+      item({ id: "i_current", position: 1, display_path: "Film/Updated.mp4" }),
+    ];
+    await vi.advanceTimersByTimeAsync(1100);
+
+    expect(view.getByText("#1").closest("li")).toBe(row);
+    expect(toggle).toHaveFocus();
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(within(row).getByText("Updated")).toBeInTheDocument();
+    expect(within(row).getByLabelText("Plain text log")).toHaveTextContent("/job-items/i_current/log");
+    expect(view.getAllByRole("button", { name: "Log" })).toHaveLength(3);
+
+    state.rows = [item({ id: "i_2_latest", position: 2 })];
+    await vi.advanceTimersByTimeAsync(1100);
+    expect(view.queryByText("#1")).not.toBeInTheDocument();
+    expect(view.queryByLabelText("Plain text log")).not.toBeInTheDocument();
+    view.unmount();
+    const reads = calls(api).length;
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(calls(api)).toHaveLength(reads);
+  });
+
+  it.each([undefined, null, -1, 0.5, 1])("verbindet Items mit ungültiger oder doppelter Position %s nicht", async (position) => {
+    vi.useFakeTimers();
+    const { state, api } = changingItems([
+      item({ id: "i_first", position }),
+      item({ id: "i_second", position }),
+    ]);
+    const view = render(() => <JobDetail api={api} jobId="j_1" />);
+    await vi.advanceTimersByTimeAsync(0);
+    const toggle = view.getAllByRole("button", { name: "Log" })[0]!;
+    await fireEvent.click(toggle);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(view.getByLabelText("Plain text log")).toHaveTextContent("/job-items/i_first/log");
+
+    state.rows = [item({ id: "i_second_new", position }), item({ id: "i_first_new", position })];
+    await vi.advanceTimersByTimeAsync(1100);
+
+    expect(view.queryByLabelText("Plain text log")).not.toBeInTheDocument();
+    expect(view.getAllByRole("button", { name: "Log" }).every((button) => button.getAttribute("aria-expanded") === "false")).toBe(true);
+    await fireEvent.click(view.getAllByRole("button", { name: "Log" })[0]!);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(view.getByLabelText("Plain text log")).toHaveTextContent("/job-items/i_second_new/log");
+  });
+
+  it("liest nach dem Nachladen alle sichtbaren Item-Seiten erneut und erhält deren offene Logs", async () => {
+    vi.useFakeTimers();
+    let serial = 0;
+    const api = apiFor((path) => {
+      if (path === "/jobs/j_1") return json(job({ status: "running", total_count: 2 }));
+      if (path.startsWith("/jobs/j_1/items")) {
+        serial += 1;
+        return path.includes("cursor=")
+          ? json([item({ id: "i_second_" + serial, position: 2 })])
+          : json([item({ id: "i_first_" + serial, position: 1 })], 200, { next_cursor: "next" });
+      }
+      if (path.startsWith("/job-items/")) return json({ log_tail: path });
+      return json([]);
+    });
+    const view = render(() => <JobDetail api={api} jobId="j_1" />);
+    await vi.advanceTimersByTimeAsync(0);
+    await fireEvent.click(view.getByRole("button", { name: "Load more items" }));
+    await vi.advanceTimersByTimeAsync(0);
+    const row = view.getByText("#2").closest("li")!;
+    const toggle = within(row).getByRole("button", { name: "Log" });
+    await fireEvent.click(toggle);
+    await vi.advanceTimersByTimeAsync(0);
+    const before = calls(api).filter(([path]) => path.includes("cursor=")).length;
+
+    await vi.advanceTimersByTimeAsync(2100);
+
+    expect(view.getByText("#2").closest("li")).toBe(row);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(within(row).getByLabelText("Plain text log").textContent).toMatch(/i_second_/);
+    expect(calls(api).filter(([path]) => path.includes("cursor=")).length).toBeGreaterThan(before);
+    expect(view.queryByRole("button", { name: "Load more items" })).not.toBeInTheDocument();
+  });
+
+  it("startet beim synchronen Doppelklick nur eine nächste Item-Seite", async () => {
+    let finish!: (response: Response) => void;
+    const api = detailApi({ total_count: 2 }, [item()], (path) =>
+      path.includes("cursor=") ? new Promise<Response>((resolve) => { finish = resolve; })
+        : path.startsWith("/jobs/j_1/items") ? json([item()], 200, { next_cursor: "next" }) : undefined);
+    const view = render(() => <JobDetail api={api} jobId="j_1" />);
+    const more = await view.findByRole("button", { name: "Load more items" });
+
+    fireEvent.click(more);
+    fireEvent.click(more);
+
+    expect(calls(api).filter(([path]) => path.includes("cursor="))).toHaveLength(1);
+    finish(json([item({ id: "i_second", position: 2 })]));
+    expect(await view.findByText("#2")).toBeInTheDocument();
+  });
+});
+
 describe("LogViewer: following a running log", () => {
   const metrics = (scrollHeight: number, clientHeight: number) => {
     Object.defineProperty(HTMLElement.prototype, "scrollHeight", { configurable: true, get: () => scrollHeight });
@@ -865,6 +1259,40 @@ describe("JobDetail: only the actions the server will accept", () => {
 });
 
 describe("JobDetail: cancel and retry", () => {
+  it("meldet eine verspätete Jobmutation nach dem Verlassen nicht an die nächste Ansicht", async () => {
+    vi.useFakeTimers();
+    let finish!: (response: Response) => void;
+    const onChanged = vi.fn();
+    const api = detailApi({ status: "running" }, [item({ status: "running" })], (path) => path === "/jobs/j_1/cancel"
+      ? new Promise<Response>((resolve) => { finish = resolve; }) : undefined);
+    const view = render(() => <JobDetail api={api} jobId="j_1" onChanged={onChanged} />);
+    await vi.advanceTimersByTimeAsync(0);
+    await fireEvent.click(view.getByRole("button", { name: "Cancel job" }));
+    fireEvent.click(view.getByRole("button", { name: "Confirm cancel" }));
+    view.unmount();
+    const before = calls(api).length;
+    finish(json({ status: "cancel_requested" }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onChanged).not.toHaveBeenCalled();
+    expect(calls(api)).toHaveLength(before);
+  });
+
+  it("übermittelt bei zwei Auslösungen im selben synchronen Ablauf nur einen Abbruch", async () => {
+    let finish!: (value: Response) => void;
+    const api = detailApi({ status: "running" }, [item()], (path) => path === "/jobs/j_1/cancel"
+      ? new Promise<Response>((resolve) => { finish = resolve; }) : undefined);
+    const view = render(() => <JobDetail api={api} jobId="j_1" />);
+    await fireEvent.click(await view.findByRole("button", { name: "Cancel job" }));
+    const confirm = view.getByRole("button", { name: "Confirm cancel" });
+
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+
+    expect(posts(api, "/jobs/j_1/cancel")).toHaveLength(1);
+    finish(json({ status: "cancel_requested" }));
+    expect(await view.findByText("Job cancellation requested")).toBeInTheDocument();
+  });
+
   const posts = (api: Api, path: string) => calls(api).filter(([p, init]) => p === path && init?.method === "POST");
 
   it("confirms inline, never in a modal, and sends nothing before the confirmation", async () => {
@@ -1049,7 +1477,10 @@ describe("ActivityPage: clearing finished jobs", () => {
     await fireEvent.click(within(panel).getByLabelText("Cancelled"));
     await fireEvent.click(within(panel).getByLabelText("Succeeded"));
 
-    await fireEvent.click(within(panel).getByRole("button", { name: "Confirm clear" }));
+    const submit = within(panel).getByRole("button", { name: "Confirm clear" });
+    fireEvent.click(submit);
+    fireEvent.click(submit);
+    expect(posts(api)).toHaveLength(1);
 
     expect(await view.findByText("Cleared 3 jobs. They stay in the audit trail.")).toBeInTheDocument();
     expect(JSON.parse(String(posts(api)[0]![1]!.body))).toEqual({ statuses: ["failed", "partial_success", "cancelled"] });
@@ -1165,6 +1596,7 @@ describe("ActivityPage: the filter bar", () => {
     const status = await openFacet(view, "Status");
 
     await fireEvent.click(await status.findByRole("checkbox", { name: "Failed, 1 job, needs attention" }));
+    await waitFor(() => expect(listCalls(api).at(-1)).toContain("status=failed"));
     await fireEvent.click(status.getByRole("checkbox", { name: "Partly failed, 1 job, needs attention" }));
     expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, status: ["partial_success", "failed"] }, { replace: false });
     await waitFor(() => expect(listCalls(api).at(-1)).toBe("/jobs?limit=50&order=desc&status=partial_success,failed"));
@@ -1234,7 +1666,7 @@ describe("ActivityPage: the filter bar", () => {
 
     await fireEvent.click(view.getAllByRole("button", { name: "Reset filters" })[0]!);
     expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, sort: "oldest" }, { replace: false });
-    expect(view.getByRole("searchbox", { name: "Search jobs" })).toHaveValue("");
+    await waitFor(() => expect(view.getByRole("searchbox", { name: "Search jobs" })).toHaveValue(""));
   });
 
   it("tells how many active jobs the filter hides and shows them on request", async () => {
@@ -1288,13 +1720,13 @@ describe("ActivityPage: quick filters", () => {
 
     await fireEvent.click(quick.getByRole("button", { name: "Failed in 24 h" }));
     expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, status: ["partial_success", "failed"], period: { preset: "24h" }, sort: "oldest" }, { replace: false });
-    expect(quick.getByRole("button", { name: "Failed in 24 h" })).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => expect(quick.getByRole("button", { name: "Failed in 24 h" })).toHaveAttribute("aria-pressed", "true"));
     expect(view.getByRole("searchbox", { name: "Search jobs" })).toHaveValue("");
     await waitFor(() => expect(listCalls(api).at(-1)).toMatch(/^\/jobs\?limit=50&order=asc&status=partial_success,failed&from=[^&]+$/));
 
     await fireEvent.click(quick.getByRole("button", { name: "Schedules today" }));
     expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, trigger: ["schedule"], period: { preset: "today" }, sort: "oldest" }, { replace: false });
-    expect(quick.getByRole("button", { name: "Failed in 24 h" })).toHaveAttribute("aria-pressed", "false");
+    await waitFor(() => expect(quick.getByRole("button", { name: "Failed in 24 h" })).toHaveAttribute("aria-pressed", "false"));
 
     await fireEvent.click(quick.getByRole("button", { name: "Schedules today" }));
     expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, sort: "oldest" }, { replace: false });

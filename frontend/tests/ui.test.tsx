@@ -1,5 +1,5 @@
 import { fireEvent, render } from "@solidjs/testing-library";
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Button } from "../src/ui/Button";
 import { Kbd } from "../src/ui/Kbd";
@@ -123,6 +123,7 @@ describe("ProgressBar", () => {
     expect(fill.getAttribute("style")).not.toMatch(/width/);
 
     setValue(75);
+    flush();
     expect(bar).toHaveAttribute("aria-valuenow", "75");
     expect(fill.getAttribute("style")).toContain("scaleX(0.75)");
   });

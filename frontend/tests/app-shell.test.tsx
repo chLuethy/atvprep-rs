@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@solidjs/testing-library";
 import App from "../src/App";
 import { publishWork } from "../src/lib/work";
+import { flush } from "solid-js";
 
 
 describe("application shell version", () => {
@@ -45,12 +46,15 @@ describe("application shell accessibility", () => {
     expect(queryByRole("img", { name: /job/ })).toBeNull();
 
     publishWork({ running: 2, queued: 1 });
+    flush();
     expect(activity()).toContainElement(getByRole("img", { name: "2 jobs running" }));
 
     publishWork({ running: 0, queued: 1 });
+    flush();
     expect(activity()).toContainElement(getByRole("img", { name: "1 job waiting" }));
 
     publishWork({ running: 0, queued: 0 });
+    flush();
     expect(queryByRole("img", { name: /job/ })).toBeNull();
   });
 

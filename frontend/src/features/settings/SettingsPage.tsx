@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal, onMount, type Component } from "solid-js";
+import { For, Show, createMemo, createSignal, onSettled, type Component } from "solid-js";
 import { SessionError } from "../../lib/api";
 import { Button } from "../../ui";
 import { N, t } from "../../lib/i18n";
@@ -112,10 +112,16 @@ export const SettingsPage: Component<{ api: SettingsApi }> = (props) => {
     if (!preserveDraft) setDraft({});
   };
 
+  let auditGeneration = 0;
+  let disposed = false;
   const loadAudit = async (key: string) => {
+    const mine = ++auditGeneration;
+    setAudit([]);
     try {
-      setAudit(await readAudit(await props.api.request(`/settings/audit?key=${encodeURIComponent(key)}`)));
+      const entries = await readAudit(await props.api.request(`/settings/audit?key=${encodeURIComponent(key)}`));
+      if (!disposed && mine === auditGeneration) setAudit(entries);
     } catch (caught) {
+      if (disposed || mine !== auditGeneration) return;
       if (caught instanceof SessionError) setSessionExpired(true);
       else setError(t("Unable to load the change history."));
     }
@@ -127,6 +133,7 @@ export const SettingsPage: Component<{ api: SettingsApi }> = (props) => {
     setSavedMessage(null);
     try {
       const envelope = await readEnvelope(await props.api.request("/settings"));
+      if (disposed) return;
       applyEnvelope(envelope, preserveDraft);
       const firstKey = envelope.settings.find((setting) => DEFINITIONS[setting.key])?.key;
       if (firstKey) {
@@ -149,17 +156,21 @@ export const SettingsPage: Component<{ api: SettingsApi }> = (props) => {
     setSavedMessage(null);
   };
 
+  let saveInFlight = false;
   const save = async () => {
-    if (revision() === null || validationErrors().length > 0 || !hasDraft() || saving()) return;
+    if (revision() === null || validationErrors().length > 0 || !hasDraft() || saveInFlight) return;
+    saveInFlight = true;
     setSaving(true);
     setError(null);
     setConflict(false);
+    const submitted = draft();
     try {
       const response = await props.api.request("/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey() },
-        body: JSON.stringify({ settings: draft(), expected_revision: revision() }),
+        body: JSON.stringify({ settings: submitted, expected_revision: revision() }),
       });
+      if (disposed) return;
       if (response.status === 409) {
         setConflict(true);
         await load(true);
@@ -170,12 +181,16 @@ export const SettingsPage: Component<{ api: SettingsApi }> = (props) => {
         return;
       }
       const envelope = await readEnvelope(response);
-      applyEnvelope(envelope, false, true);
+      if (disposed) return;
+      applyEnvelope(envelope, true, true);
+      // Only remove confirmed draft values; fields edited during the request are kept.
+      setDraft((current) => Object.fromEntries(Object.entries(current).filter(([key, value]) => !Object.is(value, submitted[key]))));
       setSavedMessage(t("Settings saved."));
     } catch (caught) {
       if (caught instanceof SessionError) setSessionExpired(true);
       else setError(t("Unable to save settings."));
     } finally {
+      saveInFlight = false;
       setSaving(false);
     }
   };
@@ -186,7 +201,10 @@ export const SettingsPage: Component<{ api: SettingsApi }> = (props) => {
     setError(null);
   };
 
-  onMount(() => void load());
+  onSettled(() => {
+    void load();
+    return () => { disposed = true; auditGeneration += 1; };
+  });
 
   const groups = createMemo(() => {
     const claimed = new Set(GROUPS.flatMap((group) => group.keys));

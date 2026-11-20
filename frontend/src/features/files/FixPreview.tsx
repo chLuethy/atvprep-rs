@@ -1,4 +1,4 @@
-import { createSignal, For, Show, type Component } from "solid-js";
+import { createMemo, createSignal, For, Show, type Component } from "solid-js";
 import { Button, Icon } from "../../ui";
 import type { FileRow, JobResult } from "./loaders";
 import { expectedChanges, summarizeChanges } from "./fixPlan";
@@ -41,14 +41,17 @@ export const FixPreview: Component<{
   /** The Kodierbedarf of a mixed selection, largest level first, in one line. */
   const needSummary = () => NEED_ORDER.filter((need) => needCount(need) > 0).map((need) => `${needCount(need)} ${needLabel(need)}`).join(" · ");
 
+  let queueInFlight = false;
   const queue = async () => {
-    if (busy() || !encode.ready()) return;
+    if (queueInFlight || !encode.ready()) return;
+    queueInFlight = true;
     setBusy(true);
     setFailure(null);
     try {
       const result = await props.onQueue(encode.level(), encode.force());
       if (!result.ok) setFailure(result.session ? "session" : "queue");
     } finally {
+      queueInFlight = false;
       setBusy(false);
     }
   };
@@ -73,13 +76,13 @@ export const FixPreview: Component<{
       <h3>{t("Expected changes")}</h3>
       <ul class="plain pv-files">
         <For each={props.files}>{(file) => {
-          const name = baseName(file.display_path ?? "");
-          const verdict = verdictOf(file);
-          const changes = expectedChanges((file.compliance_reasons ?? []).map(parseReason), file.planned_steps ?? []);
-          const summary = summarizeChanges(changes);
+          const name = createMemo(() => baseName(file.display_path ?? ""));
+          const verdict = createMemo(() => verdictOf(file));
+          const changes = createMemo(() => expectedChanges((file.compliance_reasons ?? []).map(parseReason), file.planned_steps ?? []));
+          const summary = createMemo(() => summarizeChanges(changes()));
           return (
             <li class="pv-file">
-              <b>{name.title || file.kind}</b> <span class="muted">{verdict.label} · {formatSize(file.size)}</span>
+              <b>{name().title || file.kind}</b> <span class="muted">{verdict().label} · {formatSize(file.size)}</span>
               <p class="muted pv-plan">{t("Encoding need")}: <b>{needLabel(file.encode_need)}</b> · {t("Change")}: <b>{changeLabel(file.planned_change)}</b></p>
               <Show when={!plain(file)}>
                 <For each={confirms(file).lines}>{(line, index) => <p class={confirms(file).reencode && index() === 0 ? "notice warn" : "muted"} role={confirms(file).reencode && index() === 0 ? "alert" : undefined}>{line}</p>}</For>
@@ -96,15 +99,15 @@ export const FixPreview: Component<{
                 <p class="muted">{t("The .srt files stay where they are.")}</p>
               </Show>
               <Show
-                when={changes.length > 0}
+                when={changes().length > 0}
                 fallback={<Show when={!embedding(file) && isMp4Like(file.suffix)}><p class="muted">{t("The server asks for Prepare; the verify report lists nothing more specific.")}</p></Show>}
               >
                 <ul class="plain changes">
-                  <For each={changes}>{(change) => (
+                  <For each={changes()}>{(change) => (
                     <li class={`change ${change.kind}`}><span class="kind">{findingLabel(change.kind)}</span><span>{change.text}</span></li>
                   )}</For>
                 </ul>
-                <p class="muted">{summary.remux ? tn("{resolved} of {count} finding resolved, with a remux", "{resolved} of {count} findings resolved, with a remux", changes.length, { resolved: summary.resolved }) : tn("{resolved} of {count} finding resolved", "{resolved} of {count} findings resolved", changes.length, { resolved: summary.resolved })}</p>
+                <p class="muted">{summary().remux ? tn("{resolved} of {count} finding resolved, with a remux", "{resolved} of {count} findings resolved, with a remux", changes().length, { resolved: summary().resolved }) : tn("{resolved} of {count} finding resolved", "{resolved} of {count} findings resolved", changes().length, { resolved: summary().resolved })}</p>
               </Show>
             </li>
           );

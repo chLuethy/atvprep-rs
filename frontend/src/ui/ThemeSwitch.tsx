@@ -1,4 +1,4 @@
-import { createSignal, For, onCleanup, onMount, type Component } from "solid-js";
+import { createSignal, For, onSettled, type Component } from "solid-js";
 import { N, t } from "../lib/i18n";
 
 export type Theme = "system" | "light" | "dark";
@@ -41,15 +41,17 @@ export function chooseTheme(value: Theme): void {
 
 export const ThemeSwitch: Component = () => {
   const [theme, setTheme] = createSignal<Theme>(readStoredTheme());
-  applyTheme(theme());
+  onSettled(() => { applyTheme(theme()); });
   const choose = (value: Theme) => chooseTheme(value);
   const follow = (event: Event) => setTheme((event as CustomEvent<Theme>).detail);
-  onMount(() => window.addEventListener(THEME_EVENT, follow));
-  onCleanup(() => window.removeEventListener(THEME_EVENT, follow));
+  onSettled(() => {
+    window.addEventListener(THEME_EVENT, follow);
+    return () => window.removeEventListener(THEME_EVENT, follow);
+  });
   return (
     <div class="seg" role="group" aria-label={t("Appearance")}>
       <For each={CHOICES}>{(choice) => (
-        <button type="button" aria-pressed={theme() === choice.value} onClick={() => choose(choice.value)}>{t(choice.label)}</button>
+        <button type="button" aria-pressed={theme() === choice.value ? "true" : "false"} onClick={() => choose(choice.value)}>{t(choice.label)}</button>
       )}</For>
     </div>
   );

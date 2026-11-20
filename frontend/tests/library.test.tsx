@@ -1,5 +1,5 @@
 import { fireEvent, render, waitFor, within } from "@solidjs/testing-library";
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LibraryPage } from "../src/features/files/LibraryPage";
 import { EMPTY_FILTER, type FileFilter } from "../src/features/files/filters";
@@ -299,7 +299,7 @@ describe("LibraryPage: the filter bar", () => {
     expect(within(landmark).getByRole("searchbox", { name: "Search files" })).toBeInTheDocument();
     setLanguage("de");
     try {
-      expect(view.getByRole("search", { name: "Dateisuche" })).toBeInTheDocument();
+      expect(await view.findByRole("search", { name: "Dateisuche" })).toBeInTheDocument();
     } finally {
       setLanguage("en");
     }
@@ -849,6 +849,7 @@ describe("LibraryPage: the title row without a scan", () => {
 
   it("ignores a scan that finished before the page opened", async () => {
     scanFinished();
+    flush();
     const { api, calls } = scannedApi();
     const view = renderLibrary(api);
     await view.findByRole("link", { name: "Heat" });
@@ -1004,6 +1005,99 @@ describe("LibraryPage: following jobs without a reload", () => {
     return { api, calls, filesCalls: () => calls.filter((path) => path.startsWith("/files?")).length };
   }
 
+  it("verwirft eine alte Poll-Antwort nach Filterwechsel samt ihren Zeilen und IDs", async () => {
+    vi.useFakeTimers();
+    try {
+      let finish!: (response: Response) => void;
+      let reads = 0;
+      const api: Api = { request: vi.fn(async (path) => {
+        if (path === "/dashboard") return json({ files: {}, scans: {}, jobs: { running: 1 } });
+        if (!path.startsWith("/files?")) return json([]);
+        if (path.includes("q=Pretty")) return json([ROWS[0]]);
+        if (++reads === 2) return new Promise<Response>((resolve) => { finish = resolve; });
+        return json([ROWS[1]]);
+      }) };
+      const [filter, setFilter] = createSignal<FileFilter>(EMPTY_FILTER);
+      const view = render(() => <LibraryPage api={api} filter={filter()} onOpen={open} />);
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(4100);
+      setFilter({ ...EMPTY_FILTER, q: "Pretty" });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(view.getByRole("link", { name: "Pretty Woman (1990)" })).toBeInTheDocument();
+      finish(json([{ ...ROWS[1], id: "m_old_poll" }]));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(view.getByRole("link", { name: "Pretty Woman (1990)" })).toBeInTheDocument();
+      expect(view.queryByRole("link", { name: "Heat" })).not.toBeInTheDocument();
+      view.unmount();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("merkt einen Scan während langsamen Datei-Nachladens und revalidiert danach beide sichtbaren Seiten", async () => {
+    vi.useFakeTimers();
+    try {
+      let finish!: (response: Response) => void;
+      let moreReads = 0;
+      let firstReads = 0;
+      const api: Api = { request: vi.fn(async (path) => {
+        if (path === "/dashboard") return json({ files: {}, scans: {}, jobs: {} });
+        if (!path.startsWith("/files?")) return json([]);
+        if (path.includes("cursor=c2")) {
+          if (++moreReads === 1) return new Promise<Response>((resolve) => { finish = resolve; });
+          return json([{ ...ROWS[0], id: "m_fresh_second" }]);
+        }
+        firstReads += 1;
+        return json([{ ...ROWS[1], id: `m_first_${firstReads}` }], 200, { next_cursor: "c2" });
+      }) };
+      const view = renderLibrary(api);
+      await vi.advanceTimersByTimeAsync(0);
+      fireEvent.click(view.getByRole("button", { name: "Load more files" }));
+      realtimeState.applyEvent({ type: "event", id: `e_${sequence}`, sequence: sequence++, topic: "scan.finished", payload: { status: "succeeded" } });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(firstReads).toBe(1);
+      expect(moreReads).toBe(1);
+      finish(json([ROWS[0]]));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(firstReads).toBe(2);
+      expect(moreReads).toBe(2);
+      expect(view.getByRole("link", { name: "Pretty Woman (1990)" })).toHaveAttribute("href", "/files/m_fresh_second");
+      expect(view.getByRole("link", { name: "Heat" })).toHaveAttribute("href", "/files/m_first_2");
+      expect(view.container.querySelectorAll("tbody tr")).toHaveLength(2);
+      view.unmount();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("serialisiert langsames Job-Polling und Scan-Invalidierung und liest danach erneut", async () => {
+    vi.useFakeTimers();
+    try {
+      let finish!: (response: Response) => void;
+      let reads = 0;
+      const api: Api = { request: vi.fn(async (path) => {
+        if (path === "/dashboard") return json({ files: {}, scans: {}, jobs: { running: 1 } });
+        if (!path.startsWith("/files?")) return json([]);
+        reads += 1;
+        if (reads === 2) return new Promise<Response>((resolve) => { finish = resolve; });
+        return json([{ ...ROWS[1], compliance_state: reads === 1 ? "warning" : "clean" }]);
+      }) };
+      const view = renderLibrary(api);
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(4100);
+      expect(reads).toBe(2);
+      realtimeState.applyEvent({ type: "event", id: `e_${sequence}`, sequence: sequence++, topic: "scan.finished", payload: { status: "succeeded" } });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(reads).toBe(2);
+      await vi.advanceTimersByTimeAsync(8000);
+      expect(reads).toBe(2);
+      finish(json([{ ...ROWS[1], compliance_state: "blocker" }]));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(reads).toBe(3);
+      expect(within(rowNamed(view, "Heat")).getByText("Ready")).toBeInTheDocument();
+      view.unmount();
+      const stopped = reads;
+      await vi.advanceTimersByTimeAsync(12000);
+      expect(reads).toBe(stopped);
+    } finally { vi.useRealTimers(); }
+  });
+
   it("updates the status in the table while a job runs and stops asking once nothing is active", async () => {
     vi.useFakeTimers();
     const state = { status: "warning", jobs: { running: 1 } as Record<string, number> };
@@ -1112,6 +1206,69 @@ describe("LibraryPage: following jobs without a reload", () => {
 
     expect(within(view.container.querySelector("tbody") as HTMLElement).getByText("Ready")).toBeInTheDocument();
     vi.useRealTimers();
+  });
+});
+
+describe("LibraryPage: aktuelle IDs und scoped Zeilenidentität", () => {
+  afterEach(() => vi.useRealTimers());
+  it("hält gleiche Pfade verschiedener Mediatheken auseinander und übermittelt nach Reorder aktuelle IDs", async () => {
+    vi.useFakeTimers();
+    let rows = [file({ ...ROWS[1]!, id: "m_a", root_id: "r_a" }), file({ ...ROWS[1]!, id: "m_b", root_id: "r_b" })];
+    const posts: RequestInit[] = [];
+    const api: Api = { request: vi.fn(async (path, init) => {
+      if (path === "/dashboard") return json({ files: {}, jobs: { running: 1 } });
+      if (path.startsWith("/files?")) return json(rows);
+      if (path === "/jobs") { posts.push(init!); return json({ id: "j_queued" }, 201); }
+      return json([]);
+    }) };
+    const view = renderLibrary(api);
+    await vi.advanceTimersByTimeAsync(0);
+    const original = view.getAllByRole("link", { name: "Heat" }).map((link) => link.closest("tr")!);
+    await fireEvent.click(original[0]!, { metaKey: true });
+    original[0]!.focus();
+    rows = [
+      file({ ...ROWS[1]!, id: "m_b_new", root_id: "r_b" }),
+      file({ ...ROWS[1]!, id: "m_inserted", root_id: "r_c", display_path: "Film/Inserted.mp4" }),
+      file({ ...ROWS[1]!, id: "m_a_new", root_id: "r_a", compliance_state: "clean" }),
+    ];
+    await vi.advanceTimersByTimeAsync(4100);
+
+    const refreshed = view.getAllByRole("link", { name: "Heat" }).map((link) => link.closest("tr")!);
+    expect(refreshed).toEqual([original[1], original[0]]);
+    expect(original[0]).toHaveFocus();
+    expect(original[0]).toHaveAttribute("data-picked", "true");
+    expect(original[1]).not.toHaveAttribute("data-picked", "true");
+    expect(within(original[0]!).getByRole("link", { name: "Heat" })).toHaveAttribute("href", "/files/m_a_new");
+    await fireEvent.click(view.getByRole("button", { name: "Verify selection" }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(JSON.parse(String(posts[0]?.body)).media_ids).toEqual(["m_a_new"]);
+
+    rows = [file({ ...ROWS[1]!, id: "m_b_latest", root_id: "r_b" })];
+    await vi.advanceTimersByTimeAsync(4100);
+    expect(original[0]!.isConnected).toBe(false);
+    expect(view.queryByRole("region", { name: "Selection" })).not.toBeInTheDocument();
+  });
+
+  it.each(["missing", "duplicate"])("verbindet Zeilen bei %s Schlüsseln nicht und verwirft mehrdeutige Auswahl", async (kind) => {
+    vi.useFakeTimers();
+    let rows = [file({ ...ROWS[1]!, id: "m_a", root_id: kind === "missing" ? "" : "r_1" })];
+    if (kind === "duplicate") rows.push(file({ ...rows[0]!, id: "m_b" }));
+    const api: Api = { request: vi.fn(async (path) => {
+      if (path === "/dashboard") return json({ files: {}, jobs: { running: 1 } });
+      if (path.startsWith("/files?")) return json(rows);
+      return json([]);
+    }) };
+    const view = renderLibrary(api);
+    await vi.advanceTimersByTimeAsync(0);
+    const old = view.getAllByRole("link", { name: "Heat" })[0]!.closest("tr")!;
+    await fireEvent.click(old, { metaKey: true });
+
+    rows = rows.map((row) => file({ ...row, id: row.id + "_new" }));
+    await vi.advanceTimersByTimeAsync(4100);
+
+    expect(old.isConnected).toBe(false);
+    expect(view.queryByRole("region", { name: "Selection" })).not.toBeInTheDocument();
+    expect(view.getAllByRole("link", { name: "Heat" })).toHaveLength(rows.length);
   });
 });
 

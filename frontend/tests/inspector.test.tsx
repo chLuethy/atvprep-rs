@@ -201,6 +201,24 @@ describe("Inspector: tracks and inspection", () => {
     expect(view.queryByRole("button", { name: "Prepare running" })).not.toBeInTheDocument();
   });
 
+  it("zeigt Sitzungsverlust bei stiller Revalidierung statt vorhandene Details als Erfolg zu behalten", async () => {
+    vi.useFakeTimers();
+    let expire!: (reason: Error) => void;
+    let reads = 0;
+    const api = standard({ "/files/m_f1": () => ++reads === 1 ? response({ ...detail, fix_status: "running" })
+      : new Promise<Response>((_resolve, reject) => { expire = reject; }) });
+    const view = render(() => <Inspector api={api} fileId="m_f1" />);
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(4100);
+    expect(view.getByRole("heading", { name: "Pretty Woman (1990)" })).toBeInTheDocument();
+    expect(view.queryByText("Loading file detail")).not.toBeInTheDocument();
+    expire(new SessionError());
+    await vi.advanceTimersByTimeAsync(0);
+    expect(view.getByRole("alert")).toHaveTextContent("Session expired. Lock and unlock again.");
+    expect(view.queryByRole("heading", { name: "Pretty Woman (1990)" })).not.toBeInTheDocument();
+    view.unmount();
+  });
+
   it("leaves the page alone when a refresh brings the same data under new ids", async () => {
     vi.useFakeTimers();
     let serial = 0;
@@ -338,6 +356,25 @@ describe("Inspector: sidecars and history", () => {
     expect(api.request).toHaveBeenCalledWith("/files/m_f1/sidecars?limit=50&cursor=cursor-2");
   });
 
+  it("lädt beim synchronen Doppelklick nur eine weitere Untertitelseite", async () => {
+    let finish!: (value: Response) => void;
+    let reads = 0;
+    const api = apiFor((path) => {
+      if (path === "/files/m_f1") return response(detail);
+      if (path.includes("cursor=next")) { reads += 1; return new Promise<Response>((resolve) => { finish = resolve; }); }
+      if (path.startsWith("/files/m_f1/sidecars")) return response([sidecar("c_1", "first.srt")], 200, { next_cursor: "next" });
+      return response([]);
+    });
+    const view = render(() => <Inspector api={api} fileId="m_f1" />);
+    const more = await view.findByRole("button", { name: "Load more sidecars" });
+    fireEvent.click(more);
+    fireEvent.click(more);
+    expect(reads).toBe(1);
+    finish(response([sidecar("c_2", "second.srt")]));
+    expect(await view.findByText("second.srt")).toBeInTheDocument();
+    expect(view.getByText("first.srt")).toBeInTheDocument();
+  });
+
   it("falls back to the sidecar count and to an empty job history", async () => {
     const view = render(() => <Inspector api={standard({ "/files/m_f1/jobs": () => response([]) })} fileId="m_f1" />);
 
@@ -353,6 +390,33 @@ describe("Inspector: sidecars and history", () => {
 });
 
 describe("Inspector: loading, errors, navigation", () => {
+  it("zeigt nach einem Dateiwechsel keine verspäteten Details, Inspektionen oder Jobs der alten Datei", async () => {
+    let finishDetail!: (value: Response) => void;
+    let finishInspections!: (value: Response) => void;
+    let finishJobs!: (value: Response) => void;
+    const api = apiFor((path) => {
+      if (path === "/files/m_f1") return new Promise<Response>((resolve) => { finishDetail = resolve; });
+      if (path.startsWith("/files/m_f1/inspections")) return new Promise<Response>((resolve) => { finishInspections = resolve; });
+      if (path.startsWith("/files/m_f1/jobs")) return new Promise<Response>((resolve) => { finishJobs = resolve; });
+      if (path === "/files/m_f2") return response({ ...detail, id: "m_f2", display_path: "Film/Heat.mp4" });
+      return response([]);
+    });
+    const [fileId, setFileId] = createSignal("m_f1");
+    const view = render(() => <Inspector api={api} fileId={fileId()} />);
+    await waitFor(() => expect(finishJobs).toBeTypeOf("function"));
+
+    setFileId("m_f2");
+    await view.findByRole("heading", { name: "Heat" });
+    finishDetail(response(detail));
+    finishInspections(response([inspection]));
+    finishJobs(response([job]));
+
+    await waitFor(() => expect(view.getByRole("heading", { name: "Heat" })).toBeInTheDocument());
+    expect(view.queryByRole("heading", { name: "Pretty Woman (1990)" })).not.toBeInTheDocument();
+    expect(view.queryByText("12.1 Mbps")).not.toBeInTheDocument();
+    expect(view.queryByText("inspect: succeeded (manual)")).not.toBeInTheDocument();
+  });
+
   it("retries a failed detail request", async () => {
     let failed = true;
     const api = apiFor((path) => {
@@ -417,6 +481,38 @@ describe("Inspector: re-inspect", () => {
 
     await view.findByText(/re-inspection queued/i);
     expect(inspectPosts(api)).toHaveLength(1);
+  });
+
+  it("startet nach Verlassen keine Hintergrundreads oder Seiten-Callbacks aus einer verspäteten Mutation", async () => {
+    vi.useFakeTimers();
+    let finish!: (response: Response) => void;
+    const onQueued = vi.fn();
+    const api = standard({ "/files/m_f1/inspect": () => new Promise<Response>((resolve) => { finish = resolve; }) });
+    const view = render(() => <Inspector api={api} fileId="m_f1" onQueued={onQueued} />);
+    await vi.advanceTimersByTimeAsync(0);
+    await fireEvent.click(view.getByRole("button", { name: "Re-inspect" }));
+    fireEvent.click(view.getByRole("button", { name: "Confirm re-inspect" }));
+    view.unmount();
+    const before = vi.mocked(api.request).mock.calls.length;
+    finish(response({}));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onQueued).not.toHaveBeenCalled();
+    expect(vi.mocked(api.request).mock.calls).toHaveLength(before);
+  });
+
+  it("übermittelt bei zwei Auslösungen im selben synchronen Ablauf nur eine Re-Inspektion", async () => {
+    let finish!: (value: Response) => void;
+    const api = standard({ "/files/m_f1/inspect": () => new Promise<Response>((resolve) => { finish = resolve; }) });
+    const view = render(() => <Inspector api={api} fileId="m_f1" />);
+    await fireEvent.click(await view.findByRole("button", { name: "Re-inspect" }));
+    const confirm = view.getByRole("button", { name: "Confirm re-inspect" });
+
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+
+    expect(inspectPosts(api)).toHaveLength(1);
+    finish(response({ id: "j_2" }, 201));
+    expect(await view.findByText("Re-inspection queued")).toBeInTheDocument();
   });
 
   it("reuses one idempotency key when the same confirmation is retried", async () => {

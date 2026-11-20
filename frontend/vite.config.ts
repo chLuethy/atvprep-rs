@@ -1,12 +1,9 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from "vitest/config";
-import solid from "vite-plugin-solid";
+import solid from "@solidjs/vite-plugin";
 
 export default defineConfig({
-  plugins: [solid() as never],
-  resolve: {
-    conditions: ["development", "browser"],
-  },
+  plugins: [solid()],
   build: {
     sourcemap: false,
     outDir: "dist",
@@ -17,8 +14,6 @@ export default defineConfig({
     globals: true,
     include: ["tests/**/*.{test,spec}.{ts,tsx}"],
     setupFiles: ["./tests/setup.ts"],
-    deps: {
-      inline: [/solid-js/, /@solidjs/],
-    },
+    server: { deps: { inline: [/solid-js/, /@solidjs/] } },
   },
 });

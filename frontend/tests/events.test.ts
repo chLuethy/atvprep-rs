@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { flush } from "solid-js";
 import { EventClient } from "../src/lib/events";
 import { realtimeState } from "../src/lib/realtime";
 
@@ -69,8 +70,10 @@ describe("durable event client", () => {
   it("does not let malformed snapshot metadata replace the last valid realtime snapshot", () => {
     const valid = { data: [], meta: { current_cursor: null, next_cursor: null, current_sequence: 0 } };
     realtimeState.applySnapshot(valid);
+    flush();
     expect(realtimeState.snapshot()).toEqual(valid);
     realtimeState.applySnapshot({ data: [], meta: { current_cursor: 1, next_cursor: null, current_sequence: 0 } });
+    flush();
     expect(realtimeState.snapshot()).toEqual(valid);
   });
 

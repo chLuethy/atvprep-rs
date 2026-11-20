@@ -1,4 +1,4 @@
-import { createEffect, onMount, type Component } from "solid-js";
+import { createEffect, onSettled, type Component } from "solid-js";
 
 /** Where each bar last stood, so a bar that is built anew carries on from there instead of from the start. */
 const shown = new Map<string, number>();
@@ -14,18 +14,17 @@ export const ProgressBar: Component<{ value: number; label: string; track?: stri
   let fill: HTMLSpanElement | undefined;
   const place = (value: number) => { if (fill) fill.style.transform = `scaleX(${value / 100})`; };
 
-  onMount(() => {
+  onSettled(() => {
     const from = props.track ? shown.get(props.track) : undefined;
     if (from === undefined || from === percent() || !fill) return;
     place(from);
     void fill.offsetWidth; // commit the starting point, so the next change is a transition
   });
-  createEffect(() => {
-    const value = percent();
+  createEffect(() => ({ value: percent(), track: props.track }), ({ value, track }) => {
     place(value);
-    if (!props.track) return;
-    shown.delete(props.track);
-    shown.set(props.track, value);
+    if (!track) return;
+    shown.delete(track);
+    shown.set(track, value);
     if (shown.size > REMEMBERED) shown.delete(shown.keys().next().value as string);
   });
 

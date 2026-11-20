@@ -1,4 +1,4 @@
-import { createResource } from "solid-js";
+import { createMemo } from "solid-js";
 import { locale, N, t } from "../../lib/i18n";
 import { MANY_OPTIONS, type Facet, type FacetCounts, type FilterValue } from "../../ui/FilterBar";
 import { loadRoots } from "../scan/loaders";
@@ -22,10 +22,11 @@ const dayText = (day: string) => dayStart(day)?.toLocaleDateString(locale(), { d
 export function periodLibraryFacets(props: { api: Api; filter: () => JobFilter; counts: () => FacetCounts | null; onChange: (next: JobFilter) => void }) {
   // The names are read once the server counts per library (or one is chosen), not before the list.
   const wanted = () => !!props.counts()?.root || (props.filter().root?.length ?? 0) > 0;
-  const [roots] = createResource(wanted, async () => {
+  const roots = createMemo(async () => {
+    if (!wanted()) return [];
     const answer = await loadRoots(props.api);
     return answer.kind === "ok" ? answer.items : [];
-  }, { initialValue: [] });
+  }, { loadingValue: [] });
 
   const custom = () => {
     const period = props.filter().period;

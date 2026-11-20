@@ -1,4 +1,5 @@
-import { createEffect, createSignal, createUniqueId, For, onCleanup, onMount, Show, untrack, type Component, type JSX } from "solid-js";
+import { createEffect, createSignal, createUniqueId, For, onSettled, Show, untrack, type Component } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { t } from "../lib/i18n";
 import { Button } from "./Button";
 import { Icon } from "./icons";
@@ -165,7 +166,7 @@ const plainCount: CountText = (count) => String(count);
 const OptionBox: Component<{ name: string; type: "checkbox" | "radio"; label: string; count: number | undefined; countText: CountText; urgent?: boolean | undefined; checked: boolean; mixed?: boolean; onChange: () => void }> = (props) => {
   let input: HTMLInputElement | undefined;
   // A group partly chosen shows a dash; the state exists only as a property of the element.
-  createEffect(() => { if (input) input.indeterminate = !!props.mixed && !props.checked; });
+  createEffect(() => !!props.mixed && !props.checked, (mixed) => { if (input) input.indeterminate = mixed; });
   const urgent = () => !!props.urgent && (props.count ?? 0) > 0;
   const spoken = () => {
     if (props.count === undefined) return props.label;
@@ -178,7 +179,7 @@ const OptionBox: Component<{ name: string; type: "checkbox" | "radio"; label: st
       {/* The box's own name already says it, so it is not read twice. */}
       <span class="name" aria-hidden="true">{props.label}</span>
       <Show when={props.count !== undefined}>
-        <span class="count" classList={{ urgent: urgent() }} aria-hidden="true">
+        <span class={["count", { urgent: urgent() }]} aria-hidden="true">
           <Show when={urgent()}><Icon name="warn" size={11} /></Show>
           {props.count}
         </span>
@@ -338,12 +339,12 @@ export const FilterBar: Component<{
    */
   const narrowQuery = () => (typeof window.matchMedia === "function" ? window.matchMedia(NARROW) : undefined);
   const [narrow, setNarrow] = createSignal(narrowQuery()?.matches ?? false);
-  onMount(() => {
+  onSettled(() => {
     const query = narrowQuery();
     if (!query?.addEventListener) return;
     const onChange = () => setNarrow(query.matches);
     query.addEventListener("change", onChange);
-    onCleanup(() => query.removeEventListener("change", onChange));
+    return () => query.removeEventListener("change", onChange);
   });
   /** Focus `element`, or "More filters" when it went with the second row, so the focus is never lost. */
   const focusOr = (element: HTMLElement | undefined) => (element?.isConnected ? element : moreToggle)?.focus();
@@ -371,7 +372,7 @@ export const FilterBar: Component<{
   const close = (refocus = true) => {
     const was = open();
     setOpen(null);
-    if (refocus && was) focusOr(was === "*" ? allButton : buttons.get(was));
+    if (refocus && was) queueMicrotask(() => focusOr(was === "*" ? allButton : buttons.get(was)));
   };
   const toggle = (key: string) => (open() === key ? close() : setOpen(key));
   /**
@@ -386,10 +387,10 @@ export const FilterBar: Component<{
   let allButton: HTMLButtonElement | undefined;
 
   // A click outside the bar closes the popover, as a menu does.
-  onMount(() => {
+  onSettled(() => {
     const onPointer = (event: PointerEvent) => { if (open() && bar && !bar.contains(event.target as Node)) close(false); };
     document.addEventListener("pointerdown", onPointer);
-    onCleanup(() => document.removeEventListener("pointerdown", onPointer));
+    return () => document.removeEventListener("pointerdown", onPointer);
   });
   const onPopoverKey = (event: KeyboardEvent) => {
     if (event.key !== "Escape") return;
@@ -411,7 +412,9 @@ export const FilterBar: Component<{
       </Show>
     </div>
   );
-  const focusFirst = (element: HTMLElement) => queueMicrotask(() => element.querySelector<HTMLInputElement>("input")?.focus());
+  const focusFirst = (element: HTMLElement) => queueMicrotask(() => {
+    if (!element.contains(document.activeElement)) element.querySelector<HTMLInputElement>("input")?.focus();
+  });
 
   /**
    * The facets are kept by key, so a page that builds its facets anew (options from the counts) does not
@@ -438,7 +441,7 @@ export const FilterBar: Component<{
             aria-disabled={locked(facet()) ? "true" : undefined}
             aria-describedby={locked(facet()) ? lockedHint : undefined}
             aria-haspopup="dialog"
-            aria-expanded={open() === key}
+            aria-expanded={open() === key ? "true" : "false"}
             aria-controls={popId}
             onClick={() => { if (!locked(facet())) toggle(key); }}
           >
@@ -470,7 +473,7 @@ export const FilterBar: Component<{
         <Show when={(props.quick?.length ?? 0) > 0}>
           <div class="fb-quick" role="group" aria-label={t("Quick filters")}>
             <For each={props.quick}>{(choice) => (
-              <button type="button" class="fb-quick-button" aria-pressed={choice.active} onClick={() => props.onQuick?.(choice.id)}>{choice.label}</button>
+              <button type="button" class="fb-quick-button" aria-pressed={choice.active ? "true" : "false"} onClick={() => props.onQuick?.(choice.id)}>{choice.label}</button>
             )}</For>
           </div>
         </Show>
@@ -488,7 +491,7 @@ export const FilterBar: Component<{
               class="fb-button fb-all"
               data-active={active() > 0 ? "true" : undefined}
               aria-haspopup="dialog"
-              aria-expanded={open() === "*"}
+              aria-expanded={open() === "*" ? "true" : "false"}
               aria-controls={`${id}-all`}
               aria-label={active() > 0 ? t("All filters ({count} active)", { count: active() }) : t("All filters")}
               onClick={() => toggle("*")}
@@ -518,7 +521,7 @@ export const FilterBar: Component<{
               type="button"
               ref={moreToggle}
               class="fb-link fb-more-toggle"
-              aria-expanded={moreShown()}
+              aria-expanded={moreShown() ? "true" : "false"}
               aria-controls={`${id}-more`}
               aria-disabled={moreActive() ? "true" : undefined}
               title={moreActive() ? t("Stays open while a filter in it is active") : undefined}

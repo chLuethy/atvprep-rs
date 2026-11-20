@@ -1,4 +1,4 @@
-import { createEffect, createSignal, For, onCleanup, onMount, Show, type Component } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onSettled, Show, type Component } from "solid-js";
 import { Button } from "../../ui";
 import { formatDateTime } from "../../lib/time";
 import { N, t } from "../../lib/i18n";
@@ -36,9 +36,12 @@ export const ScanControl: Component<{ api: Api; onFinished?: () => void }> = (pr
 
   const busy = () => submitting() || (roots() ?? []).some(isActive);
   let wasActive = false;
+  let scanInFlight = false;
+  let disposed = false;
 
   const refresh = async () => {
     const result = await loadRoots(props.api);
+    if (disposed) return;
     if (result.kind === "ok") {
       const active = result.items.some(isActive);
       setRoots(result.items);
@@ -51,19 +54,30 @@ export const ScanControl: Component<{ api: Api; onFinished?: () => void }> = (pr
     }
   };
 
-  onMount(() => void refresh());
-  createEffect(() => {
-    if (!(roots() ?? []).some(isActive)) return;
-    const timer = window.setInterval(() => { if (!document.hidden) void refresh(); }, POLL_MS);
-    onCleanup(() => window.clearInterval(timer));
+  onSettled(() => {
+    void refresh();
+    return () => { disposed = true; };
+  });
+  const active = createMemo(() => (roots() ?? []).some(isActive));
+  createEffect(active, (running) => {
+    if (!running) return;
+    let reading = false;
+    const timer = window.setInterval(() => {
+      if (document.hidden || reading) return;
+      reading = true;
+      void refresh().finally(() => { reading = false; });
+    }, POLL_MS);
+    return () => window.clearInterval(timer);
   });
 
   const scan = async () => {
-    if (busy()) return;
+    if (scanInFlight || busy()) return;
+    scanInFlight = true;
     setSubmitting(true);
     setProblem(null);
     let failure: string | null = null;
     for (const root of roots() ?? []) {
+      if (disposed) break;
       if (!keys.has(root.id)) keys.set(root.id, crypto.randomUUID());
       const result = await requestScan(props.api, root.id, keys.get(root.id) ?? crypto.randomUUID());
       if (!result.ok) {
@@ -72,7 +86,9 @@ export const ScanControl: Component<{ api: Api; onFinished?: () => void }> = (pr
       }
       keys.delete(root.id);
     }
+    scanInFlight = false;
     setSubmitting(false);
+    if (disposed) return;
     if (failure) setProblem(failure);
     await refresh();
   };

@@ -9,8 +9,7 @@ export type ChipKind = "ok" | "warn" | "bad" | "neutral";
  */
 export const StatusChip: ParentComponent<{ kind: ChipKind; icon: IconName; live?: boolean }> = (props) => (
   <span
-    class="chip"
-    classList={{ ok: props.kind === "ok", warn: props.kind === "warn", bad: props.kind === "bad", neutral: props.kind === "neutral", live: !!props.live }}
+    class={["chip", { ok: props.kind === "ok", warn: props.kind === "warn", bad: props.kind === "bad", neutral: props.kind === "neutral", live: !!props.live }]}
   >
     <Icon name={props.icon} size={12} />
     <span class="chip-text">{props.children}</span>

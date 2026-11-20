@@ -68,6 +68,7 @@ describe("ActivityPage: period and library under More filters", () => {
     expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, period: { from: today, to: today } }, { replace: false });
 
     await fireEvent.change(period.getByLabelText("From"), { target: { value: "2026-11-01" } });
+    await waitFor(() => expect(lastList()).toContain(`from=${encodeURIComponent(new Date(2026, 10, 1).toISOString())}`));
     await fireEvent.change(period.getByLabelText("To"), { target: { value: "2026-11-05" } });
 
     expect(onFilter).toHaveBeenLastCalledWith({ ...EMPTY_JOB_FILTER, period: { from: "2026-11-01", to: "2026-11-05" } }, { replace: false });
@@ -100,6 +101,40 @@ describe("ActivityPage: period and library under More filters", () => {
 
 describe("ActivityPage: a relative period on a page left open", () => {
   const since = (path: string) => decodeURIComponent(/[?&]from=([^&]+)/.exec(path)?.[1] ?? "");
+
+  it("teilt langsame Polls über Mitternacht und wechselt nach verborgener Aktivität zum relativen Intervall", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 10, 14, 23, 59, 59));
+      let reads = 0;
+      let finish!: (response: Response) => void;
+      const paths: string[] = [];
+      const api: Api = { request: vi.fn(async (path) => {
+        paths.push(path);
+        if (path === "/roots") return json(ROOTS);
+        if (path.startsWith("/jobs/counts?")) return json({ ...COUNTS, hidden_active: reads < 2 ? 1 : 0 });
+        if (path.startsWith("/jobs?")) {
+          if (++reads === 2) return new Promise<Response>((resolve) => { finish = resolve; });
+          return json([job]);
+        }
+        return json([]);
+      }) };
+      const view = render(() => <ActivityPage api={api} filter={{ ...EMPTY_JOB_FILTER, period: { preset: "today" } }} onOpen={vi.fn()} />);
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(70_000);
+      expect(reads).toBe(2);
+      expect(since(paths.filter((path) => path.startsWith("/jobs?")).at(-1)!)).toBe(new Date(2026, 10, 15).toISOString());
+      finish(json([job]));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(view.queryByRole("status", { name: "Hidden active jobs" })).not.toBeInTheDocument();
+      await vi.advanceTimersByTimeAsync(51_000);
+      expect(reads).toBe(3);
+      view.unmount();
+      const before = paths.length;
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(paths).toHaveLength(before);
+    } finally { vi.useRealTimers(); }
+  });
 
   it("moves Today on at midnight without a reload", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });

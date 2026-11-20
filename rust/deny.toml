@@ -3,6 +3,12 @@ all-features = true
 
 [advisories]
 yanked = "deny"
+# Neue "unmaintained"-Hinweise (2026-11) ohne Sicherheitslücke und ohne sichere
+# Alternative im Upgrade-Pfad; Ablösung (jiff/time) ist ein eigenes Vorhaben.
+ignore = [
+    "RUSTSEC-2026-0543", # chrono unmaintained
+    "RUSTSEC-2026-0555", # chrono-tz unmaintained
+]
 
 [licenses]
 confidence-threshold = 0.9

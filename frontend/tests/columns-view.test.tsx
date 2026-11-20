@@ -65,6 +65,16 @@ describe("browse helpers", () => {
 });
 
 describe("ColumnsView", () => {
+  it("meldet den vollständig wiederhergestellten Pfad nach der letzten Spaltenantwort", async () => {
+    const { api } = makeApi();
+    const onPath = vi.fn();
+    const initialPath = { rootId: "r_1", folders: ["deutsch"] };
+    const { view } = show(api, { initialPath, onPath });
+    await view.findByText("Film B (2021)");
+    await waitFor(() => expect(onPath).toHaveBeenLastCalledWith(initialPath, EMPTY_FILTER));
+    expect(view.getByRole("navigation", { name: "Location" })).toHaveTextContent("LibrariesFilmdeutsch");
+  });
+
   it("starts with the libraries and marks the folder that holds a problem", async () => {
     const { api } = makeApi();
     const { view } = show(api);

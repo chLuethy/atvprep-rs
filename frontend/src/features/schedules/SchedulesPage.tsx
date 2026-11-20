@@ -1,4 +1,4 @@
-import { createEffect, createSignal, For, onCleanup, onMount, Show, type Component } from "solid-js";
+import { createEffect, createSignal, For, onSettled, Show, type Component } from "solid-js";
 import { Button, Kbd } from "../../ui";
 import { language, N, t, tn } from "../../lib/i18n";
 import { isTyping } from "../../lib/keys";
@@ -63,14 +63,19 @@ export const SchedulesPage: Component<{
 
   const fresh = () => { key = crypto.randomUUID(); };
 
+  const lifetime = new AbortController();
+  const signal = lifetime.signal;
   const load = async () => {
+    if (signal.aborted) return;
     const result = await loadSchedules(props.api);
+    if (signal.aborted) return;
     if (result.kind === "ok") { setRows(result.items); setLimits(result.limits); setPhase("ready"); }
     else setPhase(result.kind === "session" ? "session" : "error");
   };
-  onMount(() => {
+  onSettled(() => {
     void load();
-    void loadRoots(props.api).then((result) => { if (result.kind === "ok") setRoots(result.items); });
+    void loadRoots(props.api).then((result) => { if (!signal.aborted && result.kind === "ok") setRoots(result.items); });
+    return () => lifetime.abort();
   });
 
   const openNew = () => {
@@ -95,36 +100,35 @@ export const SchedulesPage: Component<{
     queueMicrotask(() => nameInput?.focus());
   };
   const closeEditor = () => { setEditing(null); queueMicrotask(() => newButton?.focus()); };
-  const patch = (changes: Partial<ScheduleInput>) => { fresh(); setDraft({ ...draft(), ...changes }); };
+  const patch = (changes: Partial<ScheduleInput> | ((current: ScheduleInput) => Partial<ScheduleInput>)) => {
+    fresh();
+    setDraft((current) => ({ ...current, ...(typeof changes === "function" ? changes(current) : changes) }));
+  };
 
   const chooseAction = (action: Action) => {
     const states = stateChoices(action).map((choice) => choice.value);
-    patch({ action, complianceState: states.includes(draft().complianceState) ? draft().complianceState : defaultState(action) });
+    patch((current) => ({ action, complianceState: states.includes(current.complianceState) ? current.complianceState : defaultState(action) }));
   };
-  const chooseMode = (mode: "simple" | "cron") => {
-    const current = draft();
-    if (mode === "cron") { patch({ cron: current.cron ?? weeklyCron(current.days, current.time) }); return; }
+  const chooseMode = (mode: "simple" | "cron") => patch((current) => {
+    if (mode === "cron") return { cron: current.cron ?? weeklyCron(current.days, current.time) };
     const simple = current.cron === null ? null : simpleForm(current.cron);
-    patch({ cron: null, ...(simple ?? {}) });
-  };
+    return { cron: null, ...(simple ?? {}) };
+  });
 
   // The description and next runs of the cron text come from the server, shortly after typing stops.
-  createEffect(() => {
-    const expression = draft().cron;
-    const lang = language();
-    const action = draft().action;
-    if (editing() === null || expression === null) { setPreview(null); return; }
+  createEffect(() => ({ expression: draft().cron, lang: language(), action: draft().action, editing: editing() }), ({ expression, lang, action, editing }) => {
+    if (editing === null || expression === null) { setPreview(null); return; }
     setPreview(null);
     let current = true;
     const timer = setTimeout(() => {
       void previewCron(props.api, expression, lang, action).then((result) => { if (current) setPreview(result); });
     }, 150);
-    onCleanup(() => { current = false; clearTimeout(timer); });
+    return () => { current = false; clearTimeout(timer); };
   });
 
   const toggleDay = (day: number) => {
-    const days = draft().days;
-    patch({ days: days.includes(day) ? days.filter((known) => known !== day) : [...days, day].sort((a, b) => a - b) });
+    fresh();
+    setDraft((current) => ({ ...current, days: current.days.includes(day) ? current.days.filter((known) => known !== day) : [...current.days, day].sort((a, b) => a - b) }));
   };
 
   /** The most files one run of this action and level may take, as the server says; null when it has not said. */
@@ -150,16 +154,20 @@ export const SchedulesPage: Component<{
     return found;
   };
 
+  let operationInFlight = false;
   const save = async () => {
     const target = editing();
-    if (!target || busy() || problems().length > 0) return;
+    if (!target || operationInFlight || problems().length > 0) return;
+    operationInFlight = true;
     setBusy(true);
     setFormError(null);
     const input = { ...draft(), name: draft().name.trim() };
     const result = target.id === null
       ? await createSchedule(props.api, input, key)
       : await updateSchedule(props.api, target.id, input, key);
+    operationInFlight = false;
     setBusy(false);
+    if (signal.aborted) return;
     if (!result.ok) { setFormError(result.session ? t(SESSION_EXPIRED) : problem(result.detail, t("Unable to save the schedule."))); return; }
     setEditing(null);
     setNotice(target.id === null
@@ -175,11 +183,14 @@ export const SchedulesPage: Component<{
 
   /** Run one row action, then reload. A failure stays on the row that caused it. */
   const act = async (run: () => Promise<{ ok: boolean; session?: boolean; detail?: string }>, done: string | null, failed: string) => {
-    if (busy()) return;
+    if (operationInFlight) return;
+    operationInFlight = true;
     setBusy(true);
     setRowError(null);
     const result = await run();
+    operationInFlight = false;
     setBusy(false);
+    if (signal.aborted) return;
     if (!result.ok) { setRowError(result.session ? t(SESSION_EXPIRED) : problem(result.detail, failed)); return; }
     setAsking(null);
     if (done) setNotice(done);
@@ -189,10 +200,13 @@ export const SchedulesPage: Component<{
   const toggle = async (schedule: Schedule) => {
     // Turning on a schedule that changes files needs a confirmation first, with fresh numbers from the server.
     if (!schedule.enabled && changesFiles(schedule.action)) {
-      if (busy()) return;
+      if (operationInFlight) return;
+      operationInFlight = true;
       setBusy(true);
-      const found = await loadEnableFacts(props.api, schedule.id);
+      const found = await loadEnableFacts(props.api, schedule.id, signal);
+      operationInFlight = false;
       setBusy(false);
+      if (signal.aborted) return;
       if (found && "session" in found) { setRowError(t(SESSION_EXPIRED)); return; }
       setFacts(found ?? { matching: Math.min(schedule.matching ?? 0, schedule.max_files ?? 0), deleteOriginal: null, encode: schedule.encode ?? null, profile: schedule.profile ?? null });
       ask(schedule.id, "enable");
@@ -214,7 +228,7 @@ export const SchedulesPage: Component<{
         <label for="sched-cron">{t("Cron expression (server time)")}</label>
         <input
           id="sched-cron" class="input mono" type="text" spellcheck={false} autocomplete="off"
-          value={draft().cron ?? ""} aria-invalid={preview()?.kind === "invalid"} aria-describedby="sched-cron-result"
+          value={draft().cron ?? ""} aria-invalid={preview()?.kind === "invalid" ? "true" : "false"} aria-describedby="sched-cron-result"
           onInput={(event) => patch({ cron: event.currentTarget.value })}
         />
         <div id="sched-cron-result" class="cron-result" aria-live="polite">
@@ -240,7 +254,7 @@ export const SchedulesPage: Component<{
           <p class="muted">{t("A schedule that changes files may run at most every {minutes} minutes.", { minutes: limits()?.minChangeIntervalMinutes ?? 0 })}</p>
         </Show>
         <div>
-          <Button variant="quiet" aria-expanded={guideOpen()} onClick={() => setGuideOpen(!guideOpen())}>{t("Cron guide")}</Button>
+          <Button variant="quiet" aria-expanded={guideOpen() ? "true" : "false"} onClick={() => setGuideOpen(!guideOpen())}>{t("Cron guide")}</Button>
         </div>
         <Show when={guideOpen()}>
           <div class="cron-guide">
@@ -272,13 +286,13 @@ export const SchedulesPage: Component<{
       <div class="sched-grid">
         <label class="sched-field wide">
           <span>{t("Name")}</span>
-          <input ref={nameInput} class="input" type="text" maxLength={80} value={draft().name} onInput={(event) => patch({ name: event.currentTarget.value })} />
+          <input ref={nameInput} class="input" type="text" maxlength={80} value={draft().name} onInput={(event) => patch({ name: event.currentTarget.value })} />
         </label>
         <div class="sched-field action">
           <span id="sched-action-label">{t("Action")}</span>
           <div class="seg" role="group" aria-labelledby="sched-action-label">
             <For each={["verify", "prepare", "scan"] as Action[]}>{(action) => (
-              <button type="button" aria-pressed={draft().action === action} disabled={editing()?.id !== null} onClick={() => chooseAction(action)}>{actionName(action)}</button>
+              <button type="button" aria-pressed={draft().action === action ? "true" : "false"} disabled={editing()?.id !== null} onClick={() => chooseAction(action)}>{actionName(action)}</button>
             )}</For>
           </div>
         </div>
@@ -300,8 +314,8 @@ export const SchedulesPage: Component<{
         <div class="sched-field">
           <span id="sched-mode-label">{t("Timing")}</span>
           <div class="seg" role="group" aria-labelledby="sched-mode-label">
-            <button type="button" aria-pressed={draft().cron === null} onClick={() => chooseMode("simple")}>{t("Simple")}</button>
-            <button type="button" aria-pressed={draft().cron !== null} onClick={() => chooseMode("cron")}>{t("Cron")}</button>
+            <button type="button" aria-pressed={draft().cron === null ? "true" : "false"} onClick={() => chooseMode("simple")}>{t("Simple")}</button>
+            <button type="button" aria-pressed={draft().cron !== null ? "true" : "false"} onClick={() => chooseMode("cron")}>{t("Cron")}</button>
           </div>
         </div>
         <Show when={draft().cron === null} fallback={renderCron()}>
@@ -309,7 +323,7 @@ export const SchedulesPage: Component<{
           <span id="sched-days-label">{t("Days")}</span>
           <div class="chips" role="group" aria-labelledby="sched-days-label">
             <For each={DAYS}>{(day) => (
-              <button type="button" class="filter-chip" aria-pressed={draft().days.includes(day.index)} aria-label={t(day.long)} onClick={() => toggleDay(day.index)}>{t(day.short)}</button>
+              <button type="button" class="filter-chip" aria-pressed={draft().days.includes(day.index) ? "true" : "false"} aria-label={t(day.long)} onClick={() => toggleDay(day.index)}>{t(day.short)}</button>
             )}</For>
             <Button variant="quiet" onClick={() => patch({ days: [...WEEKDAYS] })}>{t("Weekdays")}</Button>
             <Button variant="quiet" onClick={() => patch({ days: [...EVERY_DAY] })}>{t("Every day")}</Button>
@@ -445,10 +459,14 @@ export const SchedulesPage: Component<{
   );
 
   const renderRow = (schedule: Schedule) => (
-    <li class="sched-row" classList={{ paused: !schedule.enabled }} data-id={schedule.id}>
+    <li class={["sched-row", { paused: !schedule.enabled }]} data-id={schedule.id}>
       <div class="sched-line">
         <label class="sched-switch">
-          <input type="checkbox" checked={schedule.enabled} disabled={busy()} aria-label={schedule.enabled ? t("Pause {name}", { name: schedule.name }) : t("Turn on {name}", { name: schedule.name })} onChange={() => toggle(schedule)} />
+          <input type="checkbox" checked={schedule.enabled} disabled={busy()} aria-label={schedule.enabled ? t("Pause {name}", { name: schedule.name }) : t("Turn on {name}", { name: schedule.name })} onChange={(event) => {
+            // The toggle shows the confirmed server response, not the local click.
+            event.currentTarget.checked = schedule.enabled;
+            toggle(schedule);
+          }} />
         </label>
         <div class="sched-main">
           <b class="sched-name">{schedule.name}</b>
@@ -477,7 +495,7 @@ export const SchedulesPage: Component<{
         </div>
       </div>
       <Show when={(schedule.runs ?? []).length > 0}>
-        <button type="button" class="sched-history-toggle" aria-expanded={openHistory().has(schedule.id)} aria-label={t("History of {name}", { name: schedule.name })} onClick={() => toggleHistory(schedule.id)}>
+        <button type="button" class="sched-history-toggle" aria-expanded={openHistory().has(schedule.id) ? "true" : "false"} aria-label={t("History of {name}", { name: schedule.name })} onClick={() => toggleHistory(schedule.id)}>
           {t("History")} ({(schedule.runs ?? []).length})
         </button>
         <Show when={openHistory().has(schedule.id)}>{renderHistory(schedule)}</Show>
@@ -492,7 +510,7 @@ export const SchedulesPage: Component<{
     <section class="schedules" aria-labelledby="schedules-title" onKeyDown={onKeyDown}>
       <header class="sched-head">
         <h1 id="schedules-title">{t("Schedules")}</h1>
-        <Button variant="primary" ref={(element) => { newButton = element; }} aria-expanded={editing() !== null} onClick={openNew}>{t("New schedule")} <Kbd>N</Kbd></Button>
+        <Button variant="primary" ref={(element) => { newButton = element; }} aria-expanded={editing() !== null ? "true" : "false"} onClick={openNew}>{t("New schedule")} <Kbd>N</Kbd></Button>
       </header>
       <p class="muted sched-lede">{t("Check or prepare the files that match a filter, or scan your libraries, on the days and time you choose. Times are the server's.")}</p>
       <Show when={notice()}><p class="notice ok" role="status">{notice()}</p></Show>

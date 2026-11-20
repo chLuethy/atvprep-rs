@@ -5,7 +5,7 @@ import { language, LANGUAGES, setLanguage, t } from "../lib/i18n";
 export const LanguageSwitch: Component = () => (
   <div class="seg" role="group" aria-label={t("Language")}>
     <For each={LANGUAGES}>{(choice) => (
-      <button type="button" lang={choice.value} aria-pressed={language() === choice.value} onClick={() => setLanguage(choice.value)}>{choice.label}</button>
+      <button type="button" lang={choice.value} aria-pressed={language() === choice.value ? "true" : "false"} onClick={() => setLanguage(choice.value)}>{choice.label}</button>
     )}</For>
   </div>
 );

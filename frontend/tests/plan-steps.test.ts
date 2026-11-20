@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { flush } from "solid-js";
 import { setLanguage } from "../src/lib/i18n";
 import { formatPlanStep, type PlanStep } from "../src/features/files/planSteps";
 
@@ -28,6 +29,7 @@ describe("formatPlanStep: the planner's steps, written for the operator", () => 
   it("names a kind it does not know yet instead of dropping the step", () => {
     expect(formatPlanStep({ kind: "loudness_norm", target: -23 })).toBe("Planned step: loudness_norm");
     setLanguage("de");
+    flush();
     expect(formatPlanStep({ kind: "loudness_norm", target: -23 })).toBe("Geplanter Schritt: loudness_norm");
   });
 });

@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, type Component } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onSettled, Show, type Component } from "solid-js";
 import { Button, Icon, ProgressBar } from "../../ui";
 import { FilterBar, NoMatches, type Facet } from "../../ui/FilterBar";
 import { StatusChip } from "../../ui";
@@ -6,7 +6,7 @@ import { JobDetail } from "./JobDetail";
 import { periodLibraryFacets } from "./PeriodLibrary";
 import { flash } from "../../lib/flash";
 import { isTyping } from "../../lib/keys";
-import { reuseUnchanged } from "../../lib/stable";
+import { uniqueRowKeys } from "../../lib/rowKeys";
 import { clearJobs, loadJobCounts, loadJobs, type Api, type ClearStatus, type JobRow } from "./loaders";
 import { isJobFiltered, JOB_ACTIONS, JOB_STATUSES, JOB_TRIGGERS, jobFilterSpec, revealActive, sameJobFilter, type JobCounts, type JobFilter, type JobSort } from "./filters";
 import { createFacetFilter } from "../../lib/facetFilter";
@@ -27,9 +27,12 @@ const CLEARABLE: ReadonlyArray<{ id: string; label: string; statuses: ClearStatu
 
 type Phase = "loading" | "ready" | "error" | "session";
 
-/** Ids change with every response, so the open job is recognised by what it is rather than by id. */
-const fingerprint = (job: JobRow) => [job.requested_at, job.action, job.trigger, job.total_count, job.subject].join("|");
-const jobKey = (job: JobRow) => `${job.requested_at}|${job.action}|${job.trigger}`;
+/**
+ * The API contract has no naturally unique job key: only link complete, unique candidates. Only fields that
+ * cannot change while a job runs are part of it (not the total or the subject), so a row keeps its focus.
+ */
+const jobKey = (job: JobRow): string | undefined => job.requested_at && job.action && job.trigger
+  ? JSON.stringify([job.requested_at, job.action, job.trigger]) : undefined;
 
 const Row: Component<{ job: JobRow; current: boolean; flagged: boolean; onOpen: (id: string) => void }> = (props) => {
   const tone = () => jobTone(props.job.status);
@@ -41,9 +44,7 @@ const Row: Component<{ job: JobRow; current: boolean; flagged: boolean; onOpen: 
     return time ? t("{percent}% · running for {time}", { percent, time }) : `${percent}%`;
   };
   let item: HTMLLIElement | undefined;
-  // A job that turned up, or whose status changed, while the list was open is marked once. A row is
-  // built anew whenever its job changes, so this runs for each of those, and not for a first load.
-  onMount(() => { if (props.flagged && item) flash(item); });
+  createEffect(() => ({ job: props.job, flagged: props.flagged }), ({ flagged }) => { if (flagged && item) flash(item); });
   return (
     <li ref={item} class="job-row" aria-current={props.current ? "true" : undefined}>
       <a
@@ -60,7 +61,7 @@ const Row: Component<{ job: JobRow; current: boolean; flagged: boolean; onOpen: 
         <Show when={props.job.status === "running"}>
           <span class="job-live">
             <Show when={jobPercent(props.job) !== undefined}>
-              <ProgressBar value={jobPercent(props.job) ?? 0} track={jobKey(props.job)} label={t("Progress of {title}", { title: jobTitle(props.job) })} />
+              <ProgressBar value={jobPercent(props.job) ?? 0} track={jobKey(props.job) ?? props.job.id} label={t("Progress of {title}", { title: jobTitle(props.job) })} />
             </Show>
             <span class="muted num">{liveText()}</span>
           </span>
@@ -85,9 +86,11 @@ export const ActivityPage: Component<{
   onOpen: (id: string | undefined) => void;
 }> = (props) => {
   const [rows, setRows] = createSignal<JobRow[]>([]);
+  const rowKey = createMemo(() => uniqueRowKeys(rows(), jobKey));
   const [nextCursor, setNextCursor] = createSignal<string | undefined>();
   const [phase, setPhase] = createSignal<Phase>("loading");
   const [loadingMore, setLoadingMore] = createSignal(false);
+  const [moreProblem, setMoreProblem] = createSignal<string | null>(null);
   // The period and library facets need the libraries by name; the filter's spec reaches them lazily.
   const facet = createFacetFilter(
     jobFilterSpec({ value: () => periodLibrary.value(), apply: (value, next) => periodLibrary.apply(value, next) }),
@@ -103,21 +106,25 @@ export const ActivityPage: Component<{
   const [clearBusy, setClearBusy] = createSignal(false);
   const [clearError, setClearError] = createSignal<string | null>(null);
   let clearKey = crypto.randomUUID();
+  let clearInFlight = false;
   let clearTrigger: HTMLButtonElement | undefined;
 
   const openClear = () => { clearKey = crypto.randomUUID(); setClearError(null); setClearOpen(true); };
   const closeClear = () => { setClearOpen(false); queueMicrotask(() => clearTrigger?.focus()); };
   const togglePick = (id: string) => {
     clearKey = crypto.randomUUID();
-    setClearPick(clearPick().includes(id) ? clearPick().filter((known) => known !== id) : [...clearPick(), id]);
+    setClearPick((current) => current.includes(id) ? current.filter((known) => known !== id) : [...current, id]);
   };
   const submitClear = async () => {
-    if (clearBusy() || clearPick().length === 0) return;
+    if (clearInFlight || clearPick().length === 0) return;
+    clearInFlight = true;
     setClearBusy(true);
     setClearError(null);
     const statuses = CLEARABLE.filter((entry) => clearPick().includes(entry.id)).flatMap((entry) => entry.statuses);
     const result = await clearJobs(props.api, statuses, clearKey);
+    clearInFlight = false;
     setClearBusy(false);
+    if (disposed) return;
     if (!result.ok) { setClearError(result.session ? t(SESSION_EXPIRED) : t("Unable to clear jobs. Try again.")); return; }
     setClearOpen(false);
     setNotice(tn("Cleared {count} job. They stay in the audit trail.", "Cleared {count} jobs. They stay in the audit trail.", result.cleared));
@@ -130,14 +137,25 @@ export const ActivityPage: Component<{
   let pages = 1;
   // Jobs to mark as their rows are built: new ones and those whose status changed in the last refresh.
   let flagged = new Set<string>();
-  const load = async (reset: boolean, cursor?: string) => {
+  let moreInFlight = false;
+  let listLoading = false;
+  let disposed = false;
+  let refreshFlight: { generation: number; promise: Promise<void> } | undefined;
+  const load = async (reset: boolean, cursor?: string, asked = filter(), api = props.api) => {
+    if (disposed || (!reset && moreInFlight)) return;
+    listLoading = true;
+    moreInFlight = !reset;
+    setMoreProblem(null);
     const mine = ++generation;
     flagged = new Set();
     if (reset) { setPhase("loading"); pages = 1; } else setLoadingMore(true);
-    const page = await loadJobs(props.api, { filter: filter(), cursor });
+    const page = await loadJobs(api, { filter: asked, cursor });
     if (mine !== generation) return;
+    moreInFlight = false;
+    listLoading = false;
     setLoadingMore(false);
     if (page.kind !== "ok") {
+      if (!reset && rows().length > 0) { setMoreProblem(page.kind === "session" ? t(SESSION_EXPIRED) : t("Unable to load jobs")); return; }
       setPhase(page.kind === "session" ? "session" : "error");
       return;
     }
@@ -147,35 +165,52 @@ export const ActivityPage: Component<{
     setPhase("ready");
   };
 
-  /**
-   * Reload every page loaded so far and replace the list. The server issues fresh ids on every
-   * response, so rows cannot be merged by id; replacing keeps the list exactly as long as it was.
-   */
-  const refresh = async () => {
+  /** Replace all visible pages; UI keys stay distinct even when response IDs change. */
+  const readFreshRows = async () => {
     const mine = generation;
+    const asked = filter();
+    const count = pages;
     let cursor: string | undefined;
     const fresh: JobRow[] = [];
-    for (let index = 0; index < pages; index += 1) {
-      const page = await loadJobs(props.api, { filter: filter(), cursor });
+    for (let index = 0; index < count; index += 1) {
+      const page = await loadJobs(props.api, { filter: asked, cursor });
       if (mine !== generation || page.kind !== "ok") return;
       fresh.push(...page.items);
       cursor = page.nextCursor;
       if (!cursor) break;
     }
-    const before = new Map(rows().map((row) => [jobKey(row), row]));
-    flagged = new Set(fresh.filter((row) => before.get(jobKey(row))?.status !== row.status).map(jobKey));
-    setRows(reuseUnchanged(fresh, rows(), jobKey));
+    const oldKey = rowKey();
+    const newKey = uniqueRowKeys(fresh, jobKey);
+    const before = new Map(rows().map((row) => [oldKey(row), row]));
+    flagged = new Set(fresh.filter((row) => before.get(newKey(row))?.status !== row.status).map((row) => row.id));
+    const focused = document.activeElement;
+    const keepFocus = focused instanceof HTMLElement && !!focused.closest(".job-row");
+    setRows(fresh);
+    if (keepFocus) onSettled(() => {
+      if (focused.isConnected && document.activeElement === document.body) focused.focus();
+    });
     setNextCursor(cursor);
     await refreshCounts();
   };
+  // Active and relative polls share the same read; loading more and filter changes take precedence.
+  const refresh = (): Promise<void> => {
+    if (disposed || listLoading) return Promise.resolve();
+    if (refreshFlight?.generation === generation) return refreshFlight.promise;
+    const flight = { generation, promise: readFreshRows() };
+    refreshFlight = flight;
+    void flight.promise.finally(() => { if (refreshFlight === flight) refreshFlight = undefined; });
+    return flight.promise;
+  };
+  onSettled(() => () => { disposed = true; generation += 1; });
   /** The facet counters, "X of Y" and the hidden active jobs; without an answer none of them show. */
-  const refreshCounts = async () => {
-    const asked = filter();
-    const answer = await loadJobCounts(props.api, asked);
-    if (sameJobFilter(asked, filter())) setCounts(answer);
+  let countsGeneration = 0;
+  const refreshCounts = async (asked = filter(), api = props.api) => {
+    const mine = ++countsGeneration;
+    const answer = await loadJobCounts(api, asked);
+    if (!disposed && mine === countsGeneration && sameJobFilter(asked, filter())) setCounts(answer);
   };
 
-  const periodLibrary = periodLibraryFacets({ api: props.api, filter, counts: () => counts()?.facets ?? null, onChange: (next) => changeFilter(next) });
+  const periodLibrary = periodLibraryFacets({ get api() { return props.api; }, filter, counts: () => counts()?.facets ?? null, onChange: (next) => changeFilter(next) });
   const showHidden = () => {
     const known = counts();
     if (!known) return;
@@ -207,20 +242,29 @@ export const ActivityPage: Component<{
   // Nothing found and nothing filtered out: no job has run yet, as opposed to a filter without hits.
   const noJobsYet = () => !isJobFiltered(filter()) || counts()?.total === 0;
 
-  const [openedFingerprint, setOpenedFingerprint] = createSignal<string | undefined>();
-  createEffect(() => {
-    const open = props.activeId ? rows().find((row) => row.id === props.activeId) : undefined;
-    if (open) setOpenedFingerprint(fingerprint(open));
-    else if (!props.activeId) setOpenedFingerprint(undefined);
+  type OpenedJob = { requestedId: string | undefined; key: string | undefined; identity: object };
+  const opened = createMemo((previous?: OpenedJob): OpenedJob => {
+    const requestedId = props.activeId;
+    const direct = rows().find((row) => row.id === requestedId);
+    const candidate = direct ? rowKey()(direct) : undefined;
+    const remembered = requestedId === previous?.requestedId ? previous?.key : undefined;
+    const key = direct ? (typeof candidate === "string" ? candidate : undefined)
+      : remembered !== undefined && rows().some((row) => rowKey()(row) === remembered) ? remembered : undefined;
+    // The first match of a deep link does not replace its already usable detail instance.
+    // A lost or ambiguous match, however, must not later attach to a different job.
+    const same = previous && ((requestedId === previous.requestedId && (previous.key === undefined || previous.key === key))
+      || (key !== undefined && key === previous.key));
+    return { requestedId, key, identity: same ? previous.identity : {} };
   });
-  const isCurrent = (job: JobRow) => props.activeId === job.id || (!!props.activeId && openedFingerprint() === fingerprint(job));
+  const isCurrent = (job: JobRow) => props.activeId === job.id || (!!props.activeId && opened().key !== undefined && rowKey()(job) === opened().key);
+  const currentJobId = () => rows().find((row) => row.id === props.activeId)?.id ?? rows().find(isCurrent)?.id ?? props.activeId;
 
-  createEffect(on(filter, () => { void load(true); void refreshCounts(); }));
+  createEffect(() => ({ filter: filter(), api: props.api }), (asked) => { void load(true, undefined, asked.filter, asked.api); void refreshCounts(asked.filter, asked.api); });
   const grouped = createMemo(() => partitionJobs(rows()));
   // Hidden active jobs keep the refresh going too, so the hint follows them.
-  const anyActive = () => rows().some(isActive) || hiddenActive() > 0;
-  createEffect(() => {
-    if (!anyActive()) return;
+  const anyActive = createMemo(() => rows().some(isActive) || hiddenActive() > 0);
+  createEffect(anyActive, (active) => {
+    if (!active) return;
     // Once a second, so the bar and the clock move together; a slow answer is not stacked on.
     let reading = false;
     const timer = window.setInterval(() => {
@@ -228,20 +272,20 @@ export const ActivityPage: Component<{
       reading = true;
       void refresh().finally(() => { reading = false; });
     }, 1000);
-    onCleanup(() => window.clearInterval(timer));
+    return () => window.clearInterval(timer);
   });
   // A relative period ("Today", "Last 24 hours") moves with the clock: once a minute the list and the counters
   // are asked for with fresh bounds, so a page left open past midnight does not keep yesterday's.
   const relativePeriod = () => { const period = filter().period; return !!period && "preset" in period; };
-  createEffect(() => {
-    if (!relativePeriod()) return;
+  createEffect(relativePeriod, (relative) => {
+    if (!relative) return;
     let reading = false;
     const timer = window.setInterval(() => {
       if (reading || anyActive()) return;
       reading = true;
       void refresh().finally(() => { reading = false; });
     }, 60 * 1000);
-    onCleanup(() => window.clearInterval(timer));
+    return () => window.clearInterval(timer);
   });
 
   const move = (delta: number, from: string | undefined) => {
@@ -268,7 +312,7 @@ export const ActivityPage: Component<{
       <section class="job-group" role="region" aria-label={label}>
         <h2>{label}</h2>
         <ul class="plain">
-          <For each={list()}>{(job) => <Row job={job} current={isCurrent(job)} flagged={flagged.has(jobKey(job))} onOpen={(id) => { setNotice(null); props.onOpen(id); }} />}</For>
+          <For each={list()} keyed={(job) => rowKey()(job)}>{(job) => <Row job={job()} current={isCurrent(job())} flagged={flagged.has(job().id)} onOpen={(id) => { setNotice(null); props.onOpen(id); }} />}</For>
         </ul>
       </section>
     </Show>
@@ -280,7 +324,7 @@ export const ActivityPage: Component<{
         <div class="lib-bar">
           <div class="lib-bar-top">
             <h1>{t("Activity")}</h1>
-            <Button variant="quiet" ref={(element) => { clearTrigger = element; }} aria-expanded={clearOpen()} onClick={() => (clearOpen() ? closeClear() : openClear())}>{t("Clear finished")}</Button>
+            <Button variant="quiet" ref={(element) => { clearTrigger = element; }} aria-expanded={clearOpen() ? "true" : "false"} onClick={() => (clearOpen() ? closeClear() : openClear())}>{t("Clear finished")}</Button>
           </div>
           <Show when={clearOpen()}>
             <div class="confirm" role="region" aria-label={t("Clear finished jobs")} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); closeClear(); } }}>
@@ -360,7 +404,7 @@ export const ActivityPage: Component<{
                 {group(t("History"), () => grouped().history)}
               </Show>
               <Show when={nextCursor()}>
-                <div class="more"><Button disabled={loadingMore()} onClick={() => void load(false, nextCursor())}>{t("Load more jobs")}</Button></div>
+                <div class="more"><Show when={moreProblem()}><p class="notice bad" role="alert">{moreProblem()}</p></Show><Button disabled={loadingMore()} onClick={() => void load(false, nextCursor())}>{t("Load more jobs")}</Button></div>
               </Show>
             </Show>
           </Show>
@@ -369,7 +413,7 @@ export const ActivityPage: Component<{
       <aside class="lib-side" aria-label={t("Job details")}>
         <Button variant="quiet" class="back-to-list" onClick={() => props.onOpen(undefined)}>{t("Back to list")}</Button>
         <Show when={props.activeId} fallback={<div class="empty"><b>{t("Select a job to see what it did")}</b>{t("Use the arrow keys to move through the list.")}</div>}>
-          {(id) => <JobDetail api={props.api} jobId={id()} onChanged={() => void refresh()} onRetried={(newId) => { void refresh(); setNotice(t("Retry queued. Showing the new job.")); props.onOpen(newId); }} onRaised={(newId) => { void refresh(); setNotice(t("Preparation queued. Showing the new job.")); props.onOpen(newId); }} />}
+          {(_id) => <JobDetail api={props.api} jobId={currentJobId()!} identity={opened().identity} onChanged={() => void refresh()} onRetried={(newId) => { void refresh(); setNotice(t("Retry queued. Showing the new job.")); props.onOpen(newId); }} onRaised={(newId) => { void refresh(); setNotice(t("Preparation queued. Showing the new job.")); props.onOpen(newId); }} />}
         </Show>
       </aside>
     </div>
