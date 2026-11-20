@@ -63,14 +63,19 @@ export const SchedulesPage: Component<{
 
   const fresh = () => { key = crypto.randomUUID(); };
 
+  const lifetime = new AbortController();
+  const signal = lifetime.signal;
   const load = async () => {
+    if (signal.aborted) return;
     const result = await loadSchedules(props.api);
+    if (signal.aborted) return;
     if (result.kind === "ok") { setRows(result.items); setLimits(result.limits); setPhase("ready"); }
     else setPhase(result.kind === "session" ? "session" : "error");
   };
   onSettled(() => {
     void load();
-    void loadRoots(props.api).then((result) => { if (result.kind === "ok") setRoots(result.items); });
+    void loadRoots(props.api).then((result) => { if (!signal.aborted && result.kind === "ok") setRoots(result.items); });
+    return () => lifetime.abort();
   });
 
   const openNew = () => {
@@ -162,6 +167,7 @@ export const SchedulesPage: Component<{
       : await updateSchedule(props.api, target.id, input, key);
     operationInFlight = false;
     setBusy(false);
+    if (signal.aborted) return;
     if (!result.ok) { setFormError(result.session ? t(SESSION_EXPIRED) : problem(result.detail, t("Unable to save the schedule."))); return; }
     setEditing(null);
     setNotice(target.id === null
@@ -184,6 +190,7 @@ export const SchedulesPage: Component<{
     const result = await run();
     operationInFlight = false;
     setBusy(false);
+    if (signal.aborted) return;
     if (!result.ok) { setRowError(result.session ? t(SESSION_EXPIRED) : problem(result.detail, failed)); return; }
     setAsking(null);
     if (done) setNotice(done);
@@ -196,9 +203,10 @@ export const SchedulesPage: Component<{
       if (operationInFlight) return;
       operationInFlight = true;
       setBusy(true);
-      const found = await loadEnableFacts(props.api, schedule.id);
+      const found = await loadEnableFacts(props.api, schedule.id, signal);
       operationInFlight = false;
       setBusy(false);
+      if (signal.aborted) return;
       if (found && "session" in found) { setRowError(t(SESSION_EXPIRED)); return; }
       setFacts(found ?? { matching: Math.min(schedule.matching ?? 0, schedule.max_files ?? 0), deleteOriginal: null, encode: schedule.encode ?? null, profile: schedule.profile ?? null });
       ask(schedule.id, "enable");

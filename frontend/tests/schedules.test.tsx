@@ -25,7 +25,7 @@ const prepareSchedule = (over: Partial<Schedule> = {}): Schedule =>
   schedule({ id: "sc_f", name: "Weekly prepare", action: "prepare", compliance_state: null, max_files: 10, encode: "copy", profile: PROFILE, ...over });
 const json = (data: unknown, status = 200, meta: unknown = {}) => new Response(JSON.stringify({ data, meta }), { status });
 
-function makeApi(initial: Schedule[], handlers: Record<string, (init?: RequestInit) => Response> = {}, options: { deleteOriginal?: boolean; limits?: unknown } = {}) {
+function makeApi(initial: Schedule[], handlers: Record<string, (init?: RequestInit) => Response | Promise<Response>> = {}, options: { deleteOriginal?: boolean; limits?: unknown } = {}) {
   let current = initial;
   const calls: Array<{ path: string; init?: RequestInit }> = [];
   const api: Api = {
@@ -458,6 +458,67 @@ describe("SchedulesPage", () => {
     await waitFor(() => expect(runNow).toBeEnabled());
     await fireEvent.click(runNow);
     await waitFor(() => expect(runs).toEqual(["scan"]));
+  });
+
+  it("liest nach Verlassen keinen Zeitplan aus einer verspäteten Laufantwort erneut", async () => {
+    let finish!: (response: Response) => void;
+    const state = makeApi([schedule()], {
+      "POST /schedules/sc_1/run": () => new Promise<Response>((resolve) => { finish = resolve; }),
+    });
+    const view = render(() => <SchedulesPage api={state.api} />);
+    await fireEvent.click(await view.findByRole("button", { name: "Run now" }));
+    await waitFor(() => expect(finish).toBeTypeOf("function"));
+    view.unmount();
+    const requests = state.calls.length;
+    finish(json(schedule()));
+    // Die freigegebene Antwort samt nachfolgenden Microtasks vollständig verarbeiten.
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(state.calls).toHaveLength(requests);
+  });
+
+  it.each(["pause", "delete", "save"] as const)("startet nach Verlassen bei verspäteter %s-Antwort keinen Folgeread", async (operation) => {
+    let finish!: (response: Response) => void;
+    const endpoint = operation === "delete" ? "DELETE /schedules/sc_1" : "PATCH /schedules/sc_1";
+    const state = makeApi([schedule()], {
+      [endpoint]: () => new Promise<Response>((resolve) => { finish = resolve; }),
+    });
+    const view = render(() => <SchedulesPage api={state.api} />);
+    await view.findByRole("list", { name: "Schedules" });
+    if (operation === "pause") {
+      await fireEvent.click(view.getByRole("checkbox", { name: "Pause Nightly verify" }));
+    } else if (operation === "delete") {
+      await fireEvent.click(view.getByRole("button", { name: "Delete" }));
+      await fireEvent.click(await view.findByRole("button", { name: "Confirm delete" }));
+    } else {
+      await fireEvent.click(view.getByRole("button", { name: /^Edit$/ }));
+      const editor = within(await view.findByRole("region", { name: "Edit schedule" }));
+      await fireEvent.input(editor.getByLabelText("Name"), { target: { value: "Geänderter Zeitplan" } });
+      await fireEvent.click(editor.getByRole("button", { name: "Save schedule" }));
+    }
+    await waitFor(() => expect(finish).toBeTypeOf("function"));
+    view.unmount();
+    const requests = state.calls.length;
+    finish(json(schedule()));
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(state.calls).toHaveLength(requests);
+  });
+
+  it("liest nach Verlassen keine weiteren Freigabefakten aus einer verspäteten Zeitplanantwort", async () => {
+    let reads = 0;
+    let finish!: (response: Response) => void;
+    const paused = prepareSchedule({ enabled: false });
+    const state = makeApi([paused], {
+      "GET /schedules": () => ++reads === 1 ? json([paused], 200, { limits: LIMITS })
+        : new Promise<Response>((resolve) => { finish = resolve; }),
+    });
+    const view = render(() => <SchedulesPage api={state.api} />);
+    await fireEvent.click(await view.findByRole("checkbox", { name: "Turn on Weekly prepare" }));
+    await waitFor(() => expect(finish).toBeTypeOf("function"));
+    view.unmount();
+    const requests = state.calls.length;
+    finish(json([paused]));
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(state.calls).toHaveLength(requests);
   });
 
   it("runs a verify at once", async () => {

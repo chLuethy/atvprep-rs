@@ -61,7 +61,12 @@ export const ScanControl: Component<{ api: Api; onFinished?: () => void }> = (pr
   const active = createMemo(() => (roots() ?? []).some(isActive));
   createEffect(active, (running) => {
     if (!running) return;
-    const timer = window.setInterval(() => { if (!document.hidden) void refresh(); }, POLL_MS);
+    let reading = false;
+    const timer = window.setInterval(() => {
+      if (document.hidden || reading) return;
+      reading = true;
+      void refresh().finally(() => { reading = false; });
+    }, POLL_MS);
     return () => window.clearInterval(timer);
   });
 

@@ -175,16 +175,20 @@ export const runScheduleNow = (api: Api, id: string, key: string) => send(api, `
 /** What the person is told before turning on a schedule that changes files, read fresh from the server. */
 export type EnableFacts = { matching: number; deleteOriginal: boolean | null; encode: EncodeLevel | null; profile: TargetProfile | null };
 
-/** The schedule's current match count (capped by its run size) and the `delete_original` setting; null when the schedule cannot be read. */
-export async function loadEnableFacts(api: Api, id: string): Promise<EnableFacts | { session: true } | null> {
+/** Aktuelle, durch die Laufgröße begrenzte Trefferzahl und `delete_original`; null bei nicht lesbarem Zeitplan.
+ * Ein abgebrochenes Signal verhindert Folgereads und wird dem Dashboard-Read weitergereicht.
+ */
+export async function loadEnableFacts(api: Api, id: string, signal?: AbortSignal): Promise<EnableFacts | { session: true } | null> {
   try {
+    signal?.throwIfAborted();
     const listed = await loadSchedules(api);
+    signal?.throwIfAborted();
     if (listed.kind === "session") return { session: true };
     const found = listed.kind === "ok" ? listed.items.find((item) => item.id === id) : undefined;
     if (!found) return null;
     let deleteOriginal: boolean | null = null;
     try {
-      const response = await api.request("/dashboard");
+      const response = await api.request("/dashboard", { signal });
       if (response.ok) deleteOriginal = ((await response.json()) as { data?: { delete_original?: boolean } }).data?.delete_original ?? null;
     } catch (error) {
       if (error instanceof SessionError) return { session: true };

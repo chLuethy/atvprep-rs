@@ -1,6 +1,6 @@
 # Solid-2-Migration: lokale Kriteriennachweise #107–#119
 
-Stand: 20. November 2026, 07:10 CET. Quelle sind die erneut mit `gh issue view --repo chLuethy/atvprep-rs --json title,body,state,comments` gelesenen Issues. Die Kriteriennummern folgen jeweils der Reihenfolge unter „Abnahmekriterien“. Alle Issues bleiben offen und unverändert. Dies ist eine lokale Nachweismatrix, **keine Betreiberabnahme und kein grünes Integrationsgate**.
+Stand: 20. November 2026, 13:12 CET. Quelle sind die erneut mit `gh issue view --repo chLuethy/atvprep-rs --json title,body,state,comments` gelesenen Issues. Die Kriteriennummern folgen jeweils der Reihenfolge unter „Abnahmekriterien“. Alle Issues bleiben offen und unverändert. Dies ist eine lokale Nachweismatrix, **keine Betreiberabnahme und kein grünes Integrationsgate**.
 
 ## Prüfstand
 
@@ -10,13 +10,13 @@ Stand: 20. November 2026, 07:10 CET. Quelle sind die erneut mit `gh issue view -
 | `npm ls --all` | Bestanden; `/tmp/solid-107/next-deps-clean.log` |
 | Vollständiges Lockfile einschließlich optionaler Plattformpakete | Einzige Vorabversion: ausdrücklich freigegebene `@solidjs/testing-library 1.0.0-rc.2` |
 | `npm run typecheck` | Bestanden nach den letzten Testergänzungen |
-| `npm test -- --disableConsoleIntercept` | **783 Tests in 43 Dateien bestanden**; `/tmp/solid-107/next-tests.log` |
+| `npm test -- --disableConsoleIntercept` | **793 Tests in 43 Dateien bestanden**; `/tmp/solid-107/lifecycle-final-tests.log` |
 | Solid-Development-Diagnosen | Keine `STRICT_READ_UNTRACKED`-/`UNCOMMITTED_INPUT_OVERWRITTEN`- oder anderen `[CODE]`-Diagnosen im obigen unverdeckten Gesamtlauf; keine Filter, Warnungsunterdrückung oder dauerhafte Konsoleninstrumentierung |
 | Produktionsbuild | Bestanden, unter anderem im vollständigen E2E-Lauf; `/tmp/solid-107/next-e2e-full.log` |
 | Produktions-Modulgraph | Bestanden; Core/Web aus Produktions-Entries, Signals aus `dist/prod/`; `/tmp/solid-107/next-production.log` |
-| `./scripts/run-e2e.sh` | **33 Chromium-Journeys bestanden**, 23,7 s; `/tmp/solid-107/next-e2e-full.log` |
+| `./scripts/run-e2e.sh` | **33 Chromium-Journeys bestanden**, 23,5 s; `/tmp/solid-107/lifecycle-e2e.log` |
 | `git diff --check` | Bestanden |
-| Vollständige Projektprüfung | **Nicht grün, aber vollständig bis Advisory-Gate ausgeführt.** Format, Clippy und **944 Rust-Tests in 71 Testprogrammen bestanden** (`/tmp/solid-107/next-check-all.log`); anschließend ausschließlich die zwei bekannten Chrono-Advisories. Frontend/E2E wegen `set -e` separat geprüft. Vor den issuebezogenen Commits jeweils erneuter Lauf (`/tmp/solid-107/commit-*.log`). |
+| Vollständige Projektprüfung | **Nicht grün, aber vollständig bis Advisory-Gate ausgeführt.** Format, Clippy und **944 Rust-Tests in 71 Testprogrammen bestanden** (`/tmp/solid-107/next-check-all.log`); anschließend ausschließlich die zwei bekannten Chrono-Advisories. Frontend/E2E wegen `set -e` separat geprüft. Vor den issuebezogenen Commits jeweils erneuter Lauf (`/tmp/solid-107/commit-*.log`); für die Lifecycle-Fortsetzung erneut 944 bestandene Rust-Tests und dieselben zwei Advisory-Fehler (`/tmp/solid-107/lifecycle-check-all.log`). |
 | Rust-Advisory-Gate | Separat untersuchter, unveränderter Blocker: Chrono/Chrono-tz ohne sichere Upgrade-Version. Siehe [Untersuchung](rust-chrono-advisories.md). Keine Ausnahme und kein Backend-Umbau. |
 
 jsdom meldet weiterhin nicht implementierte Browserfunktionen (`scrollTo`, Canvas, Dokumentnavigation). Das sind keine Solid-Reaktivitätsdiagnosen; diese Meldungen werden nicht gefiltert. Die Browser-Journeys laufen gegen den gebauten, vom Rust-Server ausgelieferten Client. Die fünf ergänzten Journeys verändern kontrolliert Antwortreihenfolge, Job-/Item-IDs, Fehlerstatus beziehungsweise Antwortzeit am HTTP-Seam, ohne produktive Testschnittstelle. Der Dateitest nutzt die echten Serverantworten mit stabilen IDs; der Job-/Logtest liefert bewusst kontrollierte DTOs mit wechselnden IDs. Echte Benutzerbedienung, Runtime und Browserfokus bleiben ungemockt.
@@ -75,7 +75,7 @@ Die temporären Logs sind lokale Belege und nicht Teil des versionierten Lieferu
 | 1–2: Kompatibilität, Lade-/Fehler-/Sitzungszustände | `overview`, `scan-control`, `settings`, `schedules`-Tests und entsprechende bestehende Browser-Journeys. Übersicht berechnet Statusfarben reaktiv statt im `For`-Setup. |
 | 3: Validierung, Speichern, Revisionkonflikt und Entwurf | `settings.test.tsx`: Grenzen, Fehler, 409 mit Entwurfserhalt, gleichzeitige Feldänderungen, Doppel-Submit; neu: Weiterbearbeitung während Speicherung und überholte Auditantworten. Neue Browser-Journey bestätigt Weiterbearbeitung bei verzögerter PATCH-Antwort. |
 | 4: Zeitplanbearbeitung und Vorschauzuordnung | Anlegen, Bearbeiten, Duplizieren, Pausieren, Bestätigen in `schedules.test.tsx`; neu: Uhrzeitänderung und Cron-Wechsel im selben synchronen Ablauf, verspätete Vorschau einer vorherigen Aktion wird verworfen. Die parametrisierte verzögerte Vorschauprüfung deckt Aktions- und Sprachwechsel ab. |
-| 5–6: Servergrenzen, Bestätigungen, Idempotenz/Cleanup | Bestehende Limits-/Profil-/Freigabe-/Original-löschen-Tests; synchrone Wochentagsänderung und Doppel-Speicherung. Checkbox für Anschalten/Pausieren weist den lokalen Klick ausdrücklich zurück, bis Bestätigung/Serverantwort vorliegen. Scan und verwaiste Dateien besitzen synchrone In-flight-Sperren. Noch nicht jeder laufende Mutationsrequest ist beim Verlassen gesondert getestet. |
+| 5–6: Servergrenzen, Bestätigungen, Idempotenz/Cleanup | Bestehende Limits-/Profil-/Freigabe-/Original-löschen-Tests; synchrone Wochentagsänderung und Doppel-Speicherung. Checkbox für Anschalten/Pausieren weist den lokalen Klick ausdrücklich zurück, bis Bestätigung/Serverantwort vorliegen. Scan und verwaiste Dateien besitzen synchrone In-flight-Sperren. Jetzt zusätzlich deterministisch geprüft: verspätete Scanabschlüsse, Ende einer Mehrmediathek-Scanfolge nach Verlassen, Bereinigung mit Erfolg/409 nach Verlassen sowie Zeitplan-Lauf, Pause, Löschen, Speicherung und Freigabefakten. Lebensdauersignal verhindert Zeitplan-Folgeaktualisierungen; Freigabefakten starten nach Verlassen keinen Dashboard-Read. Langsame Scan-Polls stapeln sich nicht. Kein pauschaler Nachweis für jede denkbare Navigation. |
 
 ## #113: Integrationsgate
 
@@ -134,12 +134,12 @@ Die temporären Logs sind lokale Belege und nicht Teil des versionierten Lieferu
 | --- | --- |
 | 1–2: obsolete Helfer und begründete Reste | `stable.ts` und Tests entfernt; `loadedFor`, Reload-Zähler und `itemsReady` entfallen. `firstPage` heißt jetzt seinem tatsächlichen Vertrag entsprechend `itemPages`. Restmechanik oben begründet. |
 | 3: kompatible Installation | Erneutes normales `npm ci`, `npm ls --all`, vollständiger Vorabversionsscan, Produktions-Modulgraph. Keine weitere Ausnahme. |
-| 4–5: Gesamtprüfung und Regressionen | **Nicht vollständig erfüllt:** Rust-Advisories blockieren weiterhin; Rust-Format, Clippy und alle 944 Tests sind nun aktuell bestätigt. Die benannten Browser-Fehler-/Fokuskombinationen sind ergänzt. 783 Tests/33 Journeys beweisen keine universelle Fehlerfreiheit. |
+| 4–5: Gesamtprüfung und Regressionen | **Nicht vollständig erfüllt:** Rust-Advisories blockieren weiterhin; Rust-Format, Clippy und alle 944 Tests sind nun aktuell bestätigt. Die benannten Browser-Fehler-/Fokuskombinationen sind ergänzt. 793 Tests/33 Journeys beweisen keine universelle Fehlerfreiheit; ein unabhängiger Integrationsreview steht weiterhin aus. |
 | 6–7: Bericht und Grenzen | Versionen, Bereinigung, Restmechanik und Prüfungen hier dokumentiert. Keine Leistungsversprechen. Issuebezogene Zwischencommits sind jetzt ausdrücklich beauftragt; keine Pushes, Merges, Releases, Issue-Änderungen oder Schließungen. |
 
 ## Nächste gezielte Schritte
 
 1. Die ergänzten Browsernachweise für Inspektionsladefehler und Item-Nachladefehler samt Fokus beibehalten. Bei weiteren Änderungen ausdrücklich zwischen diesen Fehlerpfaden und den bisherigen Erfolgs-/Identitätsjourneys unterscheiden.
-2. Lifecycle der noch nicht einzeln verzögert getesteten Mutationen weiter prüfen, insbesondere Scan-/Bereinigungsantworten und Zeitplanaktionen nach Verlassen. Die neuen Guards sind kein pauschaler Nachweis für jede Mutation.
+2. Die nun ergänzten Lifecycle-Tests für Scan-/Bereinigungsantworten und Zeitplanaktionen erhalten. Vor Übernahme unabhängigen Integrationsreview nachholen; die gezielten Rot/Grün-Nachweise ersetzen ihn nicht.
 3. Prüfen, ob die verbleibende Request-Steuerung danach noch lokal vereinfacht werden kann. Keine Generations-/Seitenlogik ohne Ersatznachweis löschen.
 4. Rust-Gesamtgate bleibt separat zu entscheiden. Ohne Freigabe weder Advisory-Ausnahme noch Zeitbibliotheksmigration. Erst nach aktuellem vollständigem Projektlauf darf ein grünes Gesamtgate gemeldet werden.

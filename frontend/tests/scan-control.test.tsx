@@ -97,6 +97,69 @@ describe("ScanControl", () => {
     expect(onFinished).toHaveBeenCalledTimes(1);
   });
 
+  it("stapelt langsame Scan-Polls nicht und meldet den Abschluss genau einmal", async () => {
+    vi.useFakeTimers();
+    let finish!: (response: Response) => void;
+    let reads = 0;
+    const api: Api = { request: vi.fn(async () => {
+      reads += 1;
+      return reads === 1 ? json([root("r_1", "Film", scan("running"))])
+        : new Promise<Response>((resolve) => { finish = resolve; });
+    }) };
+    const onFinished = vi.fn();
+    const view = render(() => <ScanControl api={api} onFinished={onFinished} />);
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(12000);
+    expect(reads).toBe(2);
+    expect(view.getByRole("button", { name: "Scanning" })).toBeDisabled();
+    finish(json([root("r_1", "Film", scan("succeeded"))]));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(view.getByRole("button", { name: "Scan library" })).toBeEnabled();
+    expect(onFinished).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(12000);
+    expect(reads).toBe(2);
+    view.unmount();
+  });
+
+  it("meldet nach Verlassen keinen Abschluss aus einer verspäteten Poll-Antwort", async () => {
+    vi.useFakeTimers();
+    let finish!: (response: Response) => void;
+    let reads = 0;
+    const api: Api = { request: vi.fn(async () => ++reads === 1
+      ? json([root("r_1", "Film", scan("running"))])
+      : new Promise<Response>((resolve) => { finish = resolve; })) };
+    const onFinished = vi.fn();
+    const view = render(() => <ScanControl api={api} onFinished={onFinished} />);
+    await vi.advanceTimersByTimeAsync(4100);
+    expect(reads).toBe(2);
+    view.unmount();
+    finish(json([root("r_1", "Film", scan("succeeded"))]));
+    await vi.advanceTimersByTimeAsync(12000);
+    expect(onFinished).not.toHaveBeenCalled();
+    expect(reads).toBe(2);
+  });
+
+  it("reiht nach Verlassen keine weitere Mediathek aus einer verspäteten Scanantwort ein", async () => {
+    vi.useFakeTimers();
+    let finish!: (response: Response) => void;
+    const { api, posts } = makeApi({
+      roots: [root("r_1", "Film", null), root("r_2", "TV", null)],
+      post: () => new Promise<Response>((resolve) => { finish = resolve; }),
+    });
+    const onFinished = vi.fn();
+    const view = render(() => <ScanControl api={api} onFinished={onFinished} />);
+    await vi.advanceTimersByTimeAsync(0);
+    fireEvent.click(view.getByRole("button", { name: "Scan libraries" }));
+    expect(posts()).toHaveLength(1);
+    view.unmount();
+    const requests = vi.mocked(api.request).mock.calls.length;
+    finish(json({ id: "s_9", status: "queued" }, 201));
+    await vi.advanceTimersByTimeAsync(12000);
+    expect(posts()).toHaveLength(1);
+    expect(vi.mocked(api.request).mock.calls).toHaveLength(requests);
+    expect(onFinished).not.toHaveBeenCalled();
+  });
+
   it("reports a failed request and an expired session in plain words", async () => {
     const failing = makeApi({ roots: [root("r_1", "Film", null)], post: () => json({}, 500) });
     const first = render(() => <ScanControl api={failing.api} />);

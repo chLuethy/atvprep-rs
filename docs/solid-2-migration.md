@@ -114,3 +114,13 @@ Aktueller Wiedereinstieg: [Übergabe, Abschnitt 0b](solid-2-handoff.md) und [Kri
 - Die vollständige Projektprüfung erreichte diesmal ohne Werkzeug-Zeitlimit das Advisory-Gate: **Rust-Format, Clippy und alle 944 Tests in 71 Testprogrammen bestehen**. Weiterhin ausschließlich die bekannten beiden Chrono-Advisories; Bans, Lizenzen und Quellen grün. Keine Sicherheitsausnahme und kein Backend-Umbau.
 - Der Nutzer hat issuebezogene Commits ausdrücklich beauftragt. Die vorhandenen verflochtenen Änderungen werden als zusammenhängende Modul-Batches auf `integration/solid-2` festgehalten, nach erneuter Gesamtprüfung vor jedem Commit; Befunde stehen in den Commit-Nachrichten und `/tmp/solid-107/commit-*.log`. Keine künstliche Behauptung unabhängiger Umsetzung oder Abnahme einzelner Tickets.
 - #113/#119 bleiben durch das rote Gesamtgate blockiert. Keine Issue-Schließung, kein Push/Merge/Release und keine Betreiberabnahme.
+
+## Fortsetzung am 20. November 2026, Prüfstand 13:12 CET
+
+Aktueller Wiedereinstieg: [Übergabe, Abschnitt 0c](solid-2-handoff.md).
+
+- #112: Drei zuerst rot reproduzierte Lifecycle-/Konkurrenzfehler behoben: verspätete Zeitplanaktion mit unnötigem Folgeread, weiterlaufende Freigabefakten-Kette nach Unmount und gestapelte langsame Scan-Polls.
+- Ein Lebensdauersignal grenzt die Zeitplanansicht und ihre Freigabefakten ab. Polls starten keinen weiteren Read, solange die vorige Antwort aussteht. Keine pauschale Transportabbruch-Zusage; Servermutationen werden nicht zurückgenommen.
+- Zehn zusätzliche Verhaltenstests decken Lauf/Pause/Löschen/Speichern/Freigabefakten, Scan-Lifecycle und Bereinigungserfolg/-konflikt nach Verlassen ab. Kein neuer produktiver Test-Seam und keine gemockten Solid-Primitiven.
+- **793 Frontend-Tests in 43 Dateien**, Typecheck, Produktionsbuild und weiterhin **33 Chromium-Journeys** bestanden. Aktuelle Logs: `/tmp/solid-107/lifecycle-final-tests.log`, `lifecycle-e2e.log`; Gesamtprüfung vor Commit: `lifecycle-check-all.log`.
+- Plattformversionen und Backend unverändert. #113/#119 bleiben ohne grünes Gesamtgate und unabhängigen Integrationsreview unvollständig. Kein Push/Merge/Release oder Issue-Abschluss.
