@@ -126,29 +126,47 @@ details summary { cursor: pointer; color: var(--ink-muted); }
 .wave-limit { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .wave-limit label { color: var(--ink-muted); font-size: var(--text-sm); }
 
-/* overview */
-.overview { height: 100%; overflow: auto; padding: 20px max(16px, env(safe-area-inset-right, 0px)) 32px 24px; max-width: 880px; }
-.overview h1 { margin: 0 0 4px; font-size: var(--text-md); letter-spacing: var(--tracking-title); }
-.ov-sec { margin-top: 22px; }
-.orphans + .orphans { margin-top: 14px; }
-.orphans ul { margin: 4px 0 8px; font-size: var(--text-sm); overflow-wrap: anywhere; }
+/* overview: two independent columns of panels (docs/design/manager-mockup.html, #uebersicht) */
+.overview { height: 100%; overflow: auto; padding: 20px max(16px, env(safe-area-inset-right, 0px)) 32px 24px; max-width: 1280px; }
+.overview h1 { margin: 0 0 16px; font-size: var(--text-md); letter-spacing: var(--tracking-title); }
+.ov-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; margin-bottom: 16px; }
+.ov-col { display: grid; gap: 16px; min-width: 0; }
+@media (max-width: 1180px) { .ov-cols { grid-template-columns: minmax(0, 1fr); } }
+.panel { min-width: 0; padding: 16px; background: var(--surface); border: 1px solid var(--line); }
 .ov-sec h2 { margin: 0 0 8px; }
-.needs { gap: 4px; }
-.needs a { display: block; padding: 8px 10px; border: 1px solid var(--line); color: var(--ink); text-decoration: none; font-weight: 500; }
-.needs a:hover { background: var(--hover); }
-.health-bar { display: flex; height: 12px; overflow: hidden; gap: 3px; background: var(--line); }
-.health-bar span { min-width: 4px; }
-.seg-ok { background: var(--ok); }
-.seg-warn { background: var(--warn); }
-.seg-bad { background: var(--bad); }
-.seg-bad-soft { background: color-mix(in oklch, var(--bad) 55%, var(--surface)); }
-.seg-neutral { background: var(--ink-muted); }
-.legend { flex-direction: row; flex-wrap: wrap; gap: 4px 18px; margin-top: 10px; }
+.ov-sec .notice { margin: 8px 0; }
+.panel > :last-child, .panel .orphans > :last-child { margin-bottom: 0; }
+.orphans + .orphans { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.orphans ul { margin: 4px 0 8px; font-size: var(--text-sm); overflow-wrap: anywhere; }
+/* Rows of a panel are separated by hairlines, as in the mockup; a symbol carries the kind without colour. */
+.needs, .now, .feed { gap: 0; }
+.needs li, .now li, .feed li { padding: 8px 0; border-top: 1px solid var(--line); }
+.needs li:first-child, .now li:first-child, .feed li:first-child { border-top: 0; }
+.needs li { display: flex; align-items: baseline; gap: 8px; }
+.needs a { flex: 1; min-width: 0; color: var(--ink); text-decoration: none; }
+.needs a:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.sym { flex: none; width: 1em; text-align: center; font-size: var(--text-sm); }
+.sym.bad { color: var(--bad); }
+.sym.warn { color: var(--warn); }
+.sym.neutral { color: var(--ink-muted); }
+/* File health: badge, bar and count share three columns, so every badge starts at the same edge and the label column is as wide as the longest label. */
+.health { display: grid; grid-template-columns: max-content minmax(0, 1fr) auto; gap: 8px 12px; }
+.health-row { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: center; color: var(--ink); text-decoration: none; }
+.health-row .count { grid-column: 3; grid-row: 1; justify-self: end; font-family: var(--font-mono); font-size: var(--text-sm); }
+.health-row .chip { grid-column: 1; grid-row: 1; justify-self: start; }
+.health-row .hbar { grid-column: 2; grid-row: 1; }
+.health-row:hover .count { color: var(--accent); }
+/* The bar shows a share of all files in neutral and accent: the badge already says what the state is. */
+.hbar { display: block; height: 20px; background: var(--line); overflow: hidden; }
+.hbar > span { display: block; height: 100%; background: var(--accent); }
+.hbar.neutral > span { background: var(--border); }
+.legend { flex-direction: row; flex-wrap: wrap; gap: 4px 18px; margin-top: 12px; }
 .legend a { color: var(--ink); text-decoration: none; }
-.legend a:hover { text-decoration: underline; }
+.legend a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .legend .count { font-weight: 600; margin-right: 2px; }
 .now-row { display: flex; align-items: center; gap: 10px; }
 .now-row a { flex: 1; min-width: 0; color: var(--ink); text-decoration: none; }
+.now-row a:hover { color: var(--accent); }
 
 /* settings */
 .settings { height: 100%; overflow: auto; padding: 20px max(16px, env(safe-area-inset-right, 0px)) 0 24px; max-width: 760px; }
