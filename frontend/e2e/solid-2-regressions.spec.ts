@@ -5,6 +5,8 @@ test.use({ trace: "off", screenshot: "off", video: "off" });
 
 test("behält Dateiauswahl, DOM-Zeile und Fokus bei frischen Objekten und umgekehrter Reihenfolge", async ({ page }) => {
   let reads = 0;
+  // Only reads after the list is on screen are held back; overlapping initial loads must pass.
+  let armed = false;
   let release!: () => void;
   const ready = new Promise<void>((resolve) => { release = resolve; });
   await page.route("**/api/v1/dashboard", async (route) => {
@@ -19,8 +21,8 @@ test("behält Dateiauswahl, DOM-Zeile und Fokus bei frischen Objekten und umgeke
     const response = await route.fetch({ headers: { ...await route.request().allHeaders(), Origin: new URL(page.url()).origin } });
     if (!response.ok()) { await route.fulfill({ response }); return; }
     const body = await response.json();
-    reads += 1;
-    if (reads > 1) {
+    if (armed) reads += 1;
+    if (armed) {
       await ready;
       body.data.reverse();
     }
@@ -30,6 +32,7 @@ test("behält Dateiauswahl, DOM-Zeile und Fokus bei frischen Objekten und umgeke
     await openAndUnlock(page, "/files");
     const link = page.getByRole("link", { name: "Sample Movie", exact: true });
     await expect(link).toBeVisible();
+    armed = true;
     const titles = page.locator(".files-table .file-title");
     const before = await titles.allTextContents();
     const row = link.locator("xpath=ancestor::tr");
@@ -38,7 +41,7 @@ test("behält Dateiauswahl, DOM-Zeile und Fokus bei frischen Objekten und umgeke
     await row.focus();
     await expect(row).toHaveAttribute("data-picked", "true");
     release();
-    await expect.poll(() => reads).toBeGreaterThan(1);
+    await expect.poll(() => reads).toBeGreaterThan(0);
     await expect(titles).toHaveText([...before].reverse());
     await expect(row).toHaveAttribute("data-picked", "true");
     await expect(row).toBeFocused();
