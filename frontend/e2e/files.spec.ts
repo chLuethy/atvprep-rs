@@ -9,32 +9,29 @@ test.describe("files journey", () => {
     await expect(page.getByRole("heading", { name: "Files" })).toBeVisible();
     await expect(page.getByRole("table", { name: "Media files" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
-    // Scanning lives on Schedules; the title row holds the search and the view switch.
+    // Scanning lives on Schedules; the toolbar holds the view switch and the search.
     await expect(page.getByRole("button", { name: /^Scan/ })).toHaveCount(0);
-    const titleRow = page.getByRole("heading", { level: 1, name: "Files" }).locator("..");
-    await expect(titleRow.getByRole("searchbox", { name: "Search files" })).toBeVisible();
-    await expect(titleRow.getByRole("group", { name: "Files view" })).toBeVisible();
+    await expect(page.getByRole("search", { name: "File search" }).getByRole("searchbox", { name: "Search files" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Files view" })).toBeVisible();
 
     await page.getByLabel("Search files").fill("Sample Movie");
     const sampleLink = page.getByRole("link", { name: "Sample Movie" });
     await expect(sampleLink).toBeVisible();
     await expect(page.getByRole("link", { name: "Failed Movie" })).toHaveCount(0);
 
-    // A click selects the file and opens it in the inspector, where Verify acts on it.
+    // A click selects the file and opens it in the inspector; Verify acts on it from the selection bar.
     await sampleLink.click();
     await expect(page).toHaveURL(/\/files\/.+/);
     await expect(page.getByRole("heading", { name: "Sample Movie" })).toBeVisible();
-    await page.getByRole("button", { name: "Verify", exact: true }).click();
+    await page.getByRole("button", { name: "Verify selection", exact: true }).click();
     await expect(page.locator(".lib-notice").getByText("Verification job queued", { exact: false })).toBeVisible();
     await expect(page.getByRole("list", { name: "Why" })).toHaveCount(0);
 
     await page.reload();
     await expect(page.getByRole("heading", { name: "Sample Movie" })).toBeVisible();
 
-    await page.getByRole("button", { name: "Re-inspect" }).click();
-    await expect(page.getByRole("region", { name: "Confirm re-inspection" })).toBeVisible();
-    await page.getByRole("button", { name: "Confirm re-inspect" }).click();
-    await expect(page.getByText("Re-inspection queued", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: /^Re-inspect selection/ }).click();
+    await expect(page.getByText("Inspection queued for 1 file", { exact: false })).toBeVisible();
   });
 
   test("the filter bar narrows by state (any) and property (all), keeps it in the address and Back restores it", async ({ page }) => {
@@ -223,7 +220,7 @@ test.describe("files journey", () => {
 
     await expect(page.getByRole("button", { name: "Prepare All" })).toHaveCount(0);
     await page.getByRole("link", { name: "Failed Movie" }).click();
-    await page.getByRole("button", { name: /Prepare preview/ }).click();
+    await page.getByRole("button", { name: /Preview and prepare/ }).click();
 
     const preview = page.getByRole("region", { name: "Prepare preview" });
     await expect(preview).toContainText("Failed Movie");
@@ -238,7 +235,7 @@ test.describe("files journey", () => {
     await openAndUnlock(page, "/files");
 
     await page.getByRole("link", { name: "Old Codec Movie" }).click();
-    await page.getByRole("button", { name: /Prepare preview/ }).click();
+    await page.getByRole("button", { name: /Preview and prepare/ }).click();
 
     const preview = page.getByRole("region", { name: "Prepare preview" });
     await expect(preview).toContainText("Old Codec Movie");
@@ -269,8 +266,8 @@ test.describe("files journey", () => {
     await expect(page.getByRole("heading", { name: "Interrupted Movie" })).toBeVisible();
     await expect(page.getByRole("status").filter({ hasText: "Last preparation interrupted" })).toBeVisible();
 
-    // Nothing is queued on its own; the button opens the normal preview with its confirmation.
-    await page.getByRole("button", { name: "Prepare again" }).click();
+    // Nothing is queued on its own; the selection bar opens the normal preview with its confirmation.
+    await page.getByRole("button", { name: /Preview and prepare/ }).click();
     const preview = page.getByRole("region", { name: "Prepare preview" });
     await expect(preview).toContainText("Nothing is written until you confirm.");
     await preview.getByRole("button", { name: "Cancel" }).click();
