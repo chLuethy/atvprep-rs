@@ -151,14 +151,36 @@ pub(super) struct Report {
     pub document: Value,
 }
 
+/// Why a worker lost its execution lease, as the item log names it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum LeaseLoss {
+    /// Heartbeats could not reach the database for longer than the tolerance.
+    DatabaseBusy,
+    /// Another worker holds a newer fencing token.
+    TokenOvertaken,
+    /// The lease ran out without a renewal.
+    LeaseExpired,
+}
+
+impl LeaseLoss {
+    /// The cause in the words of the item log.
+    pub(super) const fn text(self) -> &'static str {
+        match self {
+            Self::DatabaseBusy => "Datenbank belegt",
+            Self::TokenOvertaken => "Fencing-Token überholt",
+            Self::LeaseExpired => "Lease abgelaufen",
+        }
+    }
+}
+
 /// What an action needs from the execution shell between its phases.
 pub(super) trait Shell {
     /// Polled while the process runs: whether it should be stopped.
     fn cancelled(&mut self) -> bool;
     /// Whether the manager is shutting down, which ends the item as interrupted.
     fn shutdown_requested(&self) -> bool;
-    /// Whether the claim or lease was lost while the process ran.
-    fn authority_lost(&mut self) -> Result<bool>;
+    /// Why the claim or lease was lost while the process ran, `None` while it is held.
+    fn authority_lost(&mut self) -> Result<Option<LeaseLoss>>;
     /// Write a report; the shell checks its authority and commits.
     fn record_report(&mut self, report: &Report) -> Result<()>;
     /// What the check stored for the file, after [`Self::record_report`].
@@ -271,16 +293,22 @@ impl Action {
         };
         // A check that worked leaves its report, not its output; one that failed leaves its output.
         let reported = self.exit_accepted(&result);
-        match self {
-            Self::Prepare { .. } => sink.feed(&[], true)?,
-            _ if !reported => sink.feed(&result.output, true)?,
-            _ => {}
+        let fed = match self {
+            Self::Prepare { .. } => sink.feed(&[], true),
+            _ if !reported => sink.feed(&result.output, true),
+            _ => Ok(()),
+        };
+        // Order matters: with a lost lease the final feed fails with "worker output authority
+        // expired", which would hide the cause. So the lease is asked first and the feed's error
+        // only counts while the lease holds (tested by the lease tests in
+        // `tests/lease_database_errors.rs`).
+        if let Some(cause) = shell.authority_lost()? {
+            return Err(Error::Conflict(format!(
+                "worker lost its execution lease: {}",
+                cause.text()
+            )));
         }
-        if shell.authority_lost()? {
-            return Err(Error::Conflict(
-                "worker lost its execution lease".to_owned(),
-            ));
-        }
+        fed?;
         match self {
             Self::Prepare { .. } => shell.complete_prepare(&result)?,
             _ if reported => self.record_and_describe(&result, process, sink, shell)?,
@@ -565,8 +593,8 @@ mod tests {
         fn shutdown_requested(&self) -> bool {
             self.shutdown
         }
-        fn authority_lost(&mut self) -> Result<bool> {
-            Ok(self.lost)
+        fn authority_lost(&mut self) -> Result<Option<LeaseLoss>> {
+            Ok(self.lost.then_some(LeaseLoss::TokenOvertaken))
         }
         fn record_report(&mut self, report: &Report) -> Result<()> {
             self.recorded.push((
@@ -743,6 +771,66 @@ mod tests {
         );
         assert!(matches!(outcome, Err(Error::Conflict(_))));
         assert!(shell.recorded.is_empty());
+    }
+
+    #[test]
+    fn a_preparation_that_lost_its_lease_leaves_the_library_alone_even_with_delete_original() {
+        // `prepare` runs with `delete_original`: a lost lease must not complete (and so not remove) anything.
+        let mut shell = TestShell {
+            lost: true,
+            ..TestShell::default()
+        };
+        let (outcome, _) = run(
+            prepare(EncodeAllowance::Copy),
+            Fixed::new(StopReason::Exited, Some(0), "")
+                .saying(Stream::Stdout, "ATVPREP-SOURCE removed\n"),
+            &mut shell,
+        );
+        assert!(matches!(outcome, Err(Error::Conflict(_))));
+        assert!(!shell.completed, "no completion without the lease");
+    }
+
+    #[test]
+    fn a_cancelled_preparation_with_delete_original_ends_as_cancelled_and_stays_unchanged_in_the_library()
+     {
+        let mut shell = TestShell::default();
+        let (outcome, lines) = run(
+            prepare(EncodeAllowance::Copy),
+            Fixed::new(StopReason::Cancelled, None, ""),
+            &mut shell,
+        );
+        let outcome = outcome.unwrap();
+        assert_eq!(outcome.terminal, ItemStatus::Cancelled);
+        assert_eq!(outcome.code, Some("cancelled"));
+        assert_eq!(lines.last().unwrap(), "Cancelled");
+        // The completion step runs, but `source_removed` is false for a stopped process (tested there).
+        assert!(shell.completed);
+    }
+
+    #[test]
+    fn shutdown_and_cancel_keep_their_own_messages_and_never_name_a_lost_lease() {
+        for (shutdown, last) in [
+            (true, "Interrupted: the manager is shutting down"),
+            (false, "Cancelled"),
+        ] {
+            let mut shell = TestShell {
+                shutdown,
+                ..TestShell::default()
+            };
+            let (outcome, lines) = run(
+                prepare(EncodeAllowance::Copy),
+                Fixed::new(StopReason::Cancelled, None, ""),
+                &mut shell,
+            );
+            outcome.unwrap();
+            assert_eq!(lines.last().unwrap(), last);
+            assert!(
+                lines
+                    .iter()
+                    .all(|line| !line.to_lowercase().contains("lease")),
+                "{lines:?}"
+            );
+        }
     }
 
     #[test]

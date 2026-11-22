@@ -12,9 +12,39 @@ use rusqlite::{Connection, OpenFlags, Transaction, TransactionBehavior};
 use crate::{Error, Result};
 
 const BUSY_TIMEOUT: Duration = Duration::from_millis(5000);
-const MAX_ATTEMPTS: u32 = 5;
-const BASE_DELAY: Duration = Duration::from_millis(50);
-const MAX_DELAY: Duration = Duration::from_millis(500);
+
+/// How often and how long a locked database is retried: attempt `n` waits a random time up to
+/// `base_delay * 2^n`, never more than `max_delay`.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct RetryPolicy {
+    attempts: u32,
+    base_delay: Duration,
+    max_delay: Duration,
+}
+
+impl RetryPolicy {
+    /// The policy of every ordinary write: a few short waits.
+    pub(crate) const STANDARD: Self = Self {
+        attempts: 5,
+        base_delay: Duration::from_millis(50),
+        max_delay: Duration::from_millis(500),
+    };
+
+    /// The policy for settling an item after an error: ten waits of up to 500 ms, so up to 5 s
+    /// (`max_wait`), because the cause and the end of the item should not get lost to a lock that
+    /// is about to be released.
+    pub(crate) const SETTLING: Self = Self {
+        attempts: 11,
+        base_delay: Duration::from_millis(500),
+        max_delay: Duration::from_millis(500),
+    };
+
+    /// The longest total time this policy sleeps between attempts.
+    #[cfg(test)]
+    pub(crate) fn max_wait(self) -> Duration {
+        self.max_delay * (self.attempts - 1)
+    }
+}
 
 static MEMORY_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -194,11 +224,19 @@ impl Conn {
 }
 
 /// Retry only lock failures after the supplied operation has rolled back its changes.
-pub(crate) fn retry_busy<T>(mut work: impl FnMut() -> Result<T>) -> Result<T> {
-    for attempt in 0..MAX_ATTEMPTS {
+pub(crate) fn retry_busy<T>(work: impl FnMut() -> Result<T>) -> Result<T> {
+    retry_busy_with(RetryPolicy::STANDARD, work)
+}
+
+/// [`retry_busy`] under an explicit [`RetryPolicy`].
+pub(crate) fn retry_busy_with<T>(
+    policy: RetryPolicy,
+    mut work: impl FnMut() -> Result<T>,
+) -> Result<T> {
+    for attempt in 0..policy.attempts {
         match work() {
-            Err(Error::Busy) if attempt + 1 < MAX_ATTEMPTS => {
-                let ceiling = (BASE_DELAY * 2_u32.pow(attempt)).min(MAX_DELAY);
+            Err(Error::Busy) if attempt + 1 < policy.attempts => {
+                let ceiling = (policy.base_delay * 2_u32.pow(attempt)).min(policy.max_delay);
                 std::thread::sleep(jitter(ceiling));
             }
             result => return result,
@@ -263,6 +301,26 @@ mod tests {
             assert_eq!(pragma(&conn, "foreign_keys"), "1");
             assert_eq!(pragma(&conn, "busy_timeout"), "5000");
         }
+    }
+
+    #[test]
+    fn settling_waits_at_most_five_seconds_for_a_lock_and_the_standard_policy_far_less() {
+        assert_eq!(RetryPolicy::SETTLING.max_wait(), Duration::from_secs(5));
+        assert!(RetryPolicy::STANDARD.max_wait() < Duration::from_secs(3));
+        let mut attempts = 0;
+        let result: Result<()> = retry_busy_with(
+            RetryPolicy {
+                attempts: 3,
+                base_delay: Duration::from_millis(1),
+                max_delay: Duration::from_millis(1),
+            },
+            || {
+                attempts += 1;
+                Err(Error::Busy)
+            },
+        );
+        assert!(matches!(result, Err(Error::Busy)));
+        assert_eq!(attempts, 3);
     }
 
     #[test]
