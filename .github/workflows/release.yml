@@ -1,106 +1,84 @@
-name: Build, verify and publish release
+name: Probe native release builds
 on:
   workflow_dispatch:
-    inputs:
-      mirror_version:
-        description: 'Only mirror the already published GitHub release of this version to Gitea (e.g. 0.5.9). Empty: build and verify without publishing.'
-        required: false
-        default: ''
-  push:
-    tags:
-      - 'v*'
+
+permissions:
+  contents: read
+
+env:
+  # The v0.8.0 release provides a signed baseline and measured emulated build times.
+  SOURCE_COMMIT: 8ff94544a99eab6af25f04e65e8eb2168fad44a7
+  RELEASE_VERSION: '0.8.0'
 
 jobs:
-  release:
-    if: github.event_name == 'push' || inputs.mirror_version == ''
-    runs-on: ubuntu-26.04
-    permissions:
-      contents: write
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-26.04
+            architecture: x86_64
+            docker_architecture: amd64
+          - runner: ubuntu-26.04-arm
+            architecture: aarch64
+            docker_architecture: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.SOURCE_COMMIT }}
+          persist-credentials: false
+      - name: Build the tagged source natively
+        shell: bash
+        env:
+          ARCHITECTURE: ${{ matrix.architecture }}
+          DOCKER_ARCHITECTURE: ${{ matrix.docker_architecture }}
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "$ARCHITECTURE"
+          builder="atvprep-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker buildx create --name "$builder" --driver docker-container
+          trap 'docker buildx rm "$builder"' EXIT
+          docker buildx build --builder "$builder" --platform "linux/$DOCKER_ARCHITECTURE" \
+            --file rust/release/Dockerfile --target artifacts \
+            --output "type=local,dest=$RUNNER_TEMP/atvprep-build" .
+          mv "$RUNNER_TEMP/atvprep-build/atvprep" "$RUNNER_TEMP/atvprep-linux-$ARCHITECTURE"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: 'atvprep-linux-${{ matrix.architecture }}'
+          path: '${{ runner.temp }}/atvprep-linux-${{ matrix.architecture }}'
+          if-no-files-found: error
+          retention-days: 1
+
+  verify:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-26.04, ubuntu-26.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.SOURCE_COMMIT }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: 'atvprep-linux-*'
+          merge-multiple: true
+          path: release
       - name: Install verification tools
         shell: bash
         run: |
           sudo apt-get update
           sudo apt-get install -y jq binutils openssh-client qemu-user
-      - name: Register arm64 emulation for the aarch64 build
-        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
-        with:
-          platforms: arm64
-      - name: Check the signed manifest inputs and version
+      - name: Verify the signed manifest and install on the native architecture
         shell: bash
+        env:
+          RELEASE_TRUSTED_KEY: ${{ secrets.RELEASE_TRUSTED_KEY }}
         run: |
           set -euo pipefail
-          for file in release/release.json release/release.json.sig release/release.pub; do
-            git ls-files --error-unmatch "$file" >/dev/null
-          done
-          version=$(jq -er '.version' release/release.json)
-          workspace_version=$(sed -n '/^\[workspace.package\]/,/^\[/{s/^version = "\([^"]*\)"/\1/p;}' rust/Cargo.toml)
-          test "$version" = "$workspace_version"
-          if [ "$GITHUB_EVENT_NAME" = push ]; then
-            test "$GITHUB_REF" = "refs/tags/v$version"
-          fi
-      - name: Build the binaries from the tagged source
-        shell: bash
-        run: |
-          set -euo pipefail
-          builder="atvprep-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT:-1}"
-          docker buildx create --name "$builder" --driver docker-container
-          trap 'docker buildx rm "$builder"' EXIT
-          export BUILDX_BUILDER="$builder"
-          docker buildx inspect "$builder" --bootstrap
-          ./rust/release/build.sh "$RUNNER_TEMP/atvprep-release"
-          cp "$RUNNER_TEMP/atvprep-release/linux-x86_64/atvprep" release/atvprep-linux-x86_64
-          cp "$RUNNER_TEMP/atvprep-release/linux-aarch64/atvprep" release/atvprep-linux-aarch64
           chmod +x release/atvprep-linux-x86_64 release/atvprep-linux-aarch64
-          sha256sum release/atvprep-linux-x86_64 release/atvprep-linux-aarch64
-      - name: Verify the signed manifest against the built bytes
-        shell: bash
-        env:
-          RELEASE_TRUSTED_KEY: ${{ secrets.RELEASE_TRUSTED_KEY }}
-        run: |
-          set -euo pipefail
-          RELEASE_VERSION=$(jq -er '.version' release/release.json) ./scripts/check-release.sh
-      - name: Publish verified bytes on GitHub
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          RELEASE_VERSION=$(jq -er '.version' release/release.json) ./scripts/publish-release.sh
-
-  mirror:
-    needs: release
-    if: >-
-      always() && (
-        (github.event_name == 'push' && needs.release.result == 'success') ||
-        (github.event_name == 'workflow_dispatch' && inputs.mirror_version != '' && needs.release.result == 'skipped')
-      )
-    runs-on: ubuntu-26.04
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-      - name: Download the published GitHub release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          MIRROR_VERSION: ${{ inputs.mirror_version }}
-        run: |
-          set -euo pipefail
-          if [ "$GITHUB_EVENT_NAME" = push ]; then version=${GITHUB_REF_NAME#v}; else version=${MIRROR_VERSION#v}; fi
-          echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
-          # Only a published GitHub release is mirrored; gh would also find an unpublished draft.
-          test "$(gh release view "v$version" --json isDraft --jq .isDraft)" = false
-          gh release download "v$version" --dir "$RUNNER_TEMP/assets"
-      - name: Mirror code and release to Gitea
-        shell: bash
-        env:
-          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
-          GITEA_URL: ${{ vars.GITEA_URL }}
-          GITEA_REPO: ${{ vars.GITEA_REPO }}
-          RELEASE_TRUSTED_KEY: ${{ secrets.RELEASE_TRUSTED_KEY }}
-        run: ./scripts/mirror-release.sh "$RUNNER_TEMP/assets"
+          ./scripts/check-release.sh
