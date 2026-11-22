@@ -355,11 +355,13 @@ fn a_repack_reports_the_phase_boundaries_55_98_and_99() {
 }
 
 #[test]
-fn a_patch_without_ffmpeg_keeps_its_weights_and_rises_to_99() {
+fn a_patch_without_ffmpeg_copies_to_20_patches_to_98_and_rises_to_99() {
     let values = percents("tags.mp4", "default");
     assert!(values.is_sorted(), "{values:?}");
-    assert!(values.contains(&70), "{values:?}");
+    assert_eq!(values.first(), Some(&20), "{values:?}");
+    assert!(values.contains(&98), "{values:?}");
     assert_eq!(values.last(), Some(&99));
+    assert!(values.iter().all(|p| *p <= 99));
 }
 
 /// The two oracle results ADR 0008 changed on purpose: a video that may not be encoded was
