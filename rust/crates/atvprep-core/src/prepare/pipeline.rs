@@ -12,6 +12,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::Value;
 
 use super::checks::{subtitle_sidecars, verify_output_streams, verify_subtitle_inputs};
+use super::copy::{BLOCK, copy_with_progress};
 use super::ffmpeg::{FfmpegError, run_ffmpeg_with_progress};
 use super::paths::{output_path, temp_name};
 use super::{ErrorKind, Failed, Outcome, PrepareOptions, PrepareResult, settle_report};
@@ -464,10 +465,7 @@ fn patch_copy(
     let infos = subtitle_infos(probe);
     ctx.reporter.begin_file(Variant::Patch);
     ctx.reporter.stage(Stage::Finalize);
-    {
-        let _timing = phase("copy", Some(tmp));
-        std::fs::copy(source, tmp)?;
-    }
+    copy_reporting(ctx, source, tmp)?;
     {
         let _timing = phase("postfix", Some(tmp));
         bring_into_compliance(tmp, atmos, Some(probe), &ctx.ffprobe)?;
@@ -477,6 +475,16 @@ fn patch_copy(
         lines(ctx, &patch_summary_lines(&summary, None));
     }
     Ok(verify(ctx, tmp))
+}
+
+/// Copy `source` to `tmp` in blocks; the bar follows the bytes.
+fn copy_reporting(ctx: &mut RunContext, source: &Path, tmp: &Path) -> Step<()> {
+    let _timing = phase("copy", Some(tmp));
+    let reporter = &mut ctx.reporter;
+    copy_with_progress(source, tmp, BLOCK, |done, total| {
+        reporter.copy_progress(fraction(done, total));
+    })?;
+    Ok(())
 }
 
 fn tag_patch(ctx: &mut RunContext, path: &Path, infos: &[SubInfo]) -> Step<PatchSummary> {
@@ -527,7 +535,7 @@ fn patch_in_place(
     if check_accessibility(source, &infos)?.needs_patch {
         let tmp = temp_path(source, target)?;
         run.temps.push(tmp.clone());
-        std::fs::copy(source, &tmp)?;
+        copy_reporting(ctx, source, &tmp)?;
         {
             let _timing = phase("postfix", Some(&tmp));
             bring_into_compliance(&tmp, atmos, Some(probe), &ctx.ffprobe)?;

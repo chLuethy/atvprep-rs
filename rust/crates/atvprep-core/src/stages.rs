@@ -59,6 +59,14 @@ impl Variant {
         }
     }
 
+    /// Share of the whole run for copying the file before the patch, as `(start, end)` percent.
+    const fn copy_share(self) -> Option<(u32, u32)> {
+        match self {
+            Self::Patch => Some((0, 20)),
+            Self::Repack | Self::Encode => None,
+        }
+    }
+
     /// Share of the whole run per stage, as `(stage, start, end)` percent.
     const fn weights(self) -> &'static [(Stage, u32, u32)] {
         match self {
@@ -68,7 +76,8 @@ impl Variant {
                 (Stage::Finalize, 55, 98),
                 (Stage::Verify, 98, 99),
             ],
-            Self::Patch => &[(Stage::Finalize, 0, 70), (Stage::Verify, 70, 99)],
+            // Measured (#133): copying 15-25 %, the tag patch the rest; the check takes a blink.
+            Self::Patch => &[(Stage::Finalize, 20, 98), (Stage::Verify, 98, 99)],
             // NOT MEASURED: no log of a video encode exists yet; recheck once there is one.
             Self::Encode => &[
                 (Stage::Encode, 0, 90),
@@ -189,7 +198,10 @@ impl StageReporter {
         self.stage = Some(stage);
         self.draw(&format!("{} …", stage.label()));
         self.line(&format!("ATVPREP-STAGE {}", stage.as_str()));
-        self.update(0.0);
+        // A patch copies before its first stage work: the copy reports 0-20 %, not the stage start.
+        if !(self.variant.copy_share().is_some() && self.percent == 0) {
+            self.update(0.0);
+        }
     }
 
     /// Report how far the current stage is (0..1); anything outside is clamped, `NaN` counts as 0.
@@ -201,6 +213,22 @@ impl StageReporter {
         else {
             return;
         };
+        self.advance(stage, low, high, fraction);
+    }
+
+    /// Report how far the copy before a patch is (0..1); only a patch has that share. The stage
+    /// stays the one it is in.
+    pub fn copy_progress(&mut self, fraction: f64) {
+        let Some(stage) = self.stage else {
+            return;
+        };
+        let Some((low, high)) = self.variant.copy_share() else {
+            return;
+        };
+        self.advance(stage, low, high, fraction);
+    }
+
+    fn advance(&mut self, stage: Stage, low: u32, high: u32, fraction: f64) {
         let fraction = if fraction.is_nan() {
             0.0
         } else {
@@ -438,20 +466,37 @@ mod tests {
     }
 
     #[test]
-    fn without_encode_the_patch_gets_the_first_part() {
+    fn a_patch_copies_first_then_patches_the_tags_then_verifies() {
         let (mut reporter, out) = plain();
         reporter.begin_file(Variant::Patch);
         reporter.stage(Stage::Finalize);
+        reporter.copy_progress(0.5);
+        reporter.copy_progress(1.0);
         reporter.update(0.5);
+        reporter.update(1.0);
+        reporter.stage(Stage::Verify);
         reporter.update(1.0);
         assert_eq!(
             out.lines(),
             [
                 "ATVPREP-STAGE finalize",
-                "ATVPREP-PROGRESS 35",
-                "ATVPREP-PROGRESS 70"
+                "ATVPREP-PROGRESS 10",
+                "ATVPREP-PROGRESS 20",
+                "ATVPREP-PROGRESS 59",
+                "ATVPREP-PROGRESS 98",
+                "ATVPREP-STAGE verify",
+                "ATVPREP-PROGRESS 99"
             ]
         );
+    }
+
+    #[test]
+    fn copy_progress_is_ignored_outside_a_patch() {
+        let (mut reporter, out) = plain();
+        reporter.begin_file(Variant::Repack);
+        reporter.stage(Stage::Finalize);
+        reporter.copy_progress(0.5);
+        assert_eq!(out.percents(), [55]);
     }
 
     #[test]
@@ -514,6 +559,7 @@ mod tests {
         let mut reporter = StageReporter::new(Box::new(out.clone()), true);
         reporter.begin_file(Variant::Patch);
         reporter.stage(Stage::Finalize);
+        reporter.copy_progress(0.5);
         reporter.update(0.5);
         reporter.outcome(Outcome::Done);
         reporter.finish();

@@ -283,6 +283,19 @@ mod tests {
         Ffprobe::with_program(script)
     }
 
+    /// The machine lines without the progress percents, and those percents.
+    fn split_progress(lines: &[String]) -> (Vec<String>, Vec<u32>) {
+        let mut rest = Vec::new();
+        let mut percents = Vec::new();
+        for line in lines {
+            match line.strip_prefix("ATVPREP-PROGRESS ") {
+                Some(n) => percents.push(n.parse().unwrap()),
+                None => rest.push(line.clone()),
+            }
+        }
+        (rest, percents)
+    }
+
     fn normalise(text: &str, base: &Path) -> String {
         let real = base.canonicalize().unwrap();
         text.replace(real.to_str().unwrap(), "<base>")
@@ -378,11 +391,15 @@ mod tests {
                         .map(|l| normalise(&l.replace("[blocker]", ""), base.path()))
                         .collect();
                     assert_eq!(json!(lines), want["printed"], "{name} printed");
-                    assert_eq!(
-                        json!(machine.lines()),
-                        want["machine"],
-                        "{name} machine lines"
-                    );
+                    // The progress weights are the port's own since #133: compare the stage lines,
+                    // and require the percents to rise and stay below 100.
+                    let (have_stages, have_percents) = split_progress(&machine.lines());
+                    let want_lines: Vec<String> =
+                        serde_json::from_value(want["machine"].clone()).unwrap();
+                    let (want_stages, _) = split_progress(&want_lines);
+                    assert_eq!(have_stages, want_stages, "{name} machine lines");
+                    assert!(have_percents.is_sorted(), "{name} progress rises");
+                    assert!(have_percents.iter().all(|p| *p <= 99), "{name} below 100");
 
                     let mut listing: Vec<String> = Vec::new();
                     let mut sidecars = serde_json::Map::new();
