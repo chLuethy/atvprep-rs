@@ -310,3 +310,22 @@ mod tests {
         assert_eq!(output.stdout, b"ran");
     }
 }
+
+/// Machine lines split into the ones that are not progress and the percents of `ATVPREP-PROGRESS`
+/// lines, in order.
+///
+/// # Panics
+///
+/// When a progress line does not carry an integer.
+#[must_use]
+pub fn split_progress<S: AsRef<str>>(lines: &[S]) -> (Vec<String>, Vec<u32>) {
+    let mut rest = Vec::new();
+    let mut percents = Vec::new();
+    for line in lines {
+        match line.as_ref().strip_prefix("ATVPREP-PROGRESS ") {
+            Some(n) => percents.push(n.parse().expect("integer progress")),
+            None => rest.push(line.as_ref().to_owned()),
+        }
+    }
+    (rest, percents)
+}

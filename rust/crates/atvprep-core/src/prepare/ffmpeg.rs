@@ -193,6 +193,10 @@ mod tests {
     }
 
     fn run(program: &str, duration: Option<f64>) -> (Result<(), FfmpegError>, Vec<String>) {
+        run_plan(&plan(program, duration))
+    }
+
+    fn run_plan(plan: &Plan) -> (Result<(), FfmpegError>, Vec<String>) {
         let machine = SharedBuffer::default();
         let mut ctx = RunContext {
             ffmpeg: None,
@@ -201,7 +205,7 @@ mod tests {
             tools: Box::new(SystemTools::new()),
             ffprobe: Ffprobe::new(),
         };
-        let result = run_ffmpeg_with_progress(&mut ctx, &plan(program, duration));
+        let result = run_ffmpeg_with_progress(&mut ctx, plan);
         (result, machine.lines())
     }
 
@@ -219,6 +223,53 @@ mod tests {
             [
                 "ATVPREP-STAGE encode",
                 "ATVPREP-PROGRESS 11",
+                "ATVPREP-PROGRESS 27",
+                "ATVPREP-PROGRESS 55",
+                "ATVPREP-STAGE finalize",
+            ]
+        );
+    }
+
+    #[test]
+    fn a_video_encode_reports_the_encode_weights_and_a_plan_without_video_the_repack_ones() {
+        use crate::models::{VideoAction, VideoInfo};
+        let dir = tempfile::tempdir().unwrap();
+        let ffmpeg = script(
+            dir.path(),
+            "for t in 5000000 12000000; do echo out_time_ms=$t; done",
+        );
+        let mut encode = plan(&ffmpeg, Some(10.0));
+        encode.video_info = Some(VideoInfo {
+            codec: "hevc".into(),
+            profile: String::new(),
+            width: 1920,
+            height: 1080,
+            hdr: false,
+            dolby_vision: false,
+            pix_fmt: "yuv420p".into(),
+            action: VideoAction::Transcode,
+            tag: None,
+            color_transfer: String::new(),
+            color_primaries: String::new(),
+        });
+        let (result, lines) = run_plan(&encode);
+        result.unwrap();
+        assert_eq!(
+            lines,
+            [
+                "ATVPREP-STAGE encode",
+                "ATVPREP-PROGRESS 45",
+                "ATVPREP-PROGRESS 90",
+                "ATVPREP-STAGE finalize",
+            ]
+        );
+        // No video stream: ffmpeg runs and only copies, so the repack weights apply.
+        let (result, lines) = run_plan(&plan(&ffmpeg, Some(10.0)));
+        result.unwrap();
+        assert_eq!(
+            lines,
+            [
+                "ATVPREP-STAGE encode",
                 "ATVPREP-PROGRESS 27",
                 "ATVPREP-PROGRESS 55",
                 "ATVPREP-STAGE finalize",

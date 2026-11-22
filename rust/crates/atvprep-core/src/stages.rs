@@ -383,11 +383,7 @@ mod tests {
         }
 
         fn percents(&self) -> Vec<u32> {
-            self.lines()
-                .iter()
-                .filter_map(|l| l.strip_prefix("ATVPREP-PROGRESS "))
-                .map(|n| n.parse().unwrap())
-                .collect()
+            atvprep_testkit::split_progress(&self.lines()).1
         }
     }
 
