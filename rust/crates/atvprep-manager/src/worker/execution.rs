@@ -1,7 +1,7 @@
 //! Execute claimed inspection and verification items under leases and gate permits.
 pub use super::action::{ENCODE_NOT_ALLOWED, REENCODE_TIMEOUT, prepare_timeout};
 use super::{
-    action::{Action, PinnedProcess, Report, Shell, Subject},
+    action::{Action, LeaseLoss, PinnedProcess, Report, Shell, Subject},
     execution_output::ClaimedOutput,
     process::{PrepareMode, ProcessResult, StopReason},
     report_log,
@@ -41,6 +41,41 @@ fn authority(ctx: Ctx<'_>, item: i64, owner: &str, fence: i64) -> Result<bool> {
     crate::db::retry_busy(|| {
         Ok(ctx.conn.query_row("SELECT EXISTS(SELECT 1 FROM job_items i JOIN media_executor_leases l ON l.id=1 WHERE i.id=?1 AND i.claimed_by=?2 AND i.executor_fencing_token=?3 AND i.lease_expires_at>?4 AND l.owner_id=?2 AND l.fencing_token=?3 AND l.lease_expires_at>?4)",rusqlite::params![item,owner,fence,ctx.clock.now()],|row|row.get(0))?)
     })
+}
+
+/// Settle an item after an error: a busy database is waited for a few seconds more, because the
+/// cause and the end of the item should not get lost to a lock that is about to be released.
+fn until_not_busy<T>(mut work: impl FnMut() -> Result<T>) -> Result<T> {
+    let mut attempt = 0;
+    loop {
+        match work() {
+            Err(Error::Busy) if attempt < 10 => {
+                attempt += 1;
+                std::thread::sleep(Duration::from_millis(500));
+            }
+            other => return other,
+        }
+    }
+}
+
+/// Why the database refused the worker its authority: another worker holds a newer token, or
+/// the lease simply ran out. An unreadable lease counts as run out.
+fn rejection(ctx: Ctx<'_>, item: i64, owner: &str, fence: i64) -> LeaseLoss {
+    let overtaken: bool = ctx
+        .conn
+        .query_row(
+            "SELECT NOT (l.owner_id=?2 AND l.fencing_token=?3
+                         AND i.claimed_by=?2 AND i.executor_fencing_token=?3)
+             FROM job_items i JOIN media_executor_leases l ON l.id=1 WHERE i.id=?1",
+            rusqlite::params![item, owner, fence],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+    if overtaken {
+        LeaseLoss::TokenOvertaken
+    } else {
+        LeaseLoss::LeaseExpired
+    }
 }
 
 /// How long a worker keeps going while its heartbeat cannot reach the database: the lease minus a
@@ -272,7 +307,7 @@ pub fn execute_claimed(
             started: Instant::now(),
             heartbeat: Instant::now(),
             last_renewed: ctx.clock.now_micros(),
-            lost: false,
+            lost: None,
             shutdown_requested: false,
         };
         let outcome = action.execute(&subject, &mut process, &mut output, &mut shell)?;
@@ -323,10 +358,13 @@ pub fn execute_claimed(
         Err(error) => {
             // The cause is the last line; without authority or a running item nothing lands.
             let _ = output.step(&report_log::failed_by(&error));
-            let _ = output.finish();
+            if !matches!(until_not_busy(|| output.finish()), Ok(())) {
+                // Without authority the log is the one thing a worker may still write, to its own item.
+                let _ = until_not_busy(|| output.finish_without_authority());
+            }
             // The permit must go back whatever the cleanup does, or the gate never quiesces.
             let cleanup = (|| -> Result<()> {
-                if authority(ctx, item_id, owner, fence).unwrap_or(false)
+                if until_not_busy(|| authority(ctx, item_id, owner, fence)).unwrap_or(false)
                     && let Ok(Some(fresh)) = Jobs(ctx).get_item(item_id)
                     && fresh.status == ItemStatus::Running
                 {
@@ -366,7 +404,8 @@ struct ClaimedShell<'a> {
     heartbeat: Instant,
     /// When the last heartbeat got through (clock microseconds).
     last_renewed: i64,
-    lost: bool,
+    /// Why the lease was lost, once it was.
+    lost: Option<LeaseLoss>,
     shutdown_requested: bool,
 }
 
@@ -399,7 +438,7 @@ impl Shell for ClaimedShell<'_> {
                 Ok(true) => self.last_renewed = ctx.clock.now_micros(),
                 // The database said no: fencing token overtaken or lease expired.
                 Ok(false) => {
-                    self.lost = true;
+                    self.lost = Some(rejection(ctx, self.item.id, self.owner, self.fence));
                     return true;
                 }
                 Err(_) => database_failed = true,
@@ -408,7 +447,7 @@ impl Shell for ClaimedShell<'_> {
         match authority(ctx, self.item.id, self.owner, self.fence) {
             Ok(true) => {}
             Ok(false) => {
-                self.lost = true;
+                self.lost = Some(rejection(ctx, self.item.id, self.owner, self.fence));
                 return true;
             }
             Err(_) => database_failed = true,
@@ -420,7 +459,7 @@ impl Shell for ClaimedShell<'_> {
                 > i64::try_from(heartbeat_tolerance(self.config.lease_seconds).as_micros())
                     .unwrap_or(i64::MAX)
         {
-            self.lost = true;
+            self.lost = Some(LeaseLoss::DatabaseBusy);
             return true;
         }
         // Whether the job still runs: a database error does not stop it either.
@@ -436,8 +475,14 @@ impl Shell for ClaimedShell<'_> {
         self.shutdown_requested
     }
 
-    fn authority_lost(&mut self) -> Result<bool> {
-        Ok(self.lost || !authority(self.ctx, self.item.id, self.owner, self.fence)?)
+    fn authority_lost(&mut self) -> Result<Option<LeaseLoss>> {
+        if self.lost.is_some() {
+            return Ok(self.lost);
+        }
+        Ok(
+            (!authority(self.ctx, self.item.id, self.owner, self.fence)?)
+                .then(|| rejection(self.ctx, self.item.id, self.owner, self.fence)),
+        )
     }
 
     fn record_report(&mut self, report: &Report) -> Result<()> {

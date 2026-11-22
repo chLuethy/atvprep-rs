@@ -151,14 +151,36 @@ pub(super) struct Report {
     pub document: Value,
 }
 
+/// Why a worker lost its execution lease, as the item log names it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum LeaseLoss {
+    /// Heartbeats could not reach the database for longer than the tolerance.
+    DatabaseBusy,
+    /// Another worker holds a newer fencing token.
+    TokenOvertaken,
+    /// The lease ran out without a renewal.
+    LeaseExpired,
+}
+
+impl LeaseLoss {
+    /// The cause in the words of the item log.
+    pub(super) const fn text(self) -> &'static str {
+        match self {
+            Self::DatabaseBusy => "Datenbank belegt",
+            Self::TokenOvertaken => "Fencing-Token überholt",
+            Self::LeaseExpired => "Lease abgelaufen",
+        }
+    }
+}
+
 /// What an action needs from the execution shell between its phases.
 pub(super) trait Shell {
     /// Polled while the process runs: whether it should be stopped.
     fn cancelled(&mut self) -> bool;
     /// Whether the manager is shutting down, which ends the item as interrupted.
     fn shutdown_requested(&self) -> bool;
-    /// Whether the claim or lease was lost while the process ran.
-    fn authority_lost(&mut self) -> Result<bool>;
+    /// Why the claim or lease was lost while the process ran, `None` while it is held.
+    fn authority_lost(&mut self) -> Result<Option<LeaseLoss>>;
     /// Write a report; the shell checks its authority and commits.
     fn record_report(&mut self, report: &Report) -> Result<()>;
     /// What the check stored for the file, after [`Self::record_report`].
@@ -271,16 +293,20 @@ impl Action {
         };
         // A check that worked leaves its report, not its output; one that failed leaves its output.
         let reported = self.exit_accepted(&result);
-        match self {
-            Self::Prepare { .. } => sink.feed(&[], true)?,
-            _ if !reported => sink.feed(&result.output, true)?,
-            _ => {}
+        let fed = match self {
+            Self::Prepare { .. } => sink.feed(&[], true),
+            _ if !reported => sink.feed(&result.output, true),
+            _ => Ok(()),
+        };
+        // A lost lease is what ended the run, and the log writes it could not make follow from it:
+        // the cause comes before the failed write.
+        if let Some(cause) = shell.authority_lost()? {
+            return Err(Error::Conflict(format!(
+                "worker lost its execution lease: {}",
+                cause.text()
+            )));
         }
-        if shell.authority_lost()? {
-            return Err(Error::Conflict(
-                "worker lost its execution lease".to_owned(),
-            ));
-        }
+        fed?;
         match self {
             Self::Prepare { .. } => shell.complete_prepare(&result)?,
             _ if reported => self.record_and_describe(&result, process, sink, shell)?,
@@ -565,8 +591,8 @@ mod tests {
         fn shutdown_requested(&self) -> bool {
             self.shutdown
         }
-        fn authority_lost(&mut self) -> Result<bool> {
-            Ok(self.lost)
+        fn authority_lost(&mut self) -> Result<Option<LeaseLoss>> {
+            Ok(self.lost.then_some(LeaseLoss::TokenOvertaken))
         }
         fn record_report(&mut self, report: &Report) -> Result<()> {
             self.recorded.push((
