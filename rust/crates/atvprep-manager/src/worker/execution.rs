@@ -43,6 +43,13 @@ fn authority(ctx: Ctx<'_>, item: i64, owner: &str, fence: i64) -> Result<bool> {
     })
 }
 
+/// How long a worker keeps going while its heartbeat cannot reach the database: the lease minus a
+/// safety margin, so it stops while no other worker can have taken the lease over.
+fn heartbeat_tolerance(lease_seconds: i64) -> Duration {
+    const MARGIN_SECONDS: i64 = 10;
+    Duration::from_secs(u64::try_from(lease_seconds - MARGIN_SECONDS).unwrap_or(0))
+}
+
 /// Run one claimed inspection/verification item, renewing leases and observing cancellation.
 ///
 /// # Errors
@@ -264,6 +271,7 @@ pub fn execute_claimed(
             verify_profile: matches!(action, Action::Verify { .. }).then_some(verify_profile),
             started: Instant::now(),
             heartbeat: Instant::now(),
+            last_renewed: ctx.clock.now_micros(),
             lost: false,
             shutdown_requested: false,
         };
@@ -356,6 +364,8 @@ struct ClaimedShell<'a> {
     verify_profile: Option<TargetProfile>,
     started: Instant,
     heartbeat: Instant,
+    /// When the last heartbeat got through (clock microseconds).
+    last_renewed: i64,
     lost: bool,
     shutdown_requested: bool,
 }
@@ -372,31 +382,54 @@ impl Shell for ClaimedShell<'_> {
             self.shutdown_requested = true;
             return true;
         }
+        let mut database_failed = false;
         if self.heartbeat.elapsed() >= Duration::from_secs(1) {
             self.heartbeat = Instant::now();
-            if !MediaExecutorLease::new(ctx)
+            let renewed = MediaExecutorLease::new(ctx)
                 .heartbeat(Some(self.fence), self.config.lease_seconds)
-                .unwrap_or(false)
-                || !Jobs(ctx)
-                    .heartbeat_item(self.item.id, self.fence, self.config.lease_seconds)
-                    .unwrap_or(false)
-            {
+                .and_then(|held| {
+                    Ok(held
+                        && Jobs(ctx).heartbeat_item(
+                            self.item.id,
+                            self.fence,
+                            self.config.lease_seconds,
+                        )?)
+                });
+            match renewed {
+                Ok(true) => self.last_renewed = ctx.clock.now_micros(),
+                // The database said no: fencing token overtaken or lease expired.
+                Ok(false) => {
+                    self.lost = true;
+                    return true;
+                }
+                Err(_) => database_failed = true,
+            }
+        }
+        match authority(ctx, self.item.id, self.owner, self.fence) {
+            Ok(true) => {}
+            Ok(false) => {
                 self.lost = true;
                 return true;
             }
+            Err(_) => database_failed = true,
         }
-        if !authority(ctx, self.item.id, self.owner, self.fence).unwrap_or(false) {
+        // A database error is not a lost lease: it is tried again every second, until the lease would
+        // soon run out because no heartbeat got through.
+        if database_failed
+            && ctx.clock.now_micros() - self.last_renewed
+                > i64::try_from(heartbeat_tolerance(self.config.lease_seconds).as_micros())
+                    .unwrap_or(i64::MAX)
+        {
             self.lost = true;
             return true;
         }
+        // Whether the job still runs: a database error does not stop it either.
         let status: std::result::Result<JobStatus, _> = ctx.conn.query_row(
             "SELECT status FROM jobs WHERE id=?1",
             [self.item.job_id],
             |row| row.get(0),
         );
-        status.map_or(true, |status| {
-            !matches!(status, JobStatus::Queued | JobStatus::Running)
-        })
+        status.is_ok_and(|status| !matches!(status, JobStatus::Queued | JobStatus::Running))
     }
 
     fn shutdown_requested(&self) -> bool {
