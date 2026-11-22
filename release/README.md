@@ -1,38 +1,33 @@
-# Release artifacts
+# Release-Assets
 
-Releases are built twice and must agree bit for bit: once locally, where they are signed, and once
-in the GitHub Actions run, which publishes only if its own build matches the signed manifest and
-then mirrors the release to Gitea (ADR 0009). No binary is committed.
+Ein Release wird zweimal gebaut: lokal für das signierte Manifest und in GitHub Actions aus dem getaggten Quelltext. Beide Builds müssen bytegleich sein. Keine Binary wird eingecheckt. Die vollständige [Release-Checkliste](../docs/releasing.md) beschreibt die Vorbereitung und den Betrieb.
 
-Files in this directory:
+Dateien in diesem Verzeichnis:
 
-- `release.json`: the signed-installer manifest, with the workspace version and exactly one entry for each platform. Each entry has `platform`, `url` (HTTPS), `sha256` and `size`.
-- `release.json.sig`: OpenSSH Ed25519 signature of the exact manifest bytes using namespace `atvprep-release`.
-- `release.pub`: the public key the signature belongs to. It proves nothing by itself; the independently distributed key is the `RELEASE_TRUSTED_KEY` secret (see ADR 0003).
-- `atvprep-linux-x86_64` and `atvprep-linux-aarch64` are never committed (git-ignored). The workflow writes its own build there to verify it.
+- `release.json`: Manifest mit Workspace-Version und genau einem Eintrag pro Plattform. Jeder Eintrag enthält `platform`, `url` (HTTPS), `sha256` und `size`.
+- `release.json.sig`: OpenSSH-Ed25519-Signatur der exakten Manifestbytes im Namensraum `atvprep-release`.
+- `release.pub`: öffentlicher Schlüssel zur Signatur. Die Datei allein ist kein Vertrauensanker; GitHub prüft gegen den unabhängig hinterlegten Schlüssel `RELEASE_TRUSTED_KEY` (siehe ADR 0003).
+- `atvprep-linux-x86_64` und `atvprep-linux-aarch64`: nicht eingecheckte Binaries. Die Prüfjobs laden ihre eigenen Builds zur Prüfung hierher.
 
-## Releasing
+## Lokaler Build und Signatur
 
-1. Bump the workspace version in `rust/Cargo.toml`, run `./rust/check.sh` and the frontend checks, commit.
-2. Build locally and write the manifest from the result:
+Workspace-Version in `rust/Cargo.toml` erhöhen, die Änderungen prüfen und committen. Danach aus einer sauberen Arbeitskopie bauen:
 
-   ```bash
-   ./rust/release/build.sh /private/tmp/atvprep-release
-   ./scripts/make-manifest.sh /private/tmp/atvprep-release
-   ```
+```bash
+./rust/release/build.sh /private/tmp/atvprep-release
+./scripts/make-manifest.sh /private/tmp/atvprep-release
+ssh-keygen -Y sign -f /pfad/zum/privaten-schluessel -n atvprep-release release/release.json
+```
 
-   The URLs default to the GitHub release (`RELEASE_BASE_URL` overrides them). `scripts/install.sh` does not use them: it downloads from the host it was pointed at and checks hashes and sizes against the manifest, so the same signed manifest is valid on the Gitea mirror.
-3. Sign the manifest with the private key, which never leaves your machine:
+Der private Schlüssel bleibt lokal. Die URLs zeigen standardmässig auf das GitHub-Release (`RELEASE_BASE_URL` überschreibt sie). `scripts/install.sh` lädt vom gewählten Host und prüft die Bytes gegen das Manifest. Dasselbe signierte Manifest gilt deshalb auch auf dem Gitea-Spiegel.
 
-   ```bash
-   ssh-keygen -Y sign -f /path/to/private-key -n atvprep-release release/release.json
-   ```
+Nur `release/release.json`, `release/release.json.sig` und `release/release.pub` committen, nicht die Binaries. Diese drei Dateien sind keine Eingaben für den Build. Den Commit als `v<workspace-version>` taggen und den Tag pushen.
 
-4. Commit `release/release.json`, `release/release.json.sig` and `release/release.pub`. These files are not an input of the build, so the binaries stay identical.
-5. Set the GitHub Actions secret `RELEASE_TRUSTED_KEY` once to the independently distributed public key (and `GITEA_TOKEN`, `GITEA_URL`, `GITEA_REPO` for the mirror), then create and push the tag `v<workspace-version>`.
+## GitHub und Gitea
 
-The tag workflow checks that the manifest, signature and key are committed and that the tag matches the version, builds both binaries from the tagged source in a pinned container, and runs `scripts/check-release.sh`: signature, hashes and sizes against the freshly built bytes, version, ELF architecture, command entry points and a native signed-install roundtrip. Only then it creates a draft release, uploads the manifest, signature, key and both binaries, downloads them again and compares the bytes, and publishes. A failed upload leaves an unpublished draft, which a re-run deletes and recreates. A manual dispatch does the same checks without publishing.
+1. `build` prüft die Version und baut x86_64 und ARM64 auf je einem nativen Runner parallel mit demselben Dockerfile, das lokal verwendet wird.
+2. `verify` prüft beide Assets gegen das signierte Manifest, kontrolliert ELF-Architektur, statische Linkung und CLI und testet die signierte Installation auf beiden Architekturen nativ. Ein manueller Workflow-Lauf ohne `mirror_version` endet hier.
+3. `publish` prüft die konkret hochzuladenden Bytes erneut. Nur beim Tag-Push legt der Job einen Entwurf an, lädt die fünf Dateien hoch, lädt sie zum Vergleich wieder herunter und veröffentlicht erst nach erfolgreichem Vergleich. Ein fehlgeschlagener Upload kann einen unveröffentlichten Entwurf hinterlassen, den ein erneuter Lauf ersetzt.
+4. `mirror` lädt das veröffentlichte GitHub-Release, prüft es gegen das signierte Manifest, pusht den Tag und dessen Commit als Gitea-`main` (nie mit Force), legt dasselbe Release auf Gitea an und vergleicht die öffentlich herunterladbaren Bytes. Schlägt nur der Spiegel fehl, kann man ihn mit `mirror_version` einzeln erneut starten.
 
-The `mirror` job then downloads the published GitHub release, checks it against the signed manifest at the tag, pushes the tag and its commit as Gitea `main` (never forced), creates the same release on Gitea and compares the public download bytes. A failed mirror does not affect the GitHub release; dispatch the workflow with `mirror_version` to retry only the mirror.
-
-If the CI build differs from the signed hashes, the run fails and nothing is published: the build is not reproducible, or the source differs from what was signed. Never sign the CI output instead; find the difference.
+Stimmt ein Build nicht mit den signierten Hashes überein, wird nichts veröffentlicht. In diesem Fall die Ursache klären und niemals ersatzweise die CI-Ausgabe signieren.
