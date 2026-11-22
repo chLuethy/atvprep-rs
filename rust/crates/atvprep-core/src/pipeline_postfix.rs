@@ -200,7 +200,7 @@ mod tests {
     use crate::compliance::{ToolError, Tools, Violation};
     use crate::console::SharedBuffer;
     use crate::ffprobe::Ffprobe;
-    use crate::stages::StageReporter;
+    use crate::stages::{StageReporter, Variant};
 
     #[derive(Deserialize)]
     struct Ignored {}
@@ -350,7 +350,7 @@ mod tests {
                         tools: Box::new(tools),
                         ffprobe: fake_ffprobe(base.path(), &input.probe),
                     };
-                    ctx.reporter.begin_file(false);
+                    ctx.reporter.begin_file(Variant::Patch);
                     let report = finalize_output(
                         &mut ctx,
                         &target,

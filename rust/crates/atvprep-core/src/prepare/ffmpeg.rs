@@ -9,7 +9,7 @@ use std::process::{Command, Stdio};
 use crate::models::Plan;
 use crate::pipeline_postfix::RunContext;
 use crate::pyfmt::repr_str;
-use crate::stages::Stage;
+use crate::stages::{Stage, Variant};
 
 /// Share of the duration after which ffmpeg only has the trailer left to write.
 const ENCODE_DONE: f64 = 0.995;
@@ -112,7 +112,7 @@ pub fn run_ffmpeg_with_progress(ctx: &mut RunContext, plan: &Plan) -> Result<(),
         .as_deref()
         .map_or_else(|| Path::new(planned), |p| p);
     let total = plan.duration_s.filter(|d| *d > 0.0);
-    ctx.reporter.begin_file(true);
+    ctx.reporter.begin_file(Variant::of_plan(plan));
     ctx.reporter.stage(Stage::Encode);
     let mut child = Command::new(program)
         .args(args)
@@ -212,9 +212,9 @@ mod tests {
             lines,
             [
                 "ATVPREP-STAGE encode",
-                "ATVPREP-PROGRESS 18",
-                "ATVPREP-PROGRESS 45",
-                "ATVPREP-PROGRESS 90",
+                "ATVPREP-PROGRESS 11",
+                "ATVPREP-PROGRESS 27",
+                "ATVPREP-PROGRESS 55",
                 "ATVPREP-STAGE finalize",
             ]
         );
