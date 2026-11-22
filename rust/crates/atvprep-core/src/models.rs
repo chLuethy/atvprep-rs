@@ -115,6 +115,18 @@ pub struct Plan {
     pub duration_s: Option<f64>,
 }
 
+impl Plan {
+    /// Whether ffmpeg re-encodes the video. A plan without a video stream encodes nothing, so it
+    /// does not transcode: ffmpeg only copies what is there (a repack). This is only meant for a
+    /// plan that ffmpeg runs; a file that is patched without ffmpeg has no plan to ask.
+    #[must_use]
+    pub fn transcodes(&self) -> bool {
+        self.video_info
+            .as_ref()
+            .is_some_and(|v| v.action == VideoAction::Transcode)
+    }
+}
+
 /// Expected per-track properties in the output container.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TrackSpec {
@@ -258,5 +270,36 @@ mod tests {
                 .iter()
                 .all(|t| t.media_type != MediaType::Subtitle)
         );
+    }
+
+    #[test]
+    fn a_plan_transcodes_only_when_the_video_does() {
+        let video = |action| VideoInfo {
+            codec: "h264".into(),
+            profile: String::new(),
+            width: 1920,
+            height: 1080,
+            hdr: false,
+            dolby_vision: false,
+            pix_fmt: "yuv420p".into(),
+            action,
+            tag: None,
+            color_transfer: String::new(),
+            color_primaries: String::new(),
+        };
+        let plan = |info| Plan {
+            video_info: info,
+            audio_tracks: Vec::new(),
+            sub_tracks: Vec::new(),
+            ffmpeg_cmd: Vec::new(),
+            warnings: Vec::new(),
+            in_path: PathBuf::new(),
+            out_path: PathBuf::new(),
+            duration_s: None,
+        };
+        // No video stream: nothing to encode, ffmpeg only copies the rest.
+        assert!(!plan(None).transcodes());
+        assert!(!plan(Some(video(VideoAction::Copy))).transcodes());
+        assert!(plan(Some(video(VideoAction::Transcode))).transcodes());
     }
 }

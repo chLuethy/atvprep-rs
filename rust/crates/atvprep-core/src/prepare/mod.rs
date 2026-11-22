@@ -1,6 +1,7 @@
 //! `prepare`: bring one file to what Apple TV plays, by the cheapest route that is safe.
 
 pub mod checks;
+pub mod copy;
 pub mod ffmpeg;
 pub mod paths;
 pub mod pipeline;

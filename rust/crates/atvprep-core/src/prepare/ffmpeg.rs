@@ -9,7 +9,7 @@ use std::process::{Command, Stdio};
 use crate::models::Plan;
 use crate::pipeline_postfix::RunContext;
 use crate::pyfmt::repr_str;
-use crate::stages::Stage;
+use crate::stages::{Stage, Variant};
 
 /// Share of the duration after which ffmpeg only has the trailer left to write.
 const ENCODE_DONE: f64 = 0.995;
@@ -112,7 +112,13 @@ pub fn run_ffmpeg_with_progress(ctx: &mut RunContext, plan: &Plan) -> Result<(),
         .as_deref()
         .map_or_else(|| Path::new(planned), |p| p);
     let total = plan.duration_s.filter(|d| *d > 0.0);
-    ctx.reporter.begin_file(true);
+    // ffmpeg runs here, so the plan is a repack unless it encodes the video.
+    let variant = if plan.transcodes() {
+        Variant::Encode
+    } else {
+        Variant::Repack
+    };
+    ctx.reporter.begin_file(variant);
     ctx.reporter.stage(Stage::Encode);
     let mut child = Command::new(program)
         .args(args)
@@ -187,6 +193,10 @@ mod tests {
     }
 
     fn run(program: &str, duration: Option<f64>) -> (Result<(), FfmpegError>, Vec<String>) {
+        run_plan(&plan(program, duration))
+    }
+
+    fn run_plan(plan: &Plan) -> (Result<(), FfmpegError>, Vec<String>) {
         let machine = SharedBuffer::default();
         let mut ctx = RunContext {
             ffmpeg: None,
@@ -195,7 +205,7 @@ mod tests {
             tools: Box::new(SystemTools::new()),
             ffprobe: Ffprobe::new(),
         };
-        let result = run_ffmpeg_with_progress(&mut ctx, &plan(program, duration));
+        let result = run_ffmpeg_with_progress(&mut ctx, plan);
         (result, machine.lines())
     }
 
@@ -212,9 +222,56 @@ mod tests {
             lines,
             [
                 "ATVPREP-STAGE encode",
-                "ATVPREP-PROGRESS 18",
+                "ATVPREP-PROGRESS 11",
+                "ATVPREP-PROGRESS 27",
+                "ATVPREP-PROGRESS 55",
+                "ATVPREP-STAGE finalize",
+            ]
+        );
+    }
+
+    #[test]
+    fn a_video_encode_reports_the_encode_weights_and_a_plan_without_video_the_repack_ones() {
+        use crate::models::{VideoAction, VideoInfo};
+        let dir = tempfile::tempdir().unwrap();
+        let ffmpeg = script(
+            dir.path(),
+            "for t in 5000000 12000000; do echo out_time_ms=$t; done",
+        );
+        let mut encode = plan(&ffmpeg, Some(10.0));
+        encode.video_info = Some(VideoInfo {
+            codec: "hevc".into(),
+            profile: String::new(),
+            width: 1920,
+            height: 1080,
+            hdr: false,
+            dolby_vision: false,
+            pix_fmt: "yuv420p".into(),
+            action: VideoAction::Transcode,
+            tag: None,
+            color_transfer: String::new(),
+            color_primaries: String::new(),
+        });
+        let (result, lines) = run_plan(&encode);
+        result.unwrap();
+        assert_eq!(
+            lines,
+            [
+                "ATVPREP-STAGE encode",
                 "ATVPREP-PROGRESS 45",
                 "ATVPREP-PROGRESS 90",
+                "ATVPREP-STAGE finalize",
+            ]
+        );
+        // No video stream: ffmpeg runs and only copies, so the repack weights apply.
+        let (result, lines) = run_plan(&plan(&ffmpeg, Some(10.0)));
+        result.unwrap();
+        assert_eq!(
+            lines,
+            [
+                "ATVPREP-STAGE encode",
+                "ATVPREP-PROGRESS 27",
+                "ATVPREP-PROGRESS 55",
                 "ATVPREP-STAGE finalize",
             ]
         );

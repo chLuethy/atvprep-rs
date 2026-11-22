@@ -219,10 +219,16 @@ fn result_json(result: &PrepareResult, base: &Path) -> Value {
 }
 
 fn run_case(name: &str, variant: &str) -> Value {
+    run_case_with(name, variant, |_| {})
+}
+
+/// `run_case` with `grow` applied to the fresh copy of the source before the run.
+fn run_case_with(name: &str, variant: &str, grow: impl FnOnce(&Path)) -> Value {
     let tools = tempfile::tempdir().unwrap();
     let dir = tempfile::tempdir().unwrap();
     let base = dir.path().canonicalize().unwrap();
     let source = copy_case(name, &base.join("work"));
+    grow(&source);
     std::fs::create_dir(base.join("out")).unwrap();
     let options = options_for(variant, &base, &source);
     let before: BTreeMap<PathBuf, String> = files_under(&base)
@@ -283,17 +289,15 @@ fn run_case(name: &str, variant: &str) -> Value {
     expected
 }
 
-// FFmpeg emits intermediate encode percentages according to elapsed wall time.
-// Discard sampled encode percentages, but retain the deterministic 90% stage
-// boundary regardless of whether ffmpeg or finalization emits it first.
-// Independently reject out-of-range or non-monotonic progress. Plan lines are left out.
+// The progress weights are the port's own since #133 (measured per variant); the golden file
+// keeps the oracle's percents. So the oracle's machine lines are compared by their stage lines
+// only, its percents still have to rise and stay below 100, and the port's percents are held at
+// the phase boundaries per variant by `expected_phase_percents`. Plan lines are left out.
 fn stable_machine(value: Value) -> Value {
     let Some(lines) = value.as_array() else {
         return value;
     };
     let mut result = Vec::new();
-    let mut encoding = false;
-    let mut encode_reached_90 = false;
     let mut previous = None;
     for line in lines {
         let text = line.as_str().expect("machine protocol string");
@@ -309,18 +313,6 @@ fn stable_machine(value: Value) -> Value {
                 "progress must increase"
             );
             previous = Some(percent);
-            if encoding {
-                encode_reached_90 |= percent == 90;
-                continue;
-            }
-        }
-        if text.starts_with("ATVPREP-STAGE ") {
-            encoding = text == "ATVPREP-STAGE encode";
-            result.push(line.clone());
-            if text == "ATVPREP-STAGE finalize" && encode_reached_90 {
-                result.push(Value::String("ATVPREP-PROGRESS 90".into()));
-                encode_reached_90 = false;
-            }
             continue;
         }
         result.push(line.clone());
@@ -328,43 +320,125 @@ fn stable_machine(value: Value) -> Value {
     Value::Array(result)
 }
 
+/// The deliberate deviation from the oracle, per variant: the percents the port holds at the phase
+/// boundaries. A repack ends ffmpeg at 55, a video encode at 90, a patch ends its copy at 20; every
+/// variant ends its work at 98 and the check at 99. A run without stages reports no percent.
+fn expected_phase_percents(outcome: &str, stages: &[Value]) -> Vec<u32> {
+    if stages.is_empty() {
+        return Vec::new();
+    }
+    match outcome {
+        "rebuilt" => vec![55, 98, 99],
+        "reencoded" => vec![90, 98, 99],
+        // A patch that copies: in place, or into an output (then a clean file ends as `done`).
+        "patched" | "done" => vec![20, 98, 99],
+        other => panic!("no phase percents expected for outcome {other}"),
+    }
+}
+
+fn machine_lines(run: &Value) -> Vec<String> {
+    run["machine"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| l.as_str().unwrap().to_owned())
+        .collect()
+}
+
+/// The percents of a run restricted to the phase boundaries (ffmpeg samples in between, by time).
+fn boundary_percents(run: &Value, boundaries: &[u32]) -> Vec<u32> {
+    let (_, percents) = atvprep_testkit::split_progress(&machine_lines(run));
+    assert!(percents.is_sorted(), "progress rises: {percents:?}");
+    assert!(percents.iter().all(|p| *p <= 99), "below 100: {percents:?}");
+    percents
+        .into_iter()
+        .filter(|p| boundaries.contains(p))
+        .collect()
+}
+
 #[test]
-fn encode_sampling_normalizes_intermediate_progress_and_preserves_stage_boundary() {
+fn oracle_progress_is_checked_for_order_but_not_compared() {
     let sampled = json!([
         "ATVPREP-STAGE encode",
         "ATVPREP-PROGRESS 69",
-        "ATVPREP-PROGRESS 86",
         "ATVPREP-STAGE finalize",
         "ATVPREP-PROGRESS 90",
         "ATVPREP-PROGRESS 97"
     ]);
-    let expected = json!([
-        "ATVPREP-STAGE encode",
-        "ATVPREP-STAGE finalize",
-        "ATVPREP-PROGRESS 90",
-        "ATVPREP-PROGRESS 97"
-    ]);
+    let expected = json!(["ATVPREP-STAGE encode", "ATVPREP-STAGE finalize"]);
     assert_eq!(stable_machine(sampled), expected);
     assert_eq!(stable_machine(expected.clone()), expected);
-    assert_eq!(
-        stable_machine(json!([
-            "ATVPREP-STAGE encode",
-            "ATVPREP-PROGRESS 90",
-            "ATVPREP-STAGE finalize",
-            "ATVPREP-PROGRESS 97"
-        ])),
-        expected
-    );
 }
 
 #[test]
 #[should_panic(expected = "progress must increase")]
-fn encode_sampling_does_not_hide_regressing_progress() {
+fn oracle_progress_that_regresses_is_still_rejected() {
     stable_machine(json!([
         "ATVPREP-STAGE encode",
         "ATVPREP-PROGRESS 86",
         "ATVPREP-PROGRESS 69"
     ]));
+}
+
+#[test]
+fn a_repack_reports_the_phase_boundaries_55_98_and_99() {
+    for name in ["movie.mkv", "moovlast.mp4"] {
+        let run = run_case(name, "default");
+        assert_eq!(
+            boundary_percents(&run, &[55, 98, 99]),
+            [55, 98, 99],
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn a_patch_without_ffmpeg_copies_to_20_patches_to_98_and_rises_to_99() {
+    let run = run_case("tags.mp4", "default");
+    let (_, values) = atvprep_testkit::split_progress(&machine_lines(&run));
+    assert!(values.is_sorted(), "{values:?}");
+    assert_eq!(values.first(), Some(&20), "{values:?}");
+    assert!(values.contains(&98), "{values:?}");
+    assert_eq!(values.last(), Some(&99));
+    assert!(values.iter().all(|p| *p <= 99));
+}
+
+/// Grow the file to three copy blocks with a trailing `free` box, which no reader looks at.
+fn pad_to_three_blocks(path: &Path) {
+    use std::io::Write;
+    let target = 3 * atvprep_core::prepare::copy::BLOCK as u64;
+    let have = std::fs::metadata(path).unwrap().len();
+    let pad = usize::try_from(target - have).unwrap();
+    let mut file = std::fs::OpenOptions::new().append(true).open(path).unwrap();
+    file.write_all(&u32::try_from(pad).unwrap().to_be_bytes())
+        .unwrap();
+    file.write_all(b"free").unwrap();
+    file.write_all(&vec![0_u8; pad - 8]).unwrap();
+}
+
+/// The copy of a three-block file reports every block: a third of the 20 % share each.
+fn assert_copy_reports_each_block(name: &str, variant: &str) {
+    let run = run_case_with(name, variant, pad_to_three_blocks);
+    let (_, values) = atvprep_testkit::split_progress(&machine_lines(&run));
+    assert!(values.is_sorted(), "{name} / {variant}: {values:?}");
+    assert_eq!(values[..3], [6, 13, 20], "{name} / {variant}: {values:?}");
+    assert_eq!(
+        values[values.len() - 2..],
+        [98, 99],
+        "{name} / {variant}: {values:?}"
+    );
+}
+
+#[test]
+fn patching_in_place_reports_the_copy_block_by_block() {
+    // `patch_in_place`: the tags change, so the file goes through a copy.
+    assert_copy_reports_each_block("tags.mp4", "default");
+}
+
+#[test]
+fn patching_into_an_output_reports_the_copy_block_by_block() {
+    // `patch_copy`: an output path for a file that needs no ffmpeg.
+    assert_copy_reports_each_block("clean.mp4", "output_file");
 }
 
 /// The two oracle results ADR 0008 changed on purpose: a video that may not be encoded was
@@ -405,6 +479,16 @@ fn pipeline_matches_the_python_oracle() {
                 have = Value::String(have.to_string());
             }
             if key == "machine" {
+                let outcome = case.expected["result"]["outcome"].as_str().unwrap_or("");
+                let stages = stable_machine(want.clone());
+                let boundaries = expected_phase_percents(outcome, stages.as_array().unwrap());
+                let held = boundary_percents(&got, &boundaries);
+                if held != boundaries {
+                    mismatches.push(format!(
+                        "{} / phase percents: want {boundaries:?}, have {held:?}",
+                        case.name
+                    ));
+                }
                 want = stable_machine(want);
                 have = stable_machine(have);
             }
