@@ -32,7 +32,7 @@ use crate::pipeline_postfix::{RunContext, finalize_output};
 use crate::planner::{PlanOptions, RateChange, build_plan, rate_changes};
 use crate::postfix::bring_into_compliance;
 use crate::probe_helpers::{ProbeContext, is_atmos_audio, subtitle_infos};
-use crate::stages::Stage;
+use crate::stages::{Stage, Variant};
 use crate::verify::{VerifyReport, verify_file};
 
 const MP4_LIKE: [&str; 3] = ["mp4", "m4v", "mov"];
@@ -462,7 +462,7 @@ fn patch_copy(
 ) -> Step<VerifyReport> {
     let atmos = has_atmos(probe);
     let infos = subtitle_infos(probe);
-    ctx.reporter.begin_file(false);
+    ctx.reporter.begin_file(Variant::Patch);
     ctx.reporter.stage(Stage::Finalize);
     {
         let _timing = phase("copy", Some(tmp));
@@ -522,7 +522,7 @@ fn patch_in_place(
     let (source, options) = (run.source, run.options);
     let atmos = has_atmos(probe);
     let infos = subtitle_infos(probe);
-    ctx.reporter.begin_file(false);
+    ctx.reporter.begin_file(Variant::Patch);
     ctx.reporter.stage(Stage::Finalize);
     if check_accessibility(source, &infos)?.needs_patch {
         let tmp = temp_path(source, target)?;

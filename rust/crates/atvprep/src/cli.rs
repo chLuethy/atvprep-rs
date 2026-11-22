@@ -13,7 +13,7 @@ use atvprep_core::prepare::pipeline::{patch_media, planned_change, prepare_file}
 use atvprep_core::prepare::{PrepareOptions, PrepareResult};
 use atvprep_core::probe_helpers::subtitle_infos;
 use atvprep_core::pyjson::dumps_indent2;
-use atvprep_core::stages::Outcome;
+use atvprep_core::stages::{Outcome, Variant};
 use atvprep_core::verify::{VerifyReport, verify_tree_with};
 use clap::ArgMatches;
 use serde::Serialize;
@@ -105,7 +105,7 @@ pub fn run_patch(ctx: &mut RunContext, matches: &ArgMatches) -> i32 {
     }
     for file in files {
         ctx.console.print(&format!("Patching: {}", name_of(&file)));
-        ctx.reporter.begin_file(false);
+        ctx.reporter.begin_file(Variant::Patch);
         let outcome = ctx
             .ffprobe
             .probe_json(&file)

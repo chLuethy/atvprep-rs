@@ -283,17 +283,14 @@ fn run_case(name: &str, variant: &str) -> Value {
     expected
 }
 
-// FFmpeg emits intermediate encode percentages according to elapsed wall time.
-// Discard sampled encode percentages, but retain the deterministic 90% stage
-// boundary regardless of whether ffmpeg or finalization emits it first.
-// Independently reject out-of-range or non-monotonic progress. Plan lines are left out.
+// The progress weights are the port's own since #133 (measured per variant), so the oracle's
+// percentages are not compared; its stage lines are. Independently reject out-of-range or
+// non-monotonic progress. Plan lines are left out.
 fn stable_machine(value: Value) -> Value {
     let Some(lines) = value.as_array() else {
         return value;
     };
     let mut result = Vec::new();
-    let mut encoding = false;
-    let mut encode_reached_90 = false;
     let mut previous = None;
     for line in lines {
         let text = line.as_str().expect("machine protocol string");
@@ -309,18 +306,6 @@ fn stable_machine(value: Value) -> Value {
                 "progress must increase"
             );
             previous = Some(percent);
-            if encoding {
-                encode_reached_90 |= percent == 90;
-                continue;
-            }
-        }
-        if text.starts_with("ATVPREP-STAGE ") {
-            encoding = text == "ATVPREP-STAGE encode";
-            result.push(line.clone());
-            if text == "ATVPREP-STAGE finalize" && encode_reached_90 {
-                result.push(Value::String("ATVPREP-PROGRESS 90".into()));
-                encode_reached_90 = false;
-            }
             continue;
         }
         result.push(line.clone());
@@ -329,42 +314,52 @@ fn stable_machine(value: Value) -> Value {
 }
 
 #[test]
-fn encode_sampling_normalizes_intermediate_progress_and_preserves_stage_boundary() {
+fn oracle_progress_is_checked_for_order_but_not_compared() {
     let sampled = json!([
         "ATVPREP-STAGE encode",
         "ATVPREP-PROGRESS 69",
-        "ATVPREP-PROGRESS 86",
         "ATVPREP-STAGE finalize",
         "ATVPREP-PROGRESS 90",
         "ATVPREP-PROGRESS 97"
     ]);
-    let expected = json!([
-        "ATVPREP-STAGE encode",
-        "ATVPREP-STAGE finalize",
-        "ATVPREP-PROGRESS 90",
-        "ATVPREP-PROGRESS 97"
-    ]);
+    let expected = json!(["ATVPREP-STAGE encode", "ATVPREP-STAGE finalize"]);
     assert_eq!(stable_machine(sampled), expected);
     assert_eq!(stable_machine(expected.clone()), expected);
-    assert_eq!(
-        stable_machine(json!([
-            "ATVPREP-STAGE encode",
-            "ATVPREP-PROGRESS 90",
-            "ATVPREP-STAGE finalize",
-            "ATVPREP-PROGRESS 97"
-        ])),
-        expected
-    );
 }
 
 #[test]
 #[should_panic(expected = "progress must increase")]
-fn encode_sampling_does_not_hide_regressing_progress() {
+fn oracle_progress_that_regresses_is_still_rejected() {
     stable_machine(json!([
         "ATVPREP-STAGE encode",
         "ATVPREP-PROGRESS 86",
         "ATVPREP-PROGRESS 69"
     ]));
+}
+
+/// The progress percents a run of `name` with `variant` reported, in order.
+fn percents(name: &str, variant: &str) -> Vec<u32> {
+    run_case(name, variant)["machine"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|l| l.as_str()?.strip_prefix("ATVPREP-PROGRESS "))
+        .map(|n| n.parse().unwrap())
+        .collect()
+}
+
+#[test]
+fn a_repack_reports_the_phase_boundaries_55_98_and_99() {
+    assert_eq!(percents("movie.mkv", "default"), [55, 98, 99]);
+    assert_eq!(percents("moovlast.mp4", "default"), [55, 98, 99]);
+}
+
+#[test]
+fn a_patch_without_ffmpeg_keeps_its_weights_and_rises_to_99() {
+    let values = percents("tags.mp4", "default");
+    assert!(values.is_sorted(), "{values:?}");
+    assert!(values.contains(&70), "{values:?}");
+    assert_eq!(values.last(), Some(&99));
 }
 
 /// The two oracle results ADR 0008 changed on purpose: a video that may not be encoded was

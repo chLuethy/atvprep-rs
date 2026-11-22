@@ -24,6 +24,7 @@
 use std::io::Write;
 
 use crate::encode::EncodeRefusal;
+use crate::models::{Plan, VideoAction};
 
 /// The start of the line that says what the plan does with one stream.
 pub const PLAN_MARKER: &str = "ATVPREP-PLAN ";
@@ -32,13 +33,51 @@ pub const VERIFY_MARKER: &str = "ATVPREP-VERIFY ";
 /// The start of the line that says why a file failed.
 pub const ERROR_MARKER: &str = "ATVPREP-ERROR ";
 
-/// Share of the whole run, as `(start, end)` percent. Without an encode the file is only patched.
-const WITH_ENCODE: [(Stage, u32, u32); 3] = [
-    (Stage::Encode, 0, 90),
-    (Stage::Finalize, 90, 97),
-    (Stage::Verify, 97, 99),
-];
-const WITHOUT_ENCODE: [(Stage, u32, u32); 2] = [(Stage::Finalize, 0, 70), (Stage::Verify, 70, 99)];
+/// What a prepare does to one file; the plan decides, and each variant has its own stage weights.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Variant {
+    /// ffmpeg copies every stream into a new container, then the moov patch.
+    Repack,
+    /// No ffmpeg: the tags and atoms of the file are patched.
+    Patch,
+    /// ffmpeg encodes the video.
+    Encode,
+}
+
+impl Variant {
+    /// The variant of a plan that runs ffmpeg: video encode, else a repack.
+    #[must_use]
+    pub fn of_plan(plan: &Plan) -> Self {
+        let transcodes = plan
+            .video_info
+            .as_ref()
+            .is_some_and(|v| v.action == VideoAction::Transcode);
+        if transcodes {
+            Self::Encode
+        } else {
+            Self::Repack
+        }
+    }
+
+    /// Share of the whole run per stage, as `(stage, start, end)` percent.
+    const fn weights(self) -> &'static [(Stage, u32, u32)] {
+        match self {
+            // Measured (#133): ffmpeg 52-68 % of the time, the moov patch 32-47 %.
+            Self::Repack => &[
+                (Stage::Encode, 0, 55),
+                (Stage::Finalize, 55, 98),
+                (Stage::Verify, 98, 99),
+            ],
+            Self::Patch => &[(Stage::Finalize, 0, 70), (Stage::Verify, 70, 99)],
+            // NOT MEASURED: no log of a video encode exists yet; recheck once there is one.
+            Self::Encode => &[
+                (Stage::Encode, 0, 90),
+                (Stage::Finalize, 90, 98),
+                (Stage::Verify, 98, 99),
+            ],
+        }
+    }
+}
 
 /// Only the process ending proves the work is done.
 const CEILING: u32 = 99;
@@ -102,7 +141,7 @@ impl Outcome {
 pub struct StageReporter {
     sink: Box<dyn Write + Send>,
     terminal: bool,
-    with_encode: bool,
+    variant: Variant,
     stage: Option<Stage>,
     percent: u32,
     drawn: bool,
@@ -115,7 +154,7 @@ impl StageReporter {
         Self {
             sink,
             terminal,
-            with_encode: true,
+            variant: Variant::Repack,
             stage: None,
             percent: 0,
             drawn: false,
@@ -134,10 +173,10 @@ impl StageReporter {
         }
     }
 
-    /// Start a new file: percent starts over and the stage weights follow whether ffmpeg runs.
-    pub fn begin_file(&mut self, encode: bool) {
+    /// Start a new file: percent starts over and the stage weights follow the variant.
+    pub fn begin_file(&mut self, variant: Variant) {
         self.finish();
-        self.with_encode = encode;
+        self.variant = variant;
         self.stage = None;
         self.percent = 0;
     }
@@ -158,12 +197,8 @@ impl StageReporter {
         let Some(stage) = self.stage else {
             return;
         };
-        let weights: &[(Stage, u32, u32)] = if self.with_encode {
-            &WITH_ENCODE
-        } else {
-            &WITHOUT_ENCODE
-        };
-        let Some(&(_, low, high)) = weights.iter().find(|(s, _, _)| *s == stage) else {
+        let Some(&(_, low, high)) = self.variant.weights().iter().find(|(s, _, _)| *s == stage)
+        else {
             return;
         };
         let fraction = if fraction.is_nan() {
@@ -266,8 +301,11 @@ mod tests {
     use std::io::{self, Write};
     use std::sync::{Arc, Mutex};
 
+    use std::path::PathBuf;
+
     use super::*;
     use crate::encode::{EncodeAllowance, EncodeNeed};
+    use crate::models::VideoInfo;
 
     #[derive(Clone, Default)]
     struct Capture(Arc<Mutex<Vec<u8>>>);
@@ -309,9 +347,73 @@ mod tests {
     }
 
     #[test]
-    fn a_run_with_encode_maps_the_stages_onto_one_rising_percent() {
+    fn a_repack_gives_the_patch_a_large_share_and_the_check_the_last_point() {
         let (mut reporter, out) = plain();
-        reporter.begin_file(true);
+        reporter.begin_file(Variant::Repack);
+        reporter.stage(Stage::Encode);
+        reporter.update(0.5);
+        reporter.update(1.0);
+        reporter.stage(Stage::Finalize);
+        reporter.update(0.5);
+        reporter.update(1.0);
+        reporter.stage(Stage::Verify);
+        reporter.update(1.0);
+
+        assert_eq!(
+            out.lines(),
+            [
+                "ATVPREP-STAGE encode",
+                "ATVPREP-PROGRESS 27",
+                "ATVPREP-PROGRESS 55",
+                "ATVPREP-STAGE finalize",
+                "ATVPREP-PROGRESS 76",
+                "ATVPREP-PROGRESS 98",
+                "ATVPREP-STAGE verify",
+                "ATVPREP-PROGRESS 99",
+            ]
+        );
+    }
+
+    #[test]
+    fn the_variant_follows_the_video_action_of_the_plan() {
+        let video = |action| VideoInfo {
+            codec: "h264".into(),
+            profile: String::new(),
+            width: 1920,
+            height: 1080,
+            hdr: false,
+            dolby_vision: false,
+            pix_fmt: "yuv420p".into(),
+            action,
+            tag: None,
+            color_transfer: String::new(),
+            color_primaries: String::new(),
+        };
+        let plan = |info| Plan {
+            video_info: info,
+            audio_tracks: Vec::new(),
+            sub_tracks: Vec::new(),
+            ffmpeg_cmd: Vec::new(),
+            warnings: Vec::new(),
+            in_path: PathBuf::new(),
+            out_path: PathBuf::new(),
+            duration_s: None,
+        };
+        assert_eq!(Variant::of_plan(&plan(None)), Variant::Repack);
+        assert_eq!(
+            Variant::of_plan(&plan(Some(video(VideoAction::Copy)))),
+            Variant::Repack
+        );
+        assert_eq!(
+            Variant::of_plan(&plan(Some(video(VideoAction::Transcode)))),
+            Variant::Encode
+        );
+    }
+
+    #[test]
+    fn a_video_encode_keeps_the_unmeasured_weights() {
+        let (mut reporter, out) = plain();
+        reporter.begin_file(Variant::Encode);
         reporter.stage(Stage::Encode);
         reporter.update(0.5);
         reporter.update(1.0);
@@ -327,9 +429,9 @@ mod tests {
                 "ATVPREP-PROGRESS 45",
                 "ATVPREP-PROGRESS 90",
                 "ATVPREP-STAGE finalize",
-                "ATVPREP-PROGRESS 93",
+                "ATVPREP-PROGRESS 94",
                 "ATVPREP-STAGE verify",
-                "ATVPREP-PROGRESS 97",
+                "ATVPREP-PROGRESS 98",
                 "ATVPREP-PROGRESS 99",
             ]
         );
@@ -338,7 +440,7 @@ mod tests {
     #[test]
     fn without_encode_the_patch_gets_the_first_part() {
         let (mut reporter, out) = plain();
-        reporter.begin_file(false);
+        reporter.begin_file(Variant::Patch);
         reporter.stage(Stage::Finalize);
         reporter.update(0.5);
         reporter.update(1.0);
@@ -355,7 +457,7 @@ mod tests {
     #[test]
     fn percent_never_goes_back_and_never_reaches_100() {
         let (mut reporter, out) = plain();
-        reporter.begin_file(true);
+        reporter.begin_file(Variant::Repack);
         reporter.stage(Stage::Encode);
         for fraction in [0.5, 0.2, 5.0, -1.0, 1.0] {
             reporter.update(fraction);
@@ -371,7 +473,7 @@ mod tests {
     #[test]
     fn nan_and_infinite_fractions_never_lower_or_exceed_the_percent() {
         let (mut reporter, out) = plain();
-        reporter.begin_file(true);
+        reporter.begin_file(Variant::Encode);
         reporter.stage(Stage::Encode);
         for fraction in [0.5, f64::NAN, f64::NEG_INFINITY, f64::INFINITY, f64::NAN] {
             reporter.update(fraction);
@@ -381,14 +483,14 @@ mod tests {
 
         let values = out.percents();
         assert!(values.is_sorted());
-        assert_eq!(values, [45, 90, 97, 99]);
+        assert_eq!(values, [45, 90, 98, 99]);
     }
 
     #[test]
     fn a_new_file_starts_over() {
         let (mut reporter, out) = plain();
         for _ in 0..2 {
-            reporter.begin_file(true);
+            reporter.begin_file(Variant::Encode);
             reporter.stage(Stage::Encode);
             reporter.update(0.5);
         }
@@ -401,7 +503,7 @@ mod tests {
     #[test]
     fn updates_before_a_stage_are_ignored() {
         let (mut reporter, out) = plain();
-        reporter.begin_file(true);
+        reporter.begin_file(Variant::Repack);
         reporter.update(0.9);
         assert_eq!(out.lines(), Vec::<String>::new());
     }
@@ -410,7 +512,7 @@ mod tests {
     fn on_a_terminal_nothing_is_printed_as_protocol_lines() {
         let out = Capture::default();
         let mut reporter = StageReporter::new(Box::new(out.clone()), true);
-        reporter.begin_file(false);
+        reporter.begin_file(Variant::Patch);
         reporter.stage(Stage::Finalize);
         reporter.update(0.5);
         reporter.outcome(Outcome::Done);
@@ -443,7 +545,7 @@ mod tests {
     fn the_terminal_reporter_draws_a_carriage_return_line_and_no_protocol_lines() {
         let out = Capture::default();
         let mut reporter = StageReporter::new(Box::new(out.clone()), true);
-        reporter.begin_file(true);
+        reporter.begin_file(Variant::Repack);
         reporter.stage(Stage::Encode);
         reporter.update(0.5);
         reporter.update(0.25);
