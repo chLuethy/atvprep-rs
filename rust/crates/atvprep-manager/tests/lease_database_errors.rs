@@ -189,6 +189,7 @@ fn an_overtaken_fencing_token_ends_the_run_at_once() {
     );
     // Without the lease nothing may be written any more: the item is left to recovery.
     assert_eq!(status, ItemStatus::Running, "{log}");
+    assert!(log.contains("Fencing-Token überholt"), "{log}");
 }
 
 #[test]
@@ -203,6 +204,7 @@ fn an_expired_lease_ends_the_run_at_once() {
     );
     // Without the lease nothing may be written any more: the item is left to recovery.
     assert_eq!(status, ItemStatus::Running, "{log}");
+    assert!(log.contains("Lease abgelaufen"), "{log}");
 }
 
 #[test]
@@ -220,6 +222,7 @@ fn database_errors_beyond_the_tolerance_end_the_run_as_failed_and_leave_the_file
         other.raw().execute_batch("COMMIT").unwrap();
     });
     assert_eq!(status, ItemStatus::Failed, "{log}");
+    assert!(log.contains("Datenbank belegt"), "{log}");
     assert!(
         began.elapsed() < Duration::from_secs(8),
         "stopped early: {log}"

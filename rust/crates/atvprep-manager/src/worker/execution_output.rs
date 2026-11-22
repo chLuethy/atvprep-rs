@@ -96,6 +96,20 @@ impl<'a> ClaimedOutput<'a> {
         self.flush(true)
     }
 
+    /// Write the log after the lease was lost, so that the cause of the end is not lost with it.
+    ///
+    /// The one write left to a worker without authority: only the log text, and only to the item
+    /// that still carries this worker's fencing token and is still running. A worker that was
+    /// replaced finds the item changed and writes nothing. No progress and no event follow.
+    pub fn finish_without_authority(&mut self) -> Result<()> {
+        if self.log.is_empty() {
+            return Ok(());
+        }
+        let text = self.log.text();
+        crate::db::retry_busy(|| Jobs(self.ctx).set_item_log_tail(self.item, self.fence, &text))?;
+        Ok(())
+    }
+
     fn flush(&mut self, wait: bool) -> Result<()> {
         let nonblocking = if wait {
             None
