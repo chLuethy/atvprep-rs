@@ -18,7 +18,7 @@ Der private Schlüssel `~/.ssh/atvprep-release-ed25519` verlässt den Rechner ni
 1. [ ] **Version erhöhen**: `version` unter `[workspace.package]` in `rust/Cargo.toml` auf `0.5.6` setzen.
 2. [ ] **Prüfen**: `./rust/check.sh`, dann in `frontend/` `npm ci && npm run typecheck && npm test && npm run build`.
 3. [ ] **Committen** (Version und Änderungen), noch nicht taggen.
-4. [ ] **Lokal bauen** (Ausgabe ausserhalb des Repos, der arm64-Build ist langsam):
+4. [ ] **Lokal bauen** (Ausgabe ausserhalb des Repos; bei lokaler Emulation kann der Build für die fremde Architektur länger dauern):
 
    ```bash
    ./rust/release/build.sh /private/tmp/atvprep-release
@@ -53,16 +53,24 @@ Der private Schlüssel `~/.ssh/atvprep-release-ed25519` verlässt den Rechner ni
    ```
 
    Der Tag heisst `v` plus die Version aus `Cargo.toml`, sonst bricht die Action ab.
-10. [ ] **Action beobachten**: Der Job `release` baut selbst, führt `scripts/check-release.sh` aus, legt einen Entwurf an, lädt hoch, lädt die Bytes zum Vergleich wieder herunter und veröffentlicht. Danach prüft der Job `mirror` die Dateien erneut gegen das signierte Manifest, pusht Tag und Commit als `main` nach Gitea und legt dort dasselbe Release an.
+10. [ ] **Action beobachten**: `build` baut x86_64 und ARM64 parallel auf nativen GitHub-Runnern. `verify` prüft beide Assets gegen das signierte Manifest und testet die Installation auf beiden Architekturen nativ. Erst wenn beide Prüfungen bestehen, prüft `publish` die heruntergeladenen Assets erneut, legt einen Entwurf an, lädt hoch, lädt die Bytes zum Vergleich wieder herunter und veröffentlicht. Danach prüft `mirror` das veröffentlichte Release erneut gegen das signierte Manifest, pusht Tag und Commit als `main` nach Gitea und legt dort dasselbe Release an.
 11. [ ] **Release prüfen**: Auf `https://github.com/chLuethy/atvprep-rs/releases` und auf dem Spiegel `https://git.ch-luethy.ch/chl/atvprep-rs/releases` liegen `atvprep-linux-x86_64`, `atvprep-linux-aarch64`, `release.json`, `release.json.sig`, `release.pub`.
 12. [ ] **Einzeiler testen** auf einem Linux-Host, auf dem die Vorversion liegt: `curl -fsSL https://raw.githubusercontent.com/chLuethy/atvprep-rs/main/scripts/install.sh | sudo sh` meldet `0.5.5 -> 0.5.6 aktualisiert`; ein zweiter Lauf meldet „bereits aktuell“.
 13. [ ] **Produktiv auf `mm`**: nur im Releasefenster, siehe [DEPLOYMENT.md](../DEPLOYMENT.md), Betreiberabnahme vor dem Öffnen des Gates.
 
+## Nachbau ohne Veröffentlichung prüfen
+
+```bash
+gh workflow run release.yml --ref <branch-oder-tag>
+```
+
+Die gewählte Referenz muss den Release-Workflow und ein signiertes Manifest enthalten, das zur Workspace-Version und zum Quelltext passt. `mirror_version` bleibt leer: Nur `build` und `verify` laufen, `publish` und `mirror` werden übersprungen. So lassen sich Änderungen am Workflow ohne neuen Tag prüfen. Beim [Probelauf für v0.8.0](https://github.com/chLuethy/atvprep-rs/actions/runs/45079158366) dauerten Nachbau und Prüfung 4:11 Minuten; der [frühere Release-Lauf](https://github.com/chLuethy/atvprep-rs/actions/runs/44811826163) mit ARM64-Kompilierung unter QEMU dauerte 1:02:39 Stunden inklusive Veröffentlichung und Spiegelung.
+
 ## Runner und Actions anheben
 
-Runner-Version und Action-Pins stehen in `.github/workflows/ci.yml` (Jobs `commits`, `rust`, `frontend`, `e2e`) und `.github/workflows/release.yml` (Jobs `release`, `mirror`). Alle Jobs laufen auf einem fest benannten Runner (`runs-on: ubuntu-26.04`), nie auf `ubuntu-latest`. Jede Action ist auf einen Commit-SHA gepinnt, die Version steht als Kommentar daneben (`uses: actions/checkout@<sha> # v7.0.1`). Ein Update ist immer ein eigener, sichtbarer Commit.
+Runner-Version und Action-Pins stehen in `.github/workflows/ci.yml` (Jobs `commits`, `rust`, `frontend`, `e2e`) und `.github/workflows/release.yml` (Jobs `build`, `verify`, `publish`, `mirror`). Die Labels sind fest benannt: `ubuntu-26.04` für x86_64 und `ubuntu-26.04-arm` für ARM64, nie `ubuntu-latest`. Jede Action ist auf einen Commit-SHA gepinnt, die Version steht als Kommentar daneben (`uses: actions/checkout@<sha> # v7.0.1`). Ein Update ist immer ein eigener, sichtbarer Commit.
 
-- [ ] **Breaking Changes lesen** zwischen alter und neuer Hauptversion (Releases bzw. `CHANGELOG.md` der Action). Ändert sich ein Verhalten, auf das ein Job sich verlässt, setzt der Job es ausdrücklich, etwa `fetch-depth: 0` (volle Historie mit Tags) im Job `mirror`, `cache: npm` bei `setup-node` oder `platforms: arm64` bei `setup-qemu-action`.
+- [ ] **Breaking Changes lesen** zwischen alter und neuer Hauptversion (Releases bzw. `CHANGELOG.md` der Action). Ändert sich ein Verhalten, auf das ein Job sich verlässt, setzt der Job es ausdrücklich, etwa `fetch-depth: 0` (volle Historie mit Tags) im Job `mirror`, `cache: npm` bei `setup-node` oder `merge-multiple: true` beim Download der Workflow-Artefakte.
 - [ ] **Commit-SHA zum Tag holen**:
 
    ```bash
@@ -77,13 +85,13 @@ Runner-Version und Action-Pins stehen in `.github/workflows/ci.yml` (Jobs `commi
    ```
 
    `using` muss eine von GitHub noch unterstützte Node-Version nennen (derzeit `node24`).
-- [ ] **Runner wechseln** (neue Ubuntu-Version): alle `runs-on` gemeinsam ändern. Werkzeuge aus dem Runner (`ffmpeg`, `qemu-user`, Compiler für Bento4) ändern sich damit; `scripts/check-release.sh` ist auf das `qemu-user` des Runners eingestellt. Die Job-IDs bleiben, sie sind die Pflicht-Checks auf `main`.
-- [ ] **Nachweis**: Der PR-Lauf ist grün und zeigt keine Annotationen (`gh api repos/chLuethy/atvprep-rs/check-runs/<id>/annotations`). Den Release-Workflow prüft erst das nächste echte Release, siehe oben Schritt 10.
+- [ ] **Runner wechseln** (neue Ubuntu-Version): die Labels in beiden Workflows samt ARM64-Variante gemeinsam ändern. `qemu-user` wird nur für kurze CLI-Prüfungen der jeweils anderen Architektur genutzt, nicht zur Kompilierung. Die Job-IDs der PR-Prüfungen bleiben, sie sind die Pflicht-Checks auf `main`.
+- [ ] **Nachweis**: Der PR-Lauf ist grün und zeigt keine Annotationen (`gh api repos/chLuethy/atvprep-rs/check-runs/<id>/annotations`). Den Nachbau und die Installationsprüfung per manuellem Lauf nachweisen; Veröffentlichung und Spiegelung laufen erst beim nächsten regulären Release.
 
 ## Wenn etwas schiefgeht
 
 - **Die Action meldet abweichende Hashes**: Es wird nichts veröffentlicht. Das Manifest niemals mit den Hashes der Action neu signieren. Ursache suchen: nicht reproduzierbarer Build oder anderer Quelltext als der signierte (Version, Lockfiles, uncommittete Änderungen beim lokalen Build). Danach ab Schritt 4 wiederholen.
-- **Upload bricht ab und ein Entwurf bleibt liegen**: Den fehlgeschlagenen Lauf neu starten. Ein unveröffentlichter Entwurf wird gelöscht und neu angelegt; ein veröffentlichtes Release wird nie ersetzt.
+- **Upload bricht ab und ein Entwurf bleibt liegen**: Den fehlgeschlagenen Lauf neu starten. Ein unveröffentlichter Entwurf wird gelöscht und neu angelegt; ein veröffentlichtes Release wird nie ersetzt. Sind die Build-Artefakte nach 14 Tagen abgelaufen, alle Jobs neu starten statt nur der fehlgeschlagenen.
 - **Nur der Spiegel schlägt fehl**: Das GitHub-Release bleibt gültig. Ursache beheben, dann den Workflow manuell mit `mirror_version` (z. B. `0.5.6`) starten; er spiegelt nur und ist nach Erfolg wiederholbar. Weicht `main` auf Gitea ab, bricht der Push ab: niemand pusht direkt auf den Spiegel, die Abweichung ist also zu klären, nicht zu überschreiben.
 - **Tag falsch gesetzt**: Bevor ein Release veröffentlicht ist, darf der Tag gelöscht und neu gesetzt werden. Ein veröffentlichtes Release wird nicht überschrieben, sondern durch eine höhere Version ersetzt.
 - **Rückfall auf eine ältere Version**: `atvprep deploy rollback` mit dem signierten Manifest der älteren Version, siehe [DEPLOYMENT.md](../DEPLOYMENT.md). Das Datenbankschema wird dabei nicht zurückgesetzt.
