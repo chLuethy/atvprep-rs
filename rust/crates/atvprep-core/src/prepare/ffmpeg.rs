@@ -112,7 +112,13 @@ pub fn run_ffmpeg_with_progress(ctx: &mut RunContext, plan: &Plan) -> Result<(),
         .as_deref()
         .map_or_else(|| Path::new(planned), |p| p);
     let total = plan.duration_s.filter(|d| *d > 0.0);
-    ctx.reporter.begin_file(Variant::of_plan(plan));
+    // ffmpeg runs here, so the plan is a repack unless it encodes the video.
+    let variant = if plan.transcodes() {
+        Variant::Encode
+    } else {
+        Variant::Repack
+    };
+    ctx.reporter.begin_file(variant);
     ctx.reporter.stage(Stage::Encode);
     let mut child = Command::new(program)
         .args(args)

@@ -530,9 +530,15 @@ fn patch_in_place(
     let (source, options) = (run.source, run.options);
     let atmos = has_atmos(probe);
     let infos = subtitle_infos(probe);
-    ctx.reporter.begin_file(Variant::Patch);
+    let needs_patch = check_accessibility(source, &infos)?.needs_patch;
+    // Only a tag patch goes through a copy; the postfix alone rewrites the file where it lies.
+    ctx.reporter.begin_file(if needs_patch {
+        Variant::Patch
+    } else {
+        Variant::InPlace
+    });
     ctx.reporter.stage(Stage::Finalize);
-    if check_accessibility(source, &infos)?.needs_patch {
+    if needs_patch {
         let tmp = temp_path(source, target)?;
         run.temps.push(tmp.clone());
         copy_reporting(ctx, source, &tmp)?;

@@ -24,7 +24,6 @@
 use std::io::Write;
 
 use crate::encode::EncodeRefusal;
-use crate::models::{Plan, VideoAction};
 
 /// The start of the line that says what the plan does with one stream.
 pub const PLAN_MARKER: &str = "ATVPREP-PLAN ";
@@ -33,63 +32,76 @@ pub const VERIFY_MARKER: &str = "ATVPREP-VERIFY ";
 /// The start of the line that says why a file failed.
 pub const ERROR_MARKER: &str = "ATVPREP-ERROR ";
 
-/// What a prepare does to one file; the plan decides, and each variant has its own stage weights.
+/// Where the share of the work before the stage work ends: copying the file, as percent.
+const COPY_END: u32 = 20;
+/// Where the stage work ends and the check after it begins, as percent.
+const WORK_END: u32 = 98;
+/// Only the process ending proves the work is done.
+const CEILING: u32 = 99;
+
+/// How a variant spreads one file over 0-99 %: the copy before the patch, if there is one, and the
+/// share of each stage. One description per variant keeps the two together.
+struct Shape {
+    /// Share of the run for copying the file before the patch, as `(start, end)` percent.
+    copy: Option<(u32, u32)>,
+    /// Share of the run per stage, as `(stage, start, end)` percent.
+    stages: &'static [(Stage, u32, u32)],
+}
+
+/// What a prepare does to one file; the plan decides, and each variant has its own shape.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Variant {
-    /// ffmpeg copies every stream into a new container, then the moov patch.
+    /// ffmpeg copies every stream into a new container, then the moov patch. It reports through
+    /// [`Stage::Encode`] because the protocol line `ATVPREP-STAGE encode` names the ffmpeg run, not
+    /// the video encode; the manager reads that line, so it stays.
     Repack,
-    /// No ffmpeg: the tags and atoms of the file are patched.
-    Patch,
     /// ffmpeg encodes the video.
     Encode,
+    /// No ffmpeg: the file is copied, then its tags and atoms are patched.
+    Patch,
+    /// No ffmpeg and no copy: the tags and atoms of the file are patched where it lies.
+    InPlace,
 }
 
 impl Variant {
-    /// The variant of a plan that runs ffmpeg: video encode, else a repack.
-    #[must_use]
-    pub fn of_plan(plan: &Plan) -> Self {
-        let transcodes = plan
-            .video_info
-            .as_ref()
-            .is_some_and(|v| v.action == VideoAction::Transcode);
-        if transcodes {
-            Self::Encode
-        } else {
-            Self::Repack
-        }
-    }
-
-    /// Share of the whole run for copying the file before the patch, as `(start, end)` percent.
-    const fn copy_share(self) -> Option<(u32, u32)> {
-        match self {
-            Self::Patch => Some((0, 20)),
-            Self::Repack | Self::Encode => None,
-        }
-    }
-
-    /// Share of the whole run per stage, as `(stage, start, end)` percent.
-    const fn weights(self) -> &'static [(Stage, u32, u32)] {
+    const fn shape(self) -> &'static Shape {
         match self {
             // Measured (#133): ffmpeg 52-68 % of the time, the moov patch 32-47 %.
-            Self::Repack => &[
-                (Stage::Encode, 0, 55),
-                (Stage::Finalize, 55, 98),
-                (Stage::Verify, 98, 99),
-            ],
-            // Measured (#133): copying 15-25 %, the tag patch the rest; the check takes a blink.
-            Self::Patch => &[(Stage::Finalize, 20, 98), (Stage::Verify, 98, 99)],
+            Self::Repack => &Shape {
+                copy: None,
+                stages: &[
+                    (Stage::Encode, 0, 55),
+                    (Stage::Finalize, 55, WORK_END),
+                    (Stage::Verify, WORK_END, CEILING),
+                ],
+            },
             // NOT MEASURED: no log of a video encode exists yet; recheck once there is one.
-            Self::Encode => &[
-                (Stage::Encode, 0, 90),
-                (Stage::Finalize, 90, 98),
-                (Stage::Verify, 98, 99),
-            ],
+            Self::Encode => &Shape {
+                copy: None,
+                stages: &[
+                    (Stage::Encode, 0, 90),
+                    (Stage::Finalize, 90, WORK_END),
+                    (Stage::Verify, WORK_END, CEILING),
+                ],
+            },
+            // Measured (#133): copying 15-25 %, the tag patch the rest; the check takes a blink.
+            Self::Patch => &Shape {
+                copy: Some((0, COPY_END)),
+                stages: &[
+                    (Stage::Finalize, COPY_END, WORK_END),
+                    (Stage::Verify, WORK_END, CEILING),
+                ],
+            },
+            Self::InPlace => &Shape {
+                copy: None,
+                stages: &[
+                    (Stage::Finalize, 0, WORK_END),
+                    (Stage::Verify, WORK_END, CEILING),
+                ],
+            },
         }
     }
 }
-
-/// Only the process ending proves the work is done.
-const CEILING: u32 = 99;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Stage {
@@ -153,6 +165,9 @@ pub struct StageReporter {
     variant: Variant,
     stage: Option<Stage>,
     percent: u32,
+    /// The variant copies first and the copy has not reported yet: the first stage must not
+    /// start at its own low mark, the copy fills the share before it.
+    copy_pending: bool,
     drawn: bool,
 }
 
@@ -166,6 +181,7 @@ impl StageReporter {
             variant: Variant::Repack,
             stage: None,
             percent: 0,
+            copy_pending: false,
             drawn: false,
         }
     }
@@ -188,6 +204,7 @@ impl StageReporter {
         self.variant = variant;
         self.stage = None;
         self.percent = 0;
+        self.copy_pending = variant.shape().copy.is_some();
     }
 
     /// Enter a stage; its fraction is 0 until [`update`](Self::update) says otherwise.
@@ -198,8 +215,9 @@ impl StageReporter {
         self.stage = Some(stage);
         self.draw(&format!("{} …", stage.label()));
         self.line(&format!("ATVPREP-STAGE {}", stage.as_str()));
-        // A patch copies before its first stage work: the copy reports 0-20 %, not the stage start.
-        if !(self.variant.copy_share().is_some() && self.percent == 0) {
+        // A patch copies before its first stage work: the copy reports its own share, so the
+        // stage does not start at its low mark yet.
+        if !self.copy_pending {
             self.update(0.0);
         }
     }
@@ -209,22 +227,29 @@ impl StageReporter {
         let Some(stage) = self.stage else {
             return;
         };
-        let Some(&(_, low, high)) = self.variant.weights().iter().find(|(s, _, _)| *s == stage)
+        let Some(&(_, low, high)) = self
+            .variant
+            .shape()
+            .stages
+            .iter()
+            .find(|(s, _, _)| *s == stage)
         else {
             return;
         };
+        self.copy_pending = false;
         self.advance(stage, low, high, fraction);
     }
 
-    /// Report how far the copy before a patch is (0..1); only a patch has that share. The stage
-    /// stays the one it is in.
+    /// Report how far the copy before a patch is (0..1); only a variant with a copy has that share.
+    /// The stage stays the one it is in. Like every report it never lowers the percent.
     pub fn copy_progress(&mut self, fraction: f64) {
         let Some(stage) = self.stage else {
             return;
         };
-        let Some((low, high)) = self.variant.copy_share() else {
+        let Some((low, high)) = self.variant.shape().copy else {
             return;
         };
+        self.copy_pending = false;
         self.advance(stage, low, high, fraction);
     }
 
@@ -329,11 +354,8 @@ mod tests {
     use std::io::{self, Write};
     use std::sync::{Arc, Mutex};
 
-    use std::path::PathBuf;
-
     use super::*;
     use crate::encode::{EncodeAllowance, EncodeNeed};
-    use crate::models::VideoInfo;
 
     #[derive(Clone, Default)]
     struct Capture(Arc<Mutex<Vec<u8>>>);
@@ -403,42 +425,6 @@ mod tests {
     }
 
     #[test]
-    fn the_variant_follows_the_video_action_of_the_plan() {
-        let video = |action| VideoInfo {
-            codec: "h264".into(),
-            profile: String::new(),
-            width: 1920,
-            height: 1080,
-            hdr: false,
-            dolby_vision: false,
-            pix_fmt: "yuv420p".into(),
-            action,
-            tag: None,
-            color_transfer: String::new(),
-            color_primaries: String::new(),
-        };
-        let plan = |info| Plan {
-            video_info: info,
-            audio_tracks: Vec::new(),
-            sub_tracks: Vec::new(),
-            ffmpeg_cmd: Vec::new(),
-            warnings: Vec::new(),
-            in_path: PathBuf::new(),
-            out_path: PathBuf::new(),
-            duration_s: None,
-        };
-        assert_eq!(Variant::of_plan(&plan(None)), Variant::Repack);
-        assert_eq!(
-            Variant::of_plan(&plan(Some(video(VideoAction::Copy)))),
-            Variant::Repack
-        );
-        assert_eq!(
-            Variant::of_plan(&plan(Some(video(VideoAction::Transcode)))),
-            Variant::Encode
-        );
-    }
-
-    #[test]
     fn a_video_encode_keeps_the_unmeasured_weights() {
         let (mut reporter, out) = plain();
         reporter.begin_file(Variant::Encode);
@@ -488,6 +474,75 @@ mod tests {
                 "ATVPREP-PROGRESS 99"
             ]
         );
+    }
+
+    #[test]
+    fn an_in_place_patch_has_no_copy_share_and_does_not_jump() {
+        let (mut reporter, out) = plain();
+        reporter.begin_file(Variant::InPlace);
+        reporter.stage(Stage::Finalize);
+        reporter.copy_progress(0.5);
+        reporter.update(0.5);
+        reporter.update(1.0);
+        reporter.stage(Stage::Verify);
+        reporter.update(1.0);
+        assert_eq!(out.percents(), [49, 98, 99]);
+    }
+
+    #[test]
+    fn the_stage_after_a_patch_copy_starts_at_its_low_mark_only_when_nothing_was_copied() {
+        let (mut reporter, out) = plain();
+        reporter.begin_file(Variant::Patch);
+        reporter.stage(Stage::Finalize);
+        assert_eq!(out.percents(), Vec::<u32>::new(), "the copy fills the share first");
+        reporter.update(0.0);
+        assert_eq!(out.percents(), [20]);
+    }
+
+    #[test]
+    fn a_copy_report_after_the_patch_began_never_lowers_the_percent() {
+        let (mut reporter, out) = plain();
+        reporter.begin_file(Variant::Patch);
+        reporter.stage(Stage::Finalize);
+        reporter.update(0.5);
+        reporter.copy_progress(1.0);
+        reporter.copy_progress(f64::NAN);
+        assert_eq!(out.percents(), [59]);
+    }
+
+    #[test]
+    fn copy_fractions_are_clamped_and_monotonic() {
+        let (mut reporter, out) = plain();
+        reporter.begin_file(Variant::Patch);
+        reporter.stage(Stage::Finalize);
+        for fraction in [0.0, 0.5, 0.25, f64::NAN, 3.0, -1.0] {
+            reporter.copy_progress(fraction);
+        }
+        assert_eq!(out.percents(), [10, 20]);
+    }
+
+    #[test]
+    fn an_empty_file_reports_no_copy_and_the_patch_still_starts_at_the_copy_share() {
+        // `copy_with_progress` reports no block for an empty file, and `fraction(0, 0)` is 0.
+        let (mut reporter, out) = plain();
+        reporter.begin_file(Variant::Patch);
+        reporter.stage(Stage::Finalize);
+        reporter.copy_progress(0.0);
+        reporter.update(1.0);
+        reporter.stage(Stage::Verify);
+        reporter.update(1.0);
+        assert_eq!(out.percents(), [98, 99]);
+    }
+
+    #[test]
+    fn a_video_encode_and_a_repack_end_their_encode_stage_at_their_own_mark() {
+        for (variant, mark) in [(Variant::Repack, 55), (Variant::Encode, 90)] {
+            let (mut reporter, out) = plain();
+            reporter.begin_file(variant);
+            reporter.stage(Stage::Encode);
+            reporter.update(1.0);
+            assert_eq!(out.percents(), [mark], "{variant:?}");
+        }
     }
 
     #[test]

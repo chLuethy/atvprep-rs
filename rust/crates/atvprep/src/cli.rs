@@ -105,7 +105,8 @@ pub fn run_patch(ctx: &mut RunContext, matches: &ArgMatches) -> i32 {
     }
     for file in files {
         ctx.console.print(&format!("Patching: {}", name_of(&file)));
-        ctx.reporter.begin_file(Variant::Patch);
+        // `patch` rewrites the files where they lie: no copy, so no jump to the copy share.
+        ctx.reporter.begin_file(Variant::InPlace);
         let outcome = ctx
             .ffprobe
             .probe_json(&file)
