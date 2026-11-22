@@ -490,7 +490,11 @@ mod tests {
         let (mut reporter, out) = plain();
         reporter.begin_file(Variant::Patch);
         reporter.stage(Stage::Finalize);
-        assert_eq!(out.percents(), Vec::<u32>::new(), "the copy fills the share first");
+        assert_eq!(
+            out.percents(),
+            Vec::<u32>::new(),
+            "the copy fills the share first"
+        );
         reporter.update(0.0);
         assert_eq!(out.percents(), [20]);
     }

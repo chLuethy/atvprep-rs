@@ -41,4 +41,5 @@ Die JSON-Dateien halten das Verhalten des Python-Altsystems fest; Rust-Tests lad
 
 - Ein Fall wird namentlich ausgenommen und eigens geprüft: `RESAMPLED_SINCE_83` in `rust/crates/atvprep-core/src/planner.rs` (der Oracle kopierte die Spur mit 44,1 kHz, seit #83 wird sie mit 48 kHz kodiert).
 - Die Protokollzeilen der Aktionstests (`worker/action.rs`) liegen als Textdateien unter `rust/testdata/golden/worker_action/`; `UPDATE_GOLDEN=1 cargo test` schreibt sie neu. Die Werkzeugversion steht darin als `{version}`.
+- Die Fortschrittsprozente (`ATVPREP-PROGRESS`) sind seit #133 Eigenwerte des Ports je `Variant` (`stages.rs`). Der Test vergleicht die Stage-Zeilen mit dem Oracle und erwartet die Prozente an den Phasengrenzen ausdrücklich je Variante (`expected_phase_percents` in `tests/prepare_pipeline.rs`, Repack-Werte in `pipeline_postfix.rs`); `ATVPREP-PROGRESS` zerlegt `atvprep_testkit::split_progress`.
 - Zeilen, die nur der Port ausgibt, werden vor dem Vergleich gefiltert: die `ATVPREP-PLAN`-Zeilen in `rust/crates/atvprep-core/tests/prepare_pipeline.rs`.
