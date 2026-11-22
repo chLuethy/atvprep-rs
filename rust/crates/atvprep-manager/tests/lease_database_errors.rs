@@ -89,7 +89,7 @@ impl Library {
         &self,
         clock: &StepClock,
         disturb: impl FnOnce(&Db, &StepClock) + Send,
-    ) -> (ItemStatus, String) {
+    ) -> (ItemStatus, String, String) {
         let ctx = Ctx {
             conn: self.conn.raw(),
             clock,
@@ -141,6 +141,7 @@ impl Library {
         let started = self.root.join("started");
         let db = self.db.clone();
         let stepped = clock.clone();
+        let mut outcome = Ok(());
         std::thread::scope(|scope| {
             scope.spawn(move || {
                 while !started.exists() {
@@ -148,17 +149,21 @@ impl Library {
                 }
                 disturb(&db, &stepped);
             });
-            let _ = execute_claimed(ctx, item.id, "worker", fence, &config);
+            outcome = execute_claimed(ctx, item.id, "worker", fence, &config).map(|_| ());
         });
         let item = Jobs(ctx).get_item(item.id).unwrap().unwrap();
-        (item.status, item.log_tail.unwrap_or_default())
+        let error = outcome
+            .err()
+            .map(|error| error.to_string())
+            .unwrap_or_default();
+        (item.status, item.log_tail.unwrap_or_default(), error)
     }
 }
 
 #[test]
 fn a_database_that_is_briefly_busy_does_not_cost_the_worker_its_lease() {
     let library = Library::new(4);
-    let (status, log) = library.run(&StepClock::new(), |db, _| {
+    let (status, log, _) = library.run(&StepClock::new(), |db, _| {
         // A second writer holds the database across at least one heartbeat.
         let other = db.conn().unwrap();
         other.raw().execute_batch("BEGIN IMMEDIATE").unwrap();
@@ -169,10 +174,10 @@ fn a_database_that_is_briefly_busy_does_not_cost_the_worker_its_lease() {
 }
 
 #[test]
-fn an_overtaken_fencing_token_ends_the_run_at_once() {
+fn an_overtaken_fencing_token_ends_the_run_at_once_and_leaves_the_item_running_for_recovery() {
     let library = Library::new(10);
     let began = Instant::now();
-    let (status, log) = library.run(&StepClock::new(), |db, _| {
+    let (status, log, error) = library.run(&StepClock::new(), |db, _| {
         let other = db.conn().unwrap();
         other
             .raw()
@@ -187,31 +192,43 @@ fn an_overtaken_fencing_token_ends_the_run_at_once() {
         began.elapsed() < Duration::from_secs(6),
         "stopped at once: {log}"
     );
-    // Without the lease nothing may be written any more: the item is left to recovery.
+    // Intended: a clear refusal leaves the item `Running` and writes nothing, not even the log. The
+    // recovery cleans it up; the cause is in the error the run returns.
     assert_eq!(status, ItemStatus::Running, "{log}");
-    assert!(log.contains("Fencing-Token überholt"), "{log}");
+    // What was written while the lease held stays; the failure and its cause land afterwards only.
+    assert!(
+        !log.contains("Failed:"),
+        "nothing is written without the authority: {log}"
+    );
+    assert!(error.contains("Fencing-Token überholt"), "{error}");
 }
 
 #[test]
-fn an_expired_lease_ends_the_run_at_once() {
+fn an_expired_lease_ends_the_run_at_once_and_leaves_the_item_running_for_recovery() {
     let library = Library::new(10);
     let began = Instant::now();
-    let (status, log) = library.run(&StepClock::new(), |_, clock| clock.advance(31));
+    let (status, log, error) = library.run(&StepClock::new(), |_, clock| clock.advance(31));
     assert_ne!(status, ItemStatus::Succeeded, "{log}");
     assert!(
         began.elapsed() < Duration::from_secs(6),
         "stopped at once: {log}"
     );
-    // Without the lease nothing may be written any more: the item is left to recovery.
+    // Intended: a clear refusal leaves the item `Running` and writes nothing, not even the log. The
+    // recovery cleans it up; the cause is in the error the run returns.
     assert_eq!(status, ItemStatus::Running, "{log}");
-    assert!(log.contains("Lease abgelaufen"), "{log}");
+    // What was written while the lease held stays; the failure and its cause land afterwards only.
+    assert!(
+        !log.contains("Failed:"),
+        "nothing is written without the authority: {log}"
+    );
+    assert!(error.contains("Lease abgelaufen"), "{error}");
 }
 
 #[test]
 fn database_errors_beyond_the_tolerance_end_the_run_as_failed_and_leave_the_file_alone() {
     let library = Library::new(10);
     let began = Instant::now();
-    let (status, log) = library.run(&StepClock::new(), |db, clock| {
+    let (status, log, _) = library.run(&StepClock::new(), |db, clock| {
         let other = db.conn().unwrap();
         other.raw().execute_batch("BEGIN IMMEDIATE").unwrap();
         // 30 s lease minus 10 s: 19 s without a heartbeat is still tolerated, 21 s is not.

@@ -43,46 +43,50 @@ fn authority(ctx: Ctx<'_>, item: i64, owner: &str, fence: i64) -> Result<bool> {
     })
 }
 
-/// Settle an item after an error: a busy database is waited for a few seconds more, because the
-/// cause and the end of the item should not get lost to a lock that is about to be released.
-fn until_not_busy<T>(mut work: impl FnMut() -> Result<T>) -> Result<T> {
-    let mut attempt = 0;
-    loop {
-        match work() {
-            Err(Error::Busy) if attempt < 10 => {
-                attempt += 1;
-                std::thread::sleep(Duration::from_millis(500));
-            }
-            other => return other,
-        }
-    }
+/// Settle an item after an error: the shared retry policy that waits longest for a busy database
+/// (up to `RetryPolicy::SETTLING.max_wait()`, 5 s).
+fn settle<T>(work: impl FnMut() -> Result<T>) -> Result<T> {
+    crate::db::retry_busy_with(crate::db::RetryPolicy::SETTLING, work)
 }
 
-/// Why the database refused the worker its authority: another worker holds a newer token, or
-/// the lease simply ran out. An unreadable lease counts as run out.
-fn rejection(ctx: Ctx<'_>, item: i64, owner: &str, fence: i64) -> LeaseLoss {
-    let overtaken: bool = ctx
+/// Why the database refuses the worker its authority: another worker holds a newer token (or the
+/// lease row is gone), or the lease simply ran out. `None` when, looked at again, the worker holds
+/// its authority after all. A database error is an error, never a guess at a cause.
+fn rejection(ctx: Ctx<'_>, item: i64, owner: &str, fence: i64) -> Result<Option<LeaseLoss>> {
+    use rusqlite::OptionalExtension;
+    let state: Option<(bool, bool)> = ctx
         .conn
         .query_row(
-            "SELECT NOT (l.owner_id=?2 AND l.fencing_token=?3
-                         AND i.claimed_by=?2 AND i.executor_fencing_token=?3)
+            "SELECT COALESCE(l.owner_id=?2 AND l.fencing_token=?3
+                             AND i.claimed_by=?2 AND i.executor_fencing_token=?3, 0),
+                    COALESCE(l.lease_expires_at>?4 AND i.lease_expires_at>?4, 0)
              FROM job_items i JOIN media_executor_leases l ON l.id=1 WHERE i.id=?1",
-            rusqlite::params![item, owner, fence],
-            |row| row.get(0),
+            rusqlite::params![item, owner, fence, ctx.clock.now()],
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
-        .unwrap_or(false);
-    if overtaken {
-        LeaseLoss::TokenOvertaken
-    } else {
-        LeaseLoss::LeaseExpired
-    }
+        .optional()?;
+    Ok(match state {
+        Some((true, true)) => None,
+        Some((false, _)) => Some(LeaseLoss::TokenOvertaken),
+        Some((true, false)) | None => Some(LeaseLoss::LeaseExpired),
+    })
 }
 
-/// How long a worker keeps going while its heartbeat cannot reach the database: the lease minus a
-/// safety margin, so it stops while no other worker can have taken the lease over.
+/// How much of a lease the worker keeps back, so that it stops while no other worker can have
+/// taken the lease over.
+const LEASE_SAFETY_MARGIN_SECONDS: i64 = 10;
+
+/// How often the heartbeat renews the lease while the process runs. This is real time, the pace
+/// of the poll, which is why it is measured with `Instant`; the lease itself is judged by the
+/// database clock (`ctx.clock`), and so is the tolerance below.
+const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
+
+/// How long a worker keeps going while its heartbeat cannot reach the database: the lease minus
+/// [`LEASE_SAFETY_MARGIN_SECONDS`]. A lease that is not longer than the margin leaves no room and
+/// gives zero: the first database error after more than no time without a renewal ends the run.
 fn heartbeat_tolerance(lease_seconds: i64) -> Duration {
-    const MARGIN_SECONDS: i64 = 10;
-    Duration::from_secs(u64::try_from(lease_seconds - MARGIN_SECONDS).unwrap_or(0))
+    let room = (lease_seconds - LEASE_SAFETY_MARGIN_SECONDS).max(0);
+    Duration::from_secs(u64::try_from(room).unwrap_or(0))
 }
 
 /// Run one claimed inspection/verification item, renewing leases and observing cancellation.
@@ -358,13 +362,16 @@ pub fn execute_claimed(
         Err(error) => {
             // The cause is the last line; without authority or a running item nothing lands.
             let _ = output.step(&report_log::failed_by(&error));
-            if !matches!(until_not_busy(|| output.finish()), Ok(())) {
-                // Without authority the log is the one thing a worker may still write, to its own item.
-                let _ = until_not_busy(|| output.finish_without_authority());
+            // A busy database leaves the authority doubtful, and it most likely still holds: the log
+            // is then the one thing a worker may still write, to its own item. Any other failure is a
+            // clear refusal (token overtaken, lease expired): nothing is written, the item stays
+            // `Running` and recovery cleans it up.
+            if let Err(Error::Busy) = settle(|| output.finish()) {
+                let _ = settle(|| output.finish_without_authority());
             }
             // The permit must go back whatever the cleanup does, or the gate never quiesces.
             let cleanup = (|| -> Result<()> {
-                if until_not_busy(|| authority(ctx, item_id, owner, fence)).unwrap_or(false)
+                if settle(|| authority(ctx, item_id, owner, fence)).unwrap_or(false)
                     && let Ok(Some(fresh)) = Jobs(ctx).get_item(item_id)
                     && fresh.status == ItemStatus::Running
                 {
@@ -409,66 +416,128 @@ struct ClaimedShell<'a> {
     shutdown_requested: bool,
 }
 
-impl Shell for ClaimedShell<'_> {
-    fn cancelled(&mut self) -> bool {
-        let ctx = self.ctx;
-        if self
-            .config
+/// What one heartbeat came to.
+enum Beat {
+    Renewed,
+    /// The database answered, and refused the renewal.
+    Rejected,
+    /// The database could not be asked.
+    DatabaseError,
+}
+
+impl ClaimedShell<'_> {
+    fn shutdown_asked(&self) -> bool {
+        self.config
             .shutdown
             .as_ref()
             .is_some_and(|stop| stop.load(std::sync::atomic::Ordering::Acquire))
-        {
-            self.shutdown_requested = true;
-            return true;
+    }
+
+    /// Renew lease and item once per [`HEARTBEAT_INTERVAL`]; `None` between two beats.
+    fn beat(&mut self) -> Option<Beat> {
+        if self.heartbeat.elapsed() < HEARTBEAT_INTERVAL {
+            return None;
         }
-        let mut database_failed = false;
-        if self.heartbeat.elapsed() >= Duration::from_secs(1) {
-            self.heartbeat = Instant::now();
-            let renewed = MediaExecutorLease::new(ctx)
-                .heartbeat(Some(self.fence), self.config.lease_seconds)
-                .and_then(|held| {
-                    Ok(held
-                        && Jobs(ctx).heartbeat_item(
-                            self.item.id,
-                            self.fence,
-                            self.config.lease_seconds,
-                        )?)
-                });
-            match renewed {
-                Ok(true) => self.last_renewed = ctx.clock.now_micros(),
-                // The database said no: fencing token overtaken or lease expired.
-                Ok(false) => {
-                    self.lost = Some(rejection(ctx, self.item.id, self.owner, self.fence));
-                    return true;
-                }
-                Err(_) => database_failed = true,
+        self.heartbeat = Instant::now();
+        let ctx = self.ctx;
+        let renewed = MediaExecutorLease::new(ctx)
+            .heartbeat(Some(self.fence), self.config.lease_seconds)
+            .and_then(|held| {
+                Ok(held
+                    && Jobs(ctx).heartbeat_item(
+                        self.item.id,
+                        self.fence,
+                        self.config.lease_seconds,
+                    )?)
+            });
+        Some(match renewed {
+            Ok(true) => {
+                self.last_renewed = ctx.clock.now_micros();
+                Beat::Renewed
+            }
+            Ok(false) => Beat::Rejected,
+            Err(_) => Beat::DatabaseError,
+        })
+    }
+
+    /// Why the worker has lost its authority, `None` while it holds it. The one chain from a refusal
+    /// to its cause; an error means the database could not say.
+    fn current_loss(&self) -> Result<Option<LeaseLoss>> {
+        if authority(self.ctx, self.item.id, self.owner, self.fence)? {
+            Ok(None)
+        } else {
+            self.refusal()
+        }
+    }
+
+    /// The cause of a refusal the database just gave.
+    fn refusal(&self) -> Result<Option<LeaseLoss>> {
+        rejection(self.ctx, self.item.id, self.owner, self.fence)
+    }
+
+    /// Take what a look at the lease found: a loss is remembered (true), a database error is
+    /// counted, not mistaken for a cause.
+    fn note(&mut self, found: &Result<Option<LeaseLoss>>, database_failed: &mut bool) -> bool {
+        match *found {
+            Ok(Some(loss)) => {
+                self.lost = Some(loss);
+                true
+            }
+            Ok(None) => false,
+            Err(_) => {
+                *database_failed = true;
+                false
             }
         }
-        match authority(ctx, self.item.id, self.owner, self.fence) {
-            Ok(true) => {}
-            Ok(false) => {
-                self.lost = Some(rejection(ctx, self.item.id, self.owner, self.fence));
-                return true;
-            }
-            Err(_) => database_failed = true,
-        }
-        // A database error is not a lost lease: it is tried again every second, until the lease would
-        // soon run out because no heartbeat got through.
-        if database_failed
-            && ctx.clock.now_micros() - self.last_renewed
-                > i64::try_from(heartbeat_tolerance(self.config.lease_seconds).as_micros())
-                    .unwrap_or(i64::MAX)
-        {
-            self.lost = Some(LeaseLoss::DatabaseBusy);
-            return true;
-        }
-        // Whether the job still runs: a database error does not stop it either.
-        let status: std::result::Result<JobStatus, _> = ctx.conn.query_row(
+    }
+
+    /// Whether heartbeats have been missing for longer than the lease leaves room for.
+    fn tolerance_exceeded(&self) -> bool {
+        let tolerance = heartbeat_tolerance(self.config.lease_seconds);
+        self.ctx.clock.now_micros() - self.last_renewed
+            > i64::try_from(tolerance.as_micros()).unwrap_or(i64::MAX)
+    }
+
+    /// Whether the job no longer runs. A database error does not stop it either.
+    fn job_ended(&self) -> bool {
+        let status: std::result::Result<JobStatus, _> = self.ctx.conn.query_row(
             "SELECT status FROM jobs WHERE id=?1",
             [self.item.job_id],
             |row| row.get(0),
         );
         status.is_ok_and(|status| !matches!(status, JobStatus::Queued | JobStatus::Running))
+    }
+}
+
+impl Shell for ClaimedShell<'_> {
+    fn cancelled(&mut self) -> bool {
+        if self.shutdown_asked() {
+            self.shutdown_requested = true;
+            return true;
+        }
+        let mut database_failed = false;
+        match self.beat() {
+            // The database said no: fencing token overtaken or lease expired.
+            Some(Beat::Rejected) => {
+                let found = self.refusal();
+                if self.note(&found, &mut database_failed) {
+                    return true;
+                }
+            }
+            Some(Beat::DatabaseError) => database_failed = true,
+            Some(Beat::Renewed) | None => {}
+        }
+        let found = self.current_loss();
+        if self.note(&found, &mut database_failed) {
+            return true;
+        }
+        // A database error is not a lost lease: it is tried again every second, until the lease would
+        // soon run out because no heartbeat got through.
+        if database_failed && self.tolerance_exceeded() {
+            self.lost = Some(LeaseLoss::DatabaseBusy);
+            return true;
+        }
+        self.job_ended()
     }
 
     fn shutdown_requested(&self) -> bool {
@@ -479,10 +548,7 @@ impl Shell for ClaimedShell<'_> {
         if self.lost.is_some() {
             return Ok(self.lost);
         }
-        Ok(
-            (!authority(self.ctx, self.item.id, self.owner, self.fence)?)
-                .then(|| rejection(self.ctx, self.item.id, self.owner, self.fence)),
-        )
+        self.current_loss()
     }
 
     fn record_report(&mut self, report: &Report) -> Result<()> {
@@ -713,6 +779,97 @@ mod tests {
             encode_refusal(&refused).as_deref(),
             Some("Encoding not allowed (need=video allowance=audio): the file stays as it was.")
         );
+    }
+
+    /// A claimed item under a lease of 30 s, as the rejection looks it up.
+    fn claimed(conn: &rusqlite::Connection, clock: FixedClock) -> (i64, i64) {
+        let ctx = Ctx {
+            conn,
+            clock: &clock,
+        };
+        let fixtures = atvprep_fixtures::Fixtures::new(conn);
+        let root = fixtures.library("Movies");
+        let file = fixtures.file(root, "a.mp4").create();
+        let job = fixtures.job("inspect", &[file]).create();
+        let mut lease = MediaExecutorLease::new(ctx);
+        assert!(lease.acquire("worker", 30).unwrap());
+        let fence = lease.fencing_token.unwrap();
+        let item = Jobs(ctx)
+            .claim_media_item(job, "worker", fence, 30, 1)
+            .unwrap()
+            .unwrap();
+        (item.id, fence)
+    }
+
+    #[test]
+    fn a_rejection_names_the_cause_from_the_lease_row_and_never_guesses_on_a_database_error() {
+        let db = Db::memory().unwrap();
+        let mut conn = db.conn().unwrap();
+        schema::migrate(&mut conn).unwrap();
+        let clock = FixedClock(1_700_000_000_000_000);
+        let (item, fence) = claimed(conn.raw(), clock);
+        let look = |clock: &FixedClock, fence| {
+            rejection(
+                Ctx {
+                    conn: conn.raw(),
+                    clock,
+                },
+                item,
+                "worker",
+                fence,
+            )
+        };
+
+        assert_eq!(look(&clock, fence).unwrap(), None, "the lease still holds");
+        let later = FixedClock(1_700_000_000_000_000 + 31_000_000);
+        assert_eq!(
+            look(&later, fence).unwrap(),
+            Some(LeaseLoss::LeaseExpired),
+            "the token fits, the lease ran out"
+        );
+        assert_eq!(
+            look(&clock, fence + 1).unwrap(),
+            Some(LeaseLoss::TokenOvertaken)
+        );
+        conn.raw()
+            .execute(
+                "UPDATE media_executor_leases SET fencing_token=fencing_token+1",
+                [],
+            )
+            .unwrap();
+        assert_eq!(
+            look(&clock, fence).unwrap(),
+            Some(LeaseLoss::TokenOvertaken),
+            "another worker holds a newer token"
+        );
+        conn.raw()
+            .execute_batch("ALTER TABLE media_executor_leases RENAME TO gone")
+            .unwrap();
+        assert!(
+            look(&clock, fence).is_err(),
+            "a database error is an error, not an expired lease"
+        );
+    }
+
+    #[test]
+    fn the_heartbeat_tolerance_is_the_lease_minus_the_margin_and_never_negative() {
+        assert_eq!(heartbeat_tolerance(30), Duration::from_secs(20));
+        assert_eq!(heartbeat_tolerance(11), Duration::from_secs(1));
+        // A lease not longer than the margin leaves no room.
+        assert_eq!(heartbeat_tolerance(10), Duration::ZERO);
+        assert_eq!(heartbeat_tolerance(3), Duration::ZERO);
+        assert_eq!(heartbeat_tolerance(-5), Duration::ZERO);
+    }
+
+    #[test]
+    fn a_cancelled_preparation_never_counts_as_a_removed_source() {
+        let mut process = shell("printf 'ATVPREP-SOURCE removed\n'");
+        assert!(source_removed(&process));
+        process.reason = StopReason::Cancelled;
+        assert!(!source_removed(&process), "the old container stays");
+        process.reason = StopReason::Exited;
+        process.exit_code = Some(1);
+        assert!(!source_removed(&process));
     }
 
     #[test]
