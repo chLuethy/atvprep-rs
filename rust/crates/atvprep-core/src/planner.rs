@@ -554,6 +554,16 @@ fn layout_reasons(
     reasons
 }
 
+/// Whether `reasons` name nothing but the chunk length (and at least one reason): the file's streams
+/// are fine and only `MP4Box` has to regroup them (#145, ADR 0010).
+#[must_use]
+pub fn only_chunk_reasons(reasons: &[String]) -> bool {
+    !reasons.is_empty() && reasons.iter().all(|r| r.starts_with(CHUNK_REASON))
+}
+
+/// The start of the reason [`chunk_reason`] writes.
+const CHUNK_REASON: &str = "chunks too short for Apple TV";
+
 /// The reason a file with too short chunks gets: the tracks and how long their chunks are.
 fn chunk_reason(short: &[ShortChunks]) -> String {
     let tracks: Vec<String> = short
@@ -569,7 +579,7 @@ fn chunk_reason(short: &[ShortChunks]) -> String {
         })
         .collect();
     format!(
-        "chunks too short for Apple TV ({}; at least {} ms wanted)",
+        "{CHUNK_REASON} ({}; at least {} ms wanted)",
         tracks.join("; "),
         MIN_MEAN_CHUNK_MS
     )
