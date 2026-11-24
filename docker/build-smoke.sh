@@ -19,6 +19,7 @@ for app in sonarr radarr whisparr; do
     ffmpeg -hide_banner -loglevel error -f lavfi -i "sine=frequency=440:duration=5" -f chromaprint -fp_format base64 - | grep -q .
     ffprobe -version | grep -q libx265
     test -x /usr/local/bin/mp4info; test -x /usr/local/bin/mp4dump
+    MP4Box -version 2>&1 | grep -q "GPAC version"
     command -v mediainfo mkvmerge >/dev/null
     ! command -v uv'
   printf '%s: ok\n' "$tag"
