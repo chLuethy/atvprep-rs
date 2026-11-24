@@ -1,7 +1,8 @@
 //! Which stage a prepare is in, and how far along the whole file is (port of `atvprep/stages.py`).
 //!
-//! atvprep runs up to three stages per file: `encode` (ffmpeg), `finalize` (the moov patch and the
-//! move of the moov to the front) and `verify` (compliance audit). Each reports a fraction of its
+//! atvprep runs up to four stages per file: `encode` (ffmpeg), `chunks` (`MP4Box` rewrites the chunks
+//! of the ffmpeg output, ADR 0010), `finalize` (the moov patch and the move of the moov to the
+//! front) and `verify` (compliance audit). Each reports a fraction of its
 //! own, and the reporter maps it onto one percent that only grows and stays below 100 until the
 //! process ends.
 //!
@@ -33,8 +34,9 @@ pub const VERIFY_MARKER: &str = "ATVPREP-VERIFY ";
 pub const ERROR_MARKER: &str = "ATVPREP-ERROR ";
 
 /// Share of the whole run, as `(start, end)` percent. Without an encode the file is only patched.
-const WITH_ENCODE: [(Stage, u32, u32); 3] = [
-    (Stage::Encode, 0, 90),
+const WITH_ENCODE: [(Stage, u32, u32); 4] = [
+    (Stage::Encode, 0, 80),
+    (Stage::Chunks, 80, 90),
     (Stage::Finalize, 90, 97),
     (Stage::Verify, 97, 99),
 ];
@@ -46,6 +48,8 @@ const CEILING: u32 = 99;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Stage {
     Encode,
+    /// `MP4Box` schreibt die Chunks der Zieldatei um (ADR 0010).
+    Chunks,
     Finalize,
     Verify,
 }
@@ -55,6 +59,7 @@ impl Stage {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Encode => "encode",
+            Self::Chunks => "chunks",
             Self::Finalize => "finalize",
             Self::Verify => "verify",
         }
@@ -65,6 +70,7 @@ impl Stage {
     pub const fn label(self) -> &'static str {
         match self {
             Self::Encode => "Encoding",
+            Self::Chunks => "Chunking",
             Self::Finalize => "Finalizing",
             Self::Verify => "Verifying",
         }
@@ -315,6 +321,9 @@ mod tests {
         reporter.stage(Stage::Encode);
         reporter.update(0.5);
         reporter.update(1.0);
+        reporter.stage(Stage::Chunks);
+        reporter.update(0.5);
+        reporter.update(1.0);
         reporter.stage(Stage::Finalize);
         reporter.update(0.5);
         reporter.stage(Stage::Verify);
@@ -324,7 +333,10 @@ mod tests {
             out.lines(),
             [
                 "ATVPREP-STAGE encode",
-                "ATVPREP-PROGRESS 45",
+                "ATVPREP-PROGRESS 40",
+                "ATVPREP-PROGRESS 80",
+                "ATVPREP-STAGE chunks",
+                "ATVPREP-PROGRESS 85",
                 "ATVPREP-PROGRESS 90",
                 "ATVPREP-STAGE finalize",
                 "ATVPREP-PROGRESS 93",
@@ -381,7 +393,7 @@ mod tests {
 
         let values = out.percents();
         assert!(values.is_sorted());
-        assert_eq!(values, [45, 90, 97, 99]);
+        assert_eq!(values, [40, 80, 97, 99]);
     }
 
     #[test]
@@ -394,7 +406,7 @@ mod tests {
         }
         assert_eq!(
             out.lines(),
-            ["ATVPREP-STAGE encode", "ATVPREP-PROGRESS 45"].repeat(2)
+            ["ATVPREP-STAGE encode", "ATVPREP-PROGRESS 40"].repeat(2)
         );
     }
 

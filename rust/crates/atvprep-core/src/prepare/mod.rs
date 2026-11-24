@@ -1,6 +1,7 @@
 //! `prepare`: bring one file to what Apple TV plays, by the cheapest route that is safe.
 
 pub mod checks;
+pub mod chunks;
 pub mod ffmpeg;
 pub mod paths;
 pub mod pipeline;
@@ -30,6 +31,9 @@ pub struct PrepareOptions {
     pub extra_sidecars: Vec<PathBuf>,
     /// How far this run may encode.
     pub encode: EncodeAllowance,
+    /// Fehlt `MP4Box`: `true` lässt den Lauf scheitern (Manager, CLI), `false` warnt und liefert die
+    /// Datei aus, wie ffmpeg sie geschrieben hat (Hook, ADR 0010).
+    pub mp4box_required: bool,
 }
 
 impl Default for PrepareOptions {
@@ -47,6 +51,7 @@ impl Default for PrepareOptions {
             verbose: false,
             extra_sidecars: Vec::new(),
             encode: EncodeAllowance::default(),
+            mp4box_required: true,
         }
     }
 }
@@ -60,6 +65,8 @@ pub enum ErrorKind {
     Blockers,
     Unsafe,
     Transcode,
+    /// Die Chunk-Stufe: `MP4Box` fehlt oder ist gescheitert.
+    Mp4box,
 }
 
 impl ErrorKind {
@@ -72,6 +79,7 @@ impl ErrorKind {
             Self::Blockers => "blockers",
             Self::Unsafe => "unsafe",
             Self::Transcode => "transcode",
+            Self::Mp4box => "mp4box",
         }
     }
 }
@@ -172,6 +180,7 @@ mod tests {
             ErrorKind::Blockers,
             ErrorKind::Unsafe,
             ErrorKind::Transcode,
+            ErrorKind::Mp4box,
         ]
         .iter()
         .map(|k| k.as_str())
@@ -184,7 +193,8 @@ mod tests {
                 "no_output",
                 "blockers",
                 "unsafe",
-                "transcode"
+                "transcode",
+                "mp4box"
             ]
         );
     }

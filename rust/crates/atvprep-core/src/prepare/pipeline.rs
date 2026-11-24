@@ -12,6 +12,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::Value;
 
 use super::checks::{subtitle_sidecars, verify_output_streams, verify_subtitle_inputs};
+use super::chunks::ChunkError;
 use super::ffmpeg::{FfmpegError, run_ffmpeg_with_progress};
 use super::paths::{output_path, temp_name};
 use super::{ErrorKind, Failed, Outcome, PrepareOptions, PrepareResult, settle_report};
@@ -407,6 +408,8 @@ fn encode(
     if let Err(violation) = checked {
         return Err(transcode(&violation));
     }
+    // Ohne MP4Box wird nichts geschrieben, wenn der Lauf es verlangt: kein ffmpeg-Lauf umsonst.
+    let chunks = chunk_stage_available(ctx, options)?;
     lines(ctx, &plan_table(plan));
     for stream in stream_plan(plan, &analysis.probe) {
         ctx.reporter.plan(&stream);
@@ -428,6 +431,9 @@ fn encode(
             return Err(transcode(&violation));
         }
     }
+    if chunks {
+        step_rechunk(ctx, tmp)?;
+    }
     let infos: Vec<SubInfo> = plan
         .sub_tracks
         .iter()
@@ -440,6 +446,57 @@ fn encode(
         ctx.console.print(&format!("  ! {warning}"));
     }
     Ok(finalize_output(ctx, tmp, atmos > 0, None, options.verbose)?)
+}
+
+/// Ob die Chunk-Stufe läuft. Fehlt `MP4Box`, scheitert der Lauf (Manager, CLI) oder warnt und liefert
+/// die Datei aus, wie ffmpeg sie schreibt (Hook, ADR 0010); beides noch vor dem ffmpeg-Lauf.
+fn chunk_stage_available(ctx: &mut RunContext, options: &PrepareOptions) -> Step<bool> {
+    if ctx.mp4box.find().is_some() {
+        return Ok(true);
+    }
+    let missing = ChunkError::Missing.to_string();
+    if options.mp4box_required {
+        return Err(failed(ErrorKind::Mp4box, missing));
+    }
+    ctx.console.print(&format!(
+        "  ! {missing}; the chunks stay as ffmpeg wrote them (verify shows them later)"
+    ));
+    Ok(false)
+}
+
+/// `chunks` stage: `MP4Box` writes `tmp` again with chunks of half a second and replaces it.
+fn step_rechunk(ctx: &mut RunContext, tmp: &Path) -> Step<()> {
+    ctx.reporter.stage(Stage::Chunks);
+    let _timing = phase("mp4box", Some(tmp));
+    let rewritten = tmp.with_file_name(temp_name(&stem_of(tmp), "chunks."));
+    let reporter = &mut ctx.reporter;
+    let outcome = ctx
+        .mp4box
+        .rechunk(tmp, &rewritten, &mut |done| reporter.update(done))
+        .map_err(|error| failed(ErrorKind::Mp4box, error.to_string()))
+        .and_then(|done| {
+            std::fs::rename(&rewritten, tmp).map_err(|error| {
+                failed(
+                    ErrorKind::Mp4box,
+                    format!("could not replace the output with the MP4Box result: {error}"),
+                )
+            })?;
+            Ok(done)
+        });
+    match outcome {
+        Ok(done) => {
+            if done.without_check {
+                ctx.console.print(
+                    "  ! MP4Box only read the file with -no-check: titles of fewer than four characters are cleared from the track names",
+                );
+            }
+            Ok(())
+        }
+        Err(error) => {
+            let _ = std::fs::remove_file(&rewritten);
+            Err(error)
+        }
+    }
 }
 
 fn has_atmos(probe: &Value) -> bool {
