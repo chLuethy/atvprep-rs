@@ -24,8 +24,8 @@ fn hook(args: &[&Path], ffmpeg: Option<&str>) -> Run {
     hook_with(args, ffmpeg, None)
 }
 
-/// Wie [`hook`]; `mp4box` ist der Rumpf eines Skripts, das `MP4Box` ersetzt (es bekommt
-/// `-inter 500 <Eingabe> -out <Ausgabe>`).
+/// Like [`hook`]; `mp4box` is the body of a script that replaces `MP4Box` (it gets
+/// `-inter 500 <input> -out <output>`).
 fn hook_with(args: &[&Path], ffmpeg: Option<&str>, mp4box: Option<&str>) -> Run {
     let dir = tempfile::tempdir().unwrap();
     let mut env = Environment::from_process();
@@ -144,8 +144,8 @@ fn ffmpeg_failures_map_to_their_exit_codes() {
         failing.stderr
     );
     assert!(failing.stderr.contains("Fehler (ffmpeg): "));
-    // MP4Box lehnt die fragmentierte Fixture ab; ein Ersatz, der nur kopiert, lässt den Lauf bis zur
-    // Prüfung der Ausgabe kommen.
+    // MP4Box rejects the fragmented fixture; a replacement that only copies lets the run get as far as
+    // checking the output.
     let fragmented = source("../mp4/syn_fragmented.mp4");
     let script = format!(
         "for last; do :; done\ncp '{}' \"$last\"",

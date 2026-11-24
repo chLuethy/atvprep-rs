@@ -16,7 +16,7 @@ use super::parse::{
 use super::tools::{Audit, ToolError};
 use super::{Severity, Violation};
 use crate::escalation::{stereo_twin_gaps, video_reencode_reason};
-use crate::mp4::chunks::{MIN_MEAN_CHUNK_MS, TARGET_CHUNK_MS, short_chunks};
+use crate::mp4::chunks::{CHUNK_RULE, MIN_MEAN_CHUNK_MS, TARGET_CHUNK_MS, short_chunks};
 use crate::mp4::error::Mp4Error;
 use crate::mp4::patch::{TagCheck, chapter_track_ids, check_accessibility};
 use crate::probe_helpers::{is_atmos_audio, subtitle_infos};
@@ -304,7 +304,7 @@ pub struct ChunkLengthRule;
 
 impl Rule for ChunkLengthRule {
     fn name(&self) -> &'static str {
-        "chunk-length"
+        CHUNK_RULE
     }
 
     fn severity(&self) -> Severity {
@@ -826,7 +826,7 @@ mod tests {
                 "subtitle-handler-type",
                 "no-fragments",
                 "fast-start",
-                "chunk-length",
+                CHUNK_RULE,
                 "avc-level-atv-limit",
                 "hevc-level-atv-limit",
                 "audio-sample-rate",

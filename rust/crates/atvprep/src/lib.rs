@@ -42,7 +42,7 @@ pub struct Environment {
     pub ffprobe: Ffprobe,
     /// Replaces the `ffmpeg` of the plan (a test seam).
     pub ffmpeg: Option<PathBuf>,
-    /// Das `MP4Box` der Chunk-Stufe (Suchverzeichnisse sind eine Test-Naht).
+    /// The `MP4Box` of the chunk stage (the search directories are a test seam).
     pub mp4box: atvprep_core::prepare::chunks::Mp4Box,
 }
 

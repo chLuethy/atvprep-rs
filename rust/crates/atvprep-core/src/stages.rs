@@ -48,7 +48,7 @@ const CEILING: u32 = 99;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Stage {
     Encode,
-    /// `MP4Box` schreibt die Chunks der Zieldatei um (ADR 0010).
+    /// `MP4Box` rewrites the chunks of the target file (ADR 0010).
     Chunks,
     Finalize,
     Verify,

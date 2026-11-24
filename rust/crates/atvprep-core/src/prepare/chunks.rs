@@ -1,8 +1,8 @@
-//! Die Chunk-Stufe: `MP4Box` schreibt die Chunks einer ffmpeg-Ausgabe auf rund eine halbe Sekunde
-//! Medienzeit um (ADR 0010).
+//! The chunk stage: `MP4Box` rewrites the chunks of an ffmpeg output to about half a second
+//! of media time (ADR 0010).
 //!
-//! ffmpegs mov-Muxer bildet Chunks von ein bis zwei Samples und lässt sich nicht auf eine Chunk-Dauer
-//! einstellen; Apple TV stockt bei solchen Dateien. `MP4Box -inter 500` verschränkt mit Chunks von
+//! ffmpeg's mov muxer writes chunks of one or two samples and cannot be set to a chunk duration;
+//! Apple TV stutters on such files. `MP4Box -inter 500` interleaves with chunks of
 //! 500 ms.
 
 use std::fmt;
@@ -11,15 +11,14 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-/// Die Chunk-Dauer, um die `MP4Box` gebeten wird, in Millisekunden. Fest, nicht Teil des Zielprofils.
-pub const CHUNK_MS: u32 = 500;
+use crate::mp4::chunks::TARGET_CHUNK_MS;
 
-/// Warum die Chunk-Stufe keine Datei geliefert hat.
+/// Why the chunk stage did not deliver a file.
 #[derive(Debug)]
 pub enum ChunkError {
-    /// `MP4Box` ist nicht installiert (oder nicht im Suchpfad).
+    /// `MP4Box` is not installed (or not on the search path).
     Missing,
-    /// `MP4Box` liess sich nicht starten oder endete, ohne eine Datei zu schreiben.
+    /// `MP4Box` could not be started or ended without writing a file.
     Failed(String),
 }
 
@@ -36,7 +35,7 @@ impl fmt::Display for ChunkError {
 
 impl std::error::Error for ChunkError {}
 
-/// Das Programm `MP4Box`, gefunden über `PATH` (oder in einer ausdrücklichen Verzeichnisliste).
+/// The `MP4Box` program, found through `PATH` (or in an explicit list of directories).
 #[derive(Debug, Clone, Default)]
 pub struct Mp4Box {
     search_path: Option<Vec<PathBuf>>,
@@ -48,14 +47,14 @@ impl Mp4Box {
         Self::default()
     }
 
-    /// `MP4Box` in diesen Verzeichnissen statt in `PATH` suchen (eine Test-Naht).
+    /// Look for `MP4Box` in these directories instead of `PATH` (a test seam).
     #[must_use]
     pub fn with_search_path(mut self, dirs: Vec<PathBuf>) -> Self {
         self.search_path = Some(dirs);
         self
     }
 
-    /// Die ausführbare Datei, wenn es eine gibt.
+    /// The executable, if there is one.
     #[must_use]
     pub fn find(&self) -> Option<PathBuf> {
         let dirs: Vec<PathBuf> = self.search_path.clone().unwrap_or_else(|| {
@@ -71,16 +70,16 @@ impl Mp4Box {
             })
     }
 
-    /// Schreibt `input` nach `output` mit Chunks von [`CHUNK_MS`]; `progress` bekommt 0..=1, wie
-    /// `MP4Box` es meldet.
+    /// Writes `input` to `output` with chunks of [`TARGET_CHUNK_MS`]; `progress` receives 0..=1 as
+    /// `MP4Box` reports it.
     ///
-    /// `MP4Box` weist eine ffmpeg-Ausgabe zurück, deren Spur eine `name`-Box von weniger als vier Byte
-    /// hat (ein Titel wie „DEU“). Nur dann läuft es erneut mit `-no-check`; das liest die Datei, löscht
-    /// aber diese Titel. [`Rechunked::without_check`] sagt es.
+    /// `MP4Box` rejects an ffmpeg output whose track has a `name` box shorter than four bytes
+    /// (a title such as "DEU"). Only then does it run again with `-no-check`, which reads the file but
+    /// clears those titles. [`Rechunked::check`] says which happened.
     ///
     /// # Errors
     ///
-    /// [`ChunkError::Missing`] ohne `MP4Box`, [`ChunkError::Failed`], wenn es scheitert oder nichts schreibt.
+    /// [`ChunkError::Missing`] without `MP4Box`, [`ChunkError::Failed`] when it fails or writes nothing.
     pub fn rechunk(
         &self,
         input: &Path,
@@ -88,41 +87,48 @@ impl Mp4Box {
         progress: &mut dyn FnMut(f64),
     ) -> Result<Rechunked, ChunkError> {
         let program = self.find().ok_or(ChunkError::Missing)?;
-        match run_once(&program, input, output, false, progress) {
+        match run_once(&program, input, output, Check::Strict, progress) {
             Err(ChunkError::Failed(why)) if why.contains("Invalid IsoMedia File") => {
-                run_once(&program, input, output, true, progress)?;
-                Ok(Rechunked {
-                    without_check: true,
-                })
+                run_once(&program, input, output, Check::Skip, progress)?;
+                Ok(Rechunked { check: Check::Skip })
             }
             other => other.map(|()| Rechunked {
-                without_check: false,
+                check: Check::Strict,
             }),
         }
     }
 }
 
-/// Wie die Chunk-Stufe verlief.
+/// How the chunk stage went.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Rechunked {
-    /// `MP4Box` konnte die Datei nur mit `-no-check` lesen; kurze Spurtitel sind dann gelöscht.
-    pub without_check: bool,
+    /// How `MP4Box` read the file; with [`Check::Skip`] short track titles are cleared.
+    pub check: Check,
+}
+
+/// Whether `MP4Box` validated the file it read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Check {
+    /// The normal run: `MP4Box` rejects a file it finds invalid.
+    Strict,
+    /// `-no-check`: the file is read although it is invalid.
+    Skip,
 }
 
 fn run_once(
     program: &Path,
     input: &Path,
     output: &Path,
-    without_check: bool,
+    check: Check,
     progress: &mut dyn FnMut(f64),
 ) -> Result<(), ChunkError> {
     let mut command = Command::new(program);
-    if without_check {
+    if check == Check::Skip {
         command.arg("-no-check");
     }
     let mut child = command
         .arg("-inter")
-        .arg(CHUNK_MS.to_string())
+        .arg(TARGET_CHUNK_MS.to_string())
         .arg(input)
         .arg("-out")
         .arg(output)
@@ -142,7 +148,7 @@ fn run_once(
                 Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
                 Err(_) => break,
             }
-            // MP4Box zeichnet den Fortschrittsbalken mit Wagenrücklauf neu.
+            // MP4Box redraws its progress bar with a carriage return.
             if byte[0] == b'\r' || byte[0] == b'\n' {
                 let text = String::from_utf8_lossy(&line).into_owned();
                 line.clear();
@@ -172,7 +178,7 @@ fn run_once(
     }))
 }
 
-/// `MP4Box` färbt seine Meldungen mit ANSI-Escapes, auch wenn stderr eine Pipe ist.
+/// `MP4Box` colours its messages with ANSI escapes even when stderr is a pipe.
 fn strip_colours(text: &str) -> String {
     let mut out = String::new();
     let mut chars = text.chars().peekable();

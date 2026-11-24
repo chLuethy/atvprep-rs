@@ -31,8 +31,8 @@ pub struct PrepareOptions {
     pub extra_sidecars: Vec<PathBuf>,
     /// How far this run may encode.
     pub encode: EncodeAllowance,
-    /// Fehlt `MP4Box`: `true` lässt den Lauf scheitern (Manager, CLI), `false` warnt und liefert die
-    /// Datei aus, wie ffmpeg sie geschrieben hat (Hook, ADR 0010).
+    /// If `MP4Box` is missing: `true` makes the run fail (manager, CLI), `false` warns and delivers the
+    /// file as ffmpeg wrote it (hook, ADR 0010).
     pub mp4box_required: bool,
 }
 
@@ -65,7 +65,7 @@ pub enum ErrorKind {
     Blockers,
     Unsafe,
     Transcode,
-    /// Die Chunk-Stufe: `MP4Box` fehlt oder ist gescheitert.
+    /// The chunk stage: `MP4Box` is missing or failed.
     Mp4box,
 }
 

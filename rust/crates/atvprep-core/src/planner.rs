@@ -14,7 +14,9 @@ use crate::encode::PlanStep;
 use crate::ffprobe::Ffprobe;
 use crate::ffprobe::Prober;
 use crate::models::{AudioAction, AudioTrack, Plan, SubAction, VideoAction, VideoInfo};
-use crate::mp4::chunks::{MIN_MEAN_CHUNK_MS, ShortChunks, short_chunks};
+use crate::mp4::chunks::{
+    CHUNK_REASON, MIN_MEAN_CHUNK_MS, ShortChunks, is_chunk_reason, short_chunks,
+};
 use crate::mp4::patch::is_faststart;
 use crate::postfix::read_ftyp;
 use crate::probe_helpers::{
@@ -558,11 +560,8 @@ fn layout_reasons(
 /// are fine and only `MP4Box` has to regroup them (#145, ADR 0010).
 #[must_use]
 pub fn only_chunk_reasons(reasons: &[String]) -> bool {
-    !reasons.is_empty() && reasons.iter().all(|r| r.starts_with(CHUNK_REASON))
+    !reasons.is_empty() && reasons.iter().all(|r| is_chunk_reason(r))
 }
-
-/// The start of the reason [`chunk_reason`] writes.
-const CHUNK_REASON: &str = "chunks too short for Apple TV";
 
 /// The reason a file with too short chunks gets: the tracks and how long their chunks are.
 fn chunk_reason(short: &[ShortChunks]) -> String {

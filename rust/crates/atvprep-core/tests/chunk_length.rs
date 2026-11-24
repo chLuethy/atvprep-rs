@@ -1,8 +1,8 @@
-//! Die Chunk-Länge der Zieldatei (#144, ADR 0010): `planned_change` und die Prüfregel erkennen
-//! Dateien mit zu kleinen Chunks aus dem moov und stufen sie als Remux ein, nie als Patch.
+//! The chunk length of the target file (#144, ADR 0010): `planned_change` and the compliance rule detect
+//! files with chunks that are too small from the moov and classify them as a remux, never a patch.
 //!
-//! Braucht ffmpeg, ffprobe und Bento4 auf `PATH`; die Tests, die eine gute Datei brauchen, auch
-//! `MP4Box`, und werden ohne `MP4Box` übersprungen.
+//! Needs ffmpeg, ffprobe and Bento4 on `PATH`; the tests that need a good file also need
+//! `MP4Box` and are skipped without it.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -12,6 +12,7 @@ use atvprep_core::console::{Console, SharedBuffer};
 use atvprep_core::encode::ChangeKind;
 use atvprep_core::fd_fix_contract::FdFixTarget;
 use atvprep_core::ffprobe::Ffprobe;
+use atvprep_core::mp4::chunks::CHUNK_RULE;
 use atvprep_core::pipeline_postfix::RunContext;
 use atvprep_core::prepare::PrepareOptions;
 use atvprep_core::prepare::chunks::Mp4Box;
@@ -39,8 +40,8 @@ fn has_mp4box() -> bool {
         .is_ok_and(|status| status.success())
 }
 
-/// Zwanzig Sekunden Video und Stereo-Ton, wie ffmpeg sie mit Standardeinstellungen schreibt:
-/// Chunks von ein bis zwei Samples. Sonst bereit für den Apple TV.
+/// Twenty seconds of video and stereo audio as ffmpeg writes them with default settings:
+/// chunks of one or two samples. Otherwise ready for Apple TV.
 fn ffmpeg_file(dir: &Path) -> PathBuf {
     let path = dir.join("Film.mp4");
     let status = Command::new("ffmpeg")
@@ -79,7 +80,7 @@ fn ffmpeg_file(dir: &Path) -> PathBuf {
     path
 }
 
-/// `source` mit Chunks von rund 0,5 s, von `MP4Box` umgeschrieben.
+/// `source` with chunks of about 0.5 s, rewritten by `MP4Box`.
 fn with_half_second_chunks(source: &Path, dir: &Path) -> PathBuf {
     let path = dir.join("Rewritten.mp4");
     let status = Command::new("MP4Box")
@@ -114,18 +115,18 @@ fn a_file_with_chunks_of_one_or_two_samples_is_a_remux_and_shows_the_chunk_rule(
     let dir = tempfile::tempdir().unwrap();
     let file = ffmpeg_file(dir.path());
     assert_eq!(change_of(&file), Some(ChangeKind::Remux));
-    assert!(rules(&file).contains(&"chunk-length".to_owned()));
+    assert!(rules(&file).contains(&CHUNK_RULE.to_owned()));
 }
 
 #[test]
 fn a_file_with_chunks_of_half_a_second_has_no_chunk_finding() {
     if !has_mp4box() {
-        eprintln!("MP4Box fehlt: übersprungen");
+        eprintln!("MP4Box missing: skipped");
         return;
     }
     let dir = tempfile::tempdir().unwrap();
     let out = tempfile::tempdir().unwrap();
     let file = with_half_second_chunks(&ffmpeg_file(dir.path()), out.path());
     assert_ne!(change_of(&file), Some(ChangeKind::Remux));
-    assert!(!rules(&file).contains(&"chunk-length".to_owned()));
+    assert!(!rules(&file).contains(&CHUNK_RULE.to_owned()));
 }

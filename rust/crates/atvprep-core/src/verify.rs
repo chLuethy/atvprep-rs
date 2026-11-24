@@ -285,7 +285,7 @@ mod tests {
         // The oracle knows no chunk rule (#144): it runs with the rules the oracle had.
         let oracle_rules: Vec<Box<dyn Rule>> = all_rules()
             .into_iter()
-            .filter(|rule| rule.name() != "chunk-length")
+            .filter(|rule| rule.name() != crate::mp4::chunks::CHUNK_RULE)
             .collect();
         for case in cases {
             let input = &case.input;
