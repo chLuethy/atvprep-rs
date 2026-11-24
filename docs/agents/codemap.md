@@ -35,7 +35,7 @@ Einstiegspunkte nach Modul und Konzept, nicht nach Funktion. Suche den Namen im 
 - **Job-Aktion.** `state_machine.rs`: `JobAction` (Prüfen, Analysieren, Vorbereiten, Scannen) kennt gespeicherte Formen (`stored`, `stored_forms`, auch die historischen `fix`/`convert`), den öffentlichen Namen (`public`, `from_public`) und `changes_files`. Vergleiche mit Aktionsnamen gehören hierher, nicht als String in den Aufrufer.
 - **Dateizustand.** `file_state.rs` entscheidet den Zustand einer Datei (Bereit, Einbettung offen, Warnung, …) an einer Stelle: SQL-Ausdruck `state_sql`, Rangfolge `RANKED`/`rank_sql`, Rust-Gegenstück `state_of`, dazu `is_preparable`. Filter, Sortierung, Spaltenansicht und Übersicht der API nutzen ihn; die Lese-API liefert `state` und `preparable` je Datei. Neuer Zustand: nur dort (Tabellentest) und in `frontend/src/features/files/filters.ts`.
 - **Test-Daten.** `rust/crates/atvprep-fixtures` ist der Builder für Tests (`Fixtures`: Mediathek, Datei mit Befund, Job, Zeitplan, Sidecar, Inspektion). Er legt über die Repositories des Managers an; rohes SQL (`Fixtures::sql`) ist die begründete Ausnahme für historische oder ungültige Zeilen.
-- **Migrationen.** `schema.rs` führt `migrations/000N_name.sql` der Reihe nach aus; `PRAGMA user_version` ist die Version. Neu: Datei anlegen, in `STAGES` anhängen, `VERSION` erhöhen.
+- **Migrationen.** `schema.rs` führt `migrations/000N_name.sql` der Reihe nach aus; `PRAGMA user_version` ist die Version. Neu: Datei anlegen, in `STAGES` anhängen, `VERSION` erhöhen. `0015_recheck_chunk_length.sql` setzt Kodierbedarf und Änderungsart bereits geprüfter Dateien (none, patch) auf unbekannt zurück, damit die Chunk-Prüfung sie neu bewertet (ADR 0010).
 
 ## Golden- und Oracle-Daten (`rust/testdata/golden`)
 
