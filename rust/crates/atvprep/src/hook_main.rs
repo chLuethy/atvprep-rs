@@ -26,6 +26,7 @@ pub fn run(
         tools: (env.make_tools)(),
         ffprobe: env.ffprobe.clone(),
         ffmpeg: env.ffmpeg.clone(),
+        mp4box: env.mp4box.clone(),
     };
     let code = run_hook(args, &mut ctx, stdout);
     ctx.reporter.finish();

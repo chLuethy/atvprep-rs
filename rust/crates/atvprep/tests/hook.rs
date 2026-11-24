@@ -21,8 +21,20 @@ fn source(name: &str) -> PathBuf {
 }
 
 fn hook(args: &[&Path], ffmpeg: Option<&str>) -> Run {
+    hook_with(args, ffmpeg, None)
+}
+
+/// Wie [`hook`]; `mp4box` ist der Rumpf eines Skripts, das `MP4Box` ersetzt (es bekommt
+/// `-inter 500 <Eingabe> -out <Ausgabe>`).
+fn hook_with(args: &[&Path], ffmpeg: Option<&str>, mp4box: Option<&str>) -> Run {
     let dir = tempfile::tempdir().unwrap();
     let mut env = Environment::from_process();
+    if let Some(body) = mp4box {
+        let tools = dir.path().join("tools");
+        std::fs::create_dir(&tools).unwrap();
+        atvprep_testkit::write_script(&tools.join("MP4Box"), format!("#!/bin/sh\n{body}\n"));
+        env.mp4box = env.mp4box.with_search_path(vec![tools]);
+    }
     env.ffmpeg = ffmpeg.map(|body| {
         let path = dir.path().join("ffmpeg");
         atvprep_testkit::write_script(&path, format!("#!/bin/sh\n{body}\n"));
@@ -132,12 +144,14 @@ fn ffmpeg_failures_map_to_their_exit_codes() {
         failing.stderr
     );
     assert!(failing.stderr.contains("Fehler (ffmpeg): "));
+    // MP4Box lehnt die fragmentierte Fixture ab; ein Ersatz, der nur kopiert, lässt den Lauf bis zur
+    // Prüfung der Ausgabe kommen.
     let fragmented = source("../mp4/syn_fragmented.mp4");
     let script = format!(
         "for last; do :; done\ncp '{}' \"$last\"",
         fragmented.display()
     );
-    let blocked = hook(&[&src, &dest], Some(&script));
+    let blocked = hook_with(&[&src, &dest], Some(&script), Some("cp \"$3\" \"$5\""));
     assert_eq!(
         (blocked.code, blocked.stdout.as_str()),
         (6, ""),

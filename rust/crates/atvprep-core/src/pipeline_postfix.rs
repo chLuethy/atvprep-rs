@@ -10,6 +10,7 @@ use crate::console::Console;
 use crate::ffprobe::Ffprobe;
 use crate::phase_timing::phase;
 use crate::postfix::{PostfixError, bring_into_compliance};
+use crate::prepare::chunks::Mp4Box;
 use crate::pyjson::dumps_indent2;
 use crate::stages::{Stage, StageReporter};
 use crate::verify::{VerifyReport, verify_file_in};
@@ -23,6 +24,8 @@ pub struct RunContext {
     pub ffprobe: Ffprobe,
     /// The ffmpeg program to run instead of the plan's `ffmpeg` (a test seam).
     pub ffmpeg: Option<PathBuf>,
+    /// Das `MP4Box` der Chunk-Stufe (Suchverzeichnisse sind eine Test-Naht).
+    pub mp4box: Mp4Box,
 }
 
 /// A free slot in `dir` for `name`: the name itself, else `<stem>-1<suffix>`, `-2`, ...
@@ -345,6 +348,7 @@ mod tests {
                     };
                     let mut ctx = RunContext {
                         ffmpeg: None,
+                        mp4box: Mp4Box::new(),
                         console,
                         reporter: StageReporter::new(Box::new(machine.clone()), false),
                         tools: Box::new(tools),
@@ -460,6 +464,7 @@ mod tests {
         let (console, printed) = Console::recording(false);
         let mut ctx = RunContext {
             ffmpeg: None,
+            mp4box: Mp4Box::new(),
             console,
             reporter: StageReporter::new(Box::new(SharedBuffer::default()), false),
             tools: Box::new(Recorded {

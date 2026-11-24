@@ -14,6 +14,7 @@ use atvprep_core::fd_fix_contract::FdFixTarget;
 use atvprep_core::ffprobe::Ffprobe;
 use atvprep_core::pipeline_postfix::RunContext;
 use atvprep_core::prepare::PrepareOptions;
+use atvprep_core::prepare::chunks::Mp4Box;
 use atvprep_core::prepare::pipeline::planned_change;
 use atvprep_core::stages::StageReporter;
 use atvprep_core::verify::verify_file;
@@ -25,6 +26,7 @@ fn context() -> RunContext {
         tools: Box::new(SystemTools::new()),
         ffprobe: Ffprobe::new(),
         ffmpeg: None,
+        mp4box: Mp4Box::new(),
     }
 }
 
