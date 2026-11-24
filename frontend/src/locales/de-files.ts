@@ -65,6 +65,7 @@ export const deFixPlan: Record<string, string | readonly [string, string]> = {
   "The check itself failed ({message}); check the file again": "Die Prüfung selbst ist fehlgeschlagen ({message}); Datei erneut prüfen",
   "Mark subtitle tracks as subtitles (sbtl)": "Untertitelspuren als Untertitel kennzeichnen (sbtl)",
   "Rewrite the file with the index at the front (faststart)": "Datei mit dem Index am Anfang neu schreiben (Faststart)",
+  "Rewrite the file with chunks of about half a second": "Datei mit Chunks von rund einer halben Sekunde neu schreiben",
   "Rewrite the fragmented file as a regular MP4": "Fragmentierte Datei als reguläre MP4 neu schreiben",
   "{message}. Only a re-encode changes this.": "{message}. Das ändert nur ein Re-Encode.",
   "{message}. Check the file again to see what Prepare plans.": "{message}. Prüfe die Datei erneut, um zu sehen, was Vorbereiten plant.",

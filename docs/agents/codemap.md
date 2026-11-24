@@ -21,6 +21,7 @@ Einstiegspunkte nach Modul und Konzept, nicht nach Funktion. Suche den Namen im 
 ## Kern (`rust/crates/atvprep-core/src`)
 
 - **Planer.** `planner.rs`: `build_plan` entscheidet pro Datei, was geschieht, und erzeugt die ffmpeg-Argumente (`video_args`, `audio_args`, `subtitle_args`).
+- **Chunk-Länge.** `mp4/chunks.rs` (`short_chunks`) liest nur das moov und nennt die Audio- und Video-Spuren, deren mittlere Chunk-Dauer unter 0,25 s liegt (ADR 0010). Daraus entstehen der Planer-Grund in `planner.rs` (`layout_reasons`, nie ein reiner Patch) und die Prüfregel `chunk-length` (Warnung, `compliance/rules.rs`).
 - **Audio-Analyse.** `analyzers.rs` (`analyze_audio`, dazu die Video- und Untertitel-Analyse) bewertet die Spuren, bevor der Planer plant.
 - **FFmpeg-Lauf.** `prepare/ffmpeg.rs` startet das geplante Kommando und liest dessen Fortschritt; `prepare/pipeline.rs` ordnet die Stufen, `stages.rs` definiert die Maschinenzeilen auf stdout.
 

@@ -361,9 +361,11 @@ mod tests {
                     .unwrap();
 
                     let want = &case.expected;
+                    // The oracle knows no chunk rule (#144).
                     let violations: Vec<Value> = report
                         .violations
                         .iter()
+                        .filter(|v| v.rule != "chunk-length")
                         .map(|v| json!([v.rule, v.severity.as_str(), v.message, v.track_id]))
                         .collect();
                     assert_eq!(
@@ -378,11 +380,24 @@ mod tests {
                         .map(|l| normalise(&l.replace("[blocker]", ""), base.path()))
                         .collect();
                     assert_eq!(json!(lines), want["printed"], "{name} printed");
-                    assert_eq!(
-                        json!(machine.lines()),
-                        want["machine"],
-                        "{name} machine lines"
-                    );
+                    // The progress steps follow the number of rules, which the chunk rule raised
+                    // (#144): the golden is compared without them, and they must only rise.
+                    let (progress, stages): (Vec<String>, Vec<String>) = machine
+                        .lines()
+                        .into_iter()
+                        .partition(|l| l.starts_with("ATVPREP-PROGRESS "));
+                    let steps: Vec<u32> = progress
+                        .iter()
+                        .map(|l| l["ATVPREP-PROGRESS ".len()..].parse().unwrap())
+                        .collect();
+                    assert!(steps.windows(2).all(|w| w[0] <= w[1]), "{name} progress");
+                    let wanted: Vec<&Value> = want["machine"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .filter(|l| !l.as_str().unwrap().starts_with("ATVPREP-PROGRESS "))
+                        .collect();
+                    assert_eq!(json!(stages), json!(wanted), "{name} machine lines");
 
                     let mut listing: Vec<String> = Vec::new();
                     let mut sidecars = serde_json::Map::new();

@@ -2,6 +2,7 @@
 
 pub mod atmos;
 pub mod boxes;
+pub mod chunks;
 pub mod copy;
 pub mod error;
 pub mod offsets;

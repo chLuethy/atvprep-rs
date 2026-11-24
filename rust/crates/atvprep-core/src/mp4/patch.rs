@@ -110,6 +110,20 @@ pub fn is_faststart(path: &Path) -> Result<bool> {
     Ok(matches!((moov, mdat), (Some(m), Some(d)) if m < d))
 }
 
+/// The moov of `path` as bytes, header included; `None` when the file has none. Nothing else of the
+/// file is read, so the media data stays untouched.
+///
+/// # Errors
+///
+/// I/O errors, or a moov in a form the patcher does not handle.
+pub fn read_moov_of(path: &Path) -> Result<Option<Vec<u8>>> {
+    let mut file = File::open(path)?;
+    let Some(layout) = locate(&mut file)? else {
+        return Ok(None);
+    };
+    read_moov(&mut file, &layout).map(Some)
+}
+
 /// Track IDs of the `QuickTime` chapter tracks: those another track names in `tref/chap`.
 ///
 /// A chapter track carries the `text` handler and is no subtitle; `AVFoundation` reads chapters only

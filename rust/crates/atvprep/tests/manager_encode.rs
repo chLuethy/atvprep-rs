@@ -81,9 +81,10 @@ fn high10(path: &Path) {
     std::fs::copy(testdata("high10.mp4"), path).unwrap();
 }
 
-/// Already at the target: left alone unless a rebuild is forced.
+/// Already at the target: left alone unless a rebuild is forced. `clean_chunks.mp4` is `clean.mp4`
+/// with the chunks of half a second `MP4Box` writes (#144); the chunks of `clean.mp4` are too short.
 fn at_target(path: &Path) {
-    std::fs::copy(testdata("clean.mp4"), path).unwrap();
+    std::fs::copy(testdata("clean_chunks.mp4"), path).unwrap();
 }
 
 /// Only needs its moov moved: no encoding at all.
@@ -92,7 +93,7 @@ fn only_remux(path: &Path) {
 }
 
 fn clean(path: &Path) {
-    std::fs::copy(testdata("clean.mp4"), path).unwrap();
+    std::fs::copy(testdata("clean_chunks.mp4"), path).unwrap();
 }
 
 fn mkv_movie(path: &Path) {
