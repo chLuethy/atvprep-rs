@@ -14,7 +14,7 @@ use atvprep_core::hook::run_hook;
 use atvprep_core::pipeline_postfix::RunContext;
 use atvprep_core::prepare::chunks::Mp4Box;
 use atvprep_core::prepare::pipeline::prepare_file;
-use atvprep_core::prepare::{ErrorKind, PrepareOptions};
+use atvprep_core::prepare::{ErrorKind, Outcome, PrepareOptions};
 use atvprep_core::stages::StageReporter;
 use serde_json::{Value, json};
 
@@ -393,10 +393,13 @@ fn assert_same(name: &str, what: &str, before: &[String], after: &[String]) {
             .cloned()
             .collect::<Vec<_>>()
     };
+    let first = before.iter().zip(after).position(|(a, b)| a != b);
     panic!(
-        "{name}: {what} differs\n only before: {:#?}\n only after: {:#?}",
+        "{name}: {what} differs\n only before: {:#?}\n only after: {:#?}\n first difference at {first:?}: {:?} / {:?}",
         only(before, after),
-        only(after, before)
+        only(after, before),
+        first.map(|i| &before[i]),
+        first.map(|i| &after[i]),
     );
 }
 
@@ -486,4 +489,304 @@ fn short_track_titles_are_cleared_by_mp4box() {
         "{}",
         runs[1].console.contents()
     );
+}
+
+/// Zwölf Sekunden H.264 und AAC-Stereo mit 48 kHz, wie ffmpeg sie mit Standardeinstellungen schreibt
+/// (Chunks von ein bis zwei Samples). Sonst bereit für Apple TV: der einzige Mangel ist die
+/// Chunk-Länge. `audio_title` setzt einen Spurtitel (der Rest bleibt gleich).
+fn only_short_chunks(dir: &Path, audio_title: Option<&str>) -> PathBuf {
+    let path = dir.join("Film.mp4");
+    let raw = dir.join("Raw.mp4");
+    let title = audio_title.map(|t| format!("title={t}"));
+    let mut args = vec![
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc=size=320x240:rate=25",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=440:sample_rate=48000",
+        "-t",
+        "12",
+        "-map",
+        "0:v",
+        "-map",
+        "1:a",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-profile:v",
+        "high",
+        "-c:a",
+        "aac",
+        "-ac",
+        "2",
+        "-metadata:s:v:0",
+        "language=deu",
+        "-metadata:s:a:0",
+        "language=deu",
+        "-disposition:a:0",
+        "default",
+        "-movflags",
+        "+faststart",
+    ];
+    if let Some(title) = &title {
+        args.extend(["-metadata:s:a:0", title]);
+    }
+    args.push(raw.to_str().unwrap());
+    ffmpeg(&args);
+    // Wie eine bestehende Zieldatei von Vorbereiten ohne Chunk-Stufe: ffmpeg und moov-Patch (Tags,
+    // elng), Chunks von ein bis zwei Samples.
+    let mut before_mp4box = run(false);
+    let options = PrepareOptions {
+        output: Some(path.clone()),
+        mp4box_required: false,
+        ..all_audio()
+    };
+    let made = prepare_file(&mut before_mp4box.ctx, &raw, &options, None).unwrap();
+    assert_eq!(made.error, None);
+    std::fs::remove_file(&raw).unwrap();
+    path
+}
+
+/// Ein ffmpeg, das nicht laufen darf: er hinterlässt eine Marke und scheitert.
+fn forbid_ffmpeg(r: &mut Run) -> PathBuf {
+    let marker = r.base.join("ffmpeg-ran");
+    let fake = r.base.join("fake-ffmpeg");
+    atvprep_testkit::write_script(
+        &fake,
+        format!("#!/bin/sh\ntouch '{}'\nexit 1\n", marker.display()),
+    );
+    r.ctx.ffmpeg = Some(fake);
+    marker
+}
+
+fn name_lines(lines: Vec<String>) -> Vec<String> {
+    lines
+        .into_iter()
+        .filter(|l| !l.contains("\"name\":") && !l.contains("es_id ="))
+        .collect()
+}
+
+#[test]
+fn a_file_with_only_short_chunks_is_rewritten_by_mp4box_alone() {
+    needs_mp4box!();
+    let mut r = run(true);
+    let source = only_short_chunks(&r.base, None);
+    let marker = forbid_ffmpeg(&mut r);
+    // MP4Box ordnet Kinder derselben Box anders (stss/ctts); der Inhalt zählt, nicht die Reihenfolge.
+    let sorted = |mut lines: Vec<String>| {
+        lines.sort();
+        lines
+    };
+    let before = (
+        name_lines(pretty(&fingerprint(&source))),
+        sorted(name_lines(moov_outline(&source))),
+    );
+    let means = mean_chunk_seconds(&source);
+    assert!(means.iter().all(|(_, mean)| *mean < 0.25), "{means:?}");
+
+    let result = prepare_file(&mut r.ctx, &source, &all_audio(), None).unwrap();
+
+    assert_eq!(result.error, None, "{}", r.console.contents());
+    assert!(result.ok());
+    assert_eq!(result.outcome, Outcome::Rebuilt);
+    assert!(!marker.exists(), "ffmpeg must not run for the chunks alone");
+    for (kind, mean) in mean_chunk_seconds(&source) {
+        assert!((0.4..=0.6).contains(&mean), "{kind}: mean {mean:.3} s");
+    }
+    // Streams, Tags, Dispositionen und das moov bleiben, wie sie waren.
+    assert_same(
+        "only-chunks",
+        "ffprobe",
+        &before.0,
+        &name_lines(pretty(&fingerprint(&source))),
+    );
+    assert_same(
+        "only-chunks",
+        "moov",
+        &before.1,
+        &sorted(name_lines(moov_outline(&source))),
+    );
+    // Danach meldet Prüfen keinen Mangel mehr, und das Original hat keine Reste hinterlassen.
+    let report = result.report.expect("report");
+    assert!(
+        report.violations.iter().all(|v| v.rule != "chunk-length"),
+        "{:?}",
+        report.violations
+    );
+    let leftovers: Vec<_> = std::fs::read_dir(&r.base)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .filter(|n| n.starts_with(".tmp"))
+        .collect();
+    assert!(leftovers.is_empty(), "{leftovers:?}");
+}
+
+#[test]
+fn the_chunks_only_run_shows_the_chunk_stage_and_no_encode_stage() {
+    needs_mp4box!();
+    let mut r = run(true);
+    let source = only_short_chunks(&r.base, None);
+    forbid_ffmpeg(&mut r);
+    prepare_file(&mut r.ctx, &source, &all_audio(), None).unwrap();
+    let lines = r.machine.lines();
+    let stages: Vec<&str> = lines
+        .iter()
+        .filter_map(|l| l.strip_prefix("ATVPREP-STAGE "))
+        .collect();
+    assert_eq!(stages, ["chunks", "finalize", "verify"], "{lines:?}");
+    let percents: Vec<u32> = lines
+        .iter()
+        .filter_map(|l| l.strip_prefix("ATVPREP-PROGRESS ")?.parse().ok())
+        .collect();
+    assert!(percents.windows(2).all(|w| w[0] <= w[1]), "{percents:?}");
+    assert!(percents.len() > 3, "{percents:?}");
+}
+
+#[test]
+fn the_chunks_only_run_needs_no_encode_allowance() {
+    needs_mp4box!();
+    let mut r = run(true);
+    let source = only_short_chunks(&r.base, None);
+    let options = PrepareOptions {
+        encode: EncodeAllowance::Copy,
+        ..PrepareOptions::default()
+    };
+    let result = prepare_file(&mut r.ctx, &source, &options, None).unwrap();
+    assert_eq!(result.outcome, Outcome::Rebuilt, "{result:?}");
+    assert!(result.encode_refusal.is_none());
+}
+
+#[test]
+fn a_chunks_only_run_to_an_output_leaves_the_source_alone() {
+    needs_mp4box!();
+    let mut r = run(true);
+    let source = only_short_chunks(&r.base, None);
+    forbid_ffmpeg(&mut r);
+    let before = sha(&source);
+    let out = r.base.join("out.mp4");
+    let options = PrepareOptions {
+        output: Some(out.clone()),
+        ..all_audio()
+    };
+    let result = prepare_file(&mut r.ctx, &source, &options, None).unwrap();
+    assert_eq!(result.outcome, Outcome::Rebuilt, "{result:?}");
+    assert_eq!(sha(&source), before);
+    for (kind, mean) in mean_chunk_seconds(&out) {
+        assert!((0.4..=0.6).contains(&mean), "{kind}: mean {mean:.3} s");
+    }
+}
+
+#[test]
+fn a_dry_run_of_a_chunks_only_file_writes_nothing() {
+    let mut r = run(true);
+    let source = only_short_chunks(&r.base, None);
+    let before = sha(&source);
+    let options = PrepareOptions {
+        dry_run: true,
+        ..all_audio()
+    };
+    let result = prepare_file(&mut r.ctx, &source, &options, None).unwrap();
+    assert_eq!(result.outcome, Outcome::Planned);
+    assert_eq!(sha(&source), before);
+}
+
+#[test]
+fn without_mp4box_a_chunks_only_item_fails_clearly_and_leaves_the_file() {
+    let mut r = run(false);
+    let source = only_short_chunks(&r.base, None);
+    let marker = forbid_ffmpeg(&mut r);
+    let before = sha(&source);
+    let result = prepare_file(&mut r.ctx, &source, &all_audio(), None).unwrap();
+    assert_eq!(result.error_kind, Some(ErrorKind::Mp4box));
+    assert!(result.error.unwrap().contains("MP4Box"));
+    assert!(!marker.exists());
+    assert_eq!(sha(&source), before);
+}
+
+#[test]
+fn without_mp4box_the_hook_style_run_warns_and_leaves_a_chunks_only_file() {
+    let mut r = run(false);
+    let source = only_short_chunks(&r.base, None);
+    let marker = forbid_ffmpeg(&mut r);
+    let before = sha(&source);
+    let options = PrepareOptions {
+        mp4box_required: false,
+        ..all_audio()
+    };
+    let result = prepare_file(&mut r.ctx, &source, &options, None).unwrap();
+    assert_eq!(result.error, None);
+    assert_eq!(result.outcome, Outcome::Done, "{result:?}");
+    assert!(r.console.contents().contains("MP4Box"));
+    assert!(!marker.exists());
+    assert_eq!(sha(&source), before);
+}
+
+/// Bekannte Lücke (Ticket #143, offen), im Nur-MP4Box-Pfad (#145): liest `MP4Box` die Datei nur mit
+/// `-no-check`, weil ein Spurtitel unter vier Zeichen hat, löscht es diese Titel; der moov-Patch
+/// stellt sie nicht wieder her. Der Test hält den Ist-Stand fest; ändert er sich, ist die Lücke zu.
+#[test]
+fn short_track_titles_are_cleared_by_the_chunks_only_run_too() {
+    needs_mp4box!();
+    let mut r = run(true);
+    let source = only_short_chunks(&r.base, Some("DEU"));
+    let titled = |path: &Path| {
+        pretty(&fingerprint(path))
+            .iter()
+            .any(|l| l.contains("\"name\": \"DEU\""))
+    };
+    assert!(titled(&source));
+    let result = prepare_file(&mut r.ctx, &source, &all_audio(), None).unwrap();
+    assert_eq!(result.error, None, "{}", r.console.contents());
+    assert!(!titled(&source));
+    assert!(
+        r.console.contents().contains("-no-check"),
+        "{}",
+        r.console.contents()
+    );
+}
+
+/// Atmos-Signalisierung, Tags, Sprachen, Untertitel und Kapitel bleiben im Nur-MP4Box-Pfad.
+fn assert_chunks_only_changes_nothing_else(name: &str) {
+    needs_mp4box!();
+    // Die Datei, wie Vorbereiten sie ohne Chunk-Stufe schrieb: ffmpeg, moov-Patch, kurze Chunks.
+    let (plain, _chunked, _runs) = produce_both(name);
+    let mut r = run(true);
+    let source = r.base.join("Film.mp4");
+    std::fs::copy(&plain, &source).unwrap();
+    let marker = forbid_ffmpeg(&mut r);
+    let sorted = |mut lines: Vec<String>| {
+        lines.sort();
+        lines
+    };
+    let before = (
+        name_lines(pretty(&fingerprint(&source))),
+        sorted(name_lines(moov_outline(&source))),
+    );
+    let result = prepare_file(&mut r.ctx, &source, &all_audio(), None).unwrap();
+    assert_eq!(result.error, None, "{name}: {}", r.console.contents());
+    assert_eq!(result.outcome, Outcome::Rebuilt, "{name}");
+    assert!(!marker.exists(), "{name}: ffmpeg ran");
+    assert_same(
+        name,
+        "ffprobe",
+        &before.0,
+        &name_lines(pretty(&fingerprint(&source))),
+    );
+    assert_same(
+        name,
+        "moov",
+        &before.1,
+        &sorted(name_lines(moov_outline(&source))),
+    );
+}
+
+#[test]
+fn atmos_and_tags_survive_the_chunks_only_run() {
+    assert_chunks_only_changes_nothing_else("atmos_dec3.mp4");
+    assert_chunks_only_changes_nothing_else("chapters.mp4");
+    assert_chunks_only_changes_nothing_else("stereo_surround_subs.mp4");
 }

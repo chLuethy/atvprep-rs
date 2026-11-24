@@ -30,7 +30,7 @@ use crate::mp4::tags::{PatchSummary, SubInfo};
 use crate::output::{patch_summary_lines, plan_table, stream_plan, verify_atmos_in_output};
 use crate::phase_timing::phase;
 use crate::pipeline_postfix::{RunContext, finalize_output};
-use crate::planner::{PlanOptions, RateChange, build_plan, rate_changes};
+use crate::planner::{PlanOptions, RateChange, build_plan, only_chunk_reasons, rate_changes};
 use crate::postfix::bring_into_compliance;
 use crate::probe_helpers::{ProbeContext, is_atmos_audio, subtitle_infos};
 use crate::stages::Stage;
@@ -432,7 +432,7 @@ fn encode(
         }
     }
     if chunks {
-        step_rechunk(ctx, tmp)?;
+        step_rechunk(ctx, tmp, tmp)?;
     }
     let infos: Vec<SubInfo> = plan
         .sub_tracks
@@ -446,6 +446,37 @@ fn encode(
         ctx.console.print(&format!("  ! {warning}"));
     }
     Ok(finalize_output(ctx, tmp, atmos > 0, None, options.verbose)?)
+}
+
+/// A file whose only reason is the chunk length: ffmpeg does not run, `MP4Box` regroups the chunks
+/// and the streams stay as they are (#145). `None` when `MP4Box` is missing and the run only warns.
+fn rechunk_only(
+    ctx: &mut RunContext,
+    options: &PrepareOptions,
+    source: &Path,
+    probe: &Value,
+    tmp: &Path,
+) -> Step<Option<VerifyReport>> {
+    if !chunk_stage_available(ctx, options)? {
+        return Ok(None);
+    }
+    ctx.reporter.begin_file(false);
+    step_rechunk(ctx, source, tmp)?;
+    step_patch_media(
+        ctx,
+        tmp,
+        &subtitle_infos(probe),
+        None,
+        options.verbose,
+        true,
+    )?;
+    Ok(Some(finalize_output(
+        ctx,
+        tmp,
+        has_atmos(probe),
+        None,
+        options.verbose,
+    )?))
 }
 
 /// Ob die Chunk-Stufe läuft. Fehlt `MP4Box`, scheitert der Lauf (Manager, CLI) oder warnt und liefert
@@ -464,18 +495,19 @@ fn chunk_stage_available(ctx: &mut RunContext, options: &PrepareOptions) -> Step
     Ok(false)
 }
 
-/// `chunks` stage: `MP4Box` writes `tmp` again with chunks of half a second and replaces it.
-fn step_rechunk(ctx: &mut RunContext, tmp: &Path) -> Step<()> {
+/// `chunks` stage: `MP4Box` reads `input`, writes it again with chunks of half a second and puts the
+/// result at `output` (the same file for an ffmpeg output, a temporary copy for a source).
+fn step_rechunk(ctx: &mut RunContext, input: &Path, output: &Path) -> Step<()> {
     ctx.reporter.stage(Stage::Chunks);
-    let _timing = phase("mp4box", Some(tmp));
-    let rewritten = tmp.with_file_name(temp_name(&stem_of(tmp), "chunks."));
+    let _timing = phase("mp4box", Some(output));
+    let rewritten = output.with_file_name(temp_name(&stem_of(output), "chunks."));
     let reporter = &mut ctx.reporter;
     let outcome = ctx
         .mp4box
-        .rechunk(tmp, &rewritten, &mut |done| reporter.update(done))
+        .rechunk(input, &rewritten, &mut |done| reporter.update(done))
         .map_err(|error| failed(ErrorKind::Mp4box, error.to_string()))
         .and_then(|done| {
-            std::fs::rename(&rewritten, tmp).map_err(|error| {
+            std::fs::rename(&rewritten, output).map_err(|error| {
                 failed(
                     ErrorKind::Mp4box,
                     format!("could not replace the output with the MP4Box result: {error}"),
@@ -660,6 +692,11 @@ fn refused_result(source: &Path, assessment: &Assessment, refusal: EncodeRefusal
     }
 }
 
+/// The only reason is the chunk length: no ffmpeg run, no encoding (#145).
+fn chunks_only(assessment: &Assessment) -> bool {
+    assessment.level == Level::Rebuild && only_chunk_reasons(&assessment.reasons)
+}
+
 fn rebuilt_or_reencoded(level: Level) -> Outcome {
     if level == Level::Rebuild {
         Outcome::Rebuilt
@@ -702,6 +739,25 @@ fn run_level(
         return Ok(finish(Outcome::Patched, Some(report)));
     }
     let tmp = temp_path(source, target)?;
+    if chunks_only(assessment) {
+        if options.dry_run {
+            return Ok(finish(Outcome::Planned, None));
+        }
+        run.temps.push(tmp.clone());
+        let Some(report) = rechunk_only(ctx, options, source, &analysis.probe, &tmp)? else {
+            return Ok(finish(Outcome::Done, None));
+        };
+        settle_report(
+            ctx,
+            &name_of(source),
+            options,
+            &tmp,
+            &report,
+            run.quarantine,
+        )?;
+        target.replace_from(&name_of(&tmp))?;
+        return Ok(finish(Outcome::Rebuilt, Some(report)));
+    }
     let plan = match allowed_plan(ctx, options, source, &tmp, analysis)? {
         Ok(plan) => plan,
         Err(refusal) => return Ok(refused_result(source, assessment, refusal)),
@@ -783,7 +839,8 @@ fn run_to_output(
     let assessment = &analysis.assessment;
     let level = assessment.level;
     let tmp = output.with_file_name(temp_name(&stem_of(output), ""));
-    let plan = if matches!(level, Level::Rebuild | Level::Reencode) {
+    let rechunk = chunks_only(assessment);
+    let plan = if !rechunk && matches!(level, Level::Rebuild | Level::Reencode) {
         match allowed_plan(ctx, options, source, &tmp, analysis)? {
             Ok(plan) => Some(plan),
             Err(refusal) => return Ok(refused_result(source, assessment, refusal)),
@@ -808,7 +865,14 @@ fn run_to_output(
         })?;
     }
     run.temps.push(tmp.clone());
-    let (report, outcome) = if let Some(plan) = &plan {
+    let rechunked = if rechunk {
+        rechunk_only(ctx, options, source, &analysis.probe, &tmp)?
+    } else {
+        None
+    };
+    let (report, outcome) = if let Some(report) = rechunked {
+        (report, Outcome::Rebuilt)
+    } else if let Some(plan) = &plan {
         let report = encode(ctx, options, source, analysis, &tmp, plan)?;
         (report, rebuilt_or_reencoded(level))
     } else {
@@ -865,6 +929,8 @@ fn planned(ctx: &mut RunContext, run: &mut Run, target: &FdFixTarget) -> Step<Pl
     let analysis = analyse(ctx, run, &subject)?;
     let need = match analysis.assessment.level {
         Level::None | Level::InPlace => EncodeNeed::None,
+        // Only the chunks: MP4Box alone, the streams stay (#145).
+        Level::Rebuild if chunks_only(&analysis.assessment) => EncodeNeed::None,
         Level::Rebuild | Level::Reencode => {
             let tmp = temp_path(&subject, subject_target)?;
             EncodeNeed::of_plan(&plan_for(ctx, options, &subject, &tmp, &analysis)?)
