@@ -282,6 +282,11 @@ mod tests {
         let texts = texts();
         let cases = load_golden::<Input, Value>("verify");
         assert!(cases.len() >= 30);
+        // The oracle knows no chunk rule (#144): it runs with the rules the oracle had.
+        let oracle_rules: Vec<Box<dyn Rule>> = all_rules()
+            .into_iter()
+            .filter(|rule| rule.name() != "chunk-length")
+            .collect();
         for case in cases {
             let input = &case.input;
             let tools = recorded(&texts, input);
@@ -290,7 +295,7 @@ mod tests {
                 let path = fixture_path(input.file.as_deref().unwrap());
                 let mut calls = Vec::new();
                 let mut on_rule = |done: usize, total: usize| calls.push([done, total]);
-                let report = verify_file(&path, &tools, None, Some(&mut on_rule));
+                let report = verify_file(&path, &tools, Some(&oracle_rules), Some(&mut on_rule));
                 assert_eq!(
                     violations_json(&report),
                     case.expected["violations"],
@@ -324,7 +329,8 @@ mod tests {
                     duplicates: BTreeSet::new(),
                 };
                 let root = dir.path().join(layout["root"].as_str().unwrap());
-                let reports = verify_tree(&root, &tools, Some(&extensions));
+                let reports =
+                    verify_tree_with(&root, &tools, Some(&extensions), Some(&oracle_rules));
                 let actual: Vec<Value> = reports
                     .iter()
                     .map(|r| {
@@ -361,7 +367,7 @@ mod tests {
             None,
             Some(&mut on_rule),
         );
-        assert_eq!(calls, 13, "progress counts every rule");
+        assert_eq!(calls, 14, "progress counts every rule");
         let crashed: Vec<&Violation> = report
             .violations
             .iter()

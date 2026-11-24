@@ -64,6 +64,7 @@ function changeFor(reason: ParsedReason, planned: boolean): Change | null {
     case "duplicate-audio": return { kind: "remux", rule, text: t("Drop the duplicate audio track") };
     case "video-reencode": return { kind: "reencode", rule, text: t("Re-encode the video to HEVC (lossy, needs confirmation)") };
     case "fast-start": return { kind: "remux", rule, text: t("Rewrite the file with the index at the front (faststart)") };
+    case "chunk-length": return { kind: "remux", rule, text: t("Rewrite the file with chunks of about half a second") };
     case "no-fragments": return { kind: "remux", rule, text: t("Rewrite the fragmented file as a regular MP4") };
     // What Prepare does about it, the planner says in a step of its own; without one nothing here guesses.
     case "audio-sample-rate":

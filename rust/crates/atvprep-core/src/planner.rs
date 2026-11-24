@@ -14,6 +14,7 @@ use crate::encode::PlanStep;
 use crate::ffprobe::Ffprobe;
 use crate::ffprobe::Prober;
 use crate::models::{AudioAction, AudioTrack, Plan, SubAction, VideoAction, VideoInfo};
+use crate::mp4::chunks::{MIN_MEAN_CHUNK_MS, ShortChunks, short_chunks};
 use crate::mp4::patch::is_faststart;
 use crate::postfix::read_ftyp;
 use crate::probe_helpers::{
@@ -534,6 +535,12 @@ fn layout_reasons(
     {
         reasons.push(format!("negative initial video DTS ({dts})"));
     }
+    // Chunks of a sample or two (ffmpeg's default) stutter on Apple TV; a patch cannot regroup them.
+    if let Ok(short) = short_chunks(infile)
+        && !short.is_empty()
+    {
+        reasons.push(chunk_reason(&short));
+    }
     // Blockers only a remux can fix: postfix cannot defragment or add dby1.
     if is_fragmented(infile).unwrap_or(false) {
         reasons.push("fragmented mp4 (mvex in moov)".to_owned());
@@ -545,6 +552,27 @@ fn layout_reasons(
         reasons.push("Atmos audio but ftyp lacks dby1".to_owned());
     }
     reasons
+}
+
+/// The reason a file with too short chunks gets: the tracks and how long their chunks are.
+fn chunk_reason(short: &[ShortChunks]) -> String {
+    let tracks: Vec<String> = short
+        .iter()
+        .map(|s| {
+            format!(
+                "{} track {}: {} chunks, mean {} ms",
+                s.kind(),
+                s.track_id,
+                s.chunks,
+                s.mean_ms
+            )
+        })
+        .collect();
+    format!(
+        "chunks too short for Apple TV ({}; at least {} ms wanted)",
+        tracks.join("; "),
+        MIN_MEAN_CHUNK_MS
+    )
 }
 
 fn streams_of_kind(probe: &Value, kind: &str) -> Vec<Value> {
@@ -726,7 +754,8 @@ fn subtitle_reasons(probe: &Value) -> Vec<String> {
 /// would produce and is safe to skip.
 ///
 /// With `ctx` its cached `is_faststart` and DTS are used; without it the file is read here. Checked:
-/// the container is mp4/mov, the moov precedes the mdat, the file is not fragmented, Atmos audio
+/// the container is mp4/mov, the moov precedes the mdat, the chunks are not shorter than a quarter
+/// second on average (moov only, ADR 0010), the file is not fragmented, Atmos audio
 /// implies `dby1`, the first video DTS is not negative (only with `fix_dts`), the planner keeps
 /// every audio stream, every language has a stereo track, no stream duplicates an earlier one, no
 /// codec needs an E-AC-3 transcode, audio has a language and a default, subtitles are `mov_text`

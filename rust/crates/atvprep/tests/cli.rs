@@ -95,7 +95,8 @@ fn exit_codes_follow_the_policy() {
         (vec!["verify", broken_arg], 1),
         (vec!["verify", warned_arg], 0),
         (vec!["verify", "--fail-on", "warning", warned_arg], 1),
-        (vec!["verify", "--fail-on", "warning", clean_arg], 0),
+        // The fixture's chunks are a sample or two long (#144): a warning, no longer clean.
+        (vec!["verify", "--fail-on", "warning", clean_arg], 1),
         (vec!["verify", "--scan", clean_arg], 0),
         (vec!["verify"], 2),
         (vec!["verify", "/definitely/not/here"], 2),
@@ -161,6 +162,18 @@ fn abbreviated_long_options_are_accepted() {
     );
 }
 
+/// The plan names a temporary file with a random suffix (the chunks of the fixture make it a
+/// rebuild, #144): cut the name out.
+fn without_temp_name(text: &str) -> String {
+    let Some(start) = text.find(".tmp_fixmeta_") else {
+        return text.to_owned();
+    };
+    let end = text[start..]
+        .find(".mp4")
+        .map_or(text.len(), |at| start + at);
+    format!("{}<temp>{}", &text[..start], &text[end..])
+}
+
 #[test]
 fn fix_and_convert_are_aliases_of_prepare() {
     let dir = tempfile::tempdir().unwrap();
@@ -171,7 +184,7 @@ fn fix_and_convert_are_aliases_of_prepare() {
         .map(|name| {
             let got = invoke(&[name, "-n", arg], "", false);
             assert_eq!(got.code, 0, "{name}: {}{}", got.out, got.err);
-            got.out
+            without_temp_name(&got.out)
         })
         .collect();
     assert_eq!(outputs[0], outputs[1]);

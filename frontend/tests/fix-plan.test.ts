@@ -46,6 +46,7 @@ describe("expectedChanges: what a fix does for each verify reason", () => {
 
   it("remuxes the file for layout problems a patch cannot fix", () => {
     expect(changes("[warning] fast-start: moov atom appears after mdat")[0]).toMatchObject({ kind: "remux", text: "Rewrite the file with the index at the front (faststart)" });
+    expect(changes("[warning] chunk-length: video track 1 has 499 chunks of 40 ms on average")[0]).toMatchObject({ kind: "remux", rule: "chunk-length", text: "Rewrite the file with chunks of about half a second" });
     expect(changes("[blocker] no-fragments: fragmented MP4")[0]).toMatchObject({ kind: "remux", text: "Rewrite the fragmented file as a regular MP4" });
   });
 

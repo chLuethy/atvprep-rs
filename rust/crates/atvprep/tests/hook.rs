@@ -245,7 +245,8 @@ fn success_prints_only_the_media_file_line_on_stdout() {
 
 #[test]
 fn a_destination_equal_to_a_clean_source_prints_the_source() {
-    let (_dir, src) = staged("clean.mp4", "Film.mp4");
+    // `clean_chunks.mp4`: `clean.mp4` with chunks of half a second; the chunks of `clean.mp4` are too short (#144).
+    let (_dir, src) = staged("clean_chunks.mp4", "Film.mp4");
     let before = std::fs::read(&src).unwrap();
     let run = hook(&[&src, &src], None);
     assert_eq!(run.code, 0, "{}", run.stderr);
