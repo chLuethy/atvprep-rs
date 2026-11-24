@@ -318,6 +318,7 @@ mod tests {
             tools: Box::new(atvprep_core::compliance::SystemTools::new()),
             ffprobe: atvprep_core::ffprobe::Ffprobe::new(),
             ffmpeg: None,
+            mp4box: atvprep_core::prepare::chunks::Mp4Box::new(),
         };
         (ctx, printed)
     }

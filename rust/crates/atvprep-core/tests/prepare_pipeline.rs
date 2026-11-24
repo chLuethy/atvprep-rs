@@ -14,6 +14,7 @@ use atvprep_core::encode::{EncodeAllowance, PlanStep};
 use atvprep_core::fd_fix_contract::FdFixTarget;
 use atvprep_core::ffprobe::Ffprobe;
 use atvprep_core::pipeline_postfix::RunContext;
+use atvprep_core::prepare::chunks::Mp4Box;
 use atvprep_core::prepare::pipeline::{PrepareError, planned_change, prepare_file};
 use atvprep_core::prepare::{ErrorKind, PrepareOptions, PrepareResult};
 use atvprep_core::stages::StageReporter;
@@ -237,6 +238,7 @@ fn run_case(name: &str, variant: &str) -> Value {
         tools: Box::new(SystemTools::new()),
         ffprobe: Ffprobe::new(),
         ffmpeg: Some(ffmpeg),
+        mp4box: Mp4Box::new(),
     };
     let target = matches!(variant, "target" | "quarantine_target")
         .then(|| FdFixTarget::for_path(&source).unwrap());
@@ -315,7 +317,12 @@ fn stable_machine(value: Value) -> Value {
             }
         }
         if text.starts_with("ATVPREP-STAGE ") {
-            encoding = text == "ATVPREP-STAGE encode";
+            encoding = text == "ATVPREP-STAGE encode" || text == "ATVPREP-STAGE chunks";
+            // Die Chunk-Stufe (ADR 0010) kennt das Altsystem nicht; ihre Fortschrittszeilen sind wie
+            // die der Kodierung nur Stichproben.
+            if text == "ATVPREP-STAGE chunks" {
+                continue;
+            }
             result.push(line.clone());
             if text == "ATVPREP-STAGE finalize" && encode_reached_90 {
                 result.push(Value::String("ATVPREP-PROGRESS 90".into()));
@@ -436,12 +443,22 @@ fn fixture(name: &str, script: Option<&str>) -> Fixture {
         atvprep_testkit::write_script(&path, format!("#!/bin/sh\n{body}\n"));
         path
     });
+    // Ein erfundenes ffmpeg schreibt Dateien, die MP4Box ablehnen kann; das Ersatz-MP4Box kopiert nur.
+    let mp4box = if ffmpeg.is_some() {
+        let tools = base.join("fake-tools");
+        std::fs::create_dir(&tools).unwrap();
+        atvprep_testkit::write_script(&tools.join("MP4Box"), "#!/bin/sh\ncp \"$3\" \"$5\"\n");
+        Mp4Box::new().with_search_path(vec![tools])
+    } else {
+        Mp4Box::new()
+    };
     let ctx = RunContext {
         console: Console::recording(false).0,
         reporter: StageReporter::new(Box::new(SharedBuffer::default()), false),
         tools: Box::new(SystemTools::new()),
         ffprobe: Ffprobe::new(),
         ffmpeg,
+        mp4box,
     };
     Fixture {
         _dir: dir,
