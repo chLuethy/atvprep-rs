@@ -90,7 +90,7 @@ pub fn run_hook(args: &[OsString], ctx: &mut RunContext, stdout: &mut dyn Write)
         extra_sidecars: destination_sidecars(&dest),
         encode: EncodeAllowance::Audio,
         delete_original: false,
-        // Ein Import scheitert nie an einem nicht aktualisierten Image (ADR 0010).
+        // An import never fails on an image that was not updated (ADR 0010).
         mp4box_required: false,
         ..PrepareOptions::default()
     };

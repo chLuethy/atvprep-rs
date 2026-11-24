@@ -24,7 +24,7 @@ pub struct RunContext {
     pub ffprobe: Ffprobe,
     /// The ffmpeg program to run instead of the plan's `ffmpeg` (a test seam).
     pub ffmpeg: Option<PathBuf>,
-    /// Das `MP4Box` der Chunk-Stufe (Suchverzeichnisse sind eine Test-Naht).
+    /// The `MP4Box` of the chunk stage (the search directories are a test seam).
     pub mp4box: Mp4Box,
 }
 
@@ -369,7 +369,7 @@ mod tests {
                     let violations: Vec<Value> = report
                         .violations
                         .iter()
-                        .filter(|v| v.rule != "chunk-length")
+                        .filter(|v| v.rule != crate::mp4::chunks::CHUNK_RULE)
                         .map(|v| json!([v.rule, v.severity.as_str(), v.message, v.track_id]))
                         .collect();
                     assert_eq!(

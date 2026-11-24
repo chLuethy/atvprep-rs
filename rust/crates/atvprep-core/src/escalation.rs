@@ -251,7 +251,7 @@ mod tests {
         struct Ignored {}
 
         fn is_chunk_reason(reason: &str) -> bool {
-            reason.starts_with("chunks too short")
+            crate::mp4::chunks::is_chunk_reason(reason)
         }
 
         struct Recorded {

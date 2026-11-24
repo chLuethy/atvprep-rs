@@ -14,6 +14,25 @@ use super::patch::read_moov_of;
 /// The chunk duration `MP4Box` is asked for, in milliseconds.
 pub const TARGET_CHUNK_MS: u32 = 500;
 
+/// Id of the compliance rule that reports chunks that are too short.
+pub const CHUNK_RULE: &str = "chunk-length";
+
+/// Start of the plan reason a file with chunks that are too short gets.
+pub const CHUNK_REASON: &str = "chunks too short for Apple TV";
+
+/// Whether `reason` is the plan reason for chunks that are too short.
+#[must_use]
+pub fn is_chunk_reason(reason: &str) -> bool {
+    reason.starts_with(CHUNK_REASON)
+}
+
+/// SQL `LIKE` pattern for a stored finding of [`CHUNK_RULE`], which is stored as
+/// `[<severity>] <rule>: <message>`.
+#[must_use]
+pub fn chunk_finding_like() -> String {
+    format!("[%] {CHUNK_RULE}: %")
+}
+
 /// A track whose mean chunk duration is below this, in milliseconds, has chunks that are too short.
 pub const MIN_MEAN_CHUNK_MS: u64 = 250;
 

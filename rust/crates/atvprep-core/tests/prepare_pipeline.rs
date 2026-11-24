@@ -13,6 +13,7 @@ use atvprep_core::console::{Console, SharedBuffer};
 use atvprep_core::encode::{EncodeAllowance, PlanStep};
 use atvprep_core::fd_fix_contract::FdFixTarget;
 use atvprep_core::ffprobe::Ffprobe;
+use atvprep_core::mp4::chunks::{CHUNK_RULE, is_chunk_reason};
 use atvprep_core::pipeline_postfix::RunContext;
 use atvprep_core::prepare::chunks::Mp4Box;
 use atvprep_core::prepare::pipeline::{PrepareError, planned_change, prepare_file};
@@ -187,7 +188,7 @@ fn severities(path: &Path) -> Value {
     let mut pairs: Vec<Value> = report
         .violations
         .iter()
-        .filter(|v| v.rule != "chunk-length")
+        .filter(|v| v.rule != CHUNK_RULE)
         .map(|v| json!([v.rule, v.severity.as_str()]))
         .collect();
     pairs.sort_by_key(ToString::to_string);
@@ -198,7 +199,7 @@ fn result_json(result: &PrepareResult, base: &Path) -> Value {
     let mut report: Option<Vec<Value>> = result.report.as_ref().map(|r| {
         r.violations
             .iter()
-            .filter(|v| v.rule != "chunk-length")
+            .filter(|v| v.rule != CHUNK_RULE)
             .map(|v| json!([v.rule, v.severity.as_str()]))
             .collect()
     });
@@ -210,7 +211,7 @@ fn result_json(result: &PrepareResult, base: &Path) -> Value {
         "output": rel_or_null(result.output.as_deref(), base),
         "level": result.level.as_str(),
         "outcome": result.outcome.as_str(),
-        "reasons": result.reasons.iter().filter(|r| !r.starts_with("chunks too short")).collect::<Vec<_>>(),
+        "reasons": result.reasons.iter().filter(|r| !is_chunk_reason(r)).collect::<Vec<_>>(),
         "tags_only": result.tags_only,
         "source_removed": result.source_removed,
         "source_kept": result.source_kept,
@@ -327,8 +328,8 @@ fn stable_machine(value: Value) -> Value {
         if text.starts_with("ATVPREP-STAGE ") {
             encoding = text == "ATVPREP-STAGE encode" || text == "ATVPREP-STAGE chunks";
             verifying = text == "ATVPREP-STAGE verify";
-            // Die Chunk-Stufe (ADR 0010) kennt das Altsystem nicht; ihre Fortschrittszeilen sind wie
-            // die der Kodierung nur Stichproben.
+            // The chunk stage (ADR 0010) knows nothing of the legacy system; its progress lines are, like
+            // those of the encoding, only samples.
             if text == "ATVPREP-STAGE chunks" {
                 continue;
             }
@@ -476,7 +477,7 @@ fn fixture(name: &str, script: Option<&str>) -> Fixture {
         atvprep_testkit::write_script(&path, format!("#!/bin/sh\n{body}\n"));
         path
     });
-    // Ein erfundenes ffmpeg schreibt Dateien, die MP4Box ablehnen kann; das Ersatz-MP4Box kopiert nur.
+    // A made-up ffmpeg writes files MP4Box can reject; the replacement MP4Box only copies.
     let mp4box = if ffmpeg.is_some() {
         let tools = base.join("fake-tools");
         std::fs::create_dir(&tools).unwrap();
@@ -697,10 +698,7 @@ fn assert_sdh_sidecars_stay_embedded(name: &str) {
     // What ffmpeg wrote has chunks of a sample or two: until MP4Box regroups them (ADR 0010) the
     // second prepare rewrites the file for that reason, and for no other.
     assert!(
-        second
-            .reasons
-            .iter()
-            .all(|r| r.starts_with("chunks too short")),
+        second.reasons.iter().all(|r| is_chunk_reason(r)),
         "{name}: the second prepare found {:?}",
         second.reasons
     );
@@ -816,7 +814,7 @@ fn ac3_at_44_1_khz_is_resampled_to_48_khz_and_then_passes_the_check() {
     let reasons: Vec<&String> = refused
         .reasons
         .iter()
-        .filter(|r| !r.starts_with("chunks too short"))
+        .filter(|r| !is_chunk_reason(r))
         .collect();
     assert_eq!(
         reasons,

@@ -1,6 +1,6 @@
-//! Die Zieldatei nach Vorbereiten hat Chunks von rund einer halben Sekunde (ADR 0010): Jeder
-//! ffmpeg-Lauf endet mit `MP4Box`, danach läuft der moov-Patch. Echte Werkzeuge (ffmpeg, Bento4,
-//! `MP4Box`); Tests, die `MP4Box` brauchen, werden übersprungen, wenn es fehlt.
+//! The target file after Prepare has chunks of about half a second (ADR 0010): every
+//! ffmpeg run ends with `MP4Box`, then the moov patch runs. Real tools (ffmpeg, Bento4,
+//! `MP4Box`); tests that need `MP4Box` are skipped when it is missing.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -22,7 +22,7 @@ fn mp4box_installed() -> bool {
     Mp4Box::new().find().is_some()
 }
 
-/// Überspringt den Test (mit Hinweis), wenn `MP4Box` nicht installiert ist.
+/// Skips the test (with a note) when `MP4Box` is not installed.
 macro_rules! needs_mp4box {
     () => {
         if !mp4box_installed() {
@@ -40,7 +40,7 @@ struct Run {
     machine: SharedBuffer,
 }
 
-/// Ein Laufkontext; ist `present` falsch, sucht er `MP4Box` „nirgends“.
+/// A run context; if `present` is false, it looks for `MP4Box` "nowhere".
 fn run(present: bool) -> Run {
     let dir = tempfile::tempdir().unwrap();
     let base = dir.path().canonicalize().unwrap();
@@ -78,8 +78,8 @@ fn ffmpeg(args: &[&str]) {
     assert!(status.success(), "ffmpeg {args:?}");
 }
 
-/// Zwölf Sekunden H.264 und AC-3 5.1 mit 44,1 kHz: bis auf die Abtastrate bereit für Apple TV, also
-/// baut Vorbereiten sie mit ffmpeg neu.
+/// Twelve seconds of H.264 and AC-3 5.1 at 44.1 kHz: ready for Apple TV except for the sample rate, so
+/// Prepare rebuilds it with ffmpeg.
 fn twelve_seconds(dir: &Path) -> PathBuf {
     let path = dir.join("Film.mp4");
     let out = path.to_str().unwrap();
@@ -130,7 +130,7 @@ fn all_audio() -> PrepareOptions {
     }
 }
 
-/// Mittlere Chunk-Dauer in Sekunden je Audio- und Video-Spur, allein aus dem moov gelesen.
+/// Mean chunk duration in seconds per audio and video track, read from the moov alone.
 fn mean_chunk_seconds(path: &Path) -> Vec<(String, f64)> {
     let dump = SystemTools::new().run_tool("mp4dump", path).unwrap();
     let mut tracks: Vec<(String, f64, f64, u64)> = Vec::new();
@@ -207,7 +207,7 @@ fn a_prepared_file_has_chunks_of_about_half_a_second() {
         );
     }
 
-    // Die Datei ist weiter die Zieldatei des moov-Patches: das moov vorn.
+    // The file is still the target of the moov patch: the moov is at the front.
     assert!(atvprep_core::mp4::patch::is_faststart(&source).unwrap());
 }
 
@@ -301,12 +301,12 @@ fn without_mp4box_the_hook_warns_and_delivers_the_file_as_ffmpeg_wrote_it() {
         "{}",
         r.console.contents()
     );
-    // ffmpegs Chunks von ein bis zwei Samples sind noch da: nichts hat sie umgeschrieben.
+    // ffmpeg's chunks of one or two samples are still there: nothing rewrote them.
     let means = mean_chunk_seconds(&delivered);
     assert!(means.iter().all(|(_, mean)| *mean < 0.25), "{means:?}");
 }
 
-/// Was eine Datei durch die Chunk-Stufe behält, wie ffprobe es meldet.
+/// What a file keeps through the chunk stage, as ffprobe reports it.
 fn fingerprint(path: &Path) -> Value {
     let output = Command::new("ffprobe")
         .args([
@@ -340,14 +340,14 @@ fn fingerprint(path: &Path) -> Value {
         .map(|c| json!({"start": c["start_time"], "end": c["end_time"], "tags": c["tags"]}))
         .collect();
     let mut format_tags = probe["format"]["tags"].clone();
-    // ffmpegs eigene Versionszeichenfolge ist nichts, was die Stufe verlieren könnte.
+    // ffmpeg's own version string is nothing the stage could lose.
     if let Some(tags) = format_tags.as_object_mut() {
         tags.remove("encoder");
     }
     json!({"streams": streams, "chapters": chapters, "format_tags": format_tags})
 }
 
-/// Das moov, wie Bento4 es ausgibt, ohne Grössen, Offsets, Dauern und die Chunk-Tabellen selbst.
+/// The moov as Bento4 prints it, without sizes, offsets, durations and the chunk tables themselves.
 fn moov_outline(path: &Path) -> Vec<String> {
     let dump = SystemTools::new().run_tool("mp4dump", path).unwrap();
     let mut skipping = BTreeSet::new();
@@ -382,7 +382,7 @@ fn pretty(value: &Value) -> Vec<String> {
         .collect()
 }
 
-/// Beide Seiten als Zeilenlisten; ein Unterschied nennt die Zeilen, die nur eine Seite hat.
+/// Both sides as lists of lines; a difference names the lines only one side has.
 fn assert_same(name: &str, what: &str, before: &[String], after: &[String]) {
     if before == after {
         return;
@@ -403,9 +403,9 @@ fn assert_same(name: &str, what: &str, before: &[String], after: &[String]) {
     );
 }
 
-/// Dieselbe Eingabe zweimal durch Vorbereiten: einmal so, wie ffmpeg und der moov-Patch sie lassen
-/// (ohne `MP4Box`, der Rückfall des Hooks), einmal mit der Chunk-Stufe. Atmos, Tags, Sprachen,
-/// Untertitel und Kapitel dürfen sich nicht unterscheiden.
+/// The same input twice through Prepare: once as ffmpeg and the moov patch leave it
+/// (without `MP4Box`, the hook's fallback), once with the chunk stage. Atmos, tags, languages,
+/// subtitles and chapters must not differ.
 fn produce_both(name: &str) -> (PathBuf, PathBuf, [Run; 2]) {
     let fixture = atvprep_testkit::fixture_path(name);
     let produce = |present: bool| {
@@ -432,7 +432,7 @@ fn produce_both(name: &str) -> (PathBuf, PathBuf, [Run; 2]) {
 fn assert_the_chunk_stage_changes_nothing_else(name: &str) {
     let (plain, chunked, _runs) = produce_both(name);
 
-    // Bekannte Lücke, siehe `short_track_titles_are_cleared_by_mp4box`; die es_id vergibt MP4Box neu.
+    // Known gap, see `short_track_titles_are_cleared_by_mp4box`; MP4Box assigns the es_id anew.
     let comparable = |lines: Vec<String>| -> Vec<String> {
         lines
             .into_iter()
@@ -467,9 +467,9 @@ fn tags_languages_subtitles_and_chapters_survive_the_chunk_stage() {
     assert_the_chunk_stage_changes_nothing_else("plain_moov_last.mp4");
 }
 
-/// Bekannte Lücke (Ticket #143, offen): `MP4Box` liest eine ffmpeg-Datei nur mit `-no-check`, wenn der
-/// Titel einer Spur kürzer als vier Zeichen ist, und löscht diese Titel dabei. Der moov-Patch stellt
-/// sie nicht wieder her. Der Test hält den Ist-Stand fest; ändert er sich, ist die Lücke geschlossen.
+/// Known gap (ticket #143, open): `MP4Box` reads an ffmpeg file only with `-no-check` when the
+/// title of a track is shorter than four characters, and clears these titles. The moov patch does not
+/// restore them. The test pins the current state; if it changes, the gap is closed.
 #[test]
 fn short_track_titles_are_cleared_by_mp4box() {
     needs_mp4box!();
@@ -483,7 +483,7 @@ fn short_track_titles_are_cleared_by_mp4box() {
     };
     assert!(names(&plain).iter().any(|n| n == "\"name\": \"DEU\""));
     assert!(names(&chunked).iter().all(|n| n != "\"name\": \"DEU\""));
-    // Die Stufe sagt es im Protokoll.
+    // The stage says so in the log.
     assert!(
         runs[1].console.contents().contains("-no-check"),
         "{}",
@@ -491,9 +491,9 @@ fn short_track_titles_are_cleared_by_mp4box() {
     );
 }
 
-/// Zwölf Sekunden H.264 und AAC-Stereo mit 48 kHz, wie ffmpeg sie mit Standardeinstellungen schreibt
-/// (Chunks von ein bis zwei Samples). Sonst bereit für Apple TV: der einzige Mangel ist die
-/// Chunk-Länge. `audio_title` setzt einen Spurtitel (der Rest bleibt gleich).
+/// Twelve seconds of H.264 and AAC stereo at 48 kHz as ffmpeg writes them with default settings
+/// (chunks of one or two samples). Otherwise ready for Apple TV: the only defect is the
+/// chunk length. `audio_title` sets a track title (the rest stays the same).
 fn only_short_chunks(dir: &Path, audio_title: Option<&str>) -> PathBuf {
     let path = dir.join("Film.mp4");
     let raw = dir.join("Raw.mp4");
@@ -537,8 +537,8 @@ fn only_short_chunks(dir: &Path, audio_title: Option<&str>) -> PathBuf {
     }
     args.push(raw.to_str().unwrap());
     ffmpeg(&args);
-    // Wie eine bestehende Zieldatei von Vorbereiten ohne Chunk-Stufe: ffmpeg und moov-Patch (Tags,
-    // elng), Chunks von ein bis zwei Samples.
+    // Like an existing target file from Prepare without the chunk stage: ffmpeg and moov patch (tags,
+    // elng), chunks of one or two samples.
     let mut before_mp4box = run(false);
     let options = PrepareOptions {
         output: Some(path.clone()),
@@ -551,7 +551,7 @@ fn only_short_chunks(dir: &Path, audio_title: Option<&str>) -> PathBuf {
     path
 }
 
-/// Ein ffmpeg, das nicht laufen darf: er hinterlässt eine Marke und scheitert.
+/// An ffmpeg that must not run: it leaves a marker and fails.
 fn forbid_ffmpeg(r: &mut Run) -> PathBuf {
     let marker = r.base.join("ffmpeg-ran");
     let fake = r.base.join("fake-ffmpeg");
@@ -576,7 +576,7 @@ fn a_file_with_only_short_chunks_is_rewritten_by_mp4box_alone() {
     let mut r = run(true);
     let source = only_short_chunks(&r.base, None);
     let marker = forbid_ffmpeg(&mut r);
-    // MP4Box ordnet Kinder derselben Box anders (stss/ctts); der Inhalt zählt, nicht die Reihenfolge.
+    // MP4Box orders children of the same box differently (stss/ctts); the content counts, not the order.
     let sorted = |mut lines: Vec<String>| {
         lines.sort();
         lines
@@ -597,7 +597,7 @@ fn a_file_with_only_short_chunks_is_rewritten_by_mp4box_alone() {
     for (kind, mean) in mean_chunk_seconds(&source) {
         assert!((0.4..=0.6).contains(&mean), "{kind}: mean {mean:.3} s");
     }
-    // Streams, Tags, Dispositionen und das moov bleiben, wie sie waren.
+    // Streams, tags, dispositions and the moov stay as they were.
     assert_same(
         "only-chunks",
         "ffprobe",
@@ -610,10 +610,13 @@ fn a_file_with_only_short_chunks_is_rewritten_by_mp4box_alone() {
         &before.1,
         &sorted(name_lines(moov_outline(&source))),
     );
-    // Danach meldet Prüfen keinen Mangel mehr, und das Original hat keine Reste hinterlassen.
+    // Afterwards Check reports no defect any more, and the original left no leftovers.
     let report = result.report.expect("report");
     assert!(
-        report.violations.iter().all(|v| v.rule != "chunk-length"),
+        report
+            .violations
+            .iter()
+            .all(|v| v.rule != atvprep_core::mp4::chunks::CHUNK_RULE),
         "{:?}",
         report.violations
     );
@@ -725,9 +728,9 @@ fn without_mp4box_the_hook_style_run_warns_and_leaves_a_chunks_only_file() {
     assert_eq!(sha(&source), before);
 }
 
-/// Bekannte Lücke (Ticket #143, offen), im Nur-MP4Box-Pfad (#145): liest `MP4Box` die Datei nur mit
-/// `-no-check`, weil ein Spurtitel unter vier Zeichen hat, löscht es diese Titel; der moov-Patch
-/// stellt sie nicht wieder her. Der Test hält den Ist-Stand fest; ändert er sich, ist die Lücke zu.
+/// Known gap (ticket #143, open), in the MP4Box-only path (#145): if `MP4Box` reads the file only with
+/// `-no-check` because a track title has fewer than four characters, it clears these titles; the moov patch
+/// does not restore them. The test pins the current state; if it changes, the gap is closed.
 #[test]
 fn short_track_titles_are_cleared_by_the_chunks_only_run_too() {
     needs_mp4box!();
@@ -749,10 +752,10 @@ fn short_track_titles_are_cleared_by_the_chunks_only_run_too() {
     );
 }
 
-/// Atmos-Signalisierung, Tags, Sprachen, Untertitel und Kapitel bleiben im Nur-MP4Box-Pfad.
+/// Atmos signalling, tags, languages, subtitles and chapters stay in the MP4Box-only path.
 fn assert_chunks_only_changes_nothing_else(name: &str) {
     needs_mp4box!();
-    // Die Datei, wie Vorbereiten sie ohne Chunk-Stufe schrieb: ffmpeg, moov-Patch, kurze Chunks.
+    // The file as Prepare wrote it without the chunk stage: ffmpeg, moov patch, short chunks.
     let (plain, _chunked, _runs) = produce_both(name);
     let mut r = run(true);
     let source = r.base.join("Film.mp4");

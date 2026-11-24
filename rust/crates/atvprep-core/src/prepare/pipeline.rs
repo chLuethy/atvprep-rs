@@ -12,7 +12,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::Value;
 
 use super::checks::{subtitle_sidecars, verify_output_streams, verify_subtitle_inputs};
-use super::chunks::ChunkError;
+use super::chunks::{Check, ChunkError};
 use super::ffmpeg::{FfmpegError, run_ffmpeg_with_progress};
 use super::paths::{output_path, temp_name};
 use super::{ErrorKind, Failed, Outcome, PrepareOptions, PrepareResult, settle_report};
@@ -408,7 +408,7 @@ fn encode(
     if let Err(violation) = checked {
         return Err(transcode(&violation));
     }
-    // Ohne MP4Box wird nichts geschrieben, wenn der Lauf es verlangt: kein ffmpeg-Lauf umsonst.
+    // Without MP4Box nothing is written when the run demands it: no ffmpeg run in vain.
     let chunks = chunk_stage_available(ctx, options)?;
     lines(ctx, &plan_table(plan));
     for stream in stream_plan(plan, &analysis.probe) {
@@ -479,8 +479,8 @@ fn rechunk_only(
     )?))
 }
 
-/// Ob die Chunk-Stufe läuft. Fehlt `MP4Box`, scheitert der Lauf (Manager, CLI) oder warnt und liefert
-/// die Datei aus, wie ffmpeg sie schreibt (Hook, ADR 0010); beides noch vor dem ffmpeg-Lauf.
+/// Whether the chunk stage runs. If `MP4Box` is missing, the run fails (manager, CLI) or warns and delivers
+/// the file as ffmpeg writes it (hook, ADR 0010); either way before the ffmpeg run.
 fn chunk_stage_available(ctx: &mut RunContext, options: &PrepareOptions) -> Step<bool> {
     if ctx.mp4box.find().is_some() {
         return Ok(true);
@@ -517,7 +517,7 @@ fn step_rechunk(ctx: &mut RunContext, input: &Path, output: &Path) -> Step<()> {
         });
     match outcome {
         Ok(done) => {
-            if done.without_check {
+            if done.check == Check::Skip {
                 ctx.console.print(
                     "  ! MP4Box only read the file with -no-check: titles of fewer than four characters are cleared from the track names",
                 );
