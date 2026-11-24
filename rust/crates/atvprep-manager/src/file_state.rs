@@ -126,6 +126,23 @@ pub fn preparable_sql(open_ids: u8) -> String {
     )
 }
 
+/// The only thing a run would do to the file is rewrite its chunks (ADR 0010).
+///
+/// True when the stored Änderungsart is a remux, every stored finding is the rule `chunk-length`
+/// and nothing else asks for Prepare: no wish to be fixed and no open embedding. A schedule does
+/// not take such a file, so no night rewrites the whole library; a manual job still does.
+#[must_use]
+pub fn only_chunk_length_sql(open_ids: u8) -> String {
+    format!(
+        "(m.planned_change='remux' AND json_valid(m.compliance_reasons) \
+         AND EXISTS (SELECT 1 FROM json_each(m.compliance_reasons)) \
+         AND NOT EXISTS (SELECT 1 FROM json_each(m.compliance_reasons) \
+                         WHERE value NOT LIKE '[%] chunk-length: %') \
+         AND m.desired_action<>'fix' AND NOT {})",
+        crate::media_sql::embed_open(&format!("?{open_ids}"))
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

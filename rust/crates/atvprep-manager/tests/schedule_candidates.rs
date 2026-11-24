@@ -149,3 +149,50 @@ fn preparing_skips_converted_originals_and_clean_mp4s() {
         vec![1, 2, 3, 5]
     );
 }
+
+const CHUNK: &str = "[warning] chunk-length: audio track 2 has 900 chunks of 40 ms on average";
+const FAST_START: &str = "[warning] fast-start: moov after mdat";
+
+/// A warning file whose stored findings are `reasons`; the change it plans is a remux.
+fn remux_file(fx: &Fixtures, root: i64, name: &str, reasons: &[&str]) -> i64 {
+    let id = fx
+        .file(root, name)
+        .fingerprint(name)
+        .verdict(Verdict::Warning)
+        .encode("none", "remux")
+        .create();
+    let json = serde_json::to_string(reasons).unwrap();
+    fx.sql(&format!(
+        "UPDATE media_files SET compliance_reasons='{}' WHERE id={id}",
+        json.replace('\'', "''")
+    ));
+    id
+}
+
+#[test]
+fn a_file_whose_only_reason_is_the_chunk_length_is_no_candidate() {
+    let db = Db::memory().unwrap();
+    let mut conn = db.conn().unwrap();
+    schema::migrate(&mut conn).unwrap();
+    let (only, with_more, wished) = {
+        let fx = Fixtures::new(conn.raw());
+        let root = fx.library_at("a", "/a");
+        let only = remux_file(&fx, root, "only.mp4", &[CHUNK]);
+        let with_more = remux_file(&fx, root, "more.mp4", &[CHUNK, FAST_START]);
+        let wished = remux_file(&fx, root, "wished.mp4", &[CHUNK]);
+        fx.sql(&format!(
+            "UPDATE media_files SET desired_action='fix' WHERE id={wished}"
+        ));
+        (only, with_more, wished)
+    };
+    schedule(&conn, "prepare", None, None, "all", 500);
+    let selection = ScheduleSelection::load(conn.raw(), 1).unwrap().unwrap();
+    let ids = candidate_ids(conn.raw(), &selection, None).unwrap();
+    assert!(!ids.contains(&only), "{ids:?}");
+    assert!(ids.contains(&with_more), "{ids:?}");
+    assert!(ids.contains(&wished), "{ids:?}");
+    assert_eq!(
+        candidate_count(conn.raw(), &selection, None).unwrap(),
+        i64::try_from(ids.len()).unwrap()
+    );
+}
