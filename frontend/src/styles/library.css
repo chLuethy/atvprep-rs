@@ -137,8 +137,8 @@ details summary { cursor: pointer; color: var(--ink-muted); }
 .sidecar-state.pending { color: var(--ink); font-weight: 500; }
 
 /* columns view: the library as folders, one column per level */
-.cols-wrap { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-.cols { flex: 1; min-height: 0; display: flex; overflow-x: auto; overflow-y: hidden; }
+.cols-wrap { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+.cols { flex: 1; min-width: 0; min-height: 0; display: flex; overflow-x: auto; overflow-y: hidden; }
 .cols:focus-visible { outline-offset: -2px; }
 /* A column is as wide as its longest name, within limits: short folders stay compact, long names end in an ellipsis.
    Every column after the first has the dashed guide as its left edge, drawn in the column's own background. Its content

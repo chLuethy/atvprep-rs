@@ -22,7 +22,7 @@
 /* The work area. */
 .files-split { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 16px; align-items: stretch; min-height: 420px; }
 .files-split.has-detail { grid-template-columns: minmax(0, 1fr) minmax(340px, 420px); }
-.files-list { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
+.files-list { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
 .files-list > .selbar { margin-top: 16px; }
 .files-list > .lib-scroll, .files-list > .cols-wrap { border: 1px solid var(--line); background: var(--surface); }
 .files-list > .lib-scroll { container-type: inline-size; }

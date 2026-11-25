@@ -174,6 +174,77 @@ test.describe("files actions", () => {
   });
 });
 
+/* Columns view with deep, long-named folders (seeded in scripts/run-e2e.sh): it scrolls inside itself and nothing hides under the inspector. */
+test.describe("columns view with long names", () => {
+  const openDeep = async (page: Page, theme: "light" | "dark", width: number, height: number) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openThemed(page, "/files", theme, "Files");
+    await page.getByRole("button", { name: "Columns" }).click();
+    const columns = page.getByRole("group", { name: /Files by folder/ });
+    await page.setViewportSize({ width, height });
+    await columns.getByRole("listbox", { name: "Libraries" }).getByRole("option").first().click();
+    for (const [level, name] of [[1, /^TV/], [2, /^The Marvelous Mrs/], [3, /^Season 01/]] as const) {
+      const option = columns.locator(`.col[data-col="${level}"]`).getByRole("option", { name }).first();
+      await option.scrollIntoViewIfNeeded();
+      await option.click();
+    }
+    const file = columns.locator('.col[data-col="4"]').getByRole("option", { name: /S01E02/ });
+    await file.scrollIntoViewIfNeeded();
+    await file.click();
+    return columns;
+  };
+  const area = (page: Page) => page.locator(".files-list > .cols-wrap");
+
+  for (const theme of ["light", "dark"] as const) {
+    test(`every column of a four-level path is clickable with the inspector open at 1440 px, and the newest one is in view (${theme})`, async ({ page }) => {
+      const columns = await openDeep(page, theme, 1440, 900);
+      await expect(detail(page)).toBeVisible();
+      const frame = await box(area(page));
+      const inspector = await box(detail(page));
+      // The columns view stays in its own area, left of the inspector, and scrolls inside itself.
+      expect(frame.x + frame.width, "the columns view reaches under the inspector").toBeLessThanOrEqual(inspector.x + 0.5);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), "the page scrolls sideways").toBeLessThanOrEqual(0);
+      const count = await columns.locator(".col").count();
+      expect(count).toBeGreaterThanOrEqual(5);
+      // The newest column is in view without scrolling by hand.
+      const newest = await box(columns.locator(".col").nth(count - 1));
+      expect(newest.x + newest.width).toBeLessThanOrEqual(frame.x + frame.width + 1);
+      // Every column can be hit at its first row once scrolled into view: nothing lies on top of it.
+      for (let index = 0; index < count; index++) {
+        const first = columns.locator(".col").nth(index).locator("[role=option]").first();
+        await first.scrollIntoViewIfNeeded();
+        const hit = await first.evaluate((node) => {
+          const found = node.getBoundingClientRect();
+          const top = document.elementFromPoint(found.left + found.width / 2, found.top + found.height / 2);
+          return !!top && node.contains(top);
+        });
+        expect(hit, `column ${index} is covered`).toBe(true);
+      }
+    });
+
+    test(`the selection bar keeps its actions whole beside the columns (${theme})`, async ({ page }) => {
+      const columns = await openDeep(page, theme, 1440, 900);
+      await columns.locator('.col[data-col="4"]').getByRole("option", { name: /S01E01/ }).click({ modifiers: ["Shift"] });
+      await expect(bar(page)).toContainText("2 selected");
+      const preview = bar(page).getByRole("button", { name: /^Preview and prepare/ });
+      await expect(preview).toBeVisible();
+      const frame = await box(bar(page));
+      const found = await box(preview);
+      expect(found.x + found.width).toBeLessThanOrEqual(frame.x + frame.width + 0.5);
+      expect(await preview.evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(0);
+    });
+
+    test(`the page does not scroll sideways at 390 px and head and filter stay visible (${theme})`, async ({ page }) => {
+      await openDeep(page, theme, 390, 844);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), "the page scrolls sideways").toBeLessThanOrEqual(0);
+      const wide = await page.evaluate(() => Array.from(document.querySelectorAll("main *, .files-page *")).filter((node) => node.getBoundingClientRect().right > window.innerWidth + 1 && !node.closest(".cols, .pathbar, .filterbar")).map((node) => `${node.tagName}.${node.className}`).slice(0, 5));
+      expect(wide, "elements wider than the screen outside the columns").toEqual([]);
+      await expect(page.getByRole("button", { name: "Columns" })).toBeInViewport();
+      await expect(page.getByRole("heading", { level: 1 }).first()).toBeInViewport();
+    });
+  }
+});
+
 test.describe("columns view", () => {
   const openColumns = async (page: Page, theme: "light" | "dark") => {
     await page.setViewportSize({ width: 1440, height: 900 });
