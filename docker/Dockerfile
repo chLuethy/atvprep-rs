@@ -7,7 +7,7 @@
 #   . docker/bases.env
 #   docker build -f docker/Dockerfile --build-arg BASE_IMAGE="$SONARR_BASE_IMAGE" \
 #     --build-arg ALPINE_VERSION="$SONARR_ALPINE_VERSION" -t atvprep-sonarr:<tag> .
-#   (Radarr und Whisparr analog mit RADARR_* beziehungsweise WHISPARR_*; docker/build-smoke.sh baut alle drei.)
+#   (Radarr und Whisparr analog mit RADARR_* beziehungsweise WHISPARR_*; docker/build-image.sh baut alle drei.)
 #
 # BASE_IMAGE und ALPINE_VERSION haben absichtlich keinen Standardwert: Basis (Tag UND Digest) und deren
 # Alpine-Version wählt der Betreiber; ein Build ohne sie scheitert. (Die check-Direktive oben unterdrückt
