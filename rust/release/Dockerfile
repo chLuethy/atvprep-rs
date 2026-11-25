@@ -24,14 +24,14 @@ FROM scratch AS artifacts
 COPY --from=binary /atvprep /atvprep
 
 FROM alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS runtime
-RUN apk add --no-cache ffmpeg bento4 ca-certificates \
+RUN apk add --no-cache ffmpeg bento4 gpac ca-certificates \
  && mkdir -p /config /state /media \
  && chown 1000:1000 /config /state /media
 COPY --from=binary /atvprep /usr/local/bin/atvprep
 RUN ln -s atvprep /usr/local/bin/atvprep-hook \
  && ln -s atvprep /usr/local/bin/atvprep-manager \
  && atvprep version && ffprobe -version \
- && test -x /usr/bin/mp4dump && test -x /usr/bin/mp4info \
+ && test -x /usr/bin/mp4dump && test -x /usr/bin/MP4Box && test -x /usr/bin/mp4info \
  && ! command -v python3 && ! command -v uv
 COPY --from=web /web/dist /usr/share/atvprep/web_dist
 USER 1000:1000

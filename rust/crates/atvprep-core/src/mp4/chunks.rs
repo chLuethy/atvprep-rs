@@ -111,7 +111,8 @@ fn short_in_track(moov: &[u8], trak: BoxRef) -> Option<ShortChunks> {
     let offsets = inside(&[b"mdia", b"minf", b"stbl", b"stco"])
         .or_else(|| inside(&[b"mdia", b"minf", b"stbl", b"co64"]))?;
     let chunks = u64::from(u32_at(moov, offsets.0 + 12).ok()?);
-    if chunks == 0 || duration == 0 || timescale == 0 {
+    // A single chunk cannot get any longer, so MP4Box cannot clear it.
+    if chunks <= 1 || duration == 0 || timescale == 0 {
         return None;
     }
     // mean < MIN_MEAN_CHUNK_MS  <=>  duration / timescale / chunks * 1000 < MIN_MEAN_CHUNK_MS

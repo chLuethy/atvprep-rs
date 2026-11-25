@@ -41,6 +41,12 @@ const WITH_ENCODE: [(Stage, u32, u32); 4] = [
     (Stage::Verify, 97, 99),
 ];
 const WITHOUT_ENCODE: [(Stage, u32, u32); 2] = [(Stage::Finalize, 0, 70), (Stage::Verify, 70, 99)];
+/// A chunks-only run (no ffmpeg): the `MP4Box` rewrite is the longest step.
+const CHUNKS_ONLY: [(Stage, u32, u32); 3] = [
+    (Stage::Chunks, 0, 60),
+    (Stage::Finalize, 60, 85),
+    (Stage::Verify, 85, 99),
+];
 
 /// Only the process ending proves the work is done.
 const CEILING: u32 = 99;
@@ -109,6 +115,7 @@ pub struct StageReporter {
     sink: Box<dyn Write + Send>,
     terminal: bool,
     with_encode: bool,
+    chunks_only: bool,
     stage: Option<Stage>,
     percent: u32,
     drawn: bool,
@@ -122,6 +129,7 @@ impl StageReporter {
             sink,
             terminal,
             with_encode: true,
+            chunks_only: false,
             stage: None,
             percent: 0,
             drawn: false,
@@ -144,8 +152,15 @@ impl StageReporter {
     pub fn begin_file(&mut self, encode: bool) {
         self.finish();
         self.with_encode = encode;
+        self.chunks_only = false;
         self.stage = None;
         self.percent = 0;
+    }
+
+    /// Start a file that only gets its chunks rewritten (no ffmpeg run).
+    pub fn begin_chunks_only_file(&mut self) {
+        self.begin_file(false);
+        self.chunks_only = true;
     }
 
     /// Enter a stage; its fraction is 0 until [`update`](Self::update) says otherwise.
@@ -166,6 +181,8 @@ impl StageReporter {
         };
         let weights: &[(Stage, u32, u32)] = if self.with_encode {
             &WITH_ENCODE
+        } else if self.chunks_only {
+            &CHUNKS_ONLY
         } else {
             &WITHOUT_ENCODE
         };

@@ -154,7 +154,8 @@ fn run_once(
         .spawn()
         .map_err(|e| ChunkError::Failed(e.to_string()))?;
     let mut tail = String::new();
-    if let Some(mut stderr) = child.stderr.take() {
+    if let Some(stderr) = child.stderr.take() {
+        let mut stderr = io::BufReader::new(stderr);
         let mut line = Vec::new();
         let mut byte = [0_u8; 1];
         loop {

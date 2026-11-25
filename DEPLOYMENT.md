@@ -32,7 +32,7 @@ Der Spiegel enthält nur veröffentlichte Releases; ältere Versionen bis 0.5.8 
 
 ## Manuell und offline installieren
 
-Die Binary benötigt für Medienarbeiten `ffmpeg`, `ffprobe`, `mp4info` und `mp4dump`.
+Die Binary benötigt für Medienarbeiten `ffmpeg`, `ffprobe`, `mp4info`, `mp4dump` und `MP4Box`.
 macOS und Linux verwenden dieselben Multicall-Einstiegspunkte: `atvprep`, `atvprep-hook` und
 `atvprep-manager`. Ein Symlink auf dieselbe Binary reicht für den jeweiligen Namen.
 Release-Plattformen sind `linux-x86_64`, `linux-aarch64`, `macos-x86_64` und `macos-aarch64`;

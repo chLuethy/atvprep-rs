@@ -478,7 +478,7 @@ fn rechunk_only(
     if !chunk_stage_available(ctx, options)? {
         return Ok(None);
     }
-    ctx.reporter.begin_file(false);
+    ctx.reporter.begin_chunks_only_file();
     let restore = step_rechunk(ctx, source, tmp)?;
     step_patch_media(
         ctx,
