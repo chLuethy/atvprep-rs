@@ -4,8 +4,20 @@ import { t } from "./i18n";
 import { publishWork } from "./work";
 
 export const APP_TITLE = "atvprep-manager";
-const doneTitle = () => t("Done · {app}", { app: APP_TITLE });
 const POLL_MS = 3000;
+
+/** The name of the open route and the state of the work; together they make the tab title. */
+let routeName = "";
+let workPrefix = "";
+const render = () => {
+  document.title = [workPrefix, routeName, APP_TITLE].filter(Boolean).join(" · ");
+};
+
+/** The route the tab shows ("Files · atvprep-manager"); an empty name leaves the plain title. */
+export function setRouteTitle(name: string): void {
+  routeName = name;
+  render();
+}
 
 /** What the tab says while the manager works, so a tab left in the background still tells you. */
 export function workTitle(work: { running: number; queued: number }): string {
@@ -29,17 +41,20 @@ export function useWorkTitle(api: { request: (path: string, init?: RequestInit) 
     const busy = summary.jobs.running + summary.jobs.queued > 0;
     if (busy) {
       doneShown = false;
-      document.title = workTitle(summary.jobs);
+      workPrefix = workTitle(summary.jobs).replace(` · ${APP_TITLE}`, "");
+      render();
     } else if (busyBefore) {
       doneShown = document.hidden;
-      document.title = doneShown ? doneTitle() : APP_TITLE;
+      workPrefix = doneShown ? t("Done") : "";
+      render();
     }
     busyBefore = busy;
   };
   const onVisible = () => {
     if (!document.hidden && doneShown) {
       doneShown = false;
-      document.title = APP_TITLE;
+      workPrefix = "";
+      render();
     }
   };
 
@@ -50,7 +65,8 @@ export function useWorkTitle(api: { request: (path: string, init?: RequestInit) 
     return () => {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
-      document.title = APP_TITLE;
+      workPrefix = "";
+      render();
     };
   });
 }

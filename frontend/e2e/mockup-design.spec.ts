@@ -110,7 +110,7 @@ for (const theme of ["light", "dark"] as const) {
 test("Das schmale Navigationsmenü hält Darstellung und Sprache unter den Navigationszielen", async ({ page }) => {
   await openThemed(page, "/files", "light", "Files");
   await page.setViewportSize({ width: 360, height: 900 });
-  await page.getByRole("button", { name: "Open navigation", exact: true }).click();
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
   const appearance = page.getByRole("group", { name: "Appearance" });
   const language = page.getByRole("group", { name: "Language" });
   await expect(appearance).toBeVisible();

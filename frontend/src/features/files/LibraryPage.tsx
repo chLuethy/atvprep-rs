@@ -634,7 +634,9 @@ export const LibraryPage: Component<{
 
   /** What the selection bar acts on: the marked files, else the open file. One file is a selection too: the bar is where Verify, Re-inspect and Prepare live. */
   const barRows = (): FileRow[] => (pickedRows().length > 0 ? pickedRows() : targets());
-  const selectionCount = () => (picked().size > 0 ? pickedRows().length : props.activeId ? 1 : 0);
+  /** The open file counts once it is known: a row of the list or a loaded detail. An id nothing answers to selects nothing. */
+  const openKnown = () => !!openFile() || visibleRows().some((row) => row.id === props.activeId);
+  const selectionCount = () => (picked().size > 0 ? pickedRows().length : props.activeId && openKnown() ? 1 : 0);
   const barVisible = () => selectionCount() > 0;
   const selectionPreparable = () => preparableRows(barRows());
   /** Empties the marked files only; the open file stays open. */

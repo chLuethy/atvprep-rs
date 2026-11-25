@@ -1826,3 +1826,25 @@ describe("LibraryPage: re-inspecting several files, like Verify", () => {
     expect(await view.findByText(/Inspection queued for 230 files/)).toBeInTheDocument();
   });
 });
+
+describe("LibraryPage: barrierefreie Zeilen und unbekannte Datei", () => {
+  it("hat einen Tab-Stopp je Zeile: der Titel-Link ist für die Tastatur nicht erreichbar", async () => {
+    const { api } = makeApi();
+    const view = renderLibrary(api);
+    const link = await view.findByRole("link", { name: "Heat" });
+
+    expect(link).toHaveAttribute("tabindex", "-1");
+    const stops = view.getAllByRole("row").filter((row) => row.getAttribute("tabindex") === "0");
+    expect(stops).toHaveLength(1);
+  });
+
+  it("zeigt bei einer unbekannten Datei-ID keine Auswahlleiste", async () => {
+    const { api } = makeApi();
+    const inner = api.request;
+    const notFound: Api = { request: vi.fn(async (path: string, init?: RequestInit) => path === "/files/m_nope" ? json({}, 404) : inner(path, init)) };
+    const view = renderLibrary(notFound, "m_nope");
+
+    expect(await view.findByText("Unable to load file detail")).toBeInTheDocument();
+    expect(view.queryByRole("region", { name: "Selection" })).not.toBeInTheDocument();
+  });
+});

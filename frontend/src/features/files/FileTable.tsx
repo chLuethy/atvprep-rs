@@ -86,6 +86,7 @@ export const FileTable: Component<{
               <td class="file-cell">
                 <a
                   class="file-title"
+                  tabindex="-1"
                   href={`/files/${file().id}`}
                   onClick={(event) => { event.preventDefault(); props.onSelect(file(), event); }}
                 >{title()}</a>

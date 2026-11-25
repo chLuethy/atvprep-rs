@@ -23,6 +23,12 @@ const apiFor = (handler: (path: string, init?: RequestInit) => Response | Promis
 const audit = [{ key: "scan_interval_seconds", revision: 7, actor: "operator", old_value: 30, new_value: 60 }];
 
 describe("audited runtime settings UI", () => {
+  it("hat die Überschrift der Seite als h1", async () => {
+    const api = apiFor((path) => path === "/settings" ? settingsResponse() : response(audit));
+    const view = render(() => <SettingsPage api={api} />);
+    expect(await view.findByRole("heading", { level: 1, name: "Runtime settings" })).toBeInTheDocument();
+  });
+
   it("loads the governing runtime vocabulary and read-only structural values", async () => {
     const api = apiFor((path) => path === "/settings" ? settingsResponse() : response(audit));
     const view = render(() => <SettingsPage api={api} />);
