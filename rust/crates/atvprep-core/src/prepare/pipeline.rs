@@ -24,7 +24,8 @@ use crate::fd_fix_contract::{FdFixTarget, UnsafeFixTarget};
 use crate::ffprobe::ProbeError;
 use crate::models::{Plan, SubAction};
 use crate::mp4::patch::{
-    apply_moov_patches, check_accessibility, is_faststart, set_subtitle_accessibility,
+    Reference, apply_moov_patches_restoring, check_accessibility, is_faststart,
+    set_subtitle_accessibility,
 };
 use crate::mp4::tags::{PatchSummary, SubInfo};
 use crate::output::{patch_summary_lines, plan_table, stream_plan, verify_atmos_in_output};
@@ -177,7 +178,7 @@ pub fn patch_media(
     verbose: bool,
     faststart: bool,
 ) -> Result<(), PrepareError> {
-    step_patch_media(ctx, path, sub_infos, plan, verbose, faststart).map_err(into_error)
+    step_patch_media(ctx, path, sub_infos, plan, verbose, faststart, None).map_err(into_error)
 }
 
 fn into_error(abort: Abort) -> PrepareError {
@@ -194,6 +195,7 @@ fn step_patch_media(
     plan: Option<&Plan>,
     verbose: bool,
     faststart: bool,
+    restore: Option<&Reference>,
 ) -> Step<()> {
     if verbose {
         ctx.console.print(&format!(
@@ -202,16 +204,22 @@ fn step_patch_media(
         ));
     }
     ctx.reporter.stage(Stage::Finalize);
-    let (summary, atmos_patched) = {
+    let (summary, atmos_patched, restored) = {
         let _timing = phase("patch.moov", Some(path));
         let reporter = &mut ctx.reporter;
-        apply_moov_patches(
+        apply_moov_patches_restoring(
             path,
             sub_infos,
             Some(&mut |done, total| reporter.update(fraction(done, total))),
             faststart,
+            restore,
         )?
     };
+    if !restored.is_empty() {
+        ctx.console.print(&format!(
+            "  restored what MP4Box changed, from its input: {restored}"
+        ));
+    }
     lines(ctx, &patch_summary_lines(&summary, plan));
     if atmos_patched && verbose {
         ctx.console.print("  → patched Atmos dec3 JOC extension");
@@ -431,16 +439,26 @@ fn encode(
             return Err(transcode(&violation));
         }
     }
-    if chunks {
-        step_rechunk(ctx, tmp, tmp)?;
-    }
+    let restore = if chunks {
+        step_rechunk(ctx, tmp, tmp)?
+    } else {
+        None
+    };
     let infos: Vec<SubInfo> = plan
         .sub_tracks
         .iter()
         .filter(|t| t.action != SubAction::Skip)
         .map(|t| (t.lang.clone(), t.sdh, t.forced))
         .collect();
-    step_patch_media(ctx, tmp, &infos, Some(plan), options.verbose, true)?;
+    step_patch_media(
+        ctx,
+        tmp,
+        &infos,
+        Some(plan),
+        options.verbose,
+        true,
+        restore.as_ref(),
+    )?;
     let atmos = plan.audio_tracks.iter().filter(|t| t.is_atmos).count();
     for warning in verify_atmos_in_output(tmp, atmos, &ctx.ffprobe) {
         ctx.console.print(&format!("  ! {warning}"));
@@ -461,7 +479,7 @@ fn rechunk_only(
         return Ok(None);
     }
     ctx.reporter.begin_file(false);
-    step_rechunk(ctx, source, tmp)?;
+    let restore = step_rechunk(ctx, source, tmp)?;
     step_patch_media(
         ctx,
         tmp,
@@ -469,6 +487,7 @@ fn rechunk_only(
         None,
         options.verbose,
         true,
+        restore.as_ref(),
     )?;
     Ok(Some(finalize_output(
         ctx,
@@ -496,8 +515,9 @@ fn chunk_stage_available(ctx: &mut RunContext, options: &PrepareOptions) -> Step
 }
 
 /// `chunks` stage: `MP4Box` reads `input`, writes it again with chunks of half a second and puts the
-/// result at `output` (the same file for an ffmpeg output, a temporary copy for a source).
-fn step_rechunk(ctx: &mut RunContext, input: &Path, output: &Path) -> Step<()> {
+/// result at `output` (the same file for an ffmpeg output, a temporary copy for a source). Returns what
+/// the moov of `input` held that `MP4Box` may lose; the moov patch right after writes it back.
+fn step_rechunk(ctx: &mut RunContext, input: &Path, output: &Path) -> Step<Option<Reference>> {
     ctx.reporter.stage(Stage::Chunks);
     let _timing = phase("mp4box", Some(output));
     let rewritten = output.with_file_name(temp_name(&stem_of(output), "chunks."));
@@ -519,10 +539,10 @@ fn step_rechunk(ctx: &mut RunContext, input: &Path, output: &Path) -> Step<()> {
         Ok(done) => {
             if done.check == Check::Skip {
                 ctx.console.print(
-                    "  ! MP4Box only read the file with -no-check: titles of fewer than four characters are cleared from the track names",
+                    "  ! MP4Box only read the file with -no-check (track titles of fewer than four characters); the moov patch puts the titles back",
                 );
             }
-            Ok(())
+            Ok(done.reference)
         }
         Err(error) => {
             let _ = std::fs::remove_file(&rewritten);
