@@ -11,8 +11,9 @@ use atvprep_core::console::{Console, SharedBuffer};
 use atvprep_core::encode::EncodeAllowance;
 use atvprep_core::ffprobe::Ffprobe;
 use atvprep_core::hook::run_hook;
+use atvprep_core::mp4::patch::restore_from;
 use atvprep_core::pipeline_postfix::RunContext;
-use atvprep_core::prepare::chunks::Mp4Box;
+use atvprep_core::prepare::chunks::{Check, Mp4Box};
 use atvprep_core::prepare::pipeline::prepare_file;
 use atvprep_core::prepare::{ErrorKind, Outcome, PrepareOptions};
 use atvprep_core::stages::StageReporter;
@@ -403,6 +404,71 @@ fn assert_same(name: &str, what: &str, before: &[String], after: &[String]) {
     );
 }
 
+/// Every leaf atom of the moov as "path payload-hex", per track and sorted: the sample tables (chunk
+/// offsets, sample-to-chunk, timing, sizes, sync samples) are the only atoms `MP4Box` may write differently.
+fn atoms(path: &Path) -> Vec<String> {
+    atoms_of(path, false)
+}
+
+/// [`atoms`] without the `alternate_group` of every `tkhd`: the moov patch sets it (audio 1,
+/// subtitles 2), and not every route through Prepare runs it.
+fn atoms_ignoring_groups(path: &Path) -> Vec<String> {
+    atoms_of(path, true)
+}
+
+fn atoms_of(path: &Path, ignore_groups: bool) -> Vec<String> {
+    use atvprep_core::mp4::boxes::iter_boxes;
+    fn walk(
+        data: &[u8],
+        start: usize,
+        end: usize,
+        path: &str,
+        ignore_groups: bool,
+        lines: &mut Vec<String>,
+    ) {
+        for b in iter_boxes(data, start, end) {
+            let kind = String::from_utf8_lossy(&b.kind).into_owned();
+            let here = format!("{path}/{kind}");
+            match &b.kind {
+                b"mdia" | b"minf" | b"stbl" | b"edts" | b"udta" | b"dinf" | b"tref" | b"ilst" => {
+                    walk(data, b.start + 8, b.end, &here, ignore_groups, lines);
+                }
+                b"meta" => walk(data, b.start + 12, b.end, &here, ignore_groups, lines),
+                b"stsd" => walk(data, b.start + 16, b.end, &here, ignore_groups, lines),
+                b"stco" | b"co64" | b"stsc" | b"stts" | b"stsz" | b"stz2" | b"stss" | b"ctts"
+                | b"sdtp" | b"cslg" | b"sgpd" | b"sbgp" | b"free" => {}
+                _ => {
+                    let mut payload = data[b.start + 8..b.end].to_vec();
+                    if ignore_groups && &b.kind == b"tkhd" {
+                        let at = if payload.first() == Some(&1) { 46 } else { 34 };
+                        payload[at..at + 2].fill(0);
+                    }
+                    lines.push(format!("{here} {}", atvprep_testkit::hex_encode(&payload)));
+                }
+            }
+        }
+    }
+    let moov = atvprep_core::mp4::patch::read_moov_of(path)
+        .unwrap()
+        .expect("a moov");
+    let mut lines = Vec::new();
+    let mut tracks = 0;
+    for b in iter_boxes(&moov, 8, moov.len()) {
+        if &b.kind == b"trak" {
+            let mut track = Vec::new();
+            walk(&moov, b.start + 8, b.end, "trak", ignore_groups, &mut track);
+            track.sort();
+            lines.extend(track.into_iter().map(|l| format!("#{tracks} {l}")));
+            tracks += 1;
+        } else {
+            let mut other = Vec::new();
+            walk(&moov, b.start, b.end, "", ignore_groups, &mut other);
+            lines.extend(other.into_iter().map(|l| format!("moov{l}")));
+        }
+    }
+    lines
+}
+
 /// The same input twice through Prepare: once as ffmpeg and the moov patch leave it
 /// (without `MP4Box`, the hook's fallback), once with the chunk stage. Atmos, tags, languages,
 /// subtitles and chapters must not differ.
@@ -431,25 +497,19 @@ fn produce_both(name: &str) -> (PathBuf, PathBuf, [Run; 2]) {
 
 fn assert_the_chunk_stage_changes_nothing_else(name: &str) {
     let (plain, chunked, _runs) = produce_both(name);
-
-    // Known gap, see `short_track_titles_are_cleared_by_mp4box`; MP4Box assigns the es_id anew.
-    let comparable = |lines: Vec<String>| -> Vec<String> {
-        lines
-            .into_iter()
-            .filter(|l| !l.contains("\"name\":") && !l.contains("es_id ="))
-            .collect()
-    };
+    // Track titles ("name"), es_id and everything else the moov holds must be there as well.
     assert_same(
         name,
         "ffprobe",
-        &comparable(pretty(&fingerprint(&plain))),
-        &comparable(pretty(&fingerprint(&chunked))),
+        &pretty(&fingerprint(&plain)),
+        &pretty(&fingerprint(&chunked)),
     );
+    assert_same(name, "moov", &moov_outline(&plain), &moov_outline(&chunked));
     assert_same(
         name,
-        "moov",
-        &comparable(moov_outline(&plain)),
-        &comparable(moov_outline(&chunked)),
+        "atoms",
+        &atoms_ignoring_groups(&plain),
+        &atoms_ignoring_groups(&chunked),
     );
 }
 
@@ -467,11 +527,10 @@ fn tags_languages_subtitles_and_chapters_survive_the_chunk_stage() {
     assert_the_chunk_stage_changes_nothing_else("plain_moov_last.mp4");
 }
 
-/// Known gap (ticket #143, open): `MP4Box` reads an ffmpeg file only with `-no-check` when the
-/// title of a track is shorter than four characters, and clears these titles. The moov patch does not
-/// restore them. The test pins the current state; if it changes, the gap is closed.
+/// `MP4Box` reads an ffmpeg file only with `-no-check` when the title of a track is shorter than four
+/// characters, and then clears these titles. The restore step after the run puts them back (ADR 0010).
 #[test]
-fn short_track_titles_are_cleared_by_mp4box() {
+fn short_track_titles_survive_mp4box() {
     needs_mp4box!();
     let (plain, chunked, runs) = produce_both("chapters.mp4");
     let names = |path: &Path| -> Vec<String> {
@@ -482,13 +541,11 @@ fn short_track_titles_are_cleared_by_mp4box() {
             .collect()
     };
     assert!(names(&plain).iter().any(|n| n == "\"name\": \"DEU\""));
-    assert!(names(&chunked).iter().all(|n| n != "\"name\": \"DEU\""));
-    // The stage says so in the log.
-    assert!(
-        runs[1].console.contents().contains("-no-check"),
-        "{}",
-        runs[1].console.contents()
-    );
+    assert_eq!(names(&plain), names(&chunked));
+    // The fallback ran, and the stage says what it put back.
+    let log = runs[1].console.contents();
+    assert!(log.contains("-no-check"), "{log}");
+    assert!(log.contains("restored"), "{log}");
 }
 
 /// Twelve seconds of H.264 and AAC stereo at 48 kHz as ffmpeg writes them with default settings
@@ -563,13 +620,6 @@ fn forbid_ffmpeg(r: &mut Run) -> PathBuf {
     marker
 }
 
-fn name_lines(lines: Vec<String>) -> Vec<String> {
-    lines
-        .into_iter()
-        .filter(|l| !l.contains("\"name\":") && !l.contains("es_id ="))
-        .collect()
-}
-
 #[test]
 fn a_file_with_only_short_chunks_is_rewritten_by_mp4box_alone() {
     needs_mp4box!();
@@ -581,10 +631,7 @@ fn a_file_with_only_short_chunks_is_rewritten_by_mp4box_alone() {
         lines.sort();
         lines
     };
-    let before = (
-        name_lines(pretty(&fingerprint(&source))),
-        sorted(name_lines(moov_outline(&source))),
-    );
+    let before = (pretty(&fingerprint(&source)), sorted(moov_outline(&source)));
     let means = mean_chunk_seconds(&source);
     assert!(means.iter().all(|(_, mean)| *mean < 0.25), "{means:?}");
 
@@ -602,13 +649,13 @@ fn a_file_with_only_short_chunks_is_rewritten_by_mp4box_alone() {
         "only-chunks",
         "ffprobe",
         &before.0,
-        &name_lines(pretty(&fingerprint(&source))),
+        &pretty(&fingerprint(&source)),
     );
     assert_same(
         "only-chunks",
         "moov",
         &before.1,
-        &sorted(name_lines(moov_outline(&source))),
+        &sorted(moov_outline(&source)),
     );
     // Afterwards Check reports no defect any more, and the original left no leftovers.
     let report = result.report.expect("report");
@@ -728,11 +775,10 @@ fn without_mp4box_the_hook_style_run_warns_and_leaves_a_chunks_only_file() {
     assert_eq!(sha(&source), before);
 }
 
-/// Known gap (ticket #143, open), in the MP4Box-only path (#145): if `MP4Box` reads the file only with
-/// `-no-check` because a track title has fewer than four characters, it clears these titles; the moov patch
-/// does not restore them. The test pins the current state; if it changes, the gap is closed.
+/// In the MP4Box-only path (#145), too: `-no-check` clears titles of fewer than four characters, the restore
+/// step after the run puts them back.
 #[test]
-fn short_track_titles_are_cleared_by_the_chunks_only_run_too() {
+fn short_track_titles_survive_the_chunks_only_run() {
     needs_mp4box!();
     let mut r = run(true);
     let source = only_short_chunks(&r.base, Some("DEU"));
@@ -744,7 +790,7 @@ fn short_track_titles_are_cleared_by_the_chunks_only_run_too() {
     assert!(titled(&source));
     let result = prepare_file(&mut r.ctx, &source, &all_audio(), None).unwrap();
     assert_eq!(result.error, None, "{}", r.console.contents());
-    assert!(!titled(&source));
+    assert!(titled(&source));
     assert!(
         r.console.contents().contains("-no-check"),
         "{}",
@@ -765,26 +811,20 @@ fn assert_chunks_only_changes_nothing_else(name: &str) {
         lines.sort();
         lines
     };
-    let before = (
-        name_lines(pretty(&fingerprint(&source))),
-        sorted(name_lines(moov_outline(&source))),
-    );
+    let before = (pretty(&fingerprint(&source)), sorted(moov_outline(&source)));
+    let atoms_before = atoms_ignoring_groups(&source);
     let result = prepare_file(&mut r.ctx, &source, &all_audio(), None).unwrap();
     assert_eq!(result.error, None, "{name}: {}", r.console.contents());
+    assert_same(
+        name,
+        "atoms",
+        &atoms_before,
+        &atoms_ignoring_groups(&source),
+    );
     assert_eq!(result.outcome, Outcome::Rebuilt, "{name}");
     assert!(!marker.exists(), "{name}: ffmpeg ran");
-    assert_same(
-        name,
-        "ffprobe",
-        &before.0,
-        &name_lines(pretty(&fingerprint(&source))),
-    );
-    assert_same(
-        name,
-        "moov",
-        &before.1,
-        &sorted(name_lines(moov_outline(&source))),
-    );
+    assert_same(name, "ffprobe", &before.0, &pretty(&fingerprint(&source)));
+    assert_same(name, "moov", &before.1, &sorted(moov_outline(&source)));
 }
 
 #[test]
@@ -792,4 +832,159 @@ fn atmos_and_tags_survive_the_chunks_only_run() {
     assert_chunks_only_changes_nothing_else("atmos_dec3.mp4");
     assert_chunks_only_changes_nothing_else("chapters.mp4");
     assert_chunks_only_changes_nothing_else("stereo_surround_subs.mp4");
+}
+
+/// Fixtures that carry streams: every moov atom except the sample tables must come out of `MP4Box`
+/// as it went in (ADR 0010). Titles, `dec3`, `esds`, handler names, languages, `tkhd` and `mdhd`.
+#[test]
+fn mp4box_loses_no_atom_of_the_moov_in_the_fixtures() {
+    needs_mp4box!();
+    let testdata = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../testdata");
+    let mut fixtures = Vec::new();
+    for dir in ["mp4", "prepare"] {
+        for entry in std::fs::read_dir(testdata.join(dir)).unwrap() {
+            let path = entry.unwrap().path();
+            let name = path.file_name().unwrap().to_string_lossy().into_owned();
+            if path.extension().is_some_and(|e| e == "mp4") && !name.starts_with("syn_") {
+                fixtures.push((format!("{dir}-{name}"), path));
+            }
+        }
+    }
+    fixtures.sort();
+    assert!(fixtures.len() >= 10, "{fixtures:?}");
+    let dir = tempfile::tempdir().unwrap();
+    for (name, fixture) in fixtures {
+        let input = dir.path().join(format!("in-{name}"));
+        let output = dir.path().join(format!("out-{name}"));
+        std::fs::copy(&fixture, &input).unwrap();
+        let done = Mp4Box::new().rechunk(&input, &output, &mut |_| {}).unwrap();
+        restore_from(&output, &done.reference.unwrap()).unwrap();
+        assert_same(&name, "atoms", &atoms(&input), &atoms(&output));
+    }
+}
+
+/// A fresh ffmpeg file with everything Apple TV files carry: track titles of three characters and
+/// longer, languages, dispositions, chapters, tags, AC-3 5.1, `mov_text` subtitles.
+fn rich_ffmpeg_file(dir: &Path) -> PathBuf {
+    let meta = dir.join("meta.txt");
+    std::fs::write(
+        &meta,
+        ";FFMETADATA1\ntitle=Film\nartist=Someone\ncomment=hello\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=0\nEND=6000\ntitle=One\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=6000\nEND=12000\ntitle=Two\n",
+    )
+    .unwrap();
+    let srt = dir.join("s.srt");
+    std::fs::write(&srt, "1\n00:00:00,000 --> 00:00:02,000\nHallo\n").unwrap();
+    let path = dir.join("rich.mp4");
+    let (meta, srt, out) = (
+        meta.to_str().unwrap(),
+        srt.to_str().unwrap(),
+        path.to_str().unwrap(),
+    );
+    ffmpeg(&[
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc=size=320x240:rate=25",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=440:sample_rate=48000",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=880:sample_rate=48000",
+        "-i",
+        srt,
+        "-i",
+        srt,
+        "-i",
+        meta,
+        "-t",
+        "12",
+        "-map",
+        "0:v",
+        "-map",
+        "1:a",
+        "-map",
+        "2:a",
+        "-map",
+        "3",
+        "-map",
+        "4",
+        "-map_metadata",
+        "5",
+        "-map_chapters",
+        "5",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "ac3",
+        "-c:s",
+        "mov_text",
+        "-metadata:s:v:0",
+        "title=Video",
+        "-metadata:s:a:0",
+        "title=DEU",
+        "-metadata:s:a:0",
+        "language=deu",
+        "-metadata:s:a:1",
+        "title=English Stereo",
+        "-metadata:s:a:1",
+        "language=eng",
+        "-metadata:s:s:0",
+        "title=ENG",
+        "-metadata:s:s:0",
+        "language=eng",
+        "-metadata:s:s:1",
+        "title=Deutsch SDH",
+        "-metadata:s:s:1",
+        "language=deu",
+        "-disposition:a:0",
+        "default",
+        "-disposition:a:1",
+        "0",
+        "-disposition:s:0",
+        "0",
+        "-disposition:s:1",
+        "+hearing_impaired+forced",
+        "-movflags",
+        "+faststart",
+        out,
+    ]);
+    path
+}
+
+#[test]
+fn mp4box_loses_nothing_of_a_rich_ffmpeg_file() {
+    needs_mp4box!();
+    let dir = tempfile::tempdir().unwrap();
+    let input = rich_ffmpeg_file(dir.path());
+    let output = dir.path().join("out.mp4");
+    let done = Mp4Box::new().rechunk(&input, &output, &mut |_| {}).unwrap();
+    // Titles of three characters are what makes MP4Box reject the file.
+    assert_eq!(done.check, Check::Skip);
+    let restored = restore_from(&output, &done.reference.unwrap()).unwrap();
+    assert!(!restored.is_empty());
+    assert_same("rich", "atoms", &atoms(&input), &atoms(&output));
+    assert_same(
+        "rich",
+        "ffprobe",
+        &pretty(&fingerprint(&input)),
+        &pretty(&fingerprint(&output)),
+    );
+    let titles: Vec<String> = pretty(&fingerprint(&output))
+        .into_iter()
+        .filter(|l| l.contains("\"name\":"))
+        .map(|l| l.trim().to_owned())
+        .collect();
+    assert!(
+        titles.iter().any(|t| t == "\"name\": \"DEU\""),
+        "{titles:?}"
+    );
+    assert!(
+        titles.iter().any(|t| t == "\"name\": \"ENG\""),
+        "{titles:?}"
+    );
 }

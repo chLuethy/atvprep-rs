@@ -20,6 +20,7 @@ use super::boxes::{find_box, read_box_header};
 use super::copy::{COPY_CHUNK, copy_all, copy_n, via_temp};
 use super::error::{Mp4Error, Result};
 use super::offsets::{add_to_chunk_offsets, moov_for_front};
+pub use super::restore::{Reference, Restored};
 pub use super::tags::{PatchSummary, SubInfo, TagCheck};
 use super::tags::{build_patched_moov, chapter_track_ids_in, check_moov, summarize_moov};
 
@@ -350,14 +351,38 @@ impl Patcher {
         progress: Progress<'_>,
         faststart: bool,
     ) -> Result<(PatchSummary, bool)> {
+        let (summary, atmos, _) =
+            self.apply_moov_patches_restoring(path, sub_infos, progress, faststart, None)?;
+        Ok((summary, atmos))
+    }
+
+    /// [`Patcher::apply_moov_patches`], and first the atoms of `restore` written over those `MP4Box`
+    /// changed (see [`Reference`]): one pass, one write, so the file is copied once, however much the
+    /// moov grows. Returns what was put back as the third value.
+    ///
+    /// # Errors
+    ///
+    /// As [`Patcher::set_subtitle_accessibility`].
+    pub fn apply_moov_patches_restoring(
+        &self,
+        path: &Path,
+        sub_infos: &[SubInfo],
+        progress: Progress<'_>,
+        faststart: bool,
+        restore: Option<&Reference>,
+    ) -> Result<(PatchSummary, bool, Restored)> {
         let mut file = OpenOptions::new().read(true).write(true).open(path)?;
         let Some(layout) = locate(&mut file)? else {
-            return Ok((PatchSummary::default(), false));
+            return Ok((PatchSummary::default(), false, Restored::default()));
         };
         // The alternate groups and handler types are applied to the moov in memory: the moov is
         // written back whole below, so the file ends up the same, and a later failure leaves no
         // half-patched file behind.
         let mut moov = read_moov(&mut file, &layout)?;
+        let mut restored = Restored::default();
+        if let Some(reference) = restore {
+            (moov, restored) = reference.restore(&moov)?;
+        }
         let chapters = chapter_track_ids_in(&moov);
         for (offset, bytes) in alternate_group_patches(&moov, &chapters)? {
             let at = usize::try_from(offset).map_err(|_| Mp4Error::Malformed("patch offset"))?;
@@ -372,7 +397,7 @@ impl Patcher {
             }
             _ => self.replace_moov(path, &mut file, &layout, &new_moov, progress)?,
         }
-        Ok((summary, new_moov != tagged))
+        Ok((summary, new_moov != tagged, restored))
     }
 
     /// Add the JOC extension to the `dec3` boxes of E-AC-3 Atmos tracks. Returns whether anything
@@ -393,6 +418,25 @@ impl Patcher {
         }
         self.replace_moov(path, &mut file, &layout, &new_moov, None)?;
         Ok(true)
+    }
+
+    /// Write the atoms of `reference` over those of the file that `MP4Box` changed (see
+    /// [`Reference`]). The moov grows or shrinks with them: the chunk offsets and the faststart
+    /// layout are handled as in every other moov write.
+    ///
+    /// # Errors
+    ///
+    /// As [`Patcher::set_subtitle_accessibility`].
+    pub fn restore_from(&self, path: &Path, reference: &Reference) -> Result<Restored> {
+        let mut file = OpenOptions::new().read(true).write(true).open(path)?;
+        let Some(layout) = locate(&mut file)? else {
+            return Ok(Restored::default());
+        };
+        let (new_moov, restored) = reference.restore(&read_moov(&mut file, &layout)?)?;
+        if !restored.is_empty() {
+            self.replace_moov(path, &mut file, &layout, &new_moov, None)?;
+        }
+        Ok(restored)
     }
 
     /// See [`check_accessibility`].
@@ -579,6 +623,30 @@ pub fn apply_moov_patches(
     faststart: bool,
 ) -> Result<(PatchSummary, bool)> {
     Patcher::default().apply_moov_patches(path, sub_infos, progress, faststart)
+}
+
+/// [`Patcher::apply_moov_patches_restoring`] with the default settings.
+///
+/// # Errors
+///
+/// As [`Patcher::apply_moov_patches_restoring`].
+pub fn apply_moov_patches_restoring(
+    path: &Path,
+    sub_infos: &[SubInfo],
+    progress: Progress<'_>,
+    faststart: bool,
+    restore: Option<&Reference>,
+) -> Result<(PatchSummary, bool, Restored)> {
+    Patcher::default().apply_moov_patches_restoring(path, sub_infos, progress, faststart, restore)
+}
+
+/// [`Patcher::restore_from`] with the default settings.
+///
+/// # Errors
+///
+/// As [`Patcher::restore_from`].
+pub fn restore_from(path: &Path, reference: &Reference) -> Result<Restored> {
+    Patcher::default().restore_from(path, reference)
 }
 
 /// [`Patcher::patch_atmos_dec3`] with the default settings.

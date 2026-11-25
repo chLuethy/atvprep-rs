@@ -12,6 +12,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use crate::mp4::chunks::TARGET_CHUNK_MS;
+use crate::mp4::patch;
+use crate::mp4::restore::Reference;
 
 /// Why the chunk stage did not deliver a file.
 #[derive(Debug)]
@@ -77,6 +79,11 @@ impl Mp4Box {
     /// (a title such as "DEU"). Only then does it run again with `-no-check`, which reads the file but
     /// clears those titles. [`Rechunked::check`] says which happened.
     ///
+    /// `MP4Box` drops or rewrites some atoms of the moov (titles, `dec3`, `esds`, `tkhd`, `mdhd`,
+    /// sample entries). [`Rechunked::reference`] holds them as `input` had them; the moov patch that
+    /// follows (`apply_moov_patches_restoring`) or [`patch::restore_from`] writes them back into
+    /// `output`. `input` is read before `MP4Box` runs.
+    ///
     /// # Errors
     ///
     /// [`ChunkError::Missing`] without `MP4Box`, [`ChunkError::Failed`] when it fails or writes nothing.
@@ -87,23 +94,31 @@ impl Mp4Box {
         progress: &mut dyn FnMut(f64),
     ) -> Result<Rechunked, ChunkError> {
         let program = self.find().ok_or(ChunkError::Missing)?;
-        match run_once(&program, input, output, Check::Strict, progress) {
+        // Read before `MP4Box` runs: `input` may be what the caller replaces with `output` afterwards.
+        let reference = patch::read_moov_of(input)
+            .map_err(|e| ChunkError::Failed(format!("could not read the moov of the input: {e}")))?
+            .map(|moov| Reference::of_moov(&moov));
+        let check = match run_once(&program, input, output, Check::Strict, progress) {
             Err(ChunkError::Failed(why)) if why.contains("Invalid IsoMedia File") => {
                 run_once(&program, input, output, Check::Skip, progress)?;
-                Ok(Rechunked { check: Check::Skip })
+                Check::Skip
             }
-            other => other.map(|()| Rechunked {
-                check: Check::Strict,
-            }),
-        }
+            other => {
+                other?;
+                Check::Strict
+            }
+        };
+        Ok(Rechunked { check, reference })
     }
 }
 
 /// How the chunk stage went.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rechunked {
-    /// How `MP4Box` read the file; with [`Check::Skip`] short track titles are cleared.
+    /// How `MP4Box` read the file; with [`Check::Skip`] it cleared short track titles.
     pub check: Check,
+    /// What the moov of the input held that `MP4Box` may have lost; `None` without a moov.
+    pub reference: Option<Reference>,
 }
 
 /// Whether `MP4Box` validated the file it read.
