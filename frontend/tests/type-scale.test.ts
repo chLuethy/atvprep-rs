@@ -8,10 +8,10 @@ const css = (name: string) => readFileSync(join(dir, name), "utf8");
 const declarations = (property: string) =>
   files.flatMap((name) => [...css(name).matchAll(new RegExp(`(?<![-\\w])${property}:\\s*([^;}]+)`, "g"))].map((match) => ({ file: name, value: match[1]!.trim() })));
 
-const SIZES = ["--text-xs", "--text-sm", "--text-base", "--text-md", "--text-lg"];
+const SIZES = ["--text-xs", "--text-sm", "--text-code", "--text-control", "--text-base", "--text-md", "--text-lg"];
 
 describe("the type scale", () => {
-  it("defines five sizes in rem, so the browser's own font setting still applies", () => {
+  it("defines the mockup sizes in rem, so the browser's own font setting still applies", () => {
     const tokens = css("tokens.css");
     for (const name of SIZES) expect(tokens).toMatch(new RegExp(`${name}:\\s*[0-9.]+rem;`));
     const values = SIZES.map((name) => Number(new RegExp(`${name}:\\s*([0-9.]+)rem`).exec(tokens)![1]));
@@ -48,9 +48,12 @@ describe("the type scale", () => {
     expect(text).toMatch(/--leading-title/);
   });
 
-  it("sets titles apart by weight as well as size", () => {
+  it("uses regular headings and the mockup's 15px body and 20px title bar", () => {
     const base = /^h1, h2\s*\{[^}]*\}/m.exec(css("app.css"))![0];
-    expect(base).toMatch(/font-weight:\s*600/);
+    expect(base).toMatch(/font-weight:\s*400/);
+    expect(css("tokens.css")).toMatch(/--text-base:\s*0\.9375rem/);
+    expect(css("tokens.css")).toMatch(/--text-md:\s*1\.25rem/);
+    expect(css("app.css")).toMatch(/\.page-titlebar\s*\{[^}]*font-size:\s*var\(--text-md\)/);
   });
 
   it("lifts the leading for light text on a dark ground", () => {

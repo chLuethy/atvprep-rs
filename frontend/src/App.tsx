@@ -1,4 +1,4 @@
-import { createRouter, useNavigate, type RouteProps } from "@solidjs/router";
+import { createRouter, useLocation, useNavigate, type RouteProps } from "@solidjs/router";
 import { createContext, createMemo, createSignal, onSettled, Show, useContext, type ParentComponent } from "solid-js";
 import "./styles/app.css";
 import type { ManagerApi } from "./lib/api";
@@ -145,6 +145,8 @@ const Shell: ParentComponent<{ session?: SessionControls; api?: ManagerApi }> = 
   const [tip, setTip] = createSignal(tipPending("keys"));
   const [version, setVersion] = createSignal<string | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  const isCurrent = (href: string) => location.pathname === href || location.pathname.startsWith(`${href}/`);
   let helpPanel: HTMLElement | undefined;
   let helpOpener: Element | null = null;
 
@@ -229,7 +231,7 @@ const Shell: ParentComponent<{ session?: SessionControls; api?: ManagerApi }> = 
         </button>
         <nav id="main-navigation" aria-label={t("Main")} class={navOpen() ? "nav open" : "nav"}>
           {NAV.map((item) => (
-            <a href={item.href} class="nav-link" onClick={() => setNavOpen(false)}>
+            <a href={item.href} class={["nav-link", { current: isCurrent(item.href) }]} aria-current={isCurrent(item.href) ? "page" : undefined} onClick={() => setNavOpen(false)}>
               <Icon name={item.icon} size={16} />
               <span>{t(item.label)}</span>
               <Show when={item.href === "/jobs" && workState().running + workState().queued > 0}>

@@ -3,6 +3,7 @@ import { SessionError } from "../../lib/api";
 import { Button } from "../../ui";
 import { N, t } from "../../lib/i18n";
 import { ShortcutsPanel } from "../help/ShortcutsPanel";
+import { AppearanceSettings } from "./AppearanceSettings";
 
 type SettingsApi = { request: (path: string, init?: RequestInit) => Promise<Response> };
 type SettingValue = number | boolean | string[];
@@ -292,11 +293,12 @@ export const SettingsPage: Component<{ api: SettingsApi }> = (props) => {
   };
 
   return (
-    <section class="settings" aria-labelledby="settings-title">
-      <header class="settings-head">
+    <section class="page settings" aria-labelledby="settings-title">
+      <header class="page-titlebar settings-head">
         <h2 id="settings-title">{t("Runtime settings")}</h2>
         <span class="muted">{t("Revision {revision}", { revision: String(revision() ?? "—") })}</span>
       </header>
+      <AppearanceSettings />
       <Show when={loading()}><p class="muted">{t("Loading settings")}</p></Show>
       <Show when={sessionExpired()}><div class="notice bad" role="alert">{t("Session expired. Sign in again to view runtime settings.")}</div></Show>
       <Show when={!loading() && !sessionExpired()}>

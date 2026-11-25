@@ -2,10 +2,10 @@
    (reference: docs/design/manager-mockup.html, page #dateien).
    The work area ends level with the appearance buttons in the sidebar (lib/fitBottom.ts sets its height);
    below 1180 px it is one column and just flows. Only the list scrolls, and there are no row lines. */
-.files-page { height: 100%; overflow: auto; display: flex; flex-direction: column; gap: 16px; min-width: 0; padding: 20px max(16px, env(safe-area-inset-right, 0px)) 32px 24px; }
+.files-page { display: flex; flex-direction: column; gap: 16px; }
 /* Nothing shrinks to fit the window: the split has the height it is given or its content's, and the page scrolls. */
 .files-page > * { flex: none; min-width: 0; max-width: 1360px; width: 100%; margin: 0 auto; }
-.files-title { margin: 0; font-size: var(--text-md); letter-spacing: var(--tracking-title); }
+.files-title { margin-block: 0; }
 .files-top { display: grid; gap: 8px; }
 .files-top .notice { margin: 0; }
 .files-top .confirm { margin: 0; }
@@ -44,7 +44,7 @@
 .files-table tr.row[aria-selected="true"] td, .files-table tr.row[data-picked="true"] td { background-color: var(--accent-weak); }
 .files-table tr.row:focus-visible { outline-offset: -2px; }
 .files-table tr.row { user-select: none; cursor: pointer; }
-.file-cell { width: 100%; min-width: 200px; white-space: normal; }
+.file-cell { width: 100%; min-width: min(200px, 35vw); white-space: normal; }
 .file-title { display: block; color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
 .file-title:hover { text-decoration: underline; text-underline-offset: 3px; }
 .file-folder { display: block; color: var(--ink-muted); overflow-wrap: anywhere; font-size: var(--text-sm); }

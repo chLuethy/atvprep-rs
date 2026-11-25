@@ -39,7 +39,7 @@ export function chooseTheme(value: Theme): void {
   window.dispatchEvent(new CustomEvent<Theme>(THEME_EVENT, { detail: value }));
 }
 
-export const ThemeSwitch: Component = () => {
+export const ThemeSwitch: Component<{ label?: string; fitBottom?: boolean }> = (props) => {
   const [theme, setTheme] = createSignal<Theme>(readStoredTheme());
   onSettled(() => { applyTheme(theme()); });
   const choose = (value: Theme) => chooseTheme(value);
@@ -49,7 +49,7 @@ export const ThemeSwitch: Component = () => {
     return () => window.removeEventListener(THEME_EVENT, follow);
   });
   return (
-    <div class="seg" role="group" aria-label={t("Appearance")} data-fit-bottom>
+    <div class="seg" role="group" aria-label={props.label ?? t("Appearance")} data-fit-bottom={props.fitBottom === false ? undefined : ""}>
       <For each={CHOICES}>{(choice) => (
         <button type="button" aria-pressed={theme() === choice.value ? "true" : "false"} onClick={() => choose(choice.value)}>{t(choice.label)}</button>
       )}</For>

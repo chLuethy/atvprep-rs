@@ -534,10 +534,10 @@ export const SchedulesPage: Component<{
   );
 
   return (
-    <section class="schedules" aria-labelledby="schedules-title" onKeyDown={onKeyDown}>
+    <section class="page schedules" aria-labelledby="schedules-title" onKeyDown={onKeyDown}>
       <div class="sched-page">
       <header class="sched-head">
-        <div class="sched-titlebar">
+        <div class="page-titlebar sched-titlebar">
           <h1 id="schedules-title">{t("Schedules")}</h1>
           <Show when={phase() === "ready" && rows().length > 0}>
             <span class="sched-count">{t("{on} of {total} on", { on: rows().filter((row) => row.enabled).length, total: rows().length })}</span>

@@ -13,11 +13,12 @@ const css = (name: string) => strip(raw(name));
 const files = readdirSync(dir).filter((name) => name.endsWith(".css"));
 const components = files.filter((name) => name !== SCAFFOLD);
 
-const SEEDS = ["accent", "ink", "ground", "surface", "line", "ok", "warn", "bad"].map((name) => `--seed-${name}`);
+const SEEDS = ["accent", "ink", "ground", "surface", "line", "muted", "sand", "on-accent", "ok", "warn", "bad"].map((name) => `--seed-${name}`);
 
 /** Custom properties declared in the scaffold: name -> value. */
 const declared = (text: string) => new Map([...text.matchAll(/(?<![-\w])(--[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1]!, m[2]!.trim()]));
-const scaffold = declared(css(SCAFFOLD));
+const baseScaffold = /:root\s*\{([^}]*)\}/.exec(css(SCAFFOLD))![1]!;
+const scaffold = declared(baseScaffold);
 const refs = (value: string) => [...value.matchAll(/var\((--[\w-]+)/g)].map((m) => m[1]!);
 
 /** All seeds a token depends on, following var() references through the scaffold. */
@@ -38,13 +39,18 @@ describe("the theme scaffold", () => {
 
   it("sets each seed once, for light and dark together, so system and forced dark cannot drift", () => {
     for (const seed of SEEDS) {
-      const all = [...css(SCAFFOLD).matchAll(new RegExp(`(?<![-\\w])${seed}\\s*:`, "g"))];
+      const all = [...baseScaffold.matchAll(new RegExp(`(?<![-\\w])${seed}\\s*:`, "g"))];
       expect(all, seed).toHaveLength(1);
       expect(scaffold.get(seed), seed).toMatch(/^light-dark\(\s*#[0-9a-f]{6}\s*,\s*#[0-9a-f]{6}\s*\)$/i);
     }
     // Nothing else in the scaffold holds a literal colour.
     const others = [...scaffold].filter(([name]) => !SEEDS.includes(name));
     for (const [name, value] of others) expect(value, name).not.toMatch(/#[0-9a-fA-F]{3,8}(?![\w-])/);
+  });
+
+  it("enthält ausschließlich die Originalpalette ohne Naturpaletten oder Zweitakzente", () => {
+    expect(css(SCAFFOLD)).not.toMatch(/data-palette|--seed-secondary|--accent-secondary/);
+    expect(scaffold.get("--seed-accent")).toBe("light-dark(#805c3a, #c99d74)");
   });
 
   it("gives light, dark and system the same tokens: the variants only switch the colour scheme", () => {
@@ -79,12 +85,13 @@ describe("the theme scaffold", () => {
     expect(redefined).toEqual([]);
   });
 
-  it("changes the whole app by swapping the accent seed: everything accent-coloured is derived from it", () => {
+  it("shares the accent for actions and the mockup sand for selected surfaces", () => {
     // Swap proof: any token the components use for the accent reaches --seed-accent and no literal of its own.
     const accentTokens = ["--accent", "--accent-weak", "--on-accent"].filter((name) => scaffold.has(name));
     expect(accentTokens).toEqual(["--accent", "--accent-weak", "--on-accent"]);
     expect(reach("--accent").has("--seed-accent")).toBe(true);
-    expect(reach("--accent-weak").has("--seed-accent")).toBe(true);
+    expect(reach("--accent-weak").has("--seed-sand")).toBe(true);
+    expect(reach("--on-accent").has("--seed-on-accent")).toBe(true);
     // Only --seed-accent carries the accent's hex value.
     const hex = scaffold.get("--seed-accent")!.match(/#[0-9a-f]{6}/gi)!;
     const holders = [...scaffold].filter(([, value]) => hex.some((h) => value.toLowerCase().includes(h.toLowerCase()))).map(([name]) => name);
