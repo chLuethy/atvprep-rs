@@ -13,8 +13,11 @@ const box = async (target: Locator) => {
 const overlap = (a: { x: number; y: number; width: number; height: number }, b: typeof a) =>
   a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 
-async function openLongFailure(page: Page, theme: Theme): Promise<Locator> {
+async function openLongFailure(page: Page, theme: Theme, width = 1440): Promise<Locator> {
+  // Unlock wide (the Lock button hides in the narrow menu), then measure at the width asked for.
+  await page.setViewportSize({ width: 1440, height: 900 });
   await openThemed(page, "/jobs", theme, "Activity");
+  await page.setViewportSize({ width, height: 900 });
   await page.getByRole("region", { name: "History" }).getByRole("link", { name: /Ya Shivu/ }).first().click();
   const why = page.getByRole("region", { name: "Why it failed" });
   await expect(why).toBeVisible();
@@ -25,15 +28,18 @@ test.describe("job failure detail", () => {
   for (const theme of ["light", "dark"] as const) {
     for (const width of [1440, 390]) {
       test(`chip and file name do not overlap (${theme}, ${width} px)`, async ({ page }) => {
-        await page.setViewportSize({ width, height: 900 });
-        const why = await openLongFailure(page, theme);
+        const why = await openLongFailure(page, theme, width);
         const item = why.getByRole("listitem").first();
         const chip = item.locator(".chip").first();
         const name = item.locator("b");
         await expect(name).toContainText("Ya Shivu");
         const chipBox = await box(chip);
+        const chipText = await box(chip.locator(".chip-text"));
         const nameBox = await box(name);
+        // The chip is as wide as its words, and neither it nor its words touch the name.
+        expect(chipText.x + chipText.width).toBeLessThanOrEqual(chipBox.x + chipBox.width + 1);
         expect(overlap(chipBox, nameBox)).toBe(false);
+        expect(overlap(chipText, nameBox)).toBe(false);
         // Nothing sticks out of the section sideways.
         const sectionBox = await box(why);
         expect(nameBox.x + nameBox.width).toBeLessThanOrEqual(sectionBox.x + sectionBox.width + 1);

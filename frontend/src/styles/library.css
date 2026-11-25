@@ -39,9 +39,10 @@
 .facts dd { margin: 0; min-width: 0; font-weight: 400; }
 .insp-sec h3, .preview h3 { margin: 22px 0 8px; }
 .why { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.why-item { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; align-items: start; }
+.why-item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: start; }
 .why-item p { margin: 0; color: var(--ink); }
 .why-item .rule { display: block; color: var(--ink-muted); }
+.why-code summary { cursor: pointer; color: var(--ink-muted); }
 .tracks { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
 .tracks th { font-weight: 500; color: var(--ink-muted); text-align: left; padding: 4px 8px 4px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .tracks td, .tracks tbody th { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; white-space: nowrap; color: var(--ink); font-weight: 400; }
