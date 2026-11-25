@@ -10,7 +10,7 @@ import { loadItems, loadJob, mutateJob, type Api, type ItemRow, type JobRow, typ
 import { LogViewer } from "./LogViewer";
 import { PlannedChange } from "./PlannedChange";
 import { RaiseEncode } from "./RaiseEncode";
-import { actionLabel, canCancel, canRetry, describeDetail, formatElapsed, isActive, isItemFailed, itemDuration, itemTone, jobPercent, jobProgress, jobTitle, jobTone, runningFor, type ItemStatus } from "./model";
+import { actionLabel, canCancel, canRetry, describeDetail, describeErrorCode, formatElapsed, isActive, isItemFailed, itemDuration, itemTone, jobPercent, jobProgress, jobTitle, jobTone, runningFor, type ItemStatus } from "./model";
 
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
 type Operation = "cancel" | "retry";
@@ -26,6 +26,26 @@ const ItemLog: Component<{ api: Api; itemId: string; status: ItemStatus }> = (pr
       <Button variant="quiet" aria-expanded={open() ? "true" : "false"} onClick={() => setOpen((value) => !value)}>{t("Log")}</Button>
       <Show when={open()}><LogViewer api={props.api} itemId={props.itemId} status={props.status} /></Show>
     </div>
+  );
+};
+
+/** Why an item failed, in words: what the code means, the worker's own text where it adds to it, the raw code on request. */
+const ErrorReason: Component<{ code: string | null | undefined; detail: string | null | undefined }> = (props) => {
+  const meaning = () => (props.code ? describeErrorCode(props.code) : undefined);
+  const detail = () => (props.detail ? describeDetail(props.detail) : undefined);
+  return (
+    <>
+      <Show when={meaning()}>{(text) => <p>{text()}</p>}</Show>
+      <Show when={detail() && detail() !== meaning()}>
+        <p>{detail()}</p>
+      </Show>
+      <Show when={!meaning() && !detail()}><p>{t("No detail was recorded.")}</p></Show>
+      <Show when={props.code}>{(code) => (
+        <Show when={meaning()} fallback={<span class="mono rule">{code()}</span>}>
+          <details class="why-code"><summary>{t("Show code")}</summary><span class="mono rule">{code()}</span></details>
+        </Show>
+      )}</Show>
+    </>
   );
 };
 
@@ -279,8 +299,7 @@ const JobDetailView: Component<{
                       <StatusChip kind={itemState().kind} icon={itemState().icon} live={itemState().live}>{itemState().label}</StatusChip>
                       <div>
                         <b>{itemName(item)}</b>
-                        <Show when={item.error_code}><span class="mono rule">{item.error_code}</span></Show>
-                        <p>{item.error_detail ? describeDetail(item.error_detail) : t("No detail was recorded.")}</p>
+                        <ErrorReason code={item.error_code} detail={item.error_detail} />
                       </div>
                     </li>
                   );

@@ -224,7 +224,9 @@ a { color: var(--accent); }
 .pal-list { list-style: none; margin: 0; padding: 6px; max-height: 320px; overflow: auto; }
 .pal-list li { display: flex; align-items: center; gap: 10px; padding: 6px 8px; cursor: pointer; }
 .pal-list li[aria-selected="true"] { background: var(--accent-weak); }
-.pal-hint { margin-left: auto; color: var(--ink-muted); font-size: var(--text-sm); }
+.pal-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pal-label mark { background: none; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.pal-hint { flex: none; margin-left: auto; color: var(--ink-muted); font-size: var(--text-sm); }
 .pal-empty { color: var(--ink-muted); cursor: default; }
 
 .bar { display: inline-block; width: 120px; height: 4px; background: var(--line); overflow: hidden; vertical-align: middle; }
