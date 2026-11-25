@@ -116,6 +116,52 @@ test.describe("files layout", () => {
   });
 });
 
+/* Long Sonarr/Radarr names (seeded in scripts/run-e2e.sh) must not push Status and Size out of the list. */
+test.describe("files list with long names", () => {
+  const within = (inner: { x: number; width: number }, outer: { x: number; width: number }) =>
+    inner.x >= outer.x - 0.5 && inner.x + inner.width <= outer.x + outer.width + 0.5;
+
+  for (const theme of ["light", "dark"] as const) {
+    test(`Status and Size of every row stay inside the list with the inspector open at 1440 px (${theme})`, async ({ page }) => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await openThemed(page, "/files", theme, "Files");
+      await row(page, "Failed Movie").click();
+      await expect(detail(page)).toBeVisible();
+      const rows = page.getByRole("table", { name: "Media files" }).locator("tbody tr");
+      expect(await rows.count()).toBeGreaterThanOrEqual(10);
+      const frame = await box(list(page));
+      expect(await list(page).evaluate((node) => node.scrollWidth - node.clientWidth), "the list scrolls sideways").toBeLessThanOrEqual(1);
+      for (let index = 0; index < (await rows.count()); index++) {
+        const current = rows.nth(index);
+        await current.scrollIntoViewIfNeeded();
+        for (const [cell, name] of [[".col-status", "Status"], [".num", "Size"]] as const) {
+          const found = await box(current.locator(cell));
+          expect(within(found, frame), `${name} of row ${index} lies outside the list`).toBe(true);
+        }
+      }
+    });
+
+    test(`the names wrap or end in an ellipsis and Status and Size stay readable at 390 px (${theme})`, async ({ page }) => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await openThemed(page, "/files", theme, "Files");
+      await page.setViewportSize({ width: 390, height: 844 });
+      const rows = page.getByRole("table", { name: "Media files" }).locator("tbody tr");
+      await expect(rows.first()).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), "the page scrolls sideways").toBeLessThanOrEqual(0);
+      const frame = await box(list(page));
+      expect(await list(page).evaluate((node) => node.scrollWidth - node.clientWidth), "the list scrolls sideways").toBeLessThanOrEqual(1);
+      for (let index = 0; index < (await rows.count()); index++) {
+        const current = rows.nth(index);
+        await current.scrollIntoViewIfNeeded();
+        for (const cell of [".col-status", ".num"]) expect(within(await box(current.locator(cell)), frame), `row ${index} ${cell}`).toBe(true);
+        // A name that does not fit is wrapped (at a break opportunity or, for a word that is too long, anywhere) or ends in an ellipsis: nothing is clipped.
+        const clipped = await current.locator(".file-title, .file-folder").evaluateAll((all) => all.filter((node) => node.scrollWidth > node.clientWidth + 1 && getComputedStyle(node).textOverflow !== "ellipsis").length);
+        expect(clipped, `row ${index} clips a name`).toBe(0);
+      }
+    });
+  }
+});
+
 test.describe("files actions", () => {
   test("the inspector has no action button but Copy path; Verify, Re-inspect and Prepare are in the selection bar, for one file too", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
