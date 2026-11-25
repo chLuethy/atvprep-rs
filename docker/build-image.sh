@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Baut die drei Servarr-Images (Sonarr, Radarr, Whisparr) aus docker/bases.env und prüft die Werkzeuge.
-# Aufruf: docker/build-image.sh [--tag TAG] [--platform PLATTFORM]
-#   --tag       Tag der Images, z. B. 0.2 ergibt atvprep-sonarr:0.2 (Standard: smoke)
+# Aufruf: docker/build-image.sh --tag TAG [--platform PLATTFORM]
+#   --tag       Tag der Images (Pflicht), z. B. 0.2 ergibt atvprep-sonarr:0.2
 #   --platform  Zielplattform, z. B. linux/amd64 (Standard: die des Docker-Hosts)
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(dirname "$here")
-tag=smoke
+tag=
 platform=
 usage() { sed -n '3,5s/^# \{0,1\}//p' "$0" >&2; exit 2; }
 while [ $# -gt 0 ]; do
@@ -17,6 +17,7 @@ while [ $# -gt 0 ]; do
     *) printf 'Unbekanntes Argument: %s\n' "$1" >&2; usage ;;
   esac
 done
+[ -n "$tag" ] || { printf 'Fehlt: --tag TAG\n' >&2; usage; }
 # Docker-Tags: Buchstaben, Ziffern, _ . -, höchstens 128 Zeichen, nicht mit . oder - beginnend.
 if ! printf '%s' "$tag" | grep -Eq '^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'; then
   printf 'Ungültiger Tag: %s\n' "$tag" >&2
