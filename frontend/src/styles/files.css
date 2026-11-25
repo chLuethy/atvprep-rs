@@ -44,7 +44,9 @@
 .files-table tr.row[aria-selected="true"] td, .files-table tr.row[data-picked="true"] td { background-color: var(--accent-weak); }
 .files-table tr.row:focus-visible { outline-offset: -2px; }
 .files-table tr.row { user-select: none; cursor: pointer; }
-.file-cell { width: 100%; min-width: min(200px, 35vw); white-space: normal; }
+/* The name column is the flexible one and wraps; Status and Size are columns of their own that never wrap. `.files-table td` sets nowrap, so the selector must be at least as specific. */
+.files-table td.file-cell { width: 100%; min-width: min(200px, 35vw); white-space: normal; }
+.files-table td.col-status, .files-table td.num { width: 1%; }
 .file-title { display: block; color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
 .file-title:hover { text-decoration: underline; text-underline-offset: 3px; }
 .file-folder { display: block; color: var(--ink-muted); overflow-wrap: anywhere; font-size: var(--text-sm); }

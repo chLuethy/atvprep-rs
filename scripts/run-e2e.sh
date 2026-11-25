@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Run the Playwright smoke test against the Rust server serving the built SPA.
 # Needs sqlite3, ffprobe, the frontend dependencies and a Chromium (`npx playwright install chromium`).
-# The journeys expect a fixed fixture (Sample Movie, Failed Movie, a queued and a failed job); it is
+# The journeys expect a fixed fixture (Sample Movie, Failed Movie, a queued and a failed job, and
+# six files with long Sonarr/Radarr names in series and movie folders); it is
 # inserted into a freshly migrated temporary database before the server serves the tests.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -70,6 +71,27 @@ fingerprint=$(shasum -a 256 "$work/media/Sample Movie.mp4" | cut -d' ' -f1)
 # A leftover partial rewrite beside the source, as a crash would leave it, and the scan that found it.
 leftover=".tmp_fixmeta_enc.Sample Movie.4711-0a1b2c3d.mp4"
 printf 'partial rewrite' > "$work/media/$leftover"
+# Long Sonarr/Radarr names: series with season folder and {tvdb-...}, movies with {imdb-...} and quality tags.
+# One entry per file: relative path, compliance state, workflow state, desired action, encode need, planned change.
+arr_files=(
+  "TV/The Marvelous Mrs. Maisel (2017) {tvdb-330139}/Season 01/The Marvelous Mrs. Maisel (2017) - S01E01 - Pilot [AMZN WEBDL-2160p][DV HDR10Plus][EAC3 Atmos 5.1][h265]-NTb.mp4|clean|idle|none|none|none"
+  "TV/The Marvelous Mrs. Maisel (2017) {tvdb-330139}/Season 01/The Marvelous Mrs. Maisel (2017) - S01E02 - Ya Shivu v Bolshom Dome Na Kholme [AMZN WEBDL-2160p][DV HDR10Plus][EAC3 Atmos 5.1][h265]-NTb.mp4|warning|action_required|fix|none|remux"
+  "TV/Severance (2022) {tvdb-371980}/Season 02/Severance (2022) - S02E09 - Cold Harbor [ATVP WEBDL-2160p][DV HDR10][EAC3 Atmos 5.1][h265]-FLUX.mp4|clean|idle|none|none|none"
+  "Movies/Dune Part Two (2024) {imdb-tt15239678}/Dune Part Two (2024) {imdb-tt15239678} [Remux-2160p][DV HDR10][TrueHD Atmos 7.1][h265]-FraMeSToR.mp4|warning|action_required|fix|audio|reencode"
+  "Movies/Blade Runner 2049 (2017) {imdb-tt1856101}/Blade Runner 2049 (2017) {imdb-tt1856101} [Bluray-1080p Proper][DTS-HD MA 5.1][x264]-CtrlHD.mp4|clean|idle|none|none|none"
+  "Movies/The Lord of the Rings The Return of the King (2003) {imdb-tt0167260}/The Lord of the Rings The Return of the King (2003) {imdb-tt0167260} {edition-Extended Cut} [Bluray-2160p][HDR10][DTS-HD MA 5.1][h265]-WiLDCAT.mp4|warning|action_required|fix|video|reencode"
+)
+arr_sql=""
+id=5
+for entry in "${arr_files[@]}"; do
+  IFS='|' read -r rel compliance workflow desired need change <<< "$entry"
+  mkdir -p "$work/media/$(dirname "$rel")"
+  printf 'synthetic e2e media' > "$work/media/$rel"
+  arr_sql+="($id,1,'$rel','movie','.mp4',$size,1,'$fingerprint',1,$id,1,'present','$compliance','$workflow','$desired','$need','$change'),"$'\n'
+  id=$((id + 1))
+done
+arr_sql=${arr_sql%,$'\n'}
+
 sqlite3 "$work/manager.sqlite" <<SQL
 INSERT INTO scan_runs(id,root_id,generation,status,finished_at,orphans_json) VALUES(100,1,100,'succeeded',datetime('now'),'{"count":1,"bytes":15,"files":[{"relative_path":"$leftover","size":15,"modified_at":"2026-11-01 10:00:00"}]}');
 INSERT OR IGNORE INTO library_roots(id,name,canonical_path) VALUES(1,'E2E Library','$(cd "$work/media" && pwd -P)');
@@ -77,7 +99,8 @@ INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,finge
  (1,1,'Sample Movie.mp4','movie','.mp4',$size,1,'$fingerprint',1,1,1,'present','clean','idle','none','none','none'),
  (2,1,'Failed Movie.mp4','movie','.mp4',$size,1,'$fingerprint',1,2,1,'present','warning','action_required','fix','none','remux'),
  (3,1,'Interrupted Movie.mp4','movie','.mp4',$size,1,'$fingerprint',1,3,1,'present','warning','action_required','fix','none','remux'),
- (4,1,'Old Codec Movie.mp4','movie','.mp4',$size,1,'$fingerprint',1,4,1,'present','warning','action_required','fix','video','reencode');
+ (4,1,'Old Codec Movie.mp4','movie','.mp4',$size,1,'$fingerprint',1,4,1,'present','warning','action_required','fix','video','reencode'),
+$arr_sql;
 INSERT INTO inspections(media_file_id,source_fingerprint,input_fingerprint,tool_name,tool_version,result) VALUES(1,'$fingerprint','$fingerprint','ffprobe','e2e','{"format":{"format_name":"mp4"}}');
 INSERT INTO jobs(id,action,status,trigger,total_count,failed_count,error) VALUES(1,'verify','queued','manual',1,0,NULL),(2,'fix','failed','manual',1,1,'synthetic e2e failure'),(3,'fix','failed','manual',1,1,'worker stopped');
 INSERT INTO job_items(id,job_id,media_file_id,action,position,status,attempt,error_code,error_detail,input_snapshot_json,log_tail,finished_at) VALUES
