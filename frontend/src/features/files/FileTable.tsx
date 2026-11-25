@@ -2,7 +2,8 @@ import { createEffect, createMemo, For, Show, type Component } from "solid-js";
 import { uniqueRowKeys } from "../../lib/rowKeys";
 import { fileKey } from "./identity";
 import { flash } from "../../lib/flash";
-import { StatusChip } from "../../ui";
+import { MiddleText, StatusChip } from "../../ui";
+import { parseMediaName, shortName } from "../../lib/mediaName";
 import type { FileRow } from "./loaders";
 import type { FileSort } from "./filters";
 import { N, t } from "../../lib/i18n";
@@ -66,6 +67,7 @@ export const FileTable: Component<{
         <For each={props.rows} keyed={(file) => rowKey()(file)}>{(file, index) => {
           const name = () => baseName(file().display_path ?? "");
           const title = () => name().title || file().kind;
+          const parsed = () => parseMediaName(name().title);
           const verdict = () => verdictOf(file());
           let row: HTMLTableRowElement | undefined;
           createEffect(() => ({ file: file(), flagged: props.flagged?.(file()) }), ({ flagged }) => { if (row && flagged) flash(row); });
@@ -89,7 +91,12 @@ export const FileTable: Component<{
                   tabindex="-1"
                   href={`/files/${file().id}`}
                   onClick={(event) => { event.preventDefault(); props.onSelect(file(), event); }}
-                >{title()}</a>
+                >
+                  <MiddleText text={name().title ? shortName(parsed(), { withGroup: true }) : title()} full={title()} tail={14} />
+                </a>
+                <Show when={(() => { const p = parsed(); return p.matched && p.tags.length > 0; })()}>
+                  <span class="name-tags" aria-hidden="true"><For each={(parsed() as { tags: string[] }).tags}>{(tag) => <span class="name-tag">{tag}</span>}</For></span>
+                </Show>
                 <Show when={name().folder}><span class="file-folder mono">{name().folder}</span></Show>
                 <Show when={file().last_interrupted && !file().fix_status}><span class="interrupted-note">{t("Last preparation interrupted")}</span></Show>
               </td>

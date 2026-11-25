@@ -142,7 +142,7 @@ export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: str
                             const tone = () => jobTone(job.status);
                             return (
                               <li class="now-row">
-                                {link(`/jobs/${encodeURIComponent(job.id)}`, `${job.subject ? `${actionLabel(job.action)}: ${jobTitle(job)}` : actionLabel(job.action)} · ${jobProgress(job)}`)}
+                                {link(`/jobs/${encodeURIComponent(job.id)}`, <span title={job.subject ? jobTitle(job, { full: true }) : undefined}>{`${job.subject ? `${actionLabel(job.action)}: ${jobTitle(job)}` : actionLabel(job.action)} · ${jobProgress(job)}`}</span>)}
                                 <StatusChip kind={tone().kind} icon={tone().icon}>{tone().label}</StatusChip>
                               </li>
                             );

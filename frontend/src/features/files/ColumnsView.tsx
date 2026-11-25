@@ -1,10 +1,11 @@
 import { createEffect, createMemo, createSignal, For, refresh, Show, untrack, type Component } from "solid-js";
 import { N, t, tn } from "../../lib/i18n";
-import { Button, Icon } from "../../ui";
+import { Button, Icon, MiddleText } from "../../ui";
+import { parseMediaName, shortName } from "../../lib/mediaName";
 import { allReady, describeCounts, loadBrowse, worstIn, type Browse, type BrowseFolder, type StateCounts } from "./browse";
 import type { Api, FileRow } from "./loaders";
 import { EMPTY_FILTER, fileSortQuery, type FileFilter, type FileSort } from "./filters";
-import { verdictOf } from "./model";
+import { baseName, verdictOf } from "./model";
 import { RowMenu, type MenuItem } from "./RowMenu";
 import { additive, copyText, selectionMenu, type SelectionAction } from "./selection";
 import { columnFilterKey, type ColumnPath } from "./columnPath";
@@ -27,6 +28,13 @@ export type ColumnAction = SelectionAction;
 /** The order a column asks for, as one comparable string; none given is the server's own order. */
 const sortKey = (sort: FileSort | undefined) => (sort === undefined ? "server" : fileSortQuery(sort));
 
+/** The file as a column row shows it: series left out (the folder names it), the extension kept. */
+const columnName = (path: string | undefined) => {
+  const name = lastName(path);
+  const stem = baseName(path ?? "").title;
+  const parsed = parseMediaName(stem);
+  return parsed.matched && stem ? `${shortName(parsed, { dropSeries: true, withGroup: true })}${name.slice(stem.length)}` : name;
+};
 const lastName =(path: string | undefined) => (path ?? "").split("/").pop() || t("(unnamed)");
 const entriesOf = (data: Browse): Entry[] => [
   ...data.folders.map((folder): Entry => ({ kind: "folder", key: `d:${folder.name}`, folder })),
@@ -134,7 +142,7 @@ const Column: Component<{
                 ) : (
                   <>
                     <span class="col-icon"><Icon name="file" size={16} /></span>
-                    <span class="col-name" title={lastName(entry.file.display_path)}>{lastName(entry.file.display_path)}</span>
+                    <MiddleText class="col-name" text={columnName(entry.file.display_path)} full={lastName(entry.file.display_path)} />
                     <span class="col-trail">
                       <span class={`col-state ${verdictOf(entry.file).kind}`} title={verdictOf(entry.file).label} role="img" aria-label={verdictOf(entry.file).label}>
                         <Icon name={verdictOf(entry.file).icon} size={12} />
