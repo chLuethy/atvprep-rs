@@ -212,6 +212,93 @@ fn a_prepared_file_has_chunks_of_about_half_a_second() {
     assert!(atvprep_core::mp4::patch::is_faststart(&source).unwrap());
 }
 
+/// A file as rich as a feature film: video, four audio tracks, two subtitle tracks (a few sparse
+/// samples each) and chapters, written by ffmpeg with default settings.
+fn many_tracks(dir: &Path) -> PathBuf {
+    let srt = dir.join("subs.srt");
+    std::fs::write(
+        &srt,
+        "1\n00:00:01,000 --> 00:00:03,000\nHello\n\n2\n00:00:09,000 --> 00:00:11,000\nWorld\n\n3\n00:00:17,000 --> 00:00:19,000\nEnd\n",
+    )
+    .unwrap();
+    let chapters = dir.join("chapters.txt");
+    std::fs::write(
+        &chapters,
+        ";FFMETADATA1\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=0\nEND=8000\ntitle=One\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=8000\nEND=20000\ntitle=Two\n",
+    )
+    .unwrap();
+    let path = dir.join("Many.mp4");
+    let mut args: Vec<String> = Vec::new();
+    let mut add = |items: &[&str]| args.extend(items.iter().map(|s| (*s).to_owned()));
+    add(&[
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc=size=320x240:rate=24:duration=20",
+    ]);
+    for frequency in [440, 660, 880, 220] {
+        add(&[
+            "-f",
+            "lavfi",
+            "-i",
+            &format!("sine=frequency={frequency}:sample_rate=48000:duration=20"),
+        ]);
+    }
+    add(&["-i", srt.to_str().unwrap(), "-i", srt.to_str().unwrap()]);
+    add(&["-i", chapters.to_str().unwrap()]);
+    add(&[
+        "-map", "0:v", "-map", "1:a", "-map", "2:a", "-map", "3:a", "-map", "4:a",
+    ]);
+    add(&["-map", "5", "-map", "6", "-map_chapters", "7"]);
+    add(&[
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-c:s", "mov_text",
+    ]);
+    for (index, language) in ["deu", "eng", "fra", "spa"].iter().enumerate() {
+        add(&[
+            &format!("-metadata:s:a:{index}"),
+            &format!("language={language}"),
+        ]);
+    }
+    for (index, language) in ["deu", "eng"].iter().enumerate() {
+        add(&[
+            &format!("-metadata:s:s:{index}"),
+            &format!("language={language}"),
+        ]);
+    }
+    add(&[path.to_str().unwrap()]);
+    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    ffmpeg(&refs);
+    path
+}
+
+/// `MP4Box -inter` corrects drift between the tracks; a sparse subtitle track made it cut the chunks of
+/// every other track to a fraction of the duration asked for (0.13 s with seven tracks).
+#[test]
+fn every_audio_and_video_track_of_a_many_track_file_has_chunks_of_half_a_second() {
+    needs_mp4box!();
+    let mut r = run(true);
+    let source = many_tracks(&r.base);
+    let before = mean_chunk_seconds(&source);
+    assert_eq!(before.len(), 5, "{before:?}");
+    let result = prepare_file(&mut r.ctx, &source, &all_audio(), None).unwrap();
+    assert_eq!(result.error, None);
+
+    let means = mean_chunk_seconds(&source);
+    // Prepare keeps the video and the audio tracks of the languages it supports (here two).
+    assert_eq!(means.len(), 3, "{means:?}");
+    for (kind, mean) in &means {
+        assert!(
+            (0.4..=0.6).contains(mean),
+            "{kind}: mean chunk duration {mean:.3} s of {means:?}"
+        );
+    }
+    // The check that flags a file for the chunk length no longer finds anything.
+    assert_eq!(
+        atvprep_core::mp4::chunks::short_chunks(&source).unwrap(),
+        []
+    );
+}
+
 #[test]
 fn the_chunk_stage_reports_progress_between_encode_and_finalize() {
     needs_mp4box!();

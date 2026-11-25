@@ -2,8 +2,9 @@
 //! of media time (ADR 0010).
 //!
 //! ffmpeg's mov muxer writes chunks of one or two samples and cannot be set to a chunk duration;
-//! Apple TV stutters on such files. `MP4Box -inter 500` interleaves with chunks of
-//! 500 ms.
+//! Apple TV stutters on such files. `MP4Box -old-inter 500` interleaves with chunks of
+//! 500 ms on every track. Plain `-inter` adds a drift correction between the tracks that, with a
+//! sparse track (subtitles), cuts the chunks of all other tracks to a fraction of that duration.
 
 use std::fmt;
 use std::io::{self, Read};
@@ -142,7 +143,7 @@ fn run_once(
         command.arg("-no-check");
     }
     let mut child = command
-        .arg("-inter")
+        .arg("-old-inter")
         .arg(TARGET_CHUNK_MS.to_string())
         .arg(input)
         .arg("-out")
