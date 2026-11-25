@@ -650,8 +650,8 @@ export const LibraryPage: Component<{
   onSettled(() => fitBottomTo({ page: () => page, split: () => split, anchor: () => document.querySelector<HTMLElement>("[data-fit-bottom]") }));
 
   return (
-    <section class="files-page" ref={page} aria-label={t("Files")} onKeyDown={onKeyDown}>
-      <h1 class="files-title">{t("Files")}</h1>
+    <section class="page files-page" ref={page} aria-label={t("Files")} onKeyDown={onKeyDown}>
+      <h1 class="page-titlebar files-title">{t("Files")}</h1>
       <div class="files-top">
         <FilterBar
           label={t("Filter files")}

@@ -1,12 +1,11 @@
 /* Schedules: a stack of cards. Every card has the same five columns, so the dashed column lines stand
    under one another; the actions sit in a band of their own under a hairline.
    Reference: docs/design/manager-mockup.html (#zeitplaene). Colour comes from the theme tokens only. */
-.schedules { height: 100%; overflow: auto; background: var(--ground); padding: 32px max(32px, env(safe-area-inset-right, 0px)) 32px max(32px, env(safe-area-inset-left, 0px)); }
 .sched-page { display: grid; gap: 16px; max-width: 1360px; margin: 0 auto; min-width: 0; }
 .sched-page > * { min-width: 0; }
-.sched-head { display: flex; align-items: stretch; gap: 16px; }
-.sched-titlebar { flex: 1; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; min-width: 0; padding: 4px 8px; border: 1px solid var(--accent); }
-.sched-titlebar h1 { margin: 0; font-size: var(--text-md); font-weight: 600; letter-spacing: var(--tracking-title); }
+.sched-head { display: flex; flex-wrap: wrap; align-items: stretch; gap: 16px; }
+.sched-head > .btn { flex: none; }
+.sched-titlebar { flex: 1 1 240px; min-width: 0; }
 .sched-count { color: var(--ink-muted); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
 .sched-lede { margin: 0; max-width: 68ch; }
 .schedules .notice { margin: 0; }
@@ -63,7 +62,7 @@
 .sched-field .input, .sched-field .select { width: 100%; }
 .sched-field.action { grid-column: span 2; }
 .sched-field .seg { width: fit-content; max-width: 100%; }
-.sched-field .seg button { padding: 0 16px; white-space: nowrap; }
+.sched-field .seg button { padding: 4px 8px; white-space: normal; overflow-wrap: anywhere; }
 .sched-field .seg button:disabled { opacity: 0.6; cursor: not-allowed; }
 .sched-encode { display: flex; flex-direction: column; gap: 2px; padding: 8px; border: 1px solid var(--line); }
 .sched-encode:has(input:checked) { border-color: var(--accent); background: var(--sand); }
@@ -83,7 +82,3 @@
 .sched-toolbar .chips { align-items: center; gap: 8px; }
 .sched-toolbar .chips > .label { margin-right: 4px; }
 .sched-sort { display: inline-flex; align-items: center; gap: 8px; }
-
-@media (max-width: 900px) {
-  .schedules { padding: 16px max(16px, env(safe-area-inset-right, 0px)) 24px max(16px, env(safe-area-inset-left, 0px)); }
-}

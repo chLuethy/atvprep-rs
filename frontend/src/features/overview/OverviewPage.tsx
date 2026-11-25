@@ -97,8 +97,8 @@ export const OverviewPage: Component<{ api: OverviewApi; onNavigate?: (href: str
   );
 
   return (
-    <div class="overview">
-      <h1>{t("Overview")}</h1>
+    <div class="page overview">
+      <h1 class="page-titlebar">{t("Overview")}</h1>
       <Loading fallback={<p class="muted">{t("Loading overview")}</p>}>
         <Errored fallback={(_error, retry) => <div class="notice bad" role="alert"><p>{t("Unable to load overview")}</p><Button onClick={retry}>{t("Retry")}</Button></div>}>
         <Show

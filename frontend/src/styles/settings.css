@@ -1,9 +1,13 @@
 /* Settings page: groups in two columns over the full width, one column below 1100 px
    (reference: docs/design/manager-mockup.html, page #einstellungen). */
-.settings { height: 100%; overflow: auto; padding: 20px max(16px, env(safe-area-inset-right, 0px)) 0 24px; }
+/* Die lokale Darstellung ist unabhängig vom Laden und Speichern der Server-Einstellungen. */
+.appearance-settings { margin-bottom: 16px; }
+.appearance-settings > .help { margin: -8px 0 0; }
+.appearance-mode { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.appearance-mode .seg { min-width: 210px; }
 .settings-body { display: grid; gap: 16px; max-width: 1360px; margin: 0 auto; padding-bottom: 16px; min-width: 0; }
 .settings-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; max-width: 1360px; margin: 0 auto 16px; }
-.settings-head h2 { margin: 0; font-size: var(--text-md); letter-spacing: var(--tracking-title); }
+.settings-head h2 { min-width: 0; overflow-wrap: anywhere; }
 .settings-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
 .settings-col { display: grid; gap: 16px; min-width: 0; }
 @media (max-width: 1100px) { .settings-cols { grid-template-columns: minmax(0, 1fr); } }
@@ -11,6 +15,7 @@
 .setting-group > * { margin: 0; }
 .setting-group h3 { padding: 0; }
 .setting { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: start; min-width: 0; }
+.setting > * { min-width: 0; }
 .setting > :not(.btn):not(.audit) { grid-column: 1; }
 .setting > .btn { grid-column: 2; grid-row: 1 / span 2; align-self: start; }
 .setting .audit { grid-column: 1 / -1; padding: 8px 10px; background: var(--sand); border: 1px solid var(--line); }
@@ -23,3 +28,7 @@
 .settings-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
 .savebar { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 16px; padding: 8px 16px; background: var(--surface); border: 1px solid var(--accent); }
 .savebar p { margin: 0 auto 0 0; color: var(--ink-muted); }
+@media (max-width: 480px) {
+  .setting { grid-template-columns: minmax(0, 1fr); }
+  .setting > .btn { grid-column: 1; grid-row: auto; justify-self: start; }
+}

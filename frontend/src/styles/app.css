@@ -26,7 +26,7 @@ body {
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
 }
-h1, h2 { font-weight: 600; line-height: var(--leading-title); text-wrap: balance; }
+h1, h2 { font-weight: 400; line-height: var(--leading-title); text-wrap: balance; }
 p { text-wrap: pretty; }
 /* Prose keeps a comfortable measure; data and controls run as wide as they need. */
 .help, .foot, .notice p { max-width: 65ch; }
@@ -34,6 +34,7 @@ p { text-wrap: pretty; }
 .label, .insp-sec h3, .preview h3, .ov-sec h2, .setting-group h3, .job-group h2, .change .kind, .shortcuts h3, .facts dt {
   font-size: var(--text-xs);
   font-weight: 400;
+  line-height: 1.2727273;
   letter-spacing: var(--tracking-caps);
   color: var(--accent);
 }
@@ -46,13 +47,13 @@ button { cursor: pointer; }
 .guide-l { background: var(--guide) left top / 1px 8px repeat-y; }
 .guide-r { background: var(--guide) right top / 1px 8px repeat-y; }
 a { color: var(--accent); }
-.mono { font-family: var(--font-mono); font-size: var(--text-sm); font-variant-ligatures: none; }
+.mono { font-family: var(--font-mono); font-size: var(--text-code); font-variant-ligatures: none; }
 .muted { color: var(--ink-muted); }
 
 /* --- primitives --- */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 32px; padding: 0 16px;
-  border: 1px solid var(--border); border-radius: 0; background: var(--surface); font-weight: 400;
+  border: 1px solid var(--border); border-radius: 0; background: var(--surface); font-size: var(--text-control); line-height: 1.4; font-weight: 400;
 }
 .btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
@@ -83,7 +84,7 @@ a { color: var(--accent); }
   display: inline-block; min-width: 18px; padding: 0 5px; border: 1px solid var(--border);
   background: var(--surface); color: var(--ink); font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1rem; text-align: center;
 }
-.seg { display: inline-flex; border: 1px solid var(--border); background: var(--surface); }
+.seg { display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); border: 1px solid var(--border); background: var(--surface); }
 .seg button { flex: 1; min-height: 24px; border: 0; background: none; padding: 0 8px; font-size: var(--text-sm); color: var(--ink); }
 .seg button + button { border-left: 1px solid var(--border); }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
@@ -114,7 +115,7 @@ a { color: var(--accent); }
 .empty b { display: block; color: var(--ink); margin-bottom: 4px; }
 
 /* --- application shell --- */
-.shell { display: grid; grid-template-columns: 216px minmax(0, 1fr); height: 100%; min-height: 0; }
+.shell { display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); height: 100%; min-height: 0; }
 .sidebar {
   position: relative; background: var(--ground); display: flex; flex-direction: column; gap: 32px; min-height: 0; overflow: auto;
   padding: 16px 16px 16px max(16px, env(safe-area-inset-left, 0px));
@@ -127,7 +128,7 @@ a { color: var(--accent); }
 .logo.busy .logo-cursor { opacity: 1; animation: blink var(--dur-blink) var(--ease-blink) infinite; }
 .nav { display: flex; flex-direction: column; gap: 4px; }
 .nav-link {
-  display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 8px; border: 1px solid transparent; color: var(--ink); text-decoration: none;
+  display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 8px; border: 1px solid transparent; color: var(--ink); text-decoration: none; font-size: var(--text-control);
 }
 .nav-link:hover { border-color: var(--line); }
 .nav-link.current { border-color: var(--accent); color: var(--accent); }
@@ -136,16 +137,29 @@ a { color: var(--accent); }
 /* What the worker has in hand: the count says how many, an accent hairline and bold figure say it is running (not only waiting). */
 .nav-count { margin-left: auto; min-width: 20px; padding: 0 6px; border: 1px solid var(--border); background: none; color: var(--ink-muted); font-size: var(--text-sm); line-height: 18px; text-align: center; }
 .nav-count.running { border-color: var(--accent); color: var(--accent); font-weight: 600; }
-.sidebar-foot { margin-top: auto; display: grid; gap: 8px; }
-/* Lock and Shortcuts share one row; the appearance label and its buttons follow, the buttons flush right under Shortcuts. */
+.sidebar-foot { margin-top: auto; display: grid; gap: 8px; padding-bottom: 32px; min-width: 0; }
+/* The mockup stacks the appearance label above equal-width choices. */
 .foot-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .foot-row .btn.quiet { padding: 0; }
 .foot-row .btn:last-child { margin-left: auto; }
-.foot-appearance { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 8px; }
-.foot-appearance .seg { margin-left: auto; }
+.foot-appearance { display: grid; gap: 8px; min-width: 0; }
+.foot-appearance .seg { width: 100%; }
 .app-version { margin: 0; color: var(--ink-muted); font-family: var(--font-mono); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
 .menu-toggle { display: none; }
-.content { min-width: 0; min-height: 0; overflow: hidden; background: var(--surface); outline: none; }
+.content { min-width: 0; min-height: 0; overflow: hidden; background: var(--ground); outline: none; }
+/* All routes share the mockup's page inset, measure and copper title bar. */
+.page {
+  height: 100%; min-width: 0; overflow: auto; background: var(--ground);
+  padding: var(--page-gutter) max(var(--page-gutter), env(safe-area-inset-right, 0px)) var(--page-gutter) max(var(--page-gutter), env(safe-area-inset-left, 0px));
+}
+.page > * { min-width: 0; max-width: var(--page-width); margin-inline: auto; }
+.page-titlebar {
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px;
+  padding: 4px 8px; border: 1px solid var(--accent);
+  font-size: var(--text-md); font-weight: 400; line-height: var(--leading-title); letter-spacing: 0;
+}
+.page-titlebar > h1, .page-titlebar > h2 { margin: 0; font: inherit; }
+.page-titlebar > .muted { font-size: var(--text-sm); }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .sr-skip { position: absolute; left: -9999px; }
 .sr-skip:focus { left: 8px; top: 8px; z-index: 100; background: var(--surface); padding: 6px 10px; border: 1px solid var(--accent); }
@@ -158,7 +172,8 @@ a { color: var(--accent); }
 .unlock-card label { color: var(--ink-muted); font-size: var(--text-sm); }
 .unlock-card .notice { margin: 4px 0 0; }
 
-@media (max-width: 900px) {
+@media (max-width: 860px) {
+  :root { --page-gutter: 16px; }
   .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .sidebar { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px; padding: 8px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); }
   .sidebar::after { inset: auto 0 0 0; width: auto; height: 1px; background: var(--guide-x) left bottom / 8px 1px repeat-x; }
@@ -167,7 +182,14 @@ a { color: var(--accent); }
   .nav { display: none; flex-basis: 100%; flex-direction: column; }
   .nav.open { display: flex; }
   .sidebar-foot { display: none; margin: 0; padding: 0; flex-basis: 100%; }
-  .nav.open ~ .sidebar-foot { display: flex; }
+  .nav.open ~ .sidebar-foot { display: grid; width: 100%; }
+}
+@media (pointer: coarse) {
+  .btn, .nav-link, .seg button, .filter-chip, .crumb, .col-row, .row-menu-item, .input, .select,
+  .sched-actions .btn, .files-toolbar .seg button, .fb-tools .seg button,
+  .fb-search .input, .files-toolbar .search .input, .fb-tools .select, .fb-tools .lib-sort-dir,
+  .fb-button, .fb-clear, .fb-quick-button, .fb-more-toggle, .fb-link, .fb-option, .fb-close { min-height: 44px; }
+  .seg button, .menu-toggle, .crumb, .fb-clear, .lib-sort-dir { min-width: 44px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 /* Motion. Each rule below answers one question: did my action land, what just appeared, what changed. */

@@ -1,9 +1,13 @@
 /* Activity page: the job list and the open job as two panels, the detail beside the list and under it
    below 1180 px (reference: docs/design/manager-mockup.html, page #aktivitaet). Widths live in classes,
    never inline, so the media queries below can change them. */
+.activity-page { display: flex; flex-direction: column; gap: 16px; }
+.activity-page > * { width: 100%; flex: none; }
+.activity-page > .lib-bar { padding: 0; border: 0; }
+.activity-page .lib-bar-top { justify-content: flex-end; }
 .library.activity {
-  grid-template-columns: minmax(300px, 440px) minmax(0, 1fr); gap: 16px;
-  padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px 24px; background: var(--ground);
+  grid-template-columns: minmax(300px, 440px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 16px;
+  flex: 1 0 420px; height: auto; min-height: 420px; background: var(--ground);
 }
 .activity .lib-main, .activity .lib-side { background: var(--surface); border: 1px solid var(--line); }
 .activity .lib-side { padding: 16px; }
@@ -29,7 +33,7 @@
 .job-live .bar { flex: 1; width: auto; min-width: 0; }
 
 /* The open job */
-.activity .insp-head h2 { font-size: var(--text-md); font-weight: 500; letter-spacing: var(--tracking-title); }
+.activity .insp-head h2 { font-size: var(--text-base); font-weight: 500; letter-spacing: var(--tracking-title); }
 .job-summary { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; margin: 8px 0; }
 .job-progress { flex: 1 1 100%; }
 .job-progress .bar { flex: 1; width: auto; min-width: 0; margin: 0; }
@@ -60,10 +64,7 @@
 /* Below 1180 px the detail stands under the list and the page scrolls as one.
    1180px: SINGLE_COLUMN_MAX in src/lib/fitBottom.ts (kept equal by tests/theme-contract.test.ts). */
 @media (max-width: 1180px) {
-  .library.activity { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; align-content: start; overflow: auto; height: 100%; }
+  .library.activity { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; align-content: start; flex: none; min-height: 0; overflow: visible; height: auto; }
   .activity .lib-main, .activity .lib-side { min-height: auto; overflow: visible; }
   .activity .lib-scroll { overflow: visible; }
-}
-@media (max-width: 900px) {
-  .library.activity { padding: 12px max(12px, env(safe-area-inset-right, 0px)) 12px max(12px, env(safe-area-inset-left, 0px)); gap: 12px; }
 }

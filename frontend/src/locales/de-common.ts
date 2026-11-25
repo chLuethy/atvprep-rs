@@ -1,6 +1,8 @@
 /** German texts used on several pages. */
 export const deCommon: Record<string, string | readonly [string, string]> = {
   "Language": "Sprache",
+  "Color mode": "Farbmodus",
+  "Applies immediately to all pages. Stored in this browser, not on the server.": "Gilt sofort auf allen Seiten. Wird in diesem Browser gespeichert, nicht auf dem Server.",
   // The shared filter bar (ui/FilterBar).
   "All of these": "Alle davon",
   "Any of these": "Eines davon",

@@ -21,7 +21,7 @@
 .lib-side { border-left: 1px solid var(--line); background: var(--surface); overflow: auto; min-height: 0; padding: 16px max(16px, env(safe-area-inset-right, 0px)) 28px 18px; }
 .lib-side .back-to-list { display: none; margin-bottom: 8px; }
 
-.insp-head h2, .preview h2 { margin: 0 0 2px; font-size: var(--text-lg); letter-spacing: var(--tracking-title); }
+.insp-head h2, .preview h2 { margin: 0 0 2px; font-size: var(--text-base); font-weight: 500; letter-spacing: var(--tracking-title); }
 .insp-head > p { margin: 0 0 10px; }
 .insp-verdict { margin: 4px 0 2px; }
 .insp-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 4px; }
@@ -33,13 +33,13 @@
 .encode-level input, .encode-confirm input { margin-top: 3px; flex: none; }
 .confirm .chips { margin: 6px 0 8px; }
 .pick { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; min-height: 28px; cursor: pointer; }
-.facts { display: flex; gap: 6px 22px; flex-wrap: wrap; margin: 14px 0 0; }
-.facts div { display: flex; flex-direction: column; }
-.facts dt { margin-bottom: 1px; }
-.facts dd { margin: 0; font-weight: 500; }
+.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 16px; align-items: baseline; margin: 16px 0 0; }
+.facts div { display: contents; }
+.facts dt { margin: 0; }
+.facts dd { margin: 0; min-width: 0; font-weight: 400; }
 .insp-sec h3, .preview h3 { margin: 22px 0 8px; }
-.why { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.why-item { display: grid; grid-template-columns: auto 1fr; gap: 9px; align-items: start; padding: 9px 10px; border: 1px solid var(--line); }
+.why { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.why-item { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; align-items: start; }
 .why-item p { margin: 0; color: var(--ink); }
 .why-item .rule { display: block; color: var(--ink-muted); }
 .tracks { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
@@ -82,8 +82,8 @@ details summary { cursor: pointer; color: var(--ink-muted); }
 .wave-limit label { color: var(--ink-muted); font-size: var(--text-sm); }
 
 /* overview: two independent columns of panels (docs/design/manager-mockup.html, #uebersicht) */
-.overview { height: 100%; overflow: auto; padding: 20px max(16px, env(safe-area-inset-right, 0px)) 32px 24px; max-width: 1280px; }
-.overview h1 { margin: 0 0 16px; font-size: var(--text-md); letter-spacing: var(--tracking-title); }
+.overview h1 { margin-block: 0 16px; }
+.overview > .ov-cols, .overview > .panel { width: 100%; }
 .ov-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; margin-bottom: 16px; }
 .ov-col { display: grid; gap: 16px; min-width: 0; }
 @media (max-width: 1180px) { .ov-cols { grid-template-columns: minmax(0, 1fr); } }
@@ -143,9 +143,9 @@ details summary { cursor: pointer; color: var(--ink-muted); }
 /* A column is as wide as its longest name, within limits: short folders stay compact, long names end in an ellipsis.
    Every column after the first has the dashed guide as its left edge, drawn in the column's own background. Its content
    starts one pixel to the right of it (padding), so no row, hover or selection fill can ever cover the line. */
-.col { flex: 0 0 auto; width: max-content; min-width: 190px; max-width: min(460px, 62vw); display: flex; flex-direction: column; padding: 6px 0; overflow-y: auto; }
+.col { flex: 0 0 260px; min-width: 0; max-width: 100%; display: flex; flex-direction: column; padding: 6px 0; overflow-y: auto; }
 .col + .col { background: var(--guide) left top / 1px 8px repeat-y; padding-left: 1px; }
-.col-row { display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 0 16px; cursor: default; user-select: none; }
+.col-row { display: flex; align-items: center; gap: 8px; min-height: 33px; padding: 6px 16px; cursor: default; user-select: none; }
 .col-row:hover { background: var(--hover); }
 .col-row.selected { background: var(--hover); font-weight: 500; }
 .col.focused .col-row.selected { background: var(--accent-weak); font-weight: 600; }

@@ -326,11 +326,10 @@ export const ActivityPage: Component<{
   );
 
   return (
-    <div class="library activity" onKeyDown={onKeyDown}>
-      <section class="lib-main" aria-label={t("Activity")}>
+    <div class="page activity-page" onKeyDown={onKeyDown}>
+      <h1 class="page-titlebar">{t("Activity")}</h1>
         <div class="lib-bar">
           <div class="lib-bar-top">
-            <h1>{t("Activity")}</h1>
             <Button variant="quiet" ref={(element) => { clearTrigger = element; }} aria-expanded={clearOpen() ? "true" : "false"} onClick={() => (clearOpen() ? closeClear() : openClear())}>{t("Clear finished")}</Button>
           </div>
           <Show when={clearOpen()}>
@@ -381,6 +380,8 @@ export const ActivityPage: Component<{
             )}
           />
         </div>
+      <div class="library activity">
+      <section class="lib-main" aria-label={t("Activity")}>
         <Show when={notice()}><p class="notice ok lib-notice" role="status">{notice()}</p></Show>
         <div class="lib-scroll">
           <Show when={phase() !== "loading"} fallback={<p class="muted pad">{t("Loading jobs")}</p>}>
@@ -422,6 +423,7 @@ export const ActivityPage: Component<{
           {(_id) => <JobDetail api={props.api} jobId={currentJobId()!} identity={opened().identity} onChanged={() => void refresh()} onRetried={(newId) => { void refresh(); setNotice(t("Retry queued. Showing the new job.")); props.onOpen(newId); }} onRaised={(newId) => { void refresh(); setNotice(t("Preparation queued. Showing the new job.")); props.onOpen(newId); }} />}
         </Show>
       </aside>
+      </div>
     </div>
   );
 };
