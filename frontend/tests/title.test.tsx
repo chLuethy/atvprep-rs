@@ -1,6 +1,6 @@
 import { render } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { APP_TITLE, useWorkTitle, workTitle } from "../src/lib/title";
+import { APP_TITLE, setRouteTitle, useWorkTitle, workTitle } from "../src/lib/title";
 
 describe("workTitle", () => {
   it("names what the manager is doing, so a tab left in the background tells you", () => {
@@ -53,6 +53,20 @@ describe("useWorkTitle", () => {
     setHidden(true);
     await vi.advanceTimersByTimeAsync(11000);
 
+    expect(document.title).toBe(APP_TITLE);
+  });
+
+  it("nennt die Route im Titel, auch während Arbeit läuft", async () => {
+    setRouteTitle("Files");
+    expect(document.title).toBe(`Files · ${APP_TITLE}`);
+
+    render(() => <Probe />);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(document.title).toBe(`1 running, 2 waiting · Files · ${APP_TITLE}`);
+
+    setRouteTitle("");
+    work = { running: 0, queued: 0 };
+    await vi.advanceTimersByTimeAsync(5100);
     expect(document.title).toBe(APP_TITLE);
   });
 

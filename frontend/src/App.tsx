@@ -1,5 +1,5 @@
 import { createRouter, useLocation, useNavigate, type RouteProps } from "@solidjs/router";
-import { createContext, createMemo, createSignal, onSettled, Show, useContext, type ParentComponent } from "solid-js";
+import { createContext, createEffect, createMemo, createSignal, onSettled, Show, useContext, type ParentComponent } from "solid-js";
 import "./styles/app.css";
 import type { ManagerApi } from "./lib/api";
 import type { SessionControls } from "./features/auth/AuthGate";
@@ -16,8 +16,12 @@ import { EventClient } from "./lib/events";
 import { N, t, tn } from "./lib/i18n";
 import { isTyping } from "./lib/keys";
 import { realtimeState } from "./lib/realtime";
+<<<<<<< HEAD
 import { useWorkTitle } from "./lib/title";
 import { searchTargets } from "./features/search/paletteSearch";
+=======
+import { setRouteTitle, useWorkTitle } from "./lib/title";
+>>>>>>> claude/charming-lovelace-0l2rqe
 import { OWN, useFilterAddress } from "./lib/facetFilter";
 import { workState } from "./lib/work";
 import { dismissTip, tipPending } from "./lib/tips";
@@ -148,6 +152,7 @@ const Shell: ParentComponent<{ session?: SessionControls; api?: ManagerApi }> = 
   const navigate = useNavigate();
   const location = useLocation();
   const isCurrent = (href: string) => location.pathname === href || location.pathname.startsWith(`${href}/`);
+  createEffect(() => NAV.find((item) => isCurrent(item.href)), (item) => setRouteTitle(item ? t(item.label) : ""));
   let helpPanel: HTMLElement | undefined;
   let helpOpener: Element | null = null;
 
@@ -225,7 +230,6 @@ const Shell: ParentComponent<{ session?: SessionControls; api?: ManagerApi }> = 
           class="btn quiet menu-toggle"
           aria-controls="main-navigation"
           aria-expanded={navOpen() ? "true" : "false"}
-          aria-label={navOpen() ? t("Close navigation") : t("Open navigation")}
           onClick={() => setNavOpen((value) => !value)}
         >
           <Icon name="menu" size={16} /> {navOpen() ? t("Close") : t("Menu")}

@@ -122,7 +122,7 @@ export const deMenusAndKeys: Record<string, string | readonly [string, string]> 
   "Master token": "Master-Token",
   "Unlock": "Entsperren",
   "Lock": "Sperren",
-  "Done · {app}": "Fertig · {app}",
+  "Done": "Fertig",
   "{count} running": "{count} laufen",
   "{count} waiting": "{count} warten",
   "Prepare job queued for {count} file. Follow it under Activity.": ["Vorbereiten für {count} Datei eingereiht. Den Fortschritt siehst du unter Aktivität.", "Vorbereiten für {count} Dateien eingereiht. Den Fortschritt siehst du unter Aktivität."],
