@@ -2,6 +2,8 @@
 
 pub mod checks;
 pub mod chunks;
+
+pub mod copy;
 pub mod ffmpeg;
 pub mod paths;
 pub mod pipeline;

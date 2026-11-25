@@ -96,6 +96,22 @@ impl<'a> ClaimedOutput<'a> {
         self.flush(true)
     }
 
+    /// Write the log although the authority could not be checked, so that the cause of the end is
+    /// not lost with it.
+    ///
+    /// Only for a busy database, where the authority most likely still holds. A clear refusal
+    /// (token overtaken, lease expired) writes nothing and does not come here. The write carries
+    /// only the log text, and only to the item that still carries this worker's fencing token and
+    /// is still running. No progress and no event follow.
+    pub fn finish_without_authority(&mut self) -> Result<()> {
+        if self.log.is_empty() {
+            return Ok(());
+        }
+        let text = self.log.text();
+        crate::db::retry_busy(|| Jobs(self.ctx).set_item_log_tail(self.item, self.fence, &text))?;
+        Ok(())
+    }
+
     fn flush(&mut self, wait: bool) -> Result<()> {
         let nonblocking = if wait {
             None

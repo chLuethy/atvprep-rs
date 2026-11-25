@@ -107,6 +107,16 @@ Der Zustand eines Scan-Laufs (`ScanStatus`), getrennt vom Job-Lebenszyklus: `que
 **Terminal**:
 Ein Status, aus dem kein weiterer Übergang mehr erwartet wird: die Arbeit ist auf die eine oder andere Weise beendet und ändert sich nicht mehr. Die Typen bieten dafür `is_terminal()` und, für SQL, `terminal_sql_list()`; Übergänge prüft `can_become()`.
 
+**Lease**:
+Das befristete Recht eines Workers, Medienarbeit auszuführen. Es gibt genau eine für alle Worker; ein Item ist an sie gebunden, solange es läuft. Ein Fencing-Token unterscheidet die jeweils gültige Lease von früheren, sodass ein Worker, der sie verloren hat, nichts mehr abschliessen kann.
+_Avoid_: Sperre, Lock
+
+**Heartbeat**:
+Das regelmässige Verlängern der Lease durch den laufenden Worker. Bleibt es länger aus, als die Lease dauert, läuft sie ab und ein anderer Worker darf sie übernehmen.
+
+**Lease-Verlust**:
+Der Zustand, in dem ein Worker die Lease nicht mehr hat: Das Fencing-Token ist überholt oder die Lease ist abgelaufen. Dann bricht der Manager die Arbeit ab. Ein kurzer Datenbankfehler beim Heartbeat ist kein Lease-Verlust, solange die Lease noch gilt. Nach einem Verlust darf der Worker den Status des Items nicht mehr schreiben; die Wiederherstellung räumt es auf.
+
 ## Dateien und Prüfergebnis
 
 **Vorbereiten**:

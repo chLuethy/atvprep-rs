@@ -203,7 +203,8 @@ mod tests {
     use crate::compliance::{ToolError, Tools, Violation};
     use crate::console::SharedBuffer;
     use crate::ffprobe::Ffprobe;
-    use crate::stages::StageReporter;
+    use crate::stages::{StageReporter, Variant};
+    use atvprep_testkit::split_progress;
 
     #[derive(Deserialize)]
     struct Ignored {}
@@ -354,7 +355,8 @@ mod tests {
                         tools: Box::new(tools),
                         ffprobe: fake_ffprobe(base.path(), &input.probe),
                     };
-                    ctx.reporter.begin_file(false);
+                    // finalize_output follows an ffmpeg run, so the weights are the repack ones.
+                    ctx.reporter.begin_file(Variant::Repack);
                     let report = finalize_output(
                         &mut ctx,
                         &target,
@@ -384,24 +386,15 @@ mod tests {
                         .map(|l| normalise(&l.replace("[blocker]", ""), base.path()))
                         .collect();
                     assert_eq!(json!(lines), want["printed"], "{name} printed");
-                    // The progress steps follow the number of rules, which the chunk rule raised
-                    // (#144): the golden is compared without them, and they must only rise.
-                    let (progress, stages): (Vec<String>, Vec<String>) = machine
-                        .lines()
-                        .into_iter()
-                        .partition(|l| l.starts_with("ATVPREP-PROGRESS "));
-                    let steps: Vec<u32> = progress
-                        .iter()
-                        .map(|l| l["ATVPREP-PROGRESS ".len()..].parse().unwrap())
-                        .collect();
-                    assert!(steps.windows(2).all(|w| w[0] <= w[1]), "{name} progress");
-                    let wanted: Vec<&Value> = want["machine"]
-                        .as_array()
-                        .unwrap()
-                        .iter()
-                        .filter(|l| !l.as_str().unwrap().starts_with("ATVPREP-PROGRESS "))
-                        .collect();
-                    assert_eq!(json!(stages), json!(wanted), "{name} machine lines");
+                    // The oracle's weights differ on purpose since #133 (the golden file stays): the
+                    // stage lines must match, the percents are the repack ones at the phase
+                    // boundaries (finalize starts at 55, the check at 98, its end at 99).
+                    let (have_stages, have_percents) = split_progress(&machine.lines());
+                    let want_lines: Vec<String> =
+                        serde_json::from_value(want["machine"].clone()).unwrap();
+                    let (want_stages, _) = split_progress(&want_lines);
+                    assert_eq!(have_stages, want_stages, "{name} machine lines");
+                    assert_eq!(have_percents, [55, 98, 99], "{name} progress");
 
                     let mut listing: Vec<String> = Vec::new();
                     let mut sidecars = serde_json::Map::new();
