@@ -224,7 +224,7 @@ export const SettingsPage: Component<{ api: SettingsApi }> = (props) => {
 
   const renderGroup = (group: ReturnType<typeof groups>[number]) => (
     <section class="setting-group" role="region" aria-label={t(group.title)}>
-      <h3>{t(group.title)}</h3>
+      <h2>{t(group.title)}</h2>
       <Show when={group.id === "other"}>
         <p class="muted">{t("Read-only. These come from the configuration file; change them there and restart the manager.")}</p>
       </Show>
@@ -295,7 +295,7 @@ export const SettingsPage: Component<{ api: SettingsApi }> = (props) => {
   return (
     <section class="page settings" aria-labelledby="settings-title">
       <header class="page-titlebar settings-head">
-        <h2 id="settings-title">{t("Runtime settings")}</h2>
+        <h1 id="settings-title">{t("Runtime settings")}</h1>
         <span class="muted">{t("Revision {revision}", { revision: String(revision() ?? "—") })}</span>
       </header>
       <AppearanceSettings />
@@ -315,7 +315,7 @@ export const SettingsPage: Component<{ api: SettingsApi }> = (props) => {
           <div class="settings-col">
             <For each={groups().filter((group) => LEFT_GROUPS.has(group.id))}>{renderGroup}</For>
             <section class="setting-group" role="region" aria-label={t("Keyboard shortcuts")}>
-              <h3>{t("Keyboard shortcuts")}</h3>
+              <h2>{t("Keyboard shortcuts")}</h2>
               <ShortcutsPanel />
             </section>
           </div>
