@@ -16,6 +16,7 @@ import { EventClient } from "./lib/events";
 import { N, t, tn } from "./lib/i18n";
 import { isTyping } from "./lib/keys";
 import { realtimeState } from "./lib/realtime";
+import { searchTargets } from "./features/search/paletteSearch";
 import { setRouteTitle, useWorkTitle } from "./lib/title";
 import { OWN, useFilterAddress } from "./lib/facetFilter";
 import { workState } from "./lib/work";
@@ -297,7 +298,7 @@ const Shell: ParentComponent<{ session?: SessionControls; api?: ManagerApi }> = 
           <ShortcutsPanel />
         </section>
       </Show>
-      <CommandPalette open={paletteOpen()} commands={commands()} onClose={() => setPaletteOpen(false)} />
+      <CommandPalette open={paletteOpen()} commands={commands()} {...(props.api ? { search: (query: string) => searchTargets(props.api!, query, (path) => navigate(path)) } : {})} onClose={() => setPaletteOpen(false)} />
     </div>
   );
 };
