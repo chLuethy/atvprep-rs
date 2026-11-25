@@ -16,7 +16,7 @@ Beim ersten Lauf zeigt er den Fingerabdruck des Vertrauensschlüssels an und leg
 
 ## Voraussetzungen für den Eigenbau
 
-Rust gemäß `rust/rust-toolchain.toml`, Node.js 22 mit npm sowie für die Medienverarbeitung `ffmpeg`, `ffprobe`, `mp4info` und `mp4dump` (Bento4). Für die vollständige Rust-Prüfung ist außerdem `cargo-deny` erforderlich.
+Rust gemäß `rust/rust-toolchain.toml`, Node.js 22 mit npm sowie für die Medienverarbeitung `ffmpeg`, `ffprobe`, `mp4info` und `mp4dump` (Bento4) sowie `MP4Box` (GPAC). Für die vollständige Rust-Prüfung ist außerdem `cargo-deny` erforderlich.
 
 ```sh
 git config core.hooksPath .githooks   # einmal pro Klon: prüft Commit-Betreffs

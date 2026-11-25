@@ -21,8 +21,20 @@ fn source(name: &str) -> PathBuf {
 }
 
 fn hook(args: &[&Path], ffmpeg: Option<&str>) -> Run {
+    hook_with(args, ffmpeg, None)
+}
+
+/// Like [`hook`]; `mp4box` is the body of a script that replaces `MP4Box` (it gets
+/// `-inter 500 <input> -out <output>`).
+fn hook_with(args: &[&Path], ffmpeg: Option<&str>, mp4box: Option<&str>) -> Run {
     let dir = tempfile::tempdir().unwrap();
     let mut env = Environment::from_process();
+    if let Some(body) = mp4box {
+        let tools = dir.path().join("tools");
+        std::fs::create_dir(&tools).unwrap();
+        atvprep_testkit::write_script(&tools.join("MP4Box"), format!("#!/bin/sh\n{body}\n"));
+        env.mp4box = env.mp4box.with_search_path(vec![tools]);
+    }
     env.ffmpeg = ffmpeg.map(|body| {
         let path = dir.path().join("ffmpeg");
         atvprep_testkit::write_script(&path, format!("#!/bin/sh\n{body}\n"));
@@ -132,12 +144,14 @@ fn ffmpeg_failures_map_to_their_exit_codes() {
         failing.stderr
     );
     assert!(failing.stderr.contains("Fehler (ffmpeg): "));
+    // MP4Box rejects the fragmented fixture; a replacement that only copies lets the run get as far as
+    // checking the output.
     let fragmented = source("../mp4/syn_fragmented.mp4");
     let script = format!(
         "for last; do :; done\ncp '{}' \"$last\"",
         fragmented.display()
     );
-    let blocked = hook(&[&src, &dest], Some(&script));
+    let blocked = hook_with(&[&src, &dest], Some(&script), Some("cp \"$3\" \"$5\""));
     assert_eq!(
         (blocked.code, blocked.stdout.as_str()),
         (6, ""),
@@ -231,7 +245,8 @@ fn success_prints_only_the_media_file_line_on_stdout() {
 
 #[test]
 fn a_destination_equal_to_a_clean_source_prints_the_source() {
-    let (_dir, src) = staged("clean.mp4", "Film.mp4");
+    // `clean_chunks.mp4`: `clean.mp4` with chunks of half a second; the chunks of `clean.mp4` are too short (#144).
+    let (_dir, src) = staged("clean_chunks.mp4", "Film.mp4");
     let before = std::fs::read(&src).unwrap();
     let run = hook(&[&src, &src], None);
     assert_eq!(run.code, 0, "{}", run.stderr);

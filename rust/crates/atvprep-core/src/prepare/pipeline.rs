@@ -12,6 +12,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::Value;
 
 use super::checks::{subtitle_sidecars, verify_output_streams, verify_subtitle_inputs};
+use super::chunks::{Check, ChunkError};
+
 use super::copy::{BLOCK, copy_with_progress};
 use super::ffmpeg::{FfmpegError, run_ffmpeg_with_progress};
 use super::paths::{output_path, temp_name};
@@ -24,13 +26,14 @@ use crate::fd_fix_contract::{FdFixTarget, UnsafeFixTarget};
 use crate::ffprobe::ProbeError;
 use crate::models::{Plan, SubAction};
 use crate::mp4::patch::{
-    apply_moov_patches, check_accessibility, is_faststart, set_subtitle_accessibility,
+    Reference, apply_moov_patches_restoring, check_accessibility, is_faststart,
+    set_subtitle_accessibility,
 };
 use crate::mp4::tags::{PatchSummary, SubInfo};
 use crate::output::{patch_summary_lines, plan_table, stream_plan, verify_atmos_in_output};
 use crate::phase_timing::phase;
 use crate::pipeline_postfix::{RunContext, finalize_output};
-use crate::planner::{PlanOptions, RateChange, build_plan, rate_changes};
+use crate::planner::{PlanOptions, RateChange, build_plan, only_chunk_reasons, rate_changes};
 use crate::postfix::bring_into_compliance;
 use crate::probe_helpers::{ProbeContext, is_atmos_audio, subtitle_infos};
 use crate::stages::{Stage, Variant};
@@ -177,7 +180,7 @@ pub fn patch_media(
     verbose: bool,
     faststart: bool,
 ) -> Result<(), PrepareError> {
-    step_patch_media(ctx, path, sub_infos, plan, verbose, faststart).map_err(into_error)
+    step_patch_media(ctx, path, sub_infos, plan, verbose, faststart, None).map_err(into_error)
 }
 
 fn into_error(abort: Abort) -> PrepareError {
@@ -194,6 +197,7 @@ fn step_patch_media(
     plan: Option<&Plan>,
     verbose: bool,
     faststart: bool,
+    restore: Option<&Reference>,
 ) -> Step<()> {
     if verbose {
         ctx.console.print(&format!(
@@ -202,16 +206,22 @@ fn step_patch_media(
         ));
     }
     ctx.reporter.stage(Stage::Finalize);
-    let (summary, atmos_patched) = {
+    let (summary, atmos_patched, restored) = {
         let _timing = phase("patch.moov", Some(path));
         let reporter = &mut ctx.reporter;
-        apply_moov_patches(
+        apply_moov_patches_restoring(
             path,
             sub_infos,
             Some(&mut |done, total| reporter.update(fraction(done, total))),
             faststart,
+            restore,
         )?
     };
+    if !restored.is_empty() {
+        ctx.console.print(&format!(
+            "  restored what MP4Box changed, from its input: {restored}"
+        ));
+    }
     lines(ctx, &patch_summary_lines(&summary, plan));
     if atmos_patched && verbose {
         ctx.console.print("  → patched Atmos dec3 JOC extension");
@@ -408,6 +418,8 @@ fn encode(
     if let Err(violation) = checked {
         return Err(transcode(&violation));
     }
+    // Without MP4Box nothing is written when the run demands it: no ffmpeg run in vain.
+    let chunks = chunk_stage_available(ctx, options)?;
     lines(ctx, &plan_table(plan));
     for stream in stream_plan(plan, &analysis.probe) {
         ctx.reporter.plan(&stream);
@@ -429,18 +441,116 @@ fn encode(
             return Err(transcode(&violation));
         }
     }
+    let restore = if chunks {
+        step_rechunk(ctx, tmp, tmp)?
+    } else {
+        None
+    };
     let infos: Vec<SubInfo> = plan
         .sub_tracks
         .iter()
         .filter(|t| t.action != SubAction::Skip)
         .map(|t| (t.lang.clone(), t.sdh, t.forced))
         .collect();
-    step_patch_media(ctx, tmp, &infos, Some(plan), options.verbose, true)?;
+    step_patch_media(
+        ctx,
+        tmp,
+        &infos,
+        Some(plan),
+        options.verbose,
+        true,
+        restore.as_ref(),
+    )?;
     let atmos = plan.audio_tracks.iter().filter(|t| t.is_atmos).count();
     for warning in verify_atmos_in_output(tmp, atmos, &ctx.ffprobe) {
         ctx.console.print(&format!("  ! {warning}"));
     }
     Ok(finalize_output(ctx, tmp, atmos > 0, None, options.verbose)?)
+}
+
+/// A file whose only reason is the chunk length: ffmpeg does not run, `MP4Box` regroups the chunks
+/// and the streams stay as they are (#145). `None` when `MP4Box` is missing and the run only warns.
+fn rechunk_only(
+    ctx: &mut RunContext,
+    options: &PrepareOptions,
+    source: &Path,
+    probe: &Value,
+    tmp: &Path,
+) -> Step<Option<VerifyReport>> {
+    if !chunk_stage_available(ctx, options)? {
+        return Ok(None);
+    }
+    ctx.reporter.begin_file(Variant::ChunksOnly);
+    let restore = step_rechunk(ctx, source, tmp)?;
+    step_patch_media(
+        ctx,
+        tmp,
+        &subtitle_infos(probe),
+        None,
+        options.verbose,
+        true,
+        restore.as_ref(),
+    )?;
+    Ok(Some(finalize_output(
+        ctx,
+        tmp,
+        has_atmos(probe),
+        None,
+        options.verbose,
+    )?))
+}
+
+/// Whether the chunk stage runs. If `MP4Box` is missing, the run fails (manager, CLI) or warns and delivers
+/// the file as ffmpeg writes it (hook, ADR 0010); either way before the ffmpeg run.
+fn chunk_stage_available(ctx: &mut RunContext, options: &PrepareOptions) -> Step<bool> {
+    if ctx.mp4box.find().is_some() {
+        return Ok(true);
+    }
+    let missing = ChunkError::Missing.to_string();
+    if options.mp4box_required {
+        return Err(failed(ErrorKind::Mp4box, missing));
+    }
+    ctx.console.print(&format!(
+        "  ! {missing}; the chunks stay as ffmpeg wrote them (verify shows them later)"
+    ));
+    Ok(false)
+}
+
+/// `chunks` stage: `MP4Box` reads `input`, writes it again with chunks of half a second and puts the
+/// result at `output` (the same file for an ffmpeg output, a temporary copy for a source). Returns what
+/// the moov of `input` held that `MP4Box` may lose; the moov patch right after writes it back.
+fn step_rechunk(ctx: &mut RunContext, input: &Path, output: &Path) -> Step<Option<Reference>> {
+    ctx.reporter.stage(Stage::Chunks);
+    let _timing = phase("mp4box", Some(output));
+    let rewritten = output.with_file_name(temp_name(&stem_of(output), "chunks."));
+    let reporter = &mut ctx.reporter;
+    let outcome = ctx
+        .mp4box
+        .rechunk(input, &rewritten, &mut |done| reporter.update(done))
+        .map_err(|error| failed(ErrorKind::Mp4box, error.to_string()))
+        .and_then(|done| {
+            std::fs::rename(&rewritten, output).map_err(|error| {
+                failed(
+                    ErrorKind::Mp4box,
+                    format!("could not replace the output with the MP4Box result: {error}"),
+                )
+            })?;
+            Ok(done)
+        });
+    match outcome {
+        Ok(done) => {
+            if done.check == Check::Skip {
+                ctx.console.print(
+                    "  ! MP4Box only read the file with -no-check (track titles of fewer than four characters); the moov patch puts the titles back",
+                );
+            }
+            Ok(done.reference)
+        }
+        Err(error) => {
+            let _ = std::fs::remove_file(&rewritten);
+            Err(error)
+        }
+    }
 }
 
 fn has_atmos(probe: &Value) -> bool {
@@ -617,6 +727,11 @@ fn refused_result(source: &Path, assessment: &Assessment, refusal: EncodeRefusal
     }
 }
 
+/// The only reason is the chunk length: no ffmpeg run, no encoding (#145).
+fn chunks_only(assessment: &Assessment) -> bool {
+    assessment.level == Level::Rebuild && only_chunk_reasons(&assessment.reasons)
+}
+
 fn rebuilt_or_reencoded(level: Level) -> Outcome {
     if level == Level::Rebuild {
         Outcome::Rebuilt
@@ -659,6 +774,25 @@ fn run_level(
         return Ok(finish(Outcome::Patched, Some(report)));
     }
     let tmp = temp_path(source, target)?;
+    if chunks_only(assessment) {
+        if options.dry_run {
+            return Ok(finish(Outcome::Planned, None));
+        }
+        run.temps.push(tmp.clone());
+        let Some(report) = rechunk_only(ctx, options, source, &analysis.probe, &tmp)? else {
+            return Ok(finish(Outcome::Done, None));
+        };
+        settle_report(
+            ctx,
+            &name_of(source),
+            options,
+            &tmp,
+            &report,
+            run.quarantine,
+        )?;
+        target.replace_from(&name_of(&tmp))?;
+        return Ok(finish(Outcome::Rebuilt, Some(report)));
+    }
     let plan = match allowed_plan(ctx, options, source, &tmp, analysis)? {
         Ok(plan) => plan,
         Err(refusal) => return Ok(refused_result(source, assessment, refusal)),
@@ -740,7 +874,8 @@ fn run_to_output(
     let assessment = &analysis.assessment;
     let level = assessment.level;
     let tmp = output.with_file_name(temp_name(&stem_of(output), ""));
-    let plan = if matches!(level, Level::Rebuild | Level::Reencode) {
+    let rechunk = chunks_only(assessment);
+    let plan = if !rechunk && matches!(level, Level::Rebuild | Level::Reencode) {
         match allowed_plan(ctx, options, source, &tmp, analysis)? {
             Ok(plan) => Some(plan),
             Err(refusal) => return Ok(refused_result(source, assessment, refusal)),
@@ -765,7 +900,14 @@ fn run_to_output(
         })?;
     }
     run.temps.push(tmp.clone());
-    let (report, outcome) = if let Some(plan) = &plan {
+    let rechunked = if rechunk {
+        rechunk_only(ctx, options, source, &analysis.probe, &tmp)?
+    } else {
+        None
+    };
+    let (report, outcome) = if let Some(report) = rechunked {
+        (report, Outcome::Rebuilt)
+    } else if let Some(plan) = &plan {
         let report = encode(ctx, options, source, analysis, &tmp, plan)?;
         (report, rebuilt_or_reencoded(level))
     } else {
@@ -822,6 +964,8 @@ fn planned(ctx: &mut RunContext, run: &mut Run, target: &FdFixTarget) -> Step<Pl
     let analysis = analyse(ctx, run, &subject)?;
     let need = match analysis.assessment.level {
         Level::None | Level::InPlace => EncodeNeed::None,
+        // Only the chunks: MP4Box alone, the streams stay (#145).
+        Level::Rebuild if chunks_only(&analysis.assessment) => EncodeNeed::None,
         Level::Rebuild | Level::Reencode => {
             let tmp = temp_path(&subject, subject_target)?;
             EncodeNeed::of_plan(&plan_for(ctx, options, &subject, &tmp, &analysis)?)

@@ -27,7 +27,7 @@ for attempt in $(seq 1 60); do
 done
 [ "$status" = healthy ]
 docker exec "$container" sh -ec \
-  'atvprep version; atvprep-manager version; ! command -v python3; ! command -v uv; test -x /usr/bin/ffmpeg; test -x /usr/bin/ffprobe; test -x /usr/bin/mp4info; test -x /usr/bin/mp4dump; wget -qO- http://127.0.0.1:8765/api/health/ready' \
+  'atvprep version; atvprep-manager version; ! command -v python3; ! command -v uv; test -x /usr/bin/ffmpeg; test -x /usr/bin/ffprobe; test -x /usr/bin/mp4info; test -x /usr/bin/mp4dump; test -x /usr/bin/MP4Box; wget -qO- http://127.0.0.1:8765/api/health/ready' \
   > "$artifacts/smoke.log"
 docker inspect --format '{{.Image}}' "$container" > "$artifacts/image-id"
 printf 'Container smoke passed; artifacts: %s\n' "$artifacts"

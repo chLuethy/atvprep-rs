@@ -42,9 +42,11 @@ fn system_tools_reproduce_the_recorded_verdict() {
         }
         let path: PathBuf = fixture_path(file);
         let report = verify_file(&path, &tools, None, None);
+        // The recordings know no chunk rule (#144): the fixtures' short chunks are left out.
         let actual: Vec<Value> = report
             .violations
             .iter()
+            .filter(|v| v.rule != atvprep_core::mp4::chunks::CHUNK_RULE)
             .map(|v| json!([v.rule, v.severity.as_str(), v.message, v.track_id]))
             .collect();
         assert_eq!(Value::Array(actual), case.expected["violations"], "{file}");

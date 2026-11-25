@@ -16,6 +16,7 @@ use super::parse::{
 use super::tools::{Audit, ToolError};
 use super::{Severity, Violation};
 use crate::escalation::{stereo_twin_gaps, video_reencode_reason};
+use crate::mp4::chunks::{CHUNK_RULE, MIN_MEAN_CHUNK_MS, TARGET_CHUNK_MS, short_chunks};
 use crate::mp4::error::Mp4Error;
 use crate::mp4::patch::{TagCheck, chapter_track_ids, check_accessibility};
 use crate::probe_helpers::{is_atmos_audio, subtitle_infos};
@@ -295,6 +296,41 @@ impl Rule for FastStartRule {
             )]);
         }
         Ok(Vec::new())
+    }
+}
+
+/// Chunks of a sample or two (what ffmpeg writes) make Apple TV stutter. Decided from the moov only.
+pub struct ChunkLengthRule;
+
+impl Rule for ChunkLengthRule {
+    fn name(&self) -> &'static str {
+        CHUNK_RULE
+    }
+
+    fn severity(&self) -> Severity {
+        Severity::Warning
+    }
+
+    fn check(&self, _audit: &Audit<'_>, path: &Path) -> RuleResult {
+        Ok(short_chunks(path)?
+            .iter()
+            .map(|short| {
+                violation(
+                    self,
+                    format!(
+                        "{} track {} has {} chunks of {} ms on average (at least {} ms wanted) -- \
+                         Apple TV stutters; a remux with MP4Box writes chunks of about {} ms",
+                        short.kind(),
+                        short.track_id,
+                        short.chunks,
+                        short.mean_ms,
+                        MIN_MEAN_CHUNK_MS,
+                        TARGET_CHUNK_MS
+                    ),
+                    Some(short.track_id),
+                )
+            })
+            .collect())
     }
 }
 
@@ -654,6 +690,7 @@ pub fn rules_for(video_reencode: VideoReencodeRule) -> Vec<Box<dyn Rule>> {
         Box::new(SubtitleHandlerTypeRule),
         Box::new(NoFragmentsRule),
         Box::new(FastStartRule),
+        Box::new(ChunkLengthRule),
         Box::new(AvcLevelRule),
         Box::new(HevcLevelRule),
         Box::new(AudioSampleRateRule),
@@ -789,6 +826,7 @@ mod tests {
                 "subtitle-handler-type",
                 "no-fragments",
                 "fast-start",
+                CHUNK_RULE,
                 "avc-level-atv-limit",
                 "hevc-level-atv-limit",
                 "audio-sample-rate",

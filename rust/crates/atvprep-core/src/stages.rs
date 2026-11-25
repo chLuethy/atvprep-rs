@@ -1,7 +1,8 @@
 //! Which stage a prepare is in, and how far along the whole file is (port of `atvprep/stages.py`).
 //!
-//! atvprep runs up to three stages per file: `encode` (ffmpeg), `finalize` (the moov patch and the
-//! move of the moov to the front) and `verify` (compliance audit). Each reports a fraction of its
+//! atvprep runs up to four stages per file: `encode` (ffmpeg), `chunks` (`MP4Box` rewrites the chunks
+//! of the ffmpeg output, ADR 0010), `finalize` (the moov patch and the move of the moov to the
+//! front) and `verify` (compliance audit). Each reports a fraction of its
 //! own, and the reporter maps it onto one percent that only grows and stays below 100 until the
 //! process ends.
 //!
@@ -61,6 +62,8 @@ pub enum Variant {
     Patch,
     /// No ffmpeg and no copy: the tags and atoms of the file are patched where it lies.
     InPlace,
+    /// No ffmpeg: `MP4Box` rewrites the chunks of the source into a new file, then the moov patch.
+    ChunksOnly,
 }
 
 impl Variant {
@@ -69,8 +72,10 @@ impl Variant {
             // Measured (#133): ffmpeg 52-68 % of the time, the moov patch 32-47 %.
             Self::Repack => &Shape {
                 copy: None,
+                // NOT MEASURED: the chunks share is a guess, taken from the end of the ffmpeg run.
                 stages: &[
-                    (Stage::Encode, 0, 55),
+                    (Stage::Encode, 0, 45),
+                    (Stage::Chunks, 45, 55),
                     (Stage::Finalize, 55, WORK_END),
                     (Stage::Verify, WORK_END, CEILING),
                 ],
@@ -79,7 +84,8 @@ impl Variant {
             Self::Encode => &Shape {
                 copy: None,
                 stages: &[
-                    (Stage::Encode, 0, 90),
+                    (Stage::Encode, 0, 80),
+                    (Stage::Chunks, 80, 90),
                     (Stage::Finalize, 90, WORK_END),
                     (Stage::Verify, WORK_END, CEILING),
                 ],
@@ -89,6 +95,15 @@ impl Variant {
                 copy: Some((0, COPY_END)),
                 stages: &[
                     (Stage::Finalize, COPY_END, WORK_END),
+                    (Stage::Verify, WORK_END, CEILING),
+                ],
+            },
+            // NOT MEASURED: the `MP4Box` rewrite is the longest step of the run.
+            Self::ChunksOnly => &Shape {
+                copy: None,
+                stages: &[
+                    (Stage::Chunks, 0, 70),
+                    (Stage::Finalize, 70, WORK_END),
                     (Stage::Verify, WORK_END, CEILING),
                 ],
             },
@@ -106,6 +121,8 @@ impl Variant {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Stage {
     Encode,
+    /// `MP4Box` rewrites the chunks of the target file (ADR 0010).
+    Chunks,
     Finalize,
     Verify,
 }
@@ -115,6 +132,7 @@ impl Stage {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Encode => "encode",
+            Self::Chunks => "chunks",
             Self::Finalize => "finalize",
             Self::Verify => "verify",
         }
@@ -125,6 +143,7 @@ impl Stage {
     pub const fn label(self) -> &'static str {
         match self {
             Self::Encode => "Encoding",
+            Self::Chunks => "Chunking",
             Self::Finalize => "Finalizing",
             Self::Verify => "Verifying",
         }
@@ -409,9 +428,10 @@ mod tests {
             out.lines(),
             [
                 "ATVPREP-STAGE encode",
-                "ATVPREP-PROGRESS 27",
-                "ATVPREP-PROGRESS 55",
+                "ATVPREP-PROGRESS 22",
+                "ATVPREP-PROGRESS 45",
                 "ATVPREP-STAGE finalize",
+                "ATVPREP-PROGRESS 55",
                 "ATVPREP-PROGRESS 76",
                 "ATVPREP-PROGRESS 98",
                 "ATVPREP-STAGE verify",
@@ -427,6 +447,9 @@ mod tests {
         reporter.stage(Stage::Encode);
         reporter.update(0.5);
         reporter.update(1.0);
+        reporter.stage(Stage::Chunks);
+        reporter.update(0.5);
+        reporter.update(1.0);
         reporter.stage(Stage::Finalize);
         reporter.update(0.5);
         reporter.stage(Stage::Verify);
@@ -436,7 +459,10 @@ mod tests {
             out.lines(),
             [
                 "ATVPREP-STAGE encode",
-                "ATVPREP-PROGRESS 45",
+                "ATVPREP-PROGRESS 40",
+                "ATVPREP-PROGRESS 80",
+                "ATVPREP-STAGE chunks",
+                "ATVPREP-PROGRESS 85",
                 "ATVPREP-PROGRESS 90",
                 "ATVPREP-STAGE finalize",
                 "ATVPREP-PROGRESS 94",
@@ -536,7 +562,7 @@ mod tests {
 
     #[test]
     fn a_video_encode_and_a_repack_end_their_encode_stage_at_their_own_mark() {
-        for (variant, mark) in [(Variant::Repack, 55), (Variant::Encode, 90)] {
+        for (variant, mark) in [(Variant::Repack, 45), (Variant::Encode, 80)] {
             let (mut reporter, out) = plain();
             reporter.begin_file(variant);
             reporter.stage(Stage::Encode);
@@ -583,7 +609,7 @@ mod tests {
 
         let values = out.percents();
         assert!(values.is_sorted());
-        assert_eq!(values, [45, 90, 98, 99]);
+        assert_eq!(values, [40, 80, 98, 99]);
     }
 
     #[test]
@@ -596,7 +622,7 @@ mod tests {
         }
         assert_eq!(
             out.lines(),
-            ["ATVPREP-STAGE encode", "ATVPREP-PROGRESS 45"].repeat(2)
+            ["ATVPREP-STAGE encode", "ATVPREP-PROGRESS 40"].repeat(2)
         );
     }
 

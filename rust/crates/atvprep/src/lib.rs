@@ -42,6 +42,8 @@ pub struct Environment {
     pub ffprobe: Ffprobe,
     /// Replaces the `ffmpeg` of the plan (a test seam).
     pub ffmpeg: Option<PathBuf>,
+    /// The `MP4Box` of the chunk stage (the search directories are a test seam).
+    pub mp4box: atvprep_core::prepare::chunks::Mp4Box,
 }
 
 impl Environment {
@@ -53,6 +55,7 @@ impl Environment {
             make_tools: || Box::new(SystemTools::new()),
             ffprobe: Ffprobe::new(),
             ffmpeg: None,
+            mp4box: atvprep_core::prepare::chunks::Mp4Box::new(),
         }
     }
 }
@@ -105,6 +108,7 @@ pub fn run(args: &[OsString], env: &Environment, io: Io) -> i32 {
         tools: (env.make_tools)(),
         ffprobe: env.ffprobe.clone(),
         ffmpeg: env.ffmpeg.clone(),
+        mp4box: env.mp4box.clone(),
     };
     let code = match name {
         "patch" => cli::run_patch(&mut ctx, sub),

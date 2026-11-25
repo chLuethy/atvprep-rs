@@ -5,7 +5,7 @@ use crate::{Error, Result};
 
 /// Migration stages in order; stage `n` takes a database from version `n - 1` to `n`.
 /// To extend: add `000N_name.sql`, append it here and raise [`VERSION`].
-const STAGES: [&str; 14] = [
+const STAGES: [&str; 15] = [
     include_str!("migrations/0001_base.sql"),
     include_str!("migrations/0002_cron.sql"),
     include_str!("migrations/0003_scan_action.sql"),
@@ -20,10 +20,11 @@ const STAGES: [&str; 14] = [
     include_str!("migrations/0012_recheck_sdh_sidecar_plans.sql"),
     include_str!("migrations/0013_recheck_sample_rate_plans.sql"),
     include_str!("migrations/0014_planned_steps.sql"),
+    include_str!("migrations/0015_recheck_chunk_length.sql"),
 ];
 
 /// The version this build creates and understands.
-pub const VERSION: i64 = 14;
+pub const VERSION: i64 = 15;
 
 /// Every table of the current schema.
 pub const TABLES: [&str; 23] = [
@@ -876,7 +877,8 @@ mod tests {
             [
                 // The stored plan is unknown again, never "ready" without a check.
                 row(1, "unknown", "unknown"),
-                row(2, "none", "none"),
+                // Version 15 (#144) sends a file stored as none to the check as well.
+                row(2, "unknown", "unknown"),
                 row(3, "none", "remux"),
                 row(4, "none", "remux"),
                 row(5, "unknown", "unknown"),
@@ -904,7 +906,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             queued,
-            [1, 5],
+            [1, 2, 5],
             "the earlier check of the same bytes does not block"
         );
     }
@@ -953,9 +955,81 @@ mod tests {
                 row(1, "unknown", "unknown"),
                 row(2, "unknown", "unknown"),
                 row(3, "none", "remux"),
-                row(4, "none", "none"),
-                row(5, "none", "patch"),
+                // Version 15 (#144) sends a file stored as none or patch to the check as well.
+                row(4, "unknown", "unknown"),
+                row(5, "unknown", "unknown"),
             ]
+        );
+
+        let clock = crate::clock::FixedClock(1_700_000_000_000_000);
+        crate::worker::runtime::queue_need_checks(
+            crate::repo::Ctx {
+                conn: conn.raw(),
+                clock: &clock,
+            },
+            0,
+        )
+        .unwrap();
+        let queued: Vec<i64> = conn
+            .raw()
+            .prepare(
+                "SELECT media_file_id FROM job_items WHERE status='queued' ORDER BY media_file_id",
+            )
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            queued,
+            [1, 2, 4, 5],
+            "the earlier check of the same bytes does not block"
+        );
+    }
+
+    /// Before #144 no check judged the chunk length: a file stored as clean or as a Patch may have
+    /// chunks of a sample or two. Version 15 sends every checked file back to the background check,
+    /// even though that check already ran on the same bytes and Zielprofil.
+    #[test]
+    fn a_version_14_database_checks_every_checked_file_again() {
+        let (_db, mut conn) = database_at(14);
+        exec(
+            &conn,
+            "INSERT INTO library_roots(name, canonical_path) VALUES ('r', '/r')",
+        )
+        .unwrap();
+        seed_checked_file(&conn, 1, "none", None);
+        seed_checked_file(&conn, 2, "patch", None);
+        seed_checked_file(&conn, 3, "remux", None);
+        seed_checked_file(&conn, 4, "audio", None);
+        migrate(&mut conn).unwrap();
+        assert_eq!(version(&conn).unwrap(), VERSION);
+
+        let rows: Vec<(i64, String, String, String)> = conn
+            .raw()
+            .prepare("SELECT id, compliance_state, encode_need, planned_change FROM media_files ORDER BY id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
+            .unwrap();
+        // Only a file stored as none or patch may be a Remux for its chunks: its plan is unknown
+        // again, never "ready" without a check; a Remux or an audio encode stays as it is. The
+        // verdict stays until that check has decided it anew.
+        assert_eq!(
+            rows,
+            [
+                (1, "clean", "unknown", "unknown"),
+                (2, "clean", "unknown", "unknown"),
+                (3, "clean", "none", "remux"),
+                (4, "clean", "audio", "audio"),
+            ]
+            .map(|(id, state, need, change)| (
+                id,
+                state.to_owned(),
+                need.to_owned(),
+                change.to_owned()
+            ))
         );
 
         let clock = crate::clock::FixedClock(1_700_000_000_000_000);

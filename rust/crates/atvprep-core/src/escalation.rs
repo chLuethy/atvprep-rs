@@ -250,6 +250,10 @@ mod tests {
         #[derive(Deserialize)]
         struct Ignored {}
 
+        fn is_chunk_reason(reason: &str) -> bool {
+            crate::mp4::chunks::is_chunk_reason(reason)
+        }
+
         struct Recorded {
             info: String,
             dump: String,
@@ -327,8 +331,9 @@ mod tests {
                     is_faststart: faststart,
                 };
                 let ffprobe = Ffprobe::new();
+                // The oracle knows no chunk reason (#144): the fixtures' short chunks are left out.
                 let detect = |untagged_audio| {
-                    detect_issues(
+                    let mut reasons = detect_issues(
                         &path,
                         &input.probe,
                         &sidecars,
@@ -339,7 +344,9 @@ mod tests {
                             fix_dts: input.options.fix_dts,
                             untagged_audio,
                         },
-                    )
+                    );
+                    reasons.retain(|reason| !is_chunk_reason(reason));
+                    reasons
                 };
                 assert_eq!(
                     json!(detect(true)),
@@ -372,8 +379,17 @@ mod tests {
                 };
                 let found = assess(&audit, &path, &input.probe, &sidecars, &ctx, &options);
                 let want = &case.expected["assess"];
+                let (chunk, other): (Vec<_>, Vec<_>) =
+                    found.reasons.iter().partition(|r| is_chunk_reason(r));
+                if !chunk.is_empty() && want["level"] != "rebuild" {
+                    // A fixture the oracle left alone has short chunks (#144): now it is a rebuild
+                    // for that reason alone, which the oracle could not say.
+                    assert_eq!(found.level, Level::Rebuild, "{name} level");
+                    assert!(other.is_empty(), "{name}: {other:?}");
+                    continue;
+                }
                 assert_eq!(json!(found.level.as_str()), want["level"], "{name} level");
-                assert_eq!(json!(found.reasons), want["reasons"], "{name} reasons");
+                assert_eq!(json!(other), want["reasons"], "{name} reasons");
                 assert_eq!(
                     json!(found.duplicates),
                     want["duplicates"],

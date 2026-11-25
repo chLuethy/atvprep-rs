@@ -2,10 +2,12 @@
 
 pub mod atmos;
 pub mod boxes;
+pub mod chunks;
 pub mod copy;
 pub mod error;
 pub mod offsets;
 pub mod patch;
+pub mod restore;
 pub mod tags;
 
 pub use error::{Mp4Error, Result};

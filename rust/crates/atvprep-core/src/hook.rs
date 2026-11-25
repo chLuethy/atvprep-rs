@@ -90,6 +90,8 @@ pub fn run_hook(args: &[OsString], ctx: &mut RunContext, stdout: &mut dyn Write)
         extra_sidecars: destination_sidecars(&dest),
         encode: EncodeAllowance::Audio,
         delete_original: false,
+        // An import never fails on an image that was not updated (ADR 0010).
+        mp4box_required: false,
         ..PrepareOptions::default()
     };
     let result = match prepare_file(ctx, &source, &options, None) {

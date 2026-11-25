@@ -566,8 +566,10 @@ mod tests {
             "{}/../../testdata/golden/worker_action/{name}.txt",
             env!("CARGO_MANIFEST_DIR")
         );
+        // The goldens predate the chunk rule (#144): a clean verdict of it adds a line they lack.
         let actual = lines
             .iter()
+            .filter(|line| line.as_str() != "Rule chunk-length: ok")
             .map(|line| line.replace(env!("CARGO_PKG_VERSION"), "{version}"))
             .map(|line| line + "\n")
             .collect::<String>();

@@ -96,7 +96,7 @@ fn seconds(line: &str) -> Option<f64> {
     (micros > 0).then(|| micros as f64 / 1_000_000.0)
 }
 
-/// Run ffmpeg on the plan; the reporter shows the encode and then the finalize stage.
+/// Run ffmpeg on the plan; the reporter shows the encode stage (the chunk stage follows).
 ///
 /// # Errors
 ///
@@ -140,7 +140,6 @@ pub fn run_ffmpeg_with_progress(ctx: &mut RunContext, plan: &Plan) -> Result<(),
             if fraction >= ENCODE_DONE {
                 finalizing = true;
                 ctx.reporter.update(1.0);
-                ctx.reporter.stage(Stage::Finalize);
             } else {
                 ctx.reporter.update(fraction);
             }
@@ -200,6 +199,7 @@ mod tests {
         let machine = SharedBuffer::default();
         let mut ctx = RunContext {
             ffmpeg: None,
+            mp4box: crate::prepare::chunks::Mp4Box::new(),
             console: Console::recording(false).0,
             reporter: StageReporter::new(Box::new(machine.clone()), false),
             tools: Box::new(SystemTools::new()),
@@ -222,10 +222,9 @@ mod tests {
             lines,
             [
                 "ATVPREP-STAGE encode",
-                "ATVPREP-PROGRESS 11",
-                "ATVPREP-PROGRESS 27",
-                "ATVPREP-PROGRESS 55",
-                "ATVPREP-STAGE finalize",
+                "ATVPREP-PROGRESS 9",
+                "ATVPREP-PROGRESS 22",
+                "ATVPREP-PROGRESS 45",
             ]
         );
     }
@@ -258,9 +257,8 @@ mod tests {
             lines,
             [
                 "ATVPREP-STAGE encode",
-                "ATVPREP-PROGRESS 45",
-                "ATVPREP-PROGRESS 90",
-                "ATVPREP-STAGE finalize",
+                "ATVPREP-PROGRESS 40",
+                "ATVPREP-PROGRESS 80",
             ]
         );
         // No video stream: ffmpeg runs and only copies, so the repack weights apply.
@@ -270,9 +268,8 @@ mod tests {
             lines,
             [
                 "ATVPREP-STAGE encode",
-                "ATVPREP-PROGRESS 27",
-                "ATVPREP-PROGRESS 55",
-                "ATVPREP-STAGE finalize",
+                "ATVPREP-PROGRESS 22",
+                "ATVPREP-PROGRESS 45",
             ]
         );
     }

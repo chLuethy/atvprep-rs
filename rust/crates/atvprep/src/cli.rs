@@ -275,6 +275,8 @@ fn prepare_options(
             .get_one::<String>("encode")
             .and_then(|name| EncodeAllowance::parse(name))
             .unwrap_or_default(),
+        // The manager calls this path: without MP4Box the entry fails (ADR 0010).
+        mp4box_required: true,
     }
 }
 

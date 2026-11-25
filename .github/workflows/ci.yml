@@ -31,13 +31,26 @@ jobs:
             SUDO=(sudo)
           fi
           "${SUDO[@]}" apt-get update
-          "${SUDO[@]}" apt-get install -y ffmpeg cmake build-essential git
+          "${SUDO[@]}" apt-get install -y ffmpeg cmake build-essential git zlib1g-dev
           git clone --depth 1 --branch v1.6.0-641 https://github.com/axiomatic-systems/Bento4.git "$RUNNER_TEMP/bento4"
           test "$(git -C "$RUNNER_TEMP/bento4" rev-parse HEAD)" = dc264854d1f76c370b65b18d9f303a95f7f21ab1
           cmake -S "$RUNNER_TEMP/bento4" -B "$RUNNER_TEMP/bento4-build" -DCMAKE_BUILD_TYPE=Release
           cmake --build "$RUNNER_TEMP/bento4-build" --target mp4info mp4dump --parallel 2
           test -x "$RUNNER_TEMP/bento4-build/mp4info"
           test -x "$RUNNER_TEMP/bento4-build/mp4dump"
+          # GPAC (MP4Box) is not in the Ubuntu 26.04 archive: build the pinned release like the Servarr image.
+          GPAC_VERSION=26.07.0
+          GPAC_SHA256=57822c1a74dcb83d76ff1f671e1b4fae2e7614e8194a5adb9f20661e0e9421dd
+          mkdir "$RUNNER_TEMP/gpac-src"
+          curl -fsSL -o "$RUNNER_TEMP/gpac.tar.gz" "https://github.com/gpac/gpac/archive/refs/tags/v${GPAC_VERSION}.tar.gz"
+          echo "${GPAC_SHA256}  $RUNNER_TEMP/gpac.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/gpac.tar.gz" --strip-components=1 -C "$RUNNER_TEMP/gpac-src"
+          (cd "$RUNNER_TEMP/gpac-src" \
+            && ./configure --prefix="$RUNNER_TEMP/gpac" --disable-x11 --use-jack=no --use-oss=no --use-alsa=no --use-pulseaudio=no --use-sdl=no --use-ffmpeg=no --use-libcaca=no \
+            && make -j"$(nproc)" && make install)
+          LD_LIBRARY_PATH="$RUNNER_TEMP/gpac/lib" "$RUNNER_TEMP/gpac/bin/MP4Box" -version
+          echo "$RUNNER_TEMP/gpac/bin" >> "$GITHUB_PATH"
+          echo "LD_LIBRARY_PATH=$RUNNER_TEMP/gpac/lib" >> "$GITHUB_ENV"
           ffmpeg -version
           ffprobe -version
           echo "$RUNNER_TEMP/bento4-build" >> "$GITHUB_PATH"

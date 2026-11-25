@@ -13,7 +13,9 @@ use atvprep_core::console::{Console, SharedBuffer};
 use atvprep_core::encode::{EncodeAllowance, PlanStep};
 use atvprep_core::fd_fix_contract::FdFixTarget;
 use atvprep_core::ffprobe::Ffprobe;
+use atvprep_core::mp4::chunks::{CHUNK_RULE, is_chunk_reason};
 use atvprep_core::pipeline_postfix::RunContext;
+use atvprep_core::prepare::chunks::Mp4Box;
 use atvprep_core::prepare::pipeline::{PrepareError, planned_change, prepare_file};
 use atvprep_core::prepare::{ErrorKind, PrepareOptions, PrepareResult};
 use atvprep_core::stages::StageReporter;
@@ -186,6 +188,7 @@ fn severities(path: &Path) -> Value {
     let mut pairs: Vec<Value> = report
         .violations
         .iter()
+        .filter(|v| v.rule != CHUNK_RULE)
         .map(|v| json!([v.rule, v.severity.as_str()]))
         .collect();
     pairs.sort_by_key(ToString::to_string);
@@ -196,6 +199,7 @@ fn result_json(result: &PrepareResult, base: &Path) -> Value {
     let mut report: Option<Vec<Value>> = result.report.as_ref().map(|r| {
         r.violations
             .iter()
+            .filter(|v| v.rule != CHUNK_RULE)
             .map(|v| json!([v.rule, v.severity.as_str()]))
             .collect()
     });
@@ -207,7 +211,7 @@ fn result_json(result: &PrepareResult, base: &Path) -> Value {
         "output": rel_or_null(result.output.as_deref(), base),
         "level": result.level.as_str(),
         "outcome": result.outcome.as_str(),
-        "reasons": result.reasons,
+        "reasons": result.reasons.iter().filter(|r| !is_chunk_reason(r)).collect::<Vec<_>>(),
         "tags_only": result.tags_only,
         "source_removed": result.source_removed,
         "source_kept": result.source_kept,
@@ -243,6 +247,7 @@ fn run_case_with(name: &str, variant: &str, grow: impl FnOnce(&Path)) -> Value {
         tools: Box::new(SystemTools::new()),
         ffprobe: Ffprobe::new(),
         ffmpeg: Some(ffmpeg),
+        mp4box: Mp4Box::new(),
     };
     let target = matches!(variant, "target" | "quarantine_target")
         .then(|| FdFixTarget::for_path(&source).unwrap());
@@ -315,6 +320,10 @@ fn stable_machine(value: Value) -> Value {
             previous = Some(percent);
             continue;
         }
+        // The chunk stage (ADR 0010) knows nothing of the oracle; its stage line is the port's own.
+        if text == "ATVPREP-STAGE chunks" {
+            continue;
+        }
         result.push(line.clone());
     }
     Value::Array(result)
@@ -380,6 +389,12 @@ fn oracle_progress_that_regresses_is_still_rejected() {
     ]));
 }
 
+/// Fixtures the oracle left alone (the file matched the target) whose chunks are shorter than a
+/// quarter second on average. Since #144 they are a remux for that reason alone, which the oracle
+/// could not say; `these_fixtures_are_a_remux_for_their_chunks_alone` checks them, the oracle
+/// comparison leaves out every case that starts from one of them.
+const SHORT_CHUNKS_SINCE_144: [&str; 4] = ["clean.mp4", "dby1.mp4", "tags.mp4", "sibling.mkv"];
+
 #[test]
 fn a_repack_reports_the_phase_boundaries_55_98_and_99() {
     for name in ["movie.mkv", "moovlast.mp4"] {
@@ -394,7 +409,7 @@ fn a_repack_reports_the_phase_boundaries_55_98_and_99() {
 
 #[test]
 fn a_patch_without_ffmpeg_copies_to_20_patches_to_98_and_rises_to_99() {
-    let run = run_case("tags.mp4", "default");
+    let run = run_case("clean_chunks.mp4", "output_file");
     let (_, values) = atvprep_testkit::split_progress(&machine_lines(&run));
     assert!(values.is_sorted(), "{values:?}");
     assert_eq!(values.first(), Some(&20), "{values:?}");
@@ -431,14 +446,29 @@ fn assert_copy_reports_each_block(name: &str, variant: &str) {
 
 #[test]
 fn patching_in_place_reports_the_copy_block_by_block() {
-    // `patch_in_place`: the tags change, so the file goes through a copy.
-    assert_copy_reports_each_block("tags.mp4", "default");
+    // `patch_in_place`: the tags change, so the file goes through a copy. `tags.mp4` has chunks that are
+    // too short (#144); `MP4Box` first gives it healthy ones so that the tags are the only reason.
+    let mp4box = Mp4Box::new();
+    if mp4box.find().is_none() {
+        eprintln!("skipped: MP4Box is not installed");
+        return;
+    }
+    let run = run_case_with("tags.mp4", "default", |path| {
+        let rewritten = path.with_extension("chunks.mp4");
+        mp4box.rechunk(path, &rewritten, &mut |_| {}).unwrap();
+        std::fs::rename(&rewritten, path).unwrap();
+        pad_to_three_blocks(path);
+    });
+    let (_, values) = atvprep_testkit::split_progress(&machine_lines(&run));
+    assert!(values.is_sorted(), "{values:?}");
+    assert_eq!(values[..3], [6, 13, 20], "{values:?}");
+    assert_eq!(values[values.len() - 2..], [98, 99], "{values:?}");
 }
 
 #[test]
 fn patching_into_an_output_reports_the_copy_block_by_block() {
     // `patch_copy`: an output path for a file that needs no ffmpeg.
-    assert_copy_reports_each_block("clean.mp4", "output_file");
+    assert_copy_reports_each_block("clean_chunks.mp4", "output_file");
 }
 
 /// The two oracle results ADR 0008 changed on purpose: a video that may not be encoded was
@@ -455,11 +485,29 @@ fn refused_since_adr_0008(mut result: Value) -> Value {
 }
 
 #[test]
+fn these_fixtures_are_a_remux_for_their_chunks_alone() {
+    for name in SHORT_CHUNKS_SINCE_144 {
+        let mut f = fixture(name, None);
+        let target = FdFixTarget::for_path(&f.source).unwrap();
+        let planned =
+            planned_change(&mut f.ctx, &f.source, &PrepareOptions::default(), &target).unwrap();
+        assert_eq!(
+            (planned.need.as_str(), planned.change.as_str()),
+            ("none", "remux"),
+            "{name}"
+        );
+    }
+}
+
+#[test]
 fn pipeline_matches_the_python_oracle() {
     let cases = load_golden::<Input, Value>("prepare_pipeline");
     assert_eq!(cases.len(), 91);
     let mut mismatches = Vec::new();
     for case in cases {
+        if SHORT_CHUNKS_SINCE_144.contains(&case.input.source.as_str()) {
+            continue;
+        }
         let got = run_case(&case.input.source, &case.input.variant);
         for key in ["raised", "result", "listing", "files", "argv", "machine"] {
             let mut want = case.expected.get(key).cloned().unwrap_or(Value::Null);
@@ -520,12 +568,22 @@ fn fixture(name: &str, script: Option<&str>) -> Fixture {
         atvprep_testkit::write_script(&path, format!("#!/bin/sh\n{body}\n"));
         path
     });
+    // A made-up ffmpeg writes files MP4Box can reject; the replacement MP4Box only copies.
+    let mp4box = if ffmpeg.is_some() {
+        let tools = base.join("fake-tools");
+        std::fs::create_dir(&tools).unwrap();
+        atvprep_testkit::write_script(&tools.join("MP4Box"), "#!/bin/sh\ncp \"$3\" \"$5\"\n");
+        Mp4Box::new().with_search_path(vec![tools])
+    } else {
+        Mp4Box::new()
+    };
     let ctx = RunContext {
         console: Console::recording(false).0,
         reporter: StageReporter::new(Box::new(SharedBuffer::default()), false),
         tools: Box::new(SystemTools::new()),
         ffprobe: Ffprobe::new(),
         ffmpeg,
+        mp4box,
     };
     Fixture {
         _dir: dir,
@@ -728,11 +786,20 @@ fn assert_sdh_sidecars_stay_embedded(name: &str) {
     let signature_before = signature(&output, &f.ctx.ffprobe);
     let second = prepare_file(&mut f.ctx, &output, &PrepareOptions::default(), None).unwrap();
     assert_eq!(second.error, None, "{name}: second prepare");
-    assert_eq!(
-        sha(&output),
-        before,
-        "{name}: the second prepare rewrote the file"
+    // What ffmpeg wrote has chunks of a sample or two: until MP4Box regroups them (ADR 0010) the
+    // second prepare rewrites the file for that reason, and for no other.
+    assert!(
+        second.reasons.iter().all(|r| is_chunk_reason(r)),
+        "{name}: the second prepare found {:?}",
+        second.reasons
     );
+    if second.reasons.is_empty() {
+        assert_eq!(
+            sha(&output),
+            before,
+            "{name}: the second prepare rewrote the file"
+        );
+    }
     assert_eq!(signature(&output, &f.ctx.ffprobe), signature_before);
 }
 
@@ -834,8 +901,14 @@ fn ac3_at_44_1_khz_is_resampled_to_48_khz_and_then_passes_the_check() {
     };
     let refused = prepare_file(&mut f.ctx, &source, &copy, None).unwrap();
     assert_eq!(refused.outcome.as_str(), "encode_not_allowed");
+    // The chunk reason is the ffmpeg test file's, not what this test is about (#144).
+    let reasons: Vec<&String> = refused
+        .reasons
+        .iter()
+        .filter(|r| !is_chunk_reason(r))
+        .collect();
     assert_eq!(
-        refused.reasons,
+        reasons,
         [
             "no stereo track for deu",
             "audio stream #1 sample rate 44100Hz needs 48000Hz"
