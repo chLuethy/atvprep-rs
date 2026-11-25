@@ -462,16 +462,19 @@ fn moov_outline(path: &Path) -> Vec<String> {
     lines
 }
 
-/// The track titles ffprobe shows, as `"name": "DEU"` lines: depending on the ffmpeg version the `udta/name`
-/// atom is read as `name` or as `title`.
+/// The track titles as the `udta/name` atoms of the tracks hold them, as `"name": "DEU"` lines. Read from the
+/// moov itself: which tag key ffprobe shows them under (or whether at all) depends on its version.
 fn title_lines(path: &Path) -> Vec<String> {
-    pretty(&fingerprint(path))
+    atoms(path)
         .into_iter()
-        .map(|l| l.trim().to_owned())
-        .filter_map(|l| {
-            l.strip_prefix("\"title\":")
-                .or_else(|| l.strip_prefix("\"name\":"))
-                .map(|rest| format!("\"name\":{rest}"))
+        .filter_map(|line| {
+            let hex = line.split_once(" trak/udta/name ")?.1;
+            let text: String = (0..hex.len() / 2)
+                .map(|i| u8::from_str_radix(&hex[2 * i..2 * i + 2], 16).unwrap_or(b'?'))
+                .filter(|b| b.is_ascii_graphic() || *b == b' ')
+                .map(char::from)
+                .collect();
+            Some(format!("\"name\": \"{text}\""))
         })
         .collect()
 }
