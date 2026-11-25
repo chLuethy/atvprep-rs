@@ -4,7 +4,7 @@ import { ThemeSwitch } from "../../ui/ThemeSwitch";
 
 export const AppearanceSettings: Component = () => (
   <section class="setting-group appearance-settings" aria-labelledby="appearance-title">
-    <h3 id="appearance-title">{t("Appearance")}</h3>
+    <h2 id="appearance-title">{t("Appearance")}</h2>
     <p class="help">{t("Applies immediately to all pages. Stored in this browser, not on the server.")}</p>
     <div class="appearance-mode">
       <span class="label">{t("Color mode")}</span>
