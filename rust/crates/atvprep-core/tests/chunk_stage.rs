@@ -462,6 +462,20 @@ fn moov_outline(path: &Path) -> Vec<String> {
     lines
 }
 
+/// The track titles ffprobe shows, as `"name": "DEU"` lines: depending on the ffmpeg version the `udta/name`
+/// atom is read as `name` or as `title`.
+fn title_lines(path: &Path) -> Vec<String> {
+    pretty(&fingerprint(path))
+        .into_iter()
+        .map(|l| l.trim().to_owned())
+        .filter_map(|l| {
+            l.strip_prefix("\"title\":")
+                .or_else(|| l.strip_prefix("\"name\":"))
+                .map(|rest| format!("\"name\":{rest}"))
+        })
+        .collect()
+}
+
 fn pretty(value: &Value) -> Vec<String> {
     serde_json::to_string_pretty(value)
         .unwrap()
@@ -526,6 +540,17 @@ fn atoms_of(path: &Path, ignore_groups: bool) -> Vec<String> {
                 | b"sdtp" | b"cslg" | b"sgpd" | b"sbgp" | b"free" => {}
                 _ => {
                     let mut payload = data[b.start + 8..b.end].to_vec();
+                    // MP4Box rounds the durations of the moov by a tick on some platforms: the sample
+                    // tables, which decide them, are left out of this comparison anyway.
+                    let wide = payload.first() == Some(&1);
+                    let duration = match &b.kind {
+                        b"mvhd" | b"mdhd" => Some(if wide { 24..32 } else { 16..20 }),
+                        b"tkhd" => Some(if wide { 28..36 } else { 20..24 }),
+                        _ => None,
+                    };
+                    if let Some(range) = duration {
+                        payload[range].fill(0);
+                    }
                     if ignore_groups && &b.kind == b"tkhd" {
                         let at = if payload.first() == Some(&1) { 46 } else { 34 };
                         payload[at..at + 2].fill(0);
@@ -620,13 +645,7 @@ fn tags_languages_subtitles_and_chapters_survive_the_chunk_stage() {
 fn short_track_titles_survive_mp4box() {
     needs_mp4box!();
     let (plain, chunked, runs) = produce_both("chapters.mp4");
-    let names = |path: &Path| -> Vec<String> {
-        pretty(&fingerprint(path))
-            .into_iter()
-            .filter(|l| l.contains("\"name\":"))
-            .map(|l| l.trim().to_owned())
-            .collect()
-    };
+    let names = |path: &Path| title_lines(path);
     assert!(names(&plain).iter().any(|n| n == "\"name\": \"DEU\""));
     assert_eq!(names(&plain), names(&chunked));
     // The fallback ran, and the stage says what it put back.
@@ -869,11 +888,7 @@ fn short_track_titles_survive_the_chunks_only_run() {
     needs_mp4box!();
     let mut r = run(true);
     let source = only_short_chunks(&r.base, Some("DEU"));
-    let titled = |path: &Path| {
-        pretty(&fingerprint(path))
-            .iter()
-            .any(|l| l.contains("\"name\": \"DEU\""))
-    };
+    let titled = |path: &Path| title_lines(path).iter().any(|l| l == "\"name\": \"DEU\"");
     assert!(titled(&source));
     let result = prepare_file(&mut r.ctx, &source, &all_audio(), None).unwrap();
     assert_eq!(result.error, None, "{}", r.console.contents());
@@ -1061,11 +1076,7 @@ fn mp4box_loses_nothing_of_a_rich_ffmpeg_file() {
         &pretty(&fingerprint(&input)),
         &pretty(&fingerprint(&output)),
     );
-    let titles: Vec<String> = pretty(&fingerprint(&output))
-        .into_iter()
-        .filter(|l| l.contains("\"name\":"))
-        .map(|l| l.trim().to_owned())
-        .collect();
+    let titles = title_lines(&output);
     assert!(
         titles.iter().any(|t| t == "\"name\": \"DEU\""),
         "{titles:?}"
