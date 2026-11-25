@@ -31,7 +31,7 @@ jobs:
             SUDO=(sudo)
           fi
           "${SUDO[@]}" apt-get update
-          "${SUDO[@]}" apt-get install -y ffmpeg cmake build-essential git
+          "${SUDO[@]}" apt-get install -y ffmpeg gpac cmake build-essential git
           git clone --depth 1 --branch v1.6.0-641 https://github.com/axiomatic-systems/Bento4.git "$RUNNER_TEMP/bento4"
           test "$(git -C "$RUNNER_TEMP/bento4" rev-parse HEAD)" = dc264854d1f76c370b65b18d9f303a95f7f21ab1
           cmake -S "$RUNNER_TEMP/bento4" -B "$RUNNER_TEMP/bento4-build" -DCMAKE_BUILD_TYPE=Release
@@ -39,6 +39,7 @@ jobs:
           test -x "$RUNNER_TEMP/bento4-build/mp4info"
           test -x "$RUNNER_TEMP/bento4-build/mp4dump"
           ffmpeg -version
+          MP4Box -version
           ffprobe -version
           echo "$RUNNER_TEMP/bento4-build" >> "$GITHUB_PATH"
       - name: Install Rust toolchain
@@ -74,7 +75,7 @@ jobs:
         run: |
           if [ "$(id -u)" -eq 0 ]; then SUDO=(); else SUDO=(sudo); fi
           "${SUDO[@]}" apt-get update
-          "${SUDO[@]}" apt-get install -y ffmpeg sqlite3 build-essential
+          "${SUDO[@]}" apt-get install -y ffmpeg gpac sqlite3 build-essential
       - name: Install Rust toolchain
         shell: bash
         run: |
