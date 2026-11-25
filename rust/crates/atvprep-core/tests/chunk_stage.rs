@@ -646,12 +646,15 @@ fn short_track_titles_survive_mp4box() {
     needs_mp4box!();
     let (plain, chunked, runs) = produce_both("chapters.mp4");
     let names = |path: &Path| title_lines(path);
-    assert!(names(&plain).iter().any(|n| n == "\"name\": \"DEU\""));
     assert_eq!(names(&plain), names(&chunked));
-    // The fallback ran, and the stage says what it put back.
-    let log = runs[1].console.contents();
-    assert!(log.contains("-no-check"), "{log}");
-    assert!(log.contains("restored"), "{log}");
+    // Newer ffmpeg versions drop a title that equals the language of the track, so the fixture
+    // only has a short title to lose with some of them; then the fallback ran, and the stage says
+    // what it put back. `mp4box_loses_nothing_of_a_rich_ffmpeg_file` makes its own short titles.
+    if names(&plain).iter().any(|n| n == "\"name\": \"DEU\"") {
+        let log = runs[1].console.contents();
+        assert!(log.contains("-no-check"), "{log}");
+        assert!(log.contains("restored"), "{log}");
+    }
 }
 
 /// Twelve seconds of H.264 and AAC stereo at 48 kHz as ffmpeg writes them with default settings
@@ -887,8 +890,8 @@ fn without_mp4box_the_hook_style_run_warns_and_leaves_a_chunks_only_file() {
 fn short_track_titles_survive_the_chunks_only_run() {
     needs_mp4box!();
     let mut r = run(true);
-    let source = only_short_chunks(&r.base, Some("DEU"));
-    let titled = |path: &Path| title_lines(path).iter().any(|l| l == "\"name\": \"DEU\"");
+    let source = only_short_chunks(&r.base, Some("Dub"));
+    let titled = |path: &Path| title_lines(path).iter().any(|l| l == "\"name\": \"Dub\"");
     assert!(titled(&source));
     let result = prepare_file(&mut r.ctx, &source, &all_audio(), None).unwrap();
     assert_eq!(result.error, None, "{}", r.console.contents());
@@ -1028,7 +1031,7 @@ fn rich_ffmpeg_file(dir: &Path) -> PathBuf {
         "-metadata:s:v:0",
         "title=Video",
         "-metadata:s:a:0",
-        "title=DEU",
+        "title=Dub",
         "-metadata:s:a:0",
         "language=deu",
         "-metadata:s:a:1",
@@ -1036,7 +1039,7 @@ fn rich_ffmpeg_file(dir: &Path) -> PathBuf {
         "-metadata:s:a:1",
         "language=eng",
         "-metadata:s:s:0",
-        "title=ENG",
+        "title=Org",
         "-metadata:s:s:0",
         "language=eng",
         "-metadata:s:s:1",
@@ -1078,11 +1081,11 @@ fn mp4box_loses_nothing_of_a_rich_ffmpeg_file() {
     );
     let titles = title_lines(&output);
     assert!(
-        titles.iter().any(|t| t == "\"name\": \"DEU\""),
+        titles.iter().any(|t| t == "\"name\": \"Dub\""),
         "{titles:?}"
     );
     assert!(
-        titles.iter().any(|t| t == "\"name\": \"ENG\""),
+        titles.iter().any(|t| t == "\"name\": \"Org\""),
         "{titles:?}"
     );
 }
