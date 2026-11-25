@@ -34,4 +34,4 @@
 }
 /* Lines of text stay readable: about 75 characters. */
 .settings-body p, .settings-body .help, .appearance-settings .help { max-width: 75ch; }
-.appearance-settings h2 { font-size: 1.17em; font-weight: 700; margin: 1em 0; }
+.appearance-settings h2 { font-size: var(--text-md); font-weight: 700; margin: 1em 0; }
