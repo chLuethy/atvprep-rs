@@ -1,5 +1,8 @@
-import { render } from "@solidjs/testing-library";
+import { render, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import App from "../src/App";
+import { setLanguage } from "../src/lib/i18n";
 import { APP_TITLE, setRouteTitle, useWorkTitle, workTitle } from "../src/lib/title";
 
 describe("workTitle", () => {
@@ -77,5 +80,23 @@ describe("useWorkTitle", () => {
     view.unmount();
 
     expect(document.title).toBe(APP_TITLE);
+  });
+});
+
+describe("the tab title follows the language", () => {
+  class QuietSocket { static OPEN = 1; readyState = 0; addEventListener() {} removeEventListener() {} close() {} send() {} }
+  beforeEach(() => vi.stubGlobal("WebSocket", QuietSocket));
+  afterEach(() => { vi.unstubAllGlobals(); setLanguage("en"); flush(); });
+
+  it("translates the route and the work when the language changes", async () => {
+    const api = { request: vi.fn(async (path: string) => new Response(JSON.stringify({ data: path === "/dashboard" ? { files: {}, scans: {}, jobs: { running: 1, queued: 0 } } : [] }), { status: 200 })) };
+    const view = render(() => <App api={api as never} />);
+    await waitFor(() => expect(document.title).toBe(`1 running · Files · ${APP_TITLE}`));
+
+    setLanguage("de");
+    flush();
+
+    await waitFor(() => expect(document.title).toBe(`1 laufen · Dateien · ${APP_TITLE}`));
+    view.unmount();
   });
 });

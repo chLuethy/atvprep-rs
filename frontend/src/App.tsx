@@ -148,7 +148,11 @@ const Shell: ParentComponent<{ session?: SessionControls; api?: ManagerApi }> = 
   const navigate = useNavigate();
   const location = useLocation();
   const isCurrent = (href: string) => location.pathname === href || location.pathname.startsWith(`${href}/`);
-  createEffect(() => NAV.find((item) => isCurrent(item.href)), (item) => setRouteTitle(item ? t(item.label) : ""));
+  // The name is worded in the tracked part, so a language change words the title again.
+  createEffect(() => {
+    const item = NAV.find((entry) => isCurrent(entry.href));
+    return item ? t(item.label) : "";
+  }, (name) => setRouteTitle(name));
   let helpPanel: HTMLElement | undefined;
   let helpOpener: Element | null = null;
 
