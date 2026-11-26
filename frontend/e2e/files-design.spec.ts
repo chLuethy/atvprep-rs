@@ -195,6 +195,23 @@ test.describe("columns view with long names", () => {
   };
   const area = (page: Page) => page.locator(".files-list > .cols-wrap");
 
+  test("S01E01 and S01E02 are told apart in the columns, and the full name is the tooltip", async ({ page }) => {
+    const columns = await openDeep(page, "light", 1440, 900);
+    const files = columns.locator('.col[data-col="4"]').getByRole("option");
+    for (const code of ["S01E01", "S01E02"]) {
+      const option = files.filter({ hasText: code }).first();
+      const label = option.locator(".mid-head");
+      await expect(label).toBeVisible();
+      // The episode code leads the shown text and is not cut off.
+      expect(await label.evaluate((element) => element.scrollWidth <= element.clientWidth || element.textContent!.startsWith("S01E0"))).toBe(true);
+      expect(await label.innerText()).toMatch(new RegExp(`^${code}`));
+      // The tooltip is the full file name, with series and quality tags.
+      await expect(option.locator(".mid")).toHaveAttribute("title", /^The Marvelous Mrs\. Maisel \(2017\) - S01E0\d - .*\[AMZN WEBDL-2160p\].*-NTb\.mp4$/);
+    }
+    // The cut keeps the end of the name (release group) in view.
+    await expect(files.filter({ hasText: "S01E02" }).first().locator(".mid-tail")).toBeVisible();
+  });
+
   for (const theme of ["light", "dark"] as const) {
     test(`every column of a four-level path is clickable with the inspector open at 1440 px, and the newest one is in view (${theme})`, async ({ page }) => {
       const columns = await openDeep(page, theme, 1440, 900);

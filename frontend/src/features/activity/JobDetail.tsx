@@ -5,6 +5,7 @@ import { formatDateTime } from "../../lib/time";
 import { useClock } from "../../lib/clock";
 import { N, t } from "../../lib/i18n";
 import { baseName } from "../files/model";
+import { parseMediaName, shortName } from "../../lib/mediaName";
 import { loadItems, loadJob, mutateJob, type Api, type ItemRow, type JobRow, type Page } from "./loaders";
 import { LogViewer } from "./LogViewer";
 import { PlannedChange } from "./PlannedChange";
@@ -15,7 +16,8 @@ const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
 type Operation = "cancel" | "retry";
 
 const formatDate = (iso: string | null) => formatDateTime(iso);
-const itemName = (item: ItemRow) => baseName(item.display_path ?? "").title || t("Item {position}", { position: item.position });
+const fullItemName = (item: ItemRow) => baseName(item.display_path ?? "").title;
+const itemName = (item: ItemRow) => (fullItemName(item) ? shortName(parseMediaName(fullItemName(item)), { withGroup: true }) : t("Item {position}", { position: item.position }));
 
 const ItemLog: Component<{ api: Api; itemId: string; status: ItemStatus }> = (props) => {
   const [open, setOpen] = createSignal(false);
@@ -327,7 +329,7 @@ const JobDetailView: Component<{
                         <li class="item-row">
                           <div class="item-line">
                             <span class="mono muted item-pos">{`#${item().position}`}</span>
-                            <span class={["item-name", { repeat: repeatsTitle() }]} title={repeatsTitle() ? itemName(item()) : undefined}>{itemName(item())}</span>
+                            <span class={["item-name", { repeat: repeatsTitle() }]} title={fullItemName(item()) || undefined}>{itemName(item())}</span>
                             <StatusChip kind={itemState().kind} icon={itemState().icon} live={itemState().live}>{itemState().label}</StatusChip>
                             <Show when={item().attempt > 1 || (item().status === "running" && typeof item().progress === "number")}>
                               <span class="item-progress">

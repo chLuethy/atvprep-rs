@@ -2,6 +2,7 @@ import type { ChipKind } from "../../ui/StatusChip";
 import type { IconName } from "../../ui/icons";
 import { N, t } from "../../lib/i18n";
 import { baseName } from "../files/model";
+import { parseMediaName, shortName } from "../../lib/mediaName";
 import type { ItemRow, JobRow } from "./loaders";
 
 export type Tone = { kind: ChipKind; icon: IconName; label: string; live?: boolean };
@@ -41,8 +42,9 @@ export const canRetry = (job: Pick<JobRow, "status">) => job.status === "failed"
 const ACTIONS: Record<string, string> = { prepare: N("Prepare"), verify: N("Verify"), inspect: N("Inspect") };
 export const actionLabel = (action: string) => (ACTIONS[action] ? t(ACTIONS[action]) : humanize(action));
 
-export function jobTitle(job: JobRow): string {
-  const name = job.subject ? baseName(job.subject).title : "";
+export function jobTitle(job: JobRow, options: { full?: boolean } = {}): string {
+  const title = job.subject ? baseName(job.subject).title : "";
+  const name = options.full ? title : shortName(parseMediaName(title), { withGroup: true });
   if (name) return job.total_count > 1 ? t("{name} and {count} more", { name, count: job.total_count - 1 }) : name;
   return job.total_count > 1 ? t("{action} job for {count} files", { action: actionLabel(job.action), count: job.total_count }) : t("{action} job", { action: actionLabel(job.action) });
 }
