@@ -1,4 +1,5 @@
-import { createEffect, createMemo, For, Show, type Component } from "solid-js";
+import { createEffect, createMemo, For, onSettled, Show, type Component } from "solid-js";
+import { createRowWindow } from "../../lib/rowWindow";
 import { uniqueRowKeys } from "../../lib/rowKeys";
 import { fileKey } from "./identity";
 import { flash } from "../../lib/flash";
@@ -34,9 +35,41 @@ export const FileTable: Component<{
   flagged?: (file: FileRow) => boolean;
   /** The name of a library by its id; an unknown id shows as it is. */
   libraryName?: (rootId: string) => string;
+  /** Asks for a row to be built and focused, e.g. when J or K walks past the rows that are rendered. A new object each time. */
+  reveal?: { id: string };
 }> = (props) => {
   const rowKey = createMemo(() => uniqueRowKeys(props.rows, fileKey));
-  const tabbable = (id: string, index: number) => (props.activeId ? props.activeId === id : index === 0);
+  let table: HTMLTableElement | undefined;
+  let body: HTMLTableSectionElement | undefined;
+  // Only the rows near the visible part exist in the page; a long list does not grow the DOM with every page loaded.
+  const window = createRowWindow({
+    total: () => props.rows.length,
+    scroller: () => table?.closest<HTMLElement>(".lib-scroll"),
+    origin: () => table?.tHead?.offsetHeight ?? 0,
+    rendered: () => Array.from(body?.querySelectorAll("tr.row") ?? []),
+  });
+  onSettled(() => window.attach());
+  createEffect(() => props.rows.length, () => window.recompute());
+  const slice = createMemo(() => {
+    const { start, end } = window.shown();
+    return props.rows.slice(start, end);
+  });
+  const above = () => window.shown().start * window.rowHeight();
+  const below = () => (props.rows.length - window.shown().end) * window.rowHeight();
+  createEffect(() => props.reveal, (ask) => {
+    if (!ask) return;
+    const index = props.rows.findIndex((row) => row.id === ask.id);
+    if (index < 0) return;
+    window.reveal(index);
+    onSettled(() => {
+      const element = body?.querySelector<HTMLElement>(`tr.row[data-id="${CSS.escape(ask.id)}"]`);
+      element?.focus();
+      element?.scrollIntoView?.({ block: "nearest" });
+    });
+  });
+  // The list has one stop for the keyboard: the open file, else the first row that is built.
+  const tabId = () => (slice().some((row) => row.id === props.activeId) ? props.activeId : slice()[0]?.id);
+  const tabbable = (id: string) => tabId() === id;
   const header = (key: SortKey) => {
     const column = SORTABLE[key];
     const direction = () => (props.sort?.key === key ? (props.sort.dir === 1 ? "ascending" : "descending") : undefined);
@@ -51,7 +84,7 @@ export const FileTable: Component<{
   };
 
   return (
-    <table class="files-table" aria-label={t("Media files")}>
+    <table class="files-table" aria-label={t("Media files")} aria-rowcount={props.rows.length + 1} ref={table}>
       <thead>
         <tr>
           {header("title")}
@@ -62,8 +95,9 @@ export const FileTable: Component<{
           {header("size")}
         </tr>
       </thead>
-      <tbody>
-        <For each={props.rows} keyed={(file) => rowKey()(file)}>{(file, index) => {
+      <tbody ref={body}>
+        <Show when={above() > 0}><tr aria-hidden="true" class="row-gap"><td colspan="6" style={{ height: `${above()}px`, padding: 0 }} /></tr></Show>
+        <For each={slice()} keyed={(file) => rowKey()(file)}>{(file, index) => {
           const name = () => baseName(file().display_path ?? "");
           const title = () => name().title || file().kind;
           const verdict = () => verdictOf(file());
@@ -74,7 +108,8 @@ export const FileTable: Component<{
               ref={row}
               class="row"
               data-id={file().id}
-              tabindex={tabbable(file().id, index()) ? 0 : -1}
+              tabindex={tabbable(file().id) ? 0 : -1}
+              aria-rowindex={window.shown().start + index() + 2}
               aria-selected={props.activeId === file().id || props.picked.has(file().id) ? "true" : "false"}
               data-picked={props.picked.has(file().id) ? "true" : undefined}
               onClick={(event) => {
@@ -101,6 +136,7 @@ export const FileTable: Component<{
             </tr>
           );
         }}</For>
+        <Show when={below() > 0}><tr aria-hidden="true" class="row-gap"><td colspan="6" style={{ height: `${below()}px`, padding: 0 }} /></tr></Show>
       </tbody>
     </table>
   );

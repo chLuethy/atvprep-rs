@@ -64,6 +64,7 @@ export const LibraryPage: Component<{
   const [nextCursor, setNextCursor] = createSignal<string | null>(null);
   const [phase, setPhase] = createSignal<Phase>("loading");
   const [loadingMore, setLoadingMore] = createSignal(false);
+  const [reveal, setReveal] = createSignal<{ id: string } | undefined>(undefined);
   const [moreProblem, setMoreProblem] = createSignal<string | null>(null);
   const [counts, setCounts] = createSignal<Record<string, number> | null>(null);
   const facet = createFacetFilter(FILE_FILTER_SPEC, { filter: () => props.filter, onFilter: (next, how) => props.onFilter?.(next, how) });
@@ -118,7 +119,6 @@ export const LibraryPage: Component<{
   let removeTrigger: HTMLButtonElement | undefined;
 
   let generation = 0;
-  let pages = 1;
   // Files to mark as their rows are built: new ones and those whose state changed in the last refresh.
   let flagged = new Set<string>();
   let searchInput: HTMLInputElement | undefined;
@@ -141,7 +141,6 @@ export const LibraryPage: Component<{
       // Re-sorting keeps the table (and its headers) on screen until the new order arrives.
       if (!quiet) setPhase("loading");
       setPicked(new Set<string>());
-      pages = 1;
     } else {
       setLoadingMore(true);
     }
@@ -160,7 +159,6 @@ export const LibraryPage: Component<{
       return;
     }
     setMoreProblem(null);
-    if (!reset) pages += 1;
     if (reset) setRows(page.items);
     else {
       const known = new Set(rows().map((row) => row.id));
@@ -174,18 +172,19 @@ export const LibraryPage: Component<{
     }
   };
 
-  /** Read every page loaded so far again and replace the rows in place; selection and open file stay. */
+  /**
+   * Read the head of the list again and replace it in place; selection and open file stay. One request, whatever
+   * the number of pages loaded: the rows behind the head keep what they had until the list is loaded again.
+   */
   const readFreshRows = async (asked: { filter: FileFilter; sort: Sort }, api: Api) => {
     const mine = generation;
-    let cursor: string | null = null;
-    const fresh: FileRow[] = [];
-    for (let index = 0; index < pages; index += 1) {
-      const page = await loadFiles(api, { ...asked.filter, cursor, sort: asked.sort });
-      if (mine !== generation || page.error) return;
-      fresh.push(...page.items);
-      cursor = page.nextCursor;
-      if (!cursor) break;
-    }
+    const page = await loadFiles(api, { ...asked.filter, cursor: null, sort: asked.sort, limit: Math.min(100, Math.max(50, rows().length)) });
+    if (mine !== generation || page.error) return;
+    const loaded = rows();
+    const head = new Set(page.items.map((item) => item.id));
+    const behind = loaded.length > page.items.length && page.nextCursor !== null;
+    const fresh = behind ? [...page.items, ...loaded.slice(page.items.length).filter((item) => !head.has(item.id))] : page.items;
+    const cursor = behind ? nextCursor() : page.nextCursor;
     const previous = rows();
     const oldKey = uniqueRowKeys(previous, fileKey);
     const newKey = uniqueRowKeys(fresh, fileKey);
@@ -597,7 +596,8 @@ export const LibraryPage: Component<{
     if (!next) return;
     if (extend) selectRow(next, { metaKey: false, ctrlKey: false, shiftKey: true });
     else applySelection([next.id], next.id, next.id);
-    queueMicrotask(() => document.querySelector<HTMLElement>(`tr.row[data-id="${next.id}"]`)?.focus());
+    // The list builds only the rows near the screen; it brings this one in and focuses it.
+    setReveal({ id: next.id });
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -768,6 +768,7 @@ export const LibraryPage: Component<{
                     onSelect={selectRow}
                     onMenu={onRowMenu}
                     flagged={(row) => flagged.has(row.id)}
+                    reveal={reveal()}
                     libraryName={(id) => roots().find((root) => root.id === id)?.name ?? id}
                   />
                 </Show>

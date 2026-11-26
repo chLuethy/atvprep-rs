@@ -1071,7 +1071,7 @@ describe("LibraryPage: following jobs without a reload", () => {
     } finally { vi.useRealTimers(); }
   });
 
-  it("merkt einen Scan während langsamen Datei-Nachladens und revalidiert danach beide sichtbaren Seiten", async () => {
+  it("merkt einen Scan während langsamen Datei-Nachladens und liest danach nur den Kopf der Liste erneut", async () => {
     vi.useFakeTimers();
     try {
       let finish!: (response: Response) => void;
@@ -1097,8 +1097,8 @@ describe("LibraryPage: following jobs without a reload", () => {
       finish(json([ROWS[0]]));
       await vi.advanceTimersByTimeAsync(0);
       expect(firstReads).toBe(2);
-      expect(moreReads).toBe(2);
-      expect(view.getByRole("link", { name: "Pretty Woman (1990)" })).toHaveAttribute("href", "/files/m_fresh_second");
+      expect(moreReads).toBe(1);
+      expect(view.getByRole("link", { name: "Pretty Woman (1990)" })).toHaveAttribute("href", "/files/m_f1");
       expect(view.getByRole("link", { name: "Heat" })).toHaveAttribute("href", "/files/m_first_2");
       expect(view.container.querySelectorAll("tbody tr")).toHaveLength(2);
       view.unmount();

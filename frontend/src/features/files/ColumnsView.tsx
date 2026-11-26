@@ -1,4 +1,5 @@
-import { createEffect, createMemo, createSignal, For, refresh, Show, untrack, type Component } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onSettled, refresh, Show, untrack, type Component } from "solid-js";
+import { createRowWindow } from "../../lib/rowWindow";
 import { N, t, tn } from "../../lib/i18n";
 import { Button, Icon } from "../../ui";
 import { allReady, describeCounts, loadBrowse, worstIn, type Browse, type BrowseFolder, type StateCounts } from "./browse";
@@ -66,6 +67,8 @@ const Column: Component<{
   version: number;
   selected: (key: string) => boolean;
   focused: boolean;
+  /** The key of the entry the keys moved to. */
+  cursor: string | null;
   onEntries: (index: number, entries: Entry[]) => void;
   onRow: (index: number, entry: Entry, event: MouseEvent) => void;
   onMenu: (index: number, entry: Entry, event: MouseEvent) => void;
@@ -93,6 +96,27 @@ const Column: Component<{
   createEffect(() => ({ ready: loaded()?.kind === "ok", index: props.index, entries: entries() }), ({ ready, index, entries }) => {
     if (ready) props.onEntries(index, entries);
   });
+  // A big folder builds only the rows near the screen; the others are two spacers of the same height.
+  let column: HTMLDivElement | undefined;
+  const window = createRowWindow({
+    total: () => entries().length,
+    scroller: () => column,
+    origin: () => column?.querySelector<HTMLElement>(".col-row")?.offsetTop ?? 0,
+    rendered: () => Array.from(column?.querySelectorAll(".col-row") ?? []),
+    estimate: 33,
+  });
+  onSettled(() => window.attach());
+  createEffect(() => entries().length, () => window.recompute());
+  const slice = createMemo(() => {
+    const { start, end } = window.shown();
+    return entries().slice(start, end);
+  });
+  // The row the keys moved to may lie outside the window: build it, then bring it into view.
+  createEffect(() => (props.focused ? props.cursor : undefined), (key) => {
+    if (!key) return;
+    const index = entries().findIndex((entry) => entry.key === key);
+    if (index >= 0) window.reveal(index);
+  });
 
   return (
     <div
@@ -101,6 +125,7 @@ const Column: Component<{
       role="listbox"
       aria-multiselectable="true"
       aria-label={props.index === 0 ? t("Libraries") : t("Folder contents")}
+      ref={column}
       onClick={(event) => { if (event.target === event.currentTarget) props.onBackground(props.index); }}
     >
       <Show when={loaded()} fallback={<p class="col-note muted">{t("Loading")}</p>}>
@@ -113,7 +138,8 @@ const Column: Component<{
             <Show when={value().kind === "ok" && entries().length === 0}>
               <p class="col-note muted">{columnFilterKey(props.filter) ? t("Nothing here matches the filters") : t("Empty folder")}</p>
             </Show>
-            <For each={entries()}>{(entry) => (
+            <Show when={window.shown().start > 0}><div aria-hidden="true" style={{ height: `${window.shown().start * window.rowHeight()}px`, "flex-shrink": 0 }} /></Show>
+            <For each={slice()}>{(entry) => (
               <div
                 class={["col-row", { selected: props.selected(entry.key) }]}
                 role="option"
@@ -144,6 +170,7 @@ const Column: Component<{
                 )}
               </div>
             )}</For>
+            <Show when={entries().length > window.shown().end}><div aria-hidden="true" style={{ height: `${(entries().length - window.shown().end) * window.rowHeight()}px`, "flex-shrink": 0 }} /></Show>
             <Show when={value().kind === "ok" && (value() as { truncated?: boolean }).truncated}>
               <p class="col-note muted">{t("Only the first files are listed. Use the search to find the rest.")}</p>
             </Show>
@@ -442,6 +469,7 @@ export const ColumnsView: Component<{
             version={props.version}
             selected={(key) => isSelected(index, key)}
             focused={active() === index}
+            cursor={cursor()}
             onEntries={onEntries}
             onRow={onRow}
             onMenu={onMenu}

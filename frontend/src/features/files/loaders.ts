@@ -176,7 +176,7 @@ export async function loadSidecars(api: Api, mediaId: string): Promise<SidecarSt
   return loadSidecarsPage(api, mediaId);
 }
 
-export type FilesQuery = FileFilter & { cursor: string | null; sort?: FileSort };
+export type FilesQuery = FileFilter & { cursor: string | null; sort?: FileSort; /** Rows per page; the server takes 1 to 100 and defaults to 50. */ limit?: number };
 
 /**
  * The filter as the server takes it: `status` (any of the states), `has` (all of the properties), `root_id` and
@@ -205,7 +205,7 @@ export function sortParams(chosen: FileSort, params: URLSearchParams): URLSearch
 }
 
 export async function loadFiles(api: Api, query: FilesQuery): Promise<FilePage> {
-  const params = filterParams(query, new URLSearchParams({ limit: "50" }));
+  const params = filterParams(query, new URLSearchParams({ limit: String(query.limit ?? 50) }));
   if (query.cursor) params.set("cursor", query.cursor);
   sortParams(query.sort ?? null, params);
   try {
