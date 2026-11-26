@@ -1428,7 +1428,7 @@ describe("LogViewer, set out", () => {
 
     expect(within(log).getByText("Encode allowance")).toBeInTheDocument();
     expect(within(log).getByText("Prepare")).toBeInTheDocument();
-    expect(within(log).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "99");
+    expect(within(log).queryByRole("progressbar")).not.toBeInTheDocument(); // the item row shows the progress
     expect(within(log).getByText("Phase verify")).toBeInTheDocument();
     expect(within(log).getByText("Check passed")).toBeInTheDocument();
     expect(within(log).getByText("Exit code 0")).toBeInTheDocument();

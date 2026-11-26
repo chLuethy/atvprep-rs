@@ -62,7 +62,7 @@ export const LogViewer: Component<{ api: Api; itemId: string; status: ItemStatus
             >
               <Show
                 when={raw()}
-                fallback={<LogView text={current().data?.log_tail ?? ""} itemId={props.itemId} />}
+                fallback={<LogView text={current().data?.log_tail ?? ""} />}
               >
                 <pre ref={(element) => { box = element; following = true; queueMicrotask(() => { element.scrollTop = element.scrollHeight; }); }} onScroll={() => { following = atEnd(); }} class="raw" aria-label={t("Plain text log")}>{current().data?.log_tail}</pre>
               </Show>

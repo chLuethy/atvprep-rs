@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blockerVerdict, expectedChanges, fixesAnything, summarizeChanges } from "../src/features/files/fixPlan";
+import { blockerVerdict, expectedChanges, fixesAnything, plannedStepTexts, summarizeChanges } from "../src/features/files/fixPlan";
 import { parseReason } from "../src/features/files/model";
 import type { PlanStep } from "../src/features/files/planSteps";
 
@@ -139,6 +139,22 @@ describe("expectedChanges: what Prepare adds", () => {
 
   it("calls a blocker that only needs a re-encode fixable", () => {
     expect(blockerVerdict(["[blocker] video-reencode: x"].map(parseReason))).toBe("fixable");
+  });
+});
+
+describe("plannedStepTexts", () => {
+  it("says a remux asked for by several tracks once", () => {
+    const steps: PlanStep[] = [
+      { kind: "text", text: "[warning] chunk-length: video track 1 has 499 chunks of 40 ms on average" },
+      { kind: "text", text: "[warning] chunk-length: audio track 2 has 900 chunks of 21 ms on average" },
+      { kind: "text", text: "[warning] chunk-length: audio track 3 has 900 chunks of 21 ms on average" },
+    ];
+    expect(plannedStepTexts(steps)).toEqual(["Rewrite the file with chunks of about half a second"]);
+  });
+
+  it("keeps the planner's steps for two streams apart, even when they read alike", () => {
+    const step = (stream: number): PlanStep => ({ kind: "sample_rate", stream, from_codec: "eac3", to_codec: "aac", from_hz: 44100, to_hz: 48000 });
+    expect(plannedStepTexts([step(1), step(2)])).toHaveLength(2);
   });
 });
 
