@@ -34,7 +34,6 @@ export const deActivity: Record<string, string | readonly [string, string]> = {
   "Channels": "Kanäle",
   "ch": "Kan.",
   "Sample rate": "Abtastrate",
-  "Progress reported by the tool": "Vom Werkzeug gemeldeter Fortschritt",
   "Queued": "Wartet",
   "Running": "Läuft",
   "Cancelling": "Wird abgebrochen",

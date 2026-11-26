@@ -1,5 +1,5 @@
 import { createMemo, For, Match, Show, Switch, type Component } from "solid-js";
-import { Icon, ProgressBar } from "../../ui";
+import { Icon } from "../../ui";
 import { t, tn } from "../../lib/i18n";
 import { formatSize } from "../../lib/size";
 import { actionLabel } from "./model";
@@ -79,8 +79,8 @@ const toneOf = (row: Shown): "ok" | "warn" | "bad" | "" => {
 const ruleLabel = (state: RuleState) => (state === "blocker" ? t("Blocker") : state === "warning" ? t("Warning") : t("Check"));
 
 /**
- * One item's log, set out: the opening facts, the steps in order with their times, the progress as one
- * value and how the run ended. The text it comes from is the same text "Download log" hands out.
+ * One item's log, set out: the opening facts, the steps in order with their times and how the run
+ * ended. The progress is not repeated here: the item row above already shows it while the item runs. The text it comes from is the same text "Download log" hands out.
  */
 export const LogView: Component<{ text: string; itemId: string }> = (props) => {
   const doc = createMemo(() => parseLog(props.text));
@@ -101,12 +101,6 @@ export const LogView: Component<{ text: string; itemId: string }> = (props) => {
       <Show when={command()}>{(value) => <details class="log-command"><summary>{t("Command")}</summary><code class="mono">{value()}</code></details>}</Show>
       </div>
       <div class="log-timeline">
-      <Show when={doc().progress !== undefined}>
-        <div class="log-progress">
-          <ProgressBar value={doc().progress ?? 0} track={`log:${props.itemId}`} label={t("Progress reported by the tool")} />
-          <span class="num muted">{`${doc().progress}%`}</span>
-        </div>
-      </Show>
       <Show when={rows().length > 0}>
         <ol class="log-steps">
           <For each={rows()} keyed={(entry) => entry.key}>{(entry) => {

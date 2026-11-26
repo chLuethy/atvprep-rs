@@ -25,7 +25,7 @@ test.describe("item log", () => {
 
         await expect(log.getByText("Phase verify")).toBeVisible();
         await expect(log.getByText("Check passed")).toBeVisible();
-        await expect(log.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "99");
+        await expect(log.getByRole("progressbar")).toHaveCount(0); // the item row above shows the progress
         await expect(log).not.toContainText("ATVPREP-");
         await expect(log).not.toContainText('"phase"');
 
