@@ -4,7 +4,7 @@
 .filterbar { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .fb-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-height: 18px; font-size: var(--text-sm); }
 .fb-summary { color: var(--ink-muted); font-variant-numeric: tabular-nums; }
-.fb-link { border: 0; background: none; padding: 2px 4px; color: var(--accent); font-size: var(--text-sm); font-weight: 500; }
+.fb-link { border: 0; background: none; padding: 2px 4px; min-height: 24px; color: var(--accent); font-size: var(--text-sm); font-weight: 500; }
 .fb-link:hover:not(:disabled, [aria-disabled="true"]) { background: var(--hover); }
 /* Quick filters: small toggles; one in effect is filled like an active facet. */
 .fb-quick { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -81,7 +81,7 @@
 .fb-group-options .fb-find { margin: 2px 0 6px; width: 100%; }
 
 /* Narrow: search and tools share a row, the facets scroll sideways below with the filter symbol first and the
-   active facets next; every popover is a full screen with Close. Targets are at least 44px high. */
+   active facets next ("More filters" stays at the right edge, so it is never cut off); every popover is a full screen with Close. Targets are at least 44px high. */
 @media (max-width: 720px) {
   /* Search and tools share the first line while the search keeps room to type (Activity); when the tools
      need more (Files: sort and view), they take a line of their own instead of covering the search. */
@@ -98,6 +98,7 @@
   .fb-tools .lib-sort-dir { min-width: 44px; }
   .fb-facets { flex: 1 1 100%; order: 3; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; overscroll-behavior-x: contain; }
   .fb-facets::-webkit-scrollbar { display: none; }
+  .fb-more-toggle { position: sticky; right: 0; order: 9; padding-inline: 8px; background: var(--surface); }
   .fb-all { display: inline-flex; }
   .fb-all-wrap { order: -2; }
   .fb-facet[data-active="true"] { order: -1; }

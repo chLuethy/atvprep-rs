@@ -22,6 +22,8 @@
 .setting label { display: block; margin-bottom: 4px; }
 .setting input[type="number"], .setting input.input { width: 100%; max-width: 240px; }
 .setting input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
+/* A phone needs a touch target of at least 24px (WCAG 2.5.8). */
+@media (max-width: 720px) { .setting input[type="checkbox"] { width: 24px; height: 24px; } }
 .setting textarea.lines { width: 100%; font-family: var(--font-mono); font-size: var(--text-sm); resize: vertical; }
 .help { display: block; margin-top: 4px; color: var(--ink-muted); font-size: var(--text-sm); }
 .help.caution { color: var(--warn); }

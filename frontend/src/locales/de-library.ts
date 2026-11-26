@@ -57,6 +57,7 @@ export const deLibrary: Record<string, string | readonly [string, string]> = {
   "{count} could not be queued": "{count} konnten nicht eingereiht werden",
   "Re-inspect the selected files": "Ausgewählte Dateien neu analysieren",
   "Details": "Details",
+  "Details of {name} opened": "Details von {name} geöffnet",
   "{count} item selected": ["{count} Objekt ausgewählt", "{count} Objekte ausgewählt"],
   "Actions for the selection": "Aktionen für die Auswahl",
 };
