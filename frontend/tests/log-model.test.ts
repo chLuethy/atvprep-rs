@@ -38,14 +38,14 @@ describe("parseLog", () => {
 
   it("joins a phase's timing record and its step line into one row", () => {
     const phases = parseLog(prepare).rows.filter((row) => row.kind === "phase");
-    expect(phases).toEqual([{ kind: "phase", name: "verify", started: "00:14:19", took: "1:11", bytes: 3645981583 }]);
+    expect(phases).toEqual([{ kind: "phase", name: "verify", started: "00:14:19", took: "1:11", bytes: 3645981583, time: "00:14:20" }]);
   });
 
   it("reads the check, the outcome and the end of the run", () => {
     const rows = parseLog(prepare).rows;
     expect(rows).toContainEqual({ kind: "check", passed: true, blockers: 0, warnings: 0 });
     expect(rows).toContainEqual({ kind: "outcome", value: "patched" });
-    expect(rows).toContainEqual({ kind: "end", exit: "0", duration: "14:21" });
+    expect(rows).toContainEqual({ kind: "end", exit: "0", duration: "14:21", time: "00:14:21" });
   });
 
   it("keeps what it does not know as notes, bullets apart", () => {
@@ -56,6 +56,12 @@ describe("parseLog", () => {
       ["tags: elng 2 → elng 7 · fall 2", true],
       ["1 file(s) repaired in place", false],
     ]);
+  });
+
+  it("keeps the time the manager stamped a step with, and none where there is no stamp", () => {
+    const rows = parseLog("[00:00:03] Exit code: 0\nATVPREP-OUTCOME patched").rows;
+    expect(rows[0]).toMatchObject({ kind: "end", time: "00:00:03" });
+    expect(rows[1]).toEqual({ kind: "outcome", value: "patched" });
   });
 
   it("reads a phase timing record without a step line", () => {

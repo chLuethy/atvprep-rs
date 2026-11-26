@@ -21,7 +21,7 @@ const FACT_KEYS: readonly FactKey[] = [
 
 export type RuleState = "ok" | "warning" | "blocker" | "other";
 
-export type LogRow =
+export type LogRow = RowTime & (
   | { kind: "phase"; name: string; started?: string; took?: string; bytes?: number }
   | { kind: "plan"; stream: string; action: string }
   | { kind: "stream"; index: string; type: string; codec: string; parts: string[] }
@@ -32,7 +32,10 @@ export type LogRow =
   | { kind: "error"; text: string }
   | { kind: "end"; exit?: string; duration?: string }
   | { kind: "omitted"; bytes: number }
-  | { kind: "note"; text: string; bullet: boolean; time?: string };
+  | { kind: "note"; text: string; bullet: boolean });
+
+/** The `[HH:MM:SS]` the manager stamped a step line with, server time. */
+type RowTime = { time?: string };
 
 export type LogDoc = {
   facts: LogFact[];
@@ -88,12 +91,14 @@ function seconds(value: number): string {
 export function parseLog(text: string): LogDoc {
   const doc: LogDoc = { facts: [], rows: [], progress: undefined };
   let end: Extract<LogRow, { kind: "end" }> | undefined;
+  let time: string | undefined;
+  const add = (row: LogRow) => { doc.rows.push(time ? { ...row, time } : row); };
   for (const raw of text.split("\n")) {
     const line = raw.replace(/\r$/, "");
     if (!line.trim()) continue;
 
     const stamp = STAMP.exec(line);
-    const time = stamp?.[1];
+    time = stamp?.[1];
     const body = (stamp ? line.slice(stamp[0].length) : line).trimEnd();
     const trimmed = body.trim();
     if (!trimmed) continue;
@@ -105,14 +110,13 @@ export function parseLog(text: string): LogDoc {
     }
     const omitted = OMITTED.exec(trimmed);
     if (omitted) {
-      doc.rows.push({ kind: "omitted", bytes: Number(omitted[1]) });
+      add({ kind: "omitted", bytes: Number(omitted[1]) });
       continue;
     }
 
     const record = phaseRecord(trimmed);
     if (record) {
-      const row: LogRow = { kind: "phase", name: record.name, ...(record.seconds !== undefined ? { took: seconds(record.seconds) } : {}), ...(record.bytes !== undefined ? { bytes: record.bytes } : {}) };
-      doc.rows.push(row);
+      add({ kind: "phase", name: record.name, ...(record.seconds !== undefined ? { took: seconds(record.seconds) } : {}), ...(record.bytes !== undefined ? { bytes: record.bytes } : {}) });
       continue;
     }
     const phase = PHASE_STEP.exec(trimmed);
@@ -123,8 +127,9 @@ export function parseLog(text: string): LogDoc {
       if (last?.kind === "phase" && last.name === name && last.started === undefined) {
         last.started = started;
         last.took = took;
+        if (time) last.time = time;
       } else {
-        doc.rows.push({ kind: "phase", name, started, took });
+        add({ kind: "phase", name, started, took });
       }
       continue;
     }
@@ -132,53 +137,55 @@ export function parseLog(text: string): LogDoc {
     if (trimmed.startsWith("ATVPREP-PLAN ") || /^Plan\s/.test(trimmed)) {
       const plan = trimmed.replace(/^(ATVPREP-PLAN|Plan)\s+/, "");
       const colon = plan.indexOf(":");
-      doc.rows.push(colon > 0
+      add(colon > 0
         ? { kind: "plan", stream: plan.slice(0, colon).trim(), action: plan.slice(colon + 1).trim() }
         : { kind: "plan", stream: "", action: plan });
       continue;
     }
     const verify = /^(?:ATVPREP-VERIFY|Check after prepare:)\s+(passed|failed),\s*(\d+)\s+blockers?,\s*(\d+)\s+warnings?/i.exec(trimmed);
     if (verify) {
-      doc.rows.push({ kind: "check", passed: verify[1]!.toLowerCase() === "passed", blockers: Number(verify[2]), warnings: Number(verify[3]) });
+      add({ kind: "check", passed: verify[1]!.toLowerCase() === "passed", blockers: Number(verify[2]), warnings: Number(verify[3]) });
       continue;
     }
     const outcome = /^ATVPREP-OUTCOME\s+(.+)$/.exec(trimmed);
     if (outcome) {
-      doc.rows.push({ kind: "outcome", value: outcome[1]!.trim() });
+      add({ kind: "outcome", value: outcome[1]!.trim() });
       continue;
     }
     if (trimmed.startsWith("ATVPREP-STAGE ") || trimmed.startsWith("ATVPREP-ENCODE ")) continue; // machine lines the steps already say
     if (trimmed === "ATVPREP-SOURCE removed") continue; // "Original: removed" follows
     const original = /^Original:\s+(removed|kept)(?:\s+\((.*)\))?\s*$/.exec(trimmed);
     if (original) {
-      doc.rows.push({ kind: "original", kept: original[1] === "kept", why: original[2] ?? "" });
+      add({ kind: "original", kept: original[1] === "kept", why: original[2] ?? "" });
       continue;
     }
     if (trimmed.startsWith("ATVPREP-SOURCE")) continue;
     const error = /^ATVPREP-ERROR\s+(.+)$/.exec(trimmed) ?? /^(?:Failed|Interrupted|Cancelled)\b.*$/.exec(trimmed);
     if (error) {
-      doc.rows.push({ kind: "error", text: error[1] ?? trimmed });
+      add({ kind: "error", text: error[1] ?? trimmed });
       continue;
     }
     const exit = /^Exit code:\s*(.+)$/.exec(trimmed);
     const duration = /^Duration:\s*(.+)$/.exec(trimmed);
     if (exit || duration) {
-      end ??= { kind: "end" };
+      if (!end) {
+        add({ kind: "end" });
+        end = doc.rows[doc.rows.length - 1] as Extract<LogRow, { kind: "end" }>;
+      }
       if (exit) end.exit = exit[1]!.trim();
       if (duration) end.duration = duration[1]!.trim();
-      if (!doc.rows.includes(end)) doc.rows.push(end);
       continue;
     }
     const rule = RULE.exec(trimmed);
     if (rule) {
       const { state, detail } = ruleState(rule[3]!);
-      doc.rows.push({ kind: "rule", name: rule[1]!, ...(rule[2] ? { track: rule[2] } : {}), state, detail });
+      add({ kind: "rule", name: rule[1]!, ...(rule[2] ? { track: rule[2] } : {}), state, detail });
       continue;
     }
     const stream = STREAM.exec(trimmed);
     if (stream) {
       const parts = (stream[4] ?? "").split(",").map((part) => part.trim()).filter(Boolean);
-      doc.rows.push({ kind: "stream", index: stream[1]!, type: stream[2]!, codec: stream[3]!, parts });
+      add({ kind: "stream", index: stream[1]!, type: stream[2]!, codec: stream[3]!, parts });
       continue;
     }
 
@@ -189,7 +196,7 @@ export function parseLog(text: string): LogDoc {
     }
 
     const bullet = BULLET.exec(body);
-    doc.rows.push({ kind: "note", text: bullet ? bullet[1]!.trim() : trimmed, bullet: !!bullet, ...(time ? { time } : {}) });
+    add({ kind: "note", text: bullet ? bullet[1]!.trim() : trimmed, bullet: !!bullet });
   }
   return doc;
 }

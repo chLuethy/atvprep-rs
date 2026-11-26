@@ -59,10 +59,12 @@
 .change-mark.remux { color: var(--warn); }
 .change-mark.audio, .change-mark.reencode { color: var(--bad); }
 .item-steps { flex-basis: 100%; color: var(--ink-muted); min-width: 0; overflow-wrap: anywhere; }
-.log-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 4px; }
+.log-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 8px; }
 
-/* The log, set out: facts on top, then the steps in the order they happened. */
-.log-view { margin-top: 8px; display: flex; flex-direction: column; gap: 12px; min-width: 0; font-size: var(--text-sm); }
+/* The log, set out. Two groups, tight inside and apart from each other: what ran (facts, command), then what happened
+   (progress, steps). Every step has the same three cells: a mark, the words, the time the manager stamped it with. */
+.log-view { margin-top: 12px; display: flex; flex-direction: column; gap: 20px; min-width: 0; font-size: var(--text-sm); }
+.log-head, .log-timeline { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .log-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 12px; align-items: baseline; margin: 0; }
 .log-facts div { display: contents; }
 .log-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
@@ -71,15 +73,20 @@
 .log-progress { display: flex; align-items: center; gap: 8px; }
 .log-progress .bar { flex: 1; width: auto; min-width: 0; margin: 0; }
 .log-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.log-step { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--line); }
+.log-step { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 0 8px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.log-step:first-child { border-top: 1px solid var(--line); }
 .log-step:last-child { border-bottom: 0; }
-.log-step.rule, .log-step.check { grid-template-columns: auto minmax(0, 1fr); }
-.log-step > svg { color: var(--ink-muted); align-self: center; }
+.log-step { line-height: 1.5; }
+.log-step > svg, .log-mark { color: var(--ink-muted); align-self: start; margin-top: calc((1.5 * var(--text-sm) - 14px) / 2); display: inline-flex; }
 .log-main { min-width: 0; display: flex; flex-wrap: wrap; gap: 0 8px; overflow-wrap: anywhere; }
 .log-main b { font-weight: 500; }
-.log-step.error > svg, .bad-text { color: var(--bad); }
-.log-step.outcome b, .log-step.end b { color: var(--ink); }
-.log-step.bullet { padding: 2px 0 2px 16px; border-bottom: 0; }
+.log-time { color: var(--ink-muted); font-size: var(--text-xs); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.log-step.tone-ok > svg { color: var(--ok); }
+.log-step.tone-warn > .log-mark { color: var(--warn); }
+.log-step.tone-bad > svg, .log-step.tone-bad > .log-mark, .bad-text { color: var(--bad); }
+.log-step.bullet { padding: 2px 0 2px 24px; border-bottom: 0; }
+.log-step:has(+ .bullet) { border-bottom: 0; }
+.log-step.bullet + .log-step:not(.bullet) { border-top: 1px solid var(--line); }
 .log-bullet { color: var(--ink-muted); text-align: center; }
 .log-tag { border: 1px solid var(--line); padding: 0 6px; line-height: 1.5; color: var(--ink-muted); font-size: var(--text-xs); white-space: nowrap; }
 .log-step.omitted .log-main { font-style: italic; }

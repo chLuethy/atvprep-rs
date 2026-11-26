@@ -1,5 +1,5 @@
 import { createMemo, For, Match, Show, Switch, type Component } from "solid-js";
-import { Icon, ProgressBar, StatusChip } from "../../ui";
+import { Icon, ProgressBar } from "../../ui";
 import { t, tn } from "../../lib/i18n";
 import { formatSize } from "../../lib/size";
 import { actionLabel } from "./model";
@@ -28,7 +28,7 @@ const factValue = (key: FactKey, value: string): string => {
   return value;
 };
 
-type Shown = LogRow | { kind: "rules-ok"; count: number };
+type Shown = LogRow | { kind: "rules-ok"; count: number; time?: undefined };
 
 /** Rules that passed are one line; a rule that did not stays a line of its own, in its place. */
 function summarise(rows: readonly LogRow[]): Shown[] {
@@ -48,7 +48,15 @@ function summarise(rows: readonly LogRow[]): Shown[] {
   return shown;
 }
 
-const ruleChip = (state: RuleState) => (state === "blocker" ? "bad" : state === "warning" ? "warn" : "neutral") as "bad" | "warn" | "neutral";
+const toneOf = (row: Shown): "ok" | "warn" | "bad" | "" => {
+  switch (row.kind) {
+    case "check": return row.passed ? "ok" : "bad";
+    case "rule": return row.state === "blocker" ? "bad" : row.state === "warning" ? "warn" : "";
+    case "error": return "bad";
+    default: return "";
+  }
+};
+
 const ruleLabel = (state: RuleState) => (state === "blocker" ? t("Blocker") : state === "warning" ? t("Warning") : t("Check"));
 
 /**
@@ -62,6 +70,7 @@ export const LogView: Component<{ text: string; itemId: string }> = (props) => {
   const command = () => doc().facts.find((fact) => fact.key === "Command")?.value;
   return (
     <div class="log-view" role="region" aria-label={t("Formatted log")}>
+      <div class="log-head">
       <Show when={facts().length > 0}>
         <dl class="log-facts">
           <For each={facts()} keyed={(fact) => `${fact.key}:${fact.value}`}>{(factOf) => {
@@ -71,6 +80,8 @@ export const LogView: Component<{ text: string; itemId: string }> = (props) => {
         </dl>
       </Show>
       <Show when={command()}>{(value) => <details class="log-command"><summary>{t("Command")}</summary><code class="mono">{value()}</code></details>}</Show>
+      </div>
+      <div class="log-timeline">
       <Show when={doc().progress !== undefined}>
         <div class="log-progress">
           <ProgressBar value={doc().progress ?? 0} track={`log:${props.itemId}`} label={t("Progress reported by the tool")} />
@@ -82,7 +93,7 @@ export const LogView: Component<{ text: string; itemId: string }> = (props) => {
           <For each={rows()} keyed={(entry) => entry.key}>{(entry) => {
             const row = entry().row;
             return (
-            <li class={["log-step", row.kind, row.kind === "rule" ? row.state : "", row.kind === "note" && row.bullet ? "bullet" : ""]}>
+            <li class={["log-step", row.kind, row.kind === "rule" ? row.state : "", row.kind === "note" && row.bullet ? "bullet" : "", toneOf(row) && `tone-${toneOf(row)}`]}>
               <Switch>
                 <Match when={row.kind === "phase" ? row : undefined}>{(phase) => (
                   <>
@@ -98,7 +109,7 @@ export const LogView: Component<{ text: string; itemId: string }> = (props) => {
                   <><Icon name="check" /><span class="log-main">{tn("{count} rule passed", "{count} rules passed", ok().count)}</span></>
                 )}</Match>
                 <Match when={row.kind === "rule" ? row : undefined}>{(rule) => (
-                  <><StatusChip kind={ruleChip(rule().state)} icon={rule().state === "ok" ? "check" : "warn"}>{ruleLabel(rule().state)}</StatusChip><span class="log-main"><b class="mono">{rule().name}</b><Show when={rule().track}><span class="muted">{t("track {id}", { id: rule().track ?? "" })}</span></Show><Show when={rule().detail}><span>{rule().detail}</span></Show></span></>
+                  <><span class="log-mark" role="img" aria-label={ruleLabel(rule().state)}><Icon name={rule().state === "ok" ? "check" : "warn"} /></span><span class="log-main"><b class="mono">{rule().name}</b><Show when={rule().track}><span class="muted">{t("track {id}", { id: rule().track ?? "" })}</span></Show><Show when={rule().detail}><span>{rule().detail}</span></Show></span></>
                 )}</Match>
                 <Match when={row.kind === "stream" ? row : undefined}>{(stream) => (
                   <>
@@ -109,8 +120,8 @@ export const LogView: Component<{ text: string; itemId: string }> = (props) => {
                 )}</Match>
                 <Match when={row.kind === "check" ? row : undefined}>{(check) => (
                   <>
-                    <StatusChip kind={check().passed ? "ok" : "bad"} icon={check().passed ? "check" : "x"}>{check().passed ? t("Check passed") : t("Check failed")}</StatusChip>
-                    <span class="log-main muted">{[tn("{count} blocker", "{count} blockers", check().blockers), tn("{count} warning", "{count} warnings", check().warnings)].join(" · ")}</span>
+                    <Icon name={check().passed ? "check" : "x"} />
+                    <span class="log-main"><b>{check().passed ? t("Check passed") : t("Check failed")}</b><span class="muted">{[tn("{count} blocker", "{count} blockers", check().blockers), tn("{count} warning", "{count} warnings", check().warnings)].join(" · ")}</span></span>
                   </>
                 )}</Match>
                 <Match when={row.kind === "outcome" ? row : undefined}>{(outcome) => (
@@ -132,11 +143,13 @@ export const LogView: Component<{ text: string; itemId: string }> = (props) => {
                   <><Show when={!note().bullet} fallback={<span class="log-bullet" aria-hidden="true">•</span>}><Icon name="dot" /></Show><span class="log-main">{note().text}</span></>
                 )}</Match>
               </Switch>
+              <Show when={row.time}>{(time) => <time class="log-time">{time()}</time>}</Show>
             </li>
             );
           }}</For>
         </ol>
       </Show>
+      </div>
       <Show when={rows().length === 0 && facts().length === 0}><p class="muted">{t("The log is empty.")}</p></Show>
     </div>
   );
