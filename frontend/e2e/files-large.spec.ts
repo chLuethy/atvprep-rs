@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { openThemed } from "./design";
 
 test.use({ trace: "off", screenshot: "off", video: "off" });
@@ -40,4 +40,54 @@ test("with 2000 loaded rows the list builds only a window of them and keeps the 
   const box = await page.locator("tr.row[aria-selected=true] td").last().boundingBox();
   const area = await scroller.boundingBox();
   expect(box && area && box.x + box.width <= area.x + area.width + 1).toBe(true);
+});
+
+/** The columns view down to the folder with the bulk files; returns its last column. */
+async function openBulkColumn(page: Page) {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openThemed(page, "/files", "light", "Files");
+  await page.getByRole("button", { name: "Columns" }).click();
+  const columns = page.getByRole("group", { name: /Files by folder/ });
+  await columns.getByRole("listbox", { name: "Libraries" }).getByRole("option").first().click();
+  for (const [level, name] of [[1, /^Bulk/], [2, /^Serie/], [3, /^Season 01/]] as const) {
+    await columns.locator(`.col[data-col="${level}"]`).getByRole("option", { name }).first().click();
+  }
+  const column = columns.locator('.col[data-col="4"]');
+  await expect(column.locator(".col-row").first()).toBeVisible();
+  return column;
+}
+
+test("a scrolled column keeps its window and does not swing back to the top", async ({ page }) => {
+  test.setTimeout(120_000);
+  const column = await openBulkColumn(page);
+  const rows = column.locator(".col-row");
+  // The server lists at most a response worth of files per folder (about a hundred here), more than the window builds.
+  const total = await column.evaluate((element) => element.scrollHeight);
+  const rowHeight = (await rows.first().boundingBox())!.height;
+  expect(total / rowHeight).toBeGreaterThan(80);
+
+  // Scroll down in steps, as a wheel does; at every stop the window stays where the scrolling put it.
+  const stops = [40, 55, 70, 85];
+  for (const row of stops) {
+    const target = Math.round(row * rowHeight);
+    await column.evaluate((element, top) => { element.scrollTop = top; }, target);
+    await page.waitForTimeout(150);
+    // A little wheel turn afterwards makes the window follow once more.
+    await column.hover();
+    await page.mouse.wheel(0, 40);
+    await page.waitForTimeout(150);
+    const firstKeys = new Set<string | null>();
+    const tops = new Set<number>();
+    for (let i = 0; i < 8; i++) {
+      firstKeys.add(await rows.first().getAttribute("data-key"));
+      tops.add(await column.evaluate((element) => Math.round(element.scrollTop)));
+      await page.waitForTimeout(60);
+    }
+    expect(firstKeys.size, `window at row ${row}`).toBe(1);
+    expect([...tops].every((top) => Math.abs(top - target - 40) < rowHeight * 2), `scroll position at row ${row}: ${[...tops]}`).toBe(true);
+    // Rows are built where the column is scrolled to.
+    const area = await column.evaluate((element) => { const box = element.getBoundingClientRect(); return { top: box.top, bottom: box.bottom }; });
+    const onScreen = await rows.evaluateAll((list, box) => list.filter((r) => { const b = r.getBoundingClientRect(); return b.bottom > box.top && b.top < box.bottom; }).length, area);
+    expect(onScreen, `rows on screen at row ${row}`).toBeGreaterThan(5);
+  }
 });
