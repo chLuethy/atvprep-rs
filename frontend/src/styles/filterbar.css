@@ -5,7 +5,7 @@
 .fb-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-height: 18px; font-size: var(--text-sm); }
 .fb-summary { color: var(--ink-muted); font-variant-numeric: tabular-nums; }
 .fb-link { border: 0; background: none; padding: 2px 4px; min-height: 24px; color: var(--accent); font-size: var(--text-sm); font-weight: 500; }
-.fb-link:hover:not(:disabled, [aria-disabled="true"]) { background: var(--hover); }
+.fb-link:hover:not(:disabled, [aria-disabled="true"]) { text-decoration: underline; text-underline-offset: 3px; }
 /* Quick filters: small toggles; one in effect is filled like an active facet. */
 .fb-quick { display: flex; flex-wrap: wrap; gap: 4px; }
 .fb-quick-button { padding: 1px 9px; border: 1px solid var(--line); background: none; color: var(--ink-muted); font-size: var(--text-sm); font-weight: 500; white-space: nowrap; }
@@ -48,7 +48,7 @@
 .fb-pop-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px 4px 12px; }
 .fb-pop-head b { font-size: var(--text-sm); }
 .fb-close { border: 0; background: none; padding: 3px 6px; color: var(--ink-muted); font-size: var(--text-sm); }
-.fb-close:hover { background: var(--hover); color: var(--ink); }
+.fb-close:hover { text-decoration: underline; text-underline-offset: 3px; }
 .fb-pop-body { overflow: auto; padding: 0 6px 6px; }
 .fb-pop-foot { display: flex; justify-content: flex-end; padding: 6px 10px 8px; border-top: 1px solid var(--line); }
 .fb-all-facet h3 { margin: 10px 6px 2px; font-size: var(--text-sm); font-weight: 600; }

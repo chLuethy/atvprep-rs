@@ -16,7 +16,7 @@
 
 /* A touch target is at least 24px (WCAG 2.5.8): the padding grows the button, the negative margin keeps the header row as high as before. */
 .th-btn { background: none; border: 0; padding: 4px 4px; margin: -4px -4px; min-height: 24px; color: inherit; font-weight: inherit; }
-.th-btn:hover { color: var(--ink); }
+.th-btn:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 
 .lib-side { border-left: 1px solid var(--line); background: var(--surface); overflow: auto; min-height: 0; padding: 16px max(16px, env(safe-area-inset-right, 0px)) 28px 18px; }
@@ -170,7 +170,7 @@ details summary { cursor: pointer; color: var(--ink-muted); }
 .col-note { margin: 8px 16px;font-size: var(--text-sm); }
 .pathbar { display: flex; align-items: center; gap: 2px; padding: 5px 12px; border-top: 1px solid var(--line); color: var(--ink-muted); overflow-x: auto; white-space: nowrap; }
 .crumb { background: none; border: 0; padding: 2px 6px; color: var(--ink-muted); font-size: var(--text-sm); }
-.crumb:hover { background: var(--hover); color: var(--ink); }
+.crumb:hover { text-decoration: underline; text-underline-offset: 3px; }
 .crumb[aria-current="location"] { color: var(--ink); font-weight: 500; }
 .statusbar { margin: 0; padding: 4px 12px 7px; text-align: center; font-size: var(--text-sm); border-top: 1px solid var(--line); min-height: 1.6em; }
 .view-switch { flex: none; }
