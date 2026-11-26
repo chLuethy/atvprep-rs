@@ -52,17 +52,15 @@ a { color: var(--accent); }
 
 /* --- primitives --- */
 .btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 32px; padding: 0 16px;
-  border: 1px solid var(--border); border-radius: 0; background: var(--surface); font-size: var(--text-control); line-height: 1.4; font-weight: 400;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 32px; padding: 0 12px;
+  border: 0; border-radius: 0; background: none; color: var(--accent); font-size: var(--text-control); line-height: 1.4; font-weight: 400;
 }
-.btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.btn.primary:hover:not(:disabled) { background: var(--ink); border-color: var(--ink); color: var(--surface); }
-.btn.quiet { border-color: transparent; background: none; color: var(--accent); padding: 0 8px; }
-.btn.quiet:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
-/* A button that cannot run yet is flat, hairline and grey, readable and plainly not available. */
-.btn:disabled, .btn.primary:disabled { cursor: not-allowed; background: var(--surface); border-color: var(--line); color: var(--ink-muted); }
-.btn.quiet:disabled { background: none; border-color: transparent; }
+/* Buttons have no frame. Hover only underlines; the primary one stays the one filled button. */
+.btn:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
+.btn.primary { background: var(--accent); color: var(--on-accent); }
+.btn.quiet { padding: 0 8px; }
+/* A button that cannot run yet is flat and grey, readable and plainly not available. */
+.btn:disabled, .btn.primary:disabled { cursor: not-allowed; background: none; color: var(--ink-muted); }
 
 /* A status is a hairline, a symbol and words, never an area of colour. */
 .chip {
@@ -84,13 +82,13 @@ a { color: var(--accent); }
   display: inline-block; min-width: 18px; padding: 0 5px; border: 1px solid var(--border);
   background: var(--surface); color: var(--ink); font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1rem; text-align: center;
 }
-.seg { display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); border: 1px solid var(--border); background: var(--surface); }
+.seg { display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); background: none; }
 .seg button { flex: 1; min-height: 24px; border: 0; background: none; padding: 0 8px; font-size: var(--text-sm); color: var(--ink); }
-.seg button + button { border-left: 1px solid var(--border); }
+.seg button:hover:not([aria-pressed="true"]):not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
-.filter-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 24px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); padding: 0 8px; font-size: var(--text-sm); }
-.filter-chip:hover { border-color: var(--accent); color: var(--accent); }
-.filter-chip[aria-pressed="true"] { background: var(--accent-weak); border-color: var(--accent); color: var(--ink); }
+.filter-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 24px; border: 0; background: none; color: var(--ink); padding: 0 8px; font-size: var(--text-sm); }
+.filter-chip:hover { text-decoration: underline; text-underline-offset: 3px; }
+.filter-chip[aria-pressed="true"] { background: var(--accent-weak); color: var(--ink); }
 .filter-chip[aria-pressed="true"]::before { content: "\2713"; color: var(--accent); font-size: var(--text-xs); }
 .input, .select {
   background: var(--surface); border: 1px solid var(--border); border-radius: 0; padding: 0 8px; min-height: 32px; color: var(--ink);

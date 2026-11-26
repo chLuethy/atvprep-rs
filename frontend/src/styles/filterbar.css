@@ -8,9 +8,9 @@
 .fb-link:hover:not(:disabled, [aria-disabled="true"]) { background: var(--hover); }
 /* Quick filters: small toggles; one in effect is filled like an active facet. */
 .fb-quick { display: flex; flex-wrap: wrap; gap: 4px; }
-.fb-quick-button { padding: 1px 9px; border: 1px solid var(--line); background: none; color: var(--ink-muted); font-size: var(--text-sm); font-weight: 500; white-space: nowrap; }
-.fb-quick-button:hover { background: var(--hover); color: var(--ink); }
-.fb-quick-button[aria-pressed="true"] { background: var(--accent-weak); border-color: var(--accent); color: var(--ink); font-weight: 600; }
+.fb-quick-button { padding: 1px 9px; border: 0; background: none; color: var(--ink-muted); font-size: var(--text-sm); font-weight: 500; white-space: nowrap; }
+.fb-quick-button:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.fb-quick-button[aria-pressed="true"] { background: var(--accent-weak); color: var(--ink); font-weight: 600; }
 /* "More filters" opens a second row in place; it cannot close while a facet in it is active. */
 .fb-more-toggle { white-space: nowrap; }
 .fb-more-toggle[aria-disabled="true"] { color: var(--ink-muted); cursor: default; }
@@ -30,17 +30,17 @@
 .fb-facet { position: relative; display: inline-flex; }
 .fb-split { display: inline-flex; align-items: stretch; }
 
-.fb-button { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font-size: var(--text-sm); font-weight: 500; white-space: nowrap; }
-.fb-button:hover:not([aria-disabled="true"]) { background: var(--hover); }
+.fb-button { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 0; background: none; color: var(--ink); font-size: var(--text-sm); font-weight: 500; white-space: nowrap; }
+.fb-button:hover:not([aria-disabled="true"]) { text-decoration: underline; text-underline-offset: 3px; }
 /* Locked: nothing to choose with the other filters. It stays focusable so a screen reader hears why. */
-.fb-button[aria-disabled="true"] { color: var(--ink-muted); border-style: dashed; cursor: not-allowed; }
+.fb-button[aria-disabled="true"] { color: var(--ink-muted); cursor: not-allowed; }
 .fb-button > svg { color: var(--ink-muted); transform: rotate(90deg); }
 .fb-title { max-width: 30ch; overflow: hidden; text-overflow: ellipsis; }
-.fb-button[aria-expanded="true"] { border-color: var(--accent); }
-.fb-button[data-active="true"] { background: var(--accent-weak); border-color: var(--accent); font-weight: 600; }
-.fb-facet[data-active="true"] .fb-button { border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 0; }
-.fb-clear { display: inline-grid; place-items: center; padding: 0 8px; border: 1px solid var(--accent); border-left: 1px solid color-mix(in oklch, var(--accent) 40%, transparent); background: var(--accent-weak); color: var(--ink); }
-.fb-clear:hover { filter: brightness(0.96); }
+.fb-button[aria-expanded="true"] { color: var(--accent); }
+.fb-button[data-active="true"] { background: var(--accent-weak); font-weight: 600; }
+.fb-facet[data-active="true"] .fb-button { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.fb-clear { display: inline-grid; place-items: center; padding: 0 8px; border: 0; background: var(--accent-weak); color: var(--ink); }
+.fb-clear:hover { text-decoration: underline; text-underline-offset: 3px; }
 .fb-all { display: none; padding: 4px 9px; }
 .fb-all > svg { transform: none; color: currentColor; }
 
