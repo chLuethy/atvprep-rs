@@ -47,7 +47,7 @@
 /* The name column is the flexible one and wraps; Status and Size are columns of their own that never wrap. `.files-table td` sets nowrap, so the selector must be at least as specific. */
 .files-table td.file-cell { width: 100%; min-width: min(200px, 35vw); white-space: normal; }
 .files-table td.col-status, .files-table td.num { width: 1%; }
-.file-title { display: block; color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
+.file-title { display: block; min-height: 24px; color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
 .file-title:hover { text-decoration: underline; text-underline-offset: 3px; }
 .file-folder { display: block; color: var(--ink-muted); overflow-wrap: anywhere; font-size: var(--text-sm); }
 .file-cell .interrupted-note { display: block; font-size: var(--text-sm); color: var(--warn); }

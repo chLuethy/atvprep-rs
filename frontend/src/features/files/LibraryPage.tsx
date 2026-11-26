@@ -24,7 +24,7 @@ import { isTyping } from "../../lib/keys";
 import { uniqueRowKeys } from "../../lib/rowKeys";
 import { fileKey } from "./identity";
 import { realtimeState } from "../../lib/realtime";
-import { fitBottomTo } from "../../lib/fitBottom";
+import { fitBottomTo, SINGLE_COLUMN_MAX } from "../../lib/fitBottom";
 
 const readView = (): "list" | "columns" => (recall("layout") === "columns" ? "columns" : "list");
 
@@ -648,6 +648,15 @@ export const LibraryPage: Component<{
   const detailOpen = () => !!previewRows() || !!props.activeId || selectionCount() > 1 || columnsBar();
   let page: HTMLElement | undefined;
   let split: HTMLDivElement | undefined;
+  let detailSide: HTMLElement | undefined;
+  // An opened file is said aloud, and where the details stand under the list (up to SINGLE_COLUMN_MAX) they are scrolled into view, except in the columns view, which keeps head and filter in sight; beside the list nothing moves.
+  const [opened, setOpened] = createSignal("");
+  createEffect(() => (props.activeId && openKnown() ? props.activeId : undefined), (id) => {
+    if (!id) { setOpened(""); return; }
+    const path = openFile()?.id === id ? openFile()?.display_path : visibleRows().find((row) => row.id === id)?.display_path;
+    setOpened(t("Details of {name} opened", { name: baseName(path ?? "").title || id }));
+    if (!showColumns() && window.matchMedia?.(`(max-width: ${SINGLE_COLUMN_MAX}px)`).matches) detailSide?.scrollIntoView?.({ block: "start" });
+  });
   // The page fills the height down to the bottom of the sidebar's appearance buttons; one column just flows.
   onSettled(() => fitBottomTo({ page: () => page, split: () => split, anchor: () => document.querySelector<HTMLElement>("[data-fit-bottom]") }));
 
@@ -720,6 +729,7 @@ export const LibraryPage: Component<{
             </div>
           </div>
         </Show>
+        <p class="sr-only" aria-live="polite">{opened()}</p>
         <Show when={status()}><p class="notice ok lib-notice" role="status">{status()}</p></Show>
         <Show when={actionError()}><p class="notice bad lib-notice" role="alert">{actionError()}</p></Show>
       </div>
@@ -836,7 +846,7 @@ export const LibraryPage: Component<{
         </div>
 
         <Show when={detailOpen()}>
-          <aside class="files-detail" aria-label={t("Details")}>
+          <aside class="files-detail" aria-label={t("Details")} ref={detailSide}>
             <Show
               when={previewRows()}
               fallback={

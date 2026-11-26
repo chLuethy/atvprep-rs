@@ -14,7 +14,8 @@
 .pad { padding: 20px 16px; }
 .more { padding: 14px 16px; }
 
-.th-btn { background: none; border: 0; padding: 0; color: inherit; font-weight: inherit; }
+/* A touch target is at least 24px (WCAG 2.5.8): the padding grows the button, the negative margin keeps the header row as high as before. */
+.th-btn { background: none; border: 0; padding: 4px 4px; margin: -4px -4px; min-height: 24px; color: inherit; font-weight: inherit; }
 .th-btn:hover { color: var(--ink); }
 
 
@@ -106,7 +107,7 @@ details summary { cursor: pointer; color: var(--ink-muted); }
 .sym.neutral { color: var(--ink-muted); }
 /* File health: badge, bar and count share three columns, so every badge starts at the same edge and the label column is as wide as the longest label. */
 .health { display: grid; grid-template-columns: max-content minmax(0, 1fr) auto; gap: 8px 12px; }
-.health-row { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: center; color: var(--ink); text-decoration: none; }
+.health-row { min-height: 24px; display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: center; color: var(--ink); text-decoration: none; }
 .health-row .count { grid-column: 3; grid-row: 1; justify-self: end; font-family: var(--font-mono); font-size: var(--text-sm); }
 .health-row .chip { grid-column: 1; grid-row: 1; justify-self: start; }
 .health-row .hbar { grid-column: 2; grid-row: 1; }
@@ -117,6 +118,8 @@ details summary { cursor: pointer; color: var(--ink-muted); }
 .hbar.neutral > span { background: var(--border); }
 .legend { flex-direction: row; flex-wrap: wrap; gap: 4px 18px; margin-top: 12px; }
 .legend a { color: var(--ink); text-decoration: none; }
+.legend a { display: inline-flex; align-items: center; min-height: 24px; }
+.needs a, .now-row a { display: flex; align-items: center; min-height: 24px; }
 .legend a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .legend .count { font-weight: 600; margin-right: 2px; }
 .now-row { display: flex; align-items: center; gap: 10px; }
