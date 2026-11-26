@@ -161,7 +161,12 @@ pub fn is_fragmented(path: &Path) -> Result<bool, AtomError> {
         return Ok(false);
     };
     let (mut child, end) = (start + header_size, start + size);
-    while child < end {
+    // Fewer than 8 bytes left are padding: the patcher closes a moov that shrank by 1 to 7 bytes
+    // with zeros, since no `free` box fits.
+    while child
+        .checked_add(8)
+        .is_some_and(|header_end| header_end <= end)
+    {
         let Some((total, kind, _)) = read_atom_header(&mut file, child)? else {
             break;
         };
@@ -224,6 +229,17 @@ mod tests {
             assert_eq!(first, case.expected["first"], "{name} first");
             assert_eq!(fragmented, case.expected["fragmented"], "{name} fragmented");
         }
+    }
+
+    #[test]
+    fn a_moov_closed_by_zero_padding_is_walked_to_its_end() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("syn_pad_3.mp4");
+        std::fs::copy(fixture_path("syn_pad_3.mp4"), &path).unwrap();
+        crate::mp4::patch::Patcher::default()
+            .set_subtitle_accessibility(&path, &[], None)
+            .unwrap();
+        assert!(!is_fragmented(&path).unwrap());
     }
 
     #[test]
