@@ -77,10 +77,10 @@ test("behält ein offenes Jobprotokoll bei wechselnden Job- und Item-IDs und fra
   await page.getByRole("region", { name: "Active" }).getByRole("link", { name: /Browser Identity/ }).click();
   const toggle = page.getByRole("button", { name: "Log", exact: true });
   await toggle.click();
-  await expect(page.getByLabel("Plain text log")).toContainText("Protokoll der aktuellen ID 1");
+  await expect(page.getByRole("region", { name: "Formatted log" })).toContainText("Protokoll der aktuellen ID 1");
   const original = await toggle.elementHandle();
   version = 2;
-  await expect(page.getByLabel("Plain text log")).toContainText("Protokoll der aktuellen ID 2");
+  await expect(page.getByRole("region", { name: "Formatted log" })).toContainText("Protokoll der aktuellen ID 2");
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   await expect(toggle).toBeFocused();
   expect(await toggle.evaluate((node, original) => node === original, original)).toBe(true);

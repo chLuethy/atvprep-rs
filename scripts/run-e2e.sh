@@ -119,7 +119,23 @@ INSERT INTO job_items(id,job_id,media_file_id,action,position,status,attempt,err
 -- A schedule and the verification one of its runs queued; schedules store their jobs as manual.
 INSERT INTO schedules(id,name,action,days_mask,time_of_day,enabled) VALUES(1,'E2E Weekly','verify',1,'03:00',0);
 INSERT INTO jobs(id,action,status,trigger,total_count,succeeded_count,settings_snapshot_json) VALUES(4,'verify','succeeded','manual',1,1,'{"schedule_id":1}');
-INSERT INTO job_items(id,job_id,media_file_id,action,position,status,attempt,input_snapshot_json,finished_at) VALUES(4,4,4,'verify',1,'succeeded',1,'{"relative_path":"Old Codec Movie.mp4"}','2026-11-01T03:01:00Z');
+INSERT INTO job_items(id,job_id,media_file_id,action,position,status,attempt,input_snapshot_json,log_tail,finished_at) VALUES(4,4,4,'verify',1,'succeeded',1,'{"relative_path":"Old Codec Movie.mp4"}','[00:00:01] Start: prepare
+[00:00:01] File: Old Codec Movie.mp4
+[00:00:01] Tool: atvprep 0.9.0
+[00:00:01] Command: atvprep prepare --yes --encode copy --crf 18 -- Old Codec Movie.mp4
+[00:00:01] Encode allowance: copy
+[00:00:01] Target profile: crf 18, prefer HEVC 10-bit no, keep AV1 no, fix DTS no
+[00:00:01] Delete original: yes
+ATVPREP-PROGRESS 87
+ATVPREP-PROGRESS 99
+{"bytes":3645981583,"phase":"verify","seconds":71.2}
+[00:14:20] Phase verify: started 00:14:19, took 1:11
+postfix-only: Old Codec Movie
+  • tags: elng 2 -> elng 7 · fall 2
+ATVPREP-VERIFY passed, 0 blockers, 0 warnings
+ATVPREP-OUTCOME patched
+[00:14:21] Exit code: 0
+[00:14:21] Duration: 14:21','2026-11-01T03:01:00Z');
 INSERT INTO schedule_runs(schedule_id,slot,started_at,trigger,result,job_id) VALUES(1,'2026-11-01 03:00:00.000000','2026-11-01 03:00:00.000000','scheduled','Queued 1 file',4);
 INSERT INTO events(job_id,topic,entity_type,entity_id,payload_json,expires_at) VALUES(1,'job.created','job',1,'{"action":"verify","source":"e2e"}',datetime('now','+1 day'));
 -- Keep the fixture stable: the real workers must not pick it up.

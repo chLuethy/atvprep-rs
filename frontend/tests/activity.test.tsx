@@ -8,6 +8,18 @@ import { setLanguage } from "../src/lib/i18n";
 import { EMPTY_JOB_FILTER } from "../src/features/activity/filters";
 import { createSignal } from "solid-js";
 
+/** The log is set out by default; tests of what the log says read its plain text. */
+type LogScope = Pick<ReturnType<typeof within>, "findAllByRole" | "findAllByLabelText">;
+async function rawLogs(scope: LogScope): Promise<HTMLElement[]> {
+  for (const button of await scope.findAllByRole("button", { name: "Raw text" })) await fireEvent.click(button);
+  return scope.findAllByLabelText("Plain text log");
+}
+async function rawLog(scope: LogScope): Promise<HTMLElement> {
+  const logs = await rawLogs(scope);
+  if (logs.length !== 1) throw new Error(`expected one plain text log, found ${logs.length}`);
+  return logs[0]!;
+}
+
 type Api = { request: (path: string, init?: RequestInit) => Promise<Response> };
 const json = (data: unknown, status = 200, meta: unknown = {}) => new Response(JSON.stringify({ data, meta }), { status });
 const apiFor = (handler: (path: string, init?: RequestInit) => Response | Promise<Response>): Api => ({
@@ -688,7 +700,7 @@ describe("JobDetail: what happened", () => {
 
     await fireEvent.click(view.getByText("Log"));
 
-    expect(await view.findByLabelText("Plain text log")).toHaveTextContent("log line");
+    expect(await rawLog(view)).toHaveTextContent("log line");
     expect(calls(api).some(([path]) => path === "/job-items/i_1/log")).toBe(true);
   });
 
@@ -714,7 +726,7 @@ describe("JobDetail: what happened", () => {
     finishItems(json([item({ id: "i_a", job_id: "j_a" })]));
     await fireEvent.click(view.getByRole("button", { name: "Log" }));
 
-    expect(await view.findByLabelText("Plain text log")).toHaveTextContent("Protokoll von B");
+    expect(await rawLog(view)).toHaveTextContent("Protokoll von B");
     expect(view.getByRole("heading", { name: "Sisu" })).toBeInTheDocument();
     expect(view.queryByText("Heat")).not.toBeInTheDocument();
     expect(calls(api).map(([path]) => path)).not.toContain("/job-items/i_a/log");
@@ -742,7 +754,7 @@ describe("JobDetail: what happened", () => {
     await fireEvent.click(await view.findByText("Log"));
 
     await waitFor(() => expect(calls(api).map(([path]) => path)).toContain("/job-items/i_b0/log"));
-    expect(await view.findAllByLabelText("Plain text log")).toHaveLength(1);
+    expect(await rawLogs(view)).toHaveLength(1);
   });
 
   it("keeps an active job fresh by reloading it until it ends", async () => {
@@ -918,7 +930,7 @@ describe("ActivityPage: aktuelle IDs und eindeutige Zeilen", () => {
 
     expect(view.getByRole("button", { name: "Log" })).toBe(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(view.getByLabelText("Plain text log")).toHaveTextContent("/job-items/i_current/log");
+    expect((await rawLog(view))).toHaveTextContent("/job-items/i_current/log");
     expect(calls(api).map(([path]) => path)).toContain("/jobs/j_current");
   });
 
@@ -1045,7 +1057,7 @@ describe("JobDetail: Item-Identität bei Revalidierung", () => {
     expect(toggle).toHaveFocus();
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(within(row).getByText("Updated")).toBeInTheDocument();
-    expect(within(row).getByLabelText("Plain text log")).toHaveTextContent("/job-items/i_current/log");
+    expect((await rawLog(within(row)))).toHaveTextContent("/job-items/i_current/log");
     expect(view.getAllByRole("button", { name: "Log" })).toHaveLength(3);
 
     state.rows = [item({ id: "i_2_latest", position: 2 })];
@@ -1069,7 +1081,7 @@ describe("JobDetail: Item-Identität bei Revalidierung", () => {
     const toggle = view.getAllByRole("button", { name: "Log" })[0]!;
     await fireEvent.click(toggle);
     await vi.advanceTimersByTimeAsync(0);
-    expect(view.getByLabelText("Plain text log")).toHaveTextContent("/job-items/i_first/log");
+    expect((await rawLog(view))).toHaveTextContent("/job-items/i_first/log");
 
     state.rows = [item({ id: "i_second_new", position }), item({ id: "i_first_new", position })];
     await vi.advanceTimersByTimeAsync(1100);
@@ -1078,7 +1090,7 @@ describe("JobDetail: Item-Identität bei Revalidierung", () => {
     expect(view.getAllByRole("button", { name: "Log" }).every((button) => button.getAttribute("aria-expanded") === "false")).toBe(true);
     await fireEvent.click(view.getAllByRole("button", { name: "Log" })[0]!);
     await vi.advanceTimersByTimeAsync(0);
-    expect(view.getByLabelText("Plain text log")).toHaveTextContent("/job-items/i_second_new/log");
+    expect((await rawLog(view))).toHaveTextContent("/job-items/i_second_new/log");
   });
 
   it("liest nach dem Nachladen alle sichtbaren Item-Seiten erneut und erhält deren offene Logs", async () => {
@@ -1109,7 +1121,7 @@ describe("JobDetail: Item-Identität bei Revalidierung", () => {
 
     expect(view.getByText("#2").closest("li")).toBe(row);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(within(row).getByLabelText("Plain text log").textContent).toMatch(/i_second_/);
+    expect((await rawLog(within(row))).textContent).toMatch(/i_second_/);
     expect(calls(api).filter(([path]) => path.includes("cursor=")).length).toBeGreaterThan(before);
     expect(view.queryByRole("button", { name: "Load more items" })).not.toBeInTheDocument();
   });
@@ -1152,7 +1164,7 @@ describe("LogViewer: following a running log", () => {
     const { api, grow } = growingLog();
     const view = render(() => <LogViewer api={api} itemId="i_1" status="running" />);
     await vi.advanceTimersByTimeAsync(0);
-    const pre = view.getByLabelText("Plain text log") as HTMLElement;
+    const pre = (await rawLog(view)) as HTMLElement;
     expect(pre.scrollTop).toBe(1000);
 
     grow("second line\n");
@@ -1169,7 +1181,7 @@ describe("LogViewer: following a running log", () => {
     const { api, grow } = growingLog();
     const view = render(() => <LogViewer api={api} itemId="i_1" status="running" />);
     await vi.advanceTimersByTimeAsync(0);
-    const pre = view.getByLabelText("Plain text log") as HTMLElement;
+    const pre = (await rawLog(view)) as HTMLElement;
     pre.scrollTop = 100;
     pre.dispatchEvent(new Event("scroll"));
 
@@ -1189,7 +1201,7 @@ describe("JobDetail: the log of an entry", () => {
     const api = detailApi({ status: "running", finished_at: null }, [item({ status: "running", started_at: "2026-07-20T10:00:00Z" })]);
     const view = render(() => <JobDetail api={api} jobId="j_1" />);
     await fireEvent.click(await view.findByRole("button", { name: "Log" }));
-    await view.findByLabelText("Plain text log");
+    await rawLog(view);
 
     expect(view.queryByRole("button", { name: /pause log|resume log/i })).not.toBeInTheDocument();
     expect(view.getByRole("button", { name: "Download log" })).toBeEnabled();
@@ -1202,7 +1214,7 @@ describe("JobDetail: the log of an entry", () => {
     await vi.advanceTimersByTimeAsync(0);
     await fireEvent.click(view.getByRole("button", { name: "Log" }));
     await vi.advanceTimersByTimeAsync(0);
-    expect(view.getByLabelText("Plain text log")).toHaveTextContent("log line");
+    expect((await rawLog(view))).toHaveTextContent("log line");
 
     await vi.advanceTimersByTimeAsync(15000);
 
@@ -1231,7 +1243,7 @@ describe("JobDetail: the log of an entry", () => {
     state.log = "first line\nlast line";
     await vi.advanceTimersByTimeAsync(1100);
     expect(logCalls(api)).toBe(whileRunning + 1);
-    expect(view.getByLabelText("Plain text log")).toHaveTextContent("last line");
+    expect((await rawLog(view))).toHaveTextContent("last line");
 
     await vi.advanceTimersByTimeAsync(15000);
 
@@ -1391,6 +1403,61 @@ describe("JobDetail: cancel and retry", () => {
   });
 });
 
+const REAL_LOG = [
+  "[00:00:01] Start: prepare",
+  "[00:00:01] File: Madam Secretary (2014) - S03E20 - Extraordinary Hazard.mp4",
+  "[00:00:01] Encode allowance: copy",
+  "[00:00:01] Delete original: yes",
+  "ATVPREP-PROGRESS 87",
+  "ATVPREP-PROGRESS 99",
+  '{"bytes":3645981583,"phase":"verify","seconds":71.2}',
+  "[00:14:20] Phase verify: started 00:14:19, took 1:11",
+  "ATVPREP-VERIFY passed, 0 blockers, 0 warnings",
+  "ATVPREP-OUTCOME patched",
+  "[00:14:21] Exit code: 0",
+  "[00:14:21] Duration: 14:21",
+].join("\n");
+
+describe("LogViewer, set out", () => {
+  afterEach(() => setLanguage("en"));
+  const open = () => render(() => <LogViewer api={apiFor(() => json({ item_id: "i_1", status: "ok", log_tail: REAL_LOG }))} itemId="i_1" status="succeeded" />);
+
+  it("sets the log out by default: facts, one progress value, the phase and how it ended", async () => {
+    const view = open();
+    const log = await view.findByRole("region", { name: "Formatted log" });
+
+    expect(within(log).getByText("Encode allowance")).toBeInTheDocument();
+    expect(within(log).getByText("Prepare")).toBeInTheDocument();
+    expect(within(log).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "99");
+    expect(within(log).getByText("Phase verify")).toBeInTheDocument();
+    expect(within(log).getByText("Check passed")).toBeInTheDocument();
+    expect(within(log).getByText("Exit code 0")).toBeInTheDocument();
+    expect(log.textContent).not.toContain("ATVPREP-");
+    expect(log.textContent).not.toContain('"phase"');
+  });
+
+  it("switches to the plain text, which is the whole log as the tools wrote it", async () => {
+    const view = open();
+    await view.findByRole("region", { name: "Formatted log" });
+    await fireEvent.click(view.getByRole("button", { name: "Raw text" }));
+
+    expect(view.queryByRole("region", { name: "Formatted log" })).not.toBeInTheDocument();
+    expect(view.getByLabelText("Plain text log").textContent).toBe(REAL_LOG);
+    await fireEvent.click(view.getByRole("button", { name: "Formatted" }));
+    expect(await view.findByRole("region", { name: "Formatted log" })).toBeInTheDocument();
+  });
+
+  it("names the facts in German and leaves what the tools wrote alone", async () => {
+    setLanguage("de");
+    const view = open();
+    const log = await view.findByRole("region", { name: "Protokoll, gegliedert" });
+
+    expect(within(log).getByText("Kodierfreigabe")).toBeInTheDocument();
+    expect(within(log).getByText("Vorbereiten")).toBeInTheDocument();
+    expect(within(log).getByText("Phase verify")).toBeInTheDocument();
+  });
+});
+
 describe("LogViewer", () => {
   it("renders a generic session state and downloads only plain text", async () => {
     const expired = render(() => <LogViewer api={apiFor(() => Promise.reject(new SessionError()))} itemId="i_1" status="succeeded" />);
@@ -1405,13 +1472,15 @@ describe("LogViewer", () => {
 
     expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
     expect((createObjectURL.mock.calls[0]?.[0] as Blob).type).toBe("text/plain");
+    const handedOut = await new Promise<string>((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.readAsText(createObjectURL.mock.calls[0]?.[0] as Blob); });
+    expect(handedOut).toBe("hello");
     createObjectURL.mockRestore();
   });
 
   it("keeps log text unparsed", async () => {
     const view = render(() => <LogViewer api={apiFor(() => json({ item_id: "i_1", status: "ok", log_tail: "<b>plain log</b>\nnext" }))} itemId="i_1" status="succeeded" />);
 
-    expect((await view.findByLabelText("Plain text log")).textContent).toContain("<b>plain log</b>");
+    expect((await rawLog(view)).textContent).toContain("<b>plain log</b>");
     expect(view.container.querySelector("b")).not.toBeInTheDocument();
   });
 
