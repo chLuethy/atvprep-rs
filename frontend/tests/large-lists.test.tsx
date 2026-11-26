@@ -129,6 +129,28 @@ describe("grosse Listen", () => {
     } finally { vi.useRealTimers(); }
   });
 
+  it("Ende in einer Spalte, die grösser ist als das Fenster, scrollt zur gebauten Zeile", async () => {
+    const files = Array.from({ length: 400 }, (_, index) => row(index));
+    const api: Api = { request: vi.fn(async (path: string) => {
+      const query = new URLSearchParams(path.split("?")[1] ?? "");
+      if (!query.has("root_id")) return json({ folders: [{ name: "TV", id: "r_1", counts: { clean: 400 }, total: 400 }], files: [] });
+      return json({ folders: [], files });
+    }) };
+    const scrolled: string[] = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (this: Element) { scrolled.push(this.getAttribute("data-key") ?? ""); };
+    try {
+      const view = render(() => <ColumnsView api={api} filter={EMPTY_FILTER} version={0} onOpen={() => {}} />);
+      fireEvent.click(await view.findByText("TV"));
+      await waitFor(() => expect(view.container.querySelectorAll('.col[data-col="1"] .col-row').length).toBeGreaterThan(0));
+      fireEvent.keyDown(view.getByRole("group"), { key: "ArrowRight" });
+      await waitFor(() => expect(view.container.querySelector('.col.focused')).toHaveAttribute("data-col", "1"));
+      scrolled.length = 0;
+      fireEvent.keyDown(view.getByRole("group"), { key: "End" });
+      await waitFor(() => expect(scrolled.some((key) => key.includes("S01E0399"))).toBe(true));
+    } finally { Element.prototype.scrollIntoView = original; }
+  });
+
   it("die Spaltenansicht rendert einen grossen Ordner nicht ganz", async () => {
     const files = Array.from({ length: 400 }, (_, index) => row(index));
     const api: Api = { request: vi.fn(async (path: string) => {

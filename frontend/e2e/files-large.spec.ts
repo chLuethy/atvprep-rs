@@ -91,3 +91,16 @@ test("a scrolled column keeps its window and does not swing back to the top", as
     expect(onScreen, `rows on screen at row ${row}`).toBeGreaterThan(5);
   }
 });
+
+test("End and Home in a column larger than its window scroll the selected row into view", async ({ page }) => {
+  test.setTimeout(120_000);
+  const column = await openBulkColumn(page);
+  await column.getByRole("option").first().click();
+  await page.keyboard.press("End");
+  const selected = column.locator(".col-row.selected");
+  await expect(selected).toHaveCount(1);
+  await expect(selected).toBeInViewport({ ratio: 0.9 });
+  await page.keyboard.press("Home");
+  await expect(column.locator(".col-row.selected")).toBeInViewport({ ratio: 0.9 });
+  await expect.poll(() => column.evaluate((element) => element.scrollTop)).toBeLessThan(40);
+});

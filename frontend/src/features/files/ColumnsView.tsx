@@ -124,7 +124,12 @@ const Column: Component<{
   createEffect(() => (props.focused ? props.cursor : undefined), (key) => {
     if (!key) return;
     const index = entries().findIndex((entry) => entry.key === key);
-    if (index >= 0) window.reveal(index);
+    if (index < 0) return;
+    window.reveal(index);
+    // The row exists only once the window has been built around it; then bring it into view.
+    onSettled(() => {
+      column?.querySelector<HTMLElement>(`.col-row[data-key="${CSS.escape(key)}"]`)?.scrollIntoView?.({ block: "nearest" });
+    });
   });
 
   return (
