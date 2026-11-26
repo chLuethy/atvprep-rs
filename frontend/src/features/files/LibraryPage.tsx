@@ -647,11 +647,15 @@ export const LibraryPage: Component<{
   let detailSide: HTMLElement | undefined;
   // An opened file is said aloud, and where the details stand under the list (up to SINGLE_COLUMN_MAX) they are scrolled into view, except in the columns view, which keeps head and filter in sight; beside the list nothing moves.
   const [opened, setOpened] = createSignal("");
+  // J and K move the open file while the details stay open: only a file opening from closed scrolls.
+  let detailsShown = false;
   createEffect(() => (props.activeId && openKnown() ? props.activeId : undefined), (id) => {
-    if (!id) { setOpened(""); return; }
+    if (!id) { setOpened(""); detailsShown = false; return; }
+    const wasShown = detailsShown;
+    detailsShown = true;
     const path = openFile()?.id === id ? openFile()?.display_path : visibleRows().find((row) => row.id === id)?.display_path;
     setOpened(t("Details of {name} opened", { name: baseName(path ?? "").title || id }));
-    if (!showColumns() && window.matchMedia?.(`(max-width: ${SINGLE_COLUMN_MAX}px)`).matches) detailSide?.scrollIntoView?.({ block: "start" });
+    if (!wasShown && !showColumns() && window.matchMedia?.(`(max-width: ${SINGLE_COLUMN_MAX}px)`).matches) detailSide?.scrollIntoView?.({ block: "start" });
   });
   // The page fills the height down to the bottom of the sidebar's appearance buttons; one column just flows.
   onSettled(() => fitBottomTo({ page: () => page, split: () => split, anchor: () => document.querySelector<HTMLElement>("[data-fit-bottom]") }));

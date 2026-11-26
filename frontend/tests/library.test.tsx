@@ -1848,3 +1848,39 @@ describe("LibraryPage: barrierefreie Zeilen und unbekannte Datei", () => {
     expect(view.queryByRole("region", { name: "Selection" })).not.toBeInTheDocument();
   });
 });
+
+describe("LibraryPage: details under the list in one column", () => {
+  const narrow = () => {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({ matches: query.includes("max-width"), media: query, addEventListener: () => {}, removeEventListener: () => {} })) as unknown as typeof window.matchMedia;
+    const scrolls = vi.fn();
+    const originalScroll = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrolls;
+    return { scrolls, restore: () => { window.matchMedia = original; Element.prototype.scrollIntoView = originalScroll; } };
+  };
+
+  it("scrolls to the details when a file opens, not on every J and K while they are open", async () => {
+    const { scrolls, restore } = narrow();
+    try {
+      const { api } = makeApi();
+      const [active, setActive] = createSignal<string | undefined>(undefined);
+      const view = render(() => <LibraryPage api={api} activeId={active()} onOpen={(id) => setActive(id)} />);
+      await view.findByRole("link", { name: "Heat" });
+
+      setActive("m_f2");
+      await waitFor(() => expect(scrolls).toHaveBeenCalledTimes(1));
+      // J and K move the open file: the details stay where they are.
+      setActive("m_f3");
+      await view.findByText(/Details of Arrival/);
+      setActive("m_f1");
+      await view.findByText(/Details of Pretty Woman/);
+      expect(scrolls).toHaveBeenCalledTimes(1);
+      // Closed and opened again, they scroll once more.
+      setActive(undefined);
+      await waitFor(() => expect(view.queryByText(/Details of/)).not.toBeInTheDocument());
+      setActive("m_f2");
+      await waitFor(() => expect(scrolls).toHaveBeenCalledTimes(2));
+      view.unmount();
+    } finally { restore(); }
+  });
+});
