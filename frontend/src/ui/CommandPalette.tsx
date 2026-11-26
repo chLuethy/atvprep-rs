@@ -38,7 +38,8 @@ export const CommandPalette: Component<{
       props.search?.(needle).then((hits) => { if (turn === asked) setFound(hits); }, () => undefined);
     }, SEARCH_DELAY_MS);
   };
-  const [index, setIndex] = createSignal(0);
+  // The highlight is the entry the person moved to, found again by its id when late hits change the order; none means the first.
+  const [chosen, setChosen] = createSignal<string | null>(null);
   let input: HTMLInputElement | undefined;
   let previous: Element | null = null;
 
@@ -66,7 +67,7 @@ export const CommandPalette: Component<{
     if (open) {
       previous = document.activeElement;
       setQuery("");
-      setIndex(0);
+      setChosen(null);
       queueMicrotask(() => input?.focus());
     } else if (previous instanceof HTMLElement) {
       const target = previous;
@@ -75,6 +76,14 @@ export const CommandPalette: Component<{
     }
   });
 
+  const index = () => {
+    const at = chosen() === null ? -1 : visible().findIndex((command) => command.id === chosen());
+    return Math.max(0, at);
+  };
+  const setIndex = (value: number | ((current: number) => number)) => {
+    const next = typeof value === "function" ? value(index()) : value;
+    setChosen(visible()[next]?.id ?? null);
+  };
   const run = (command: Command | undefined) => {
     if (!command) return;
     props.onClose();
@@ -104,7 +113,7 @@ export const CommandPalette: Component<{
             autocomplete="off"
             placeholder={t("Type a command")}
             value={query()}
-            onInput={(event) => { setQuery(event.currentTarget.value); setIndex(0); ask(event.currentTarget.value); }}
+            onInput={(event) => { setQuery(event.currentTarget.value); setChosen(null); ask(event.currentTarget.value); }}
             onKeyDown={onKeyDown}
           />
           <ul id="palette-list" role="listbox" class="pal-list">

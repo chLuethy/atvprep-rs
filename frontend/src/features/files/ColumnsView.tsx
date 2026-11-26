@@ -109,7 +109,8 @@ const Column: Component<{
   const window = createRowWindow({
     total: () => entries().length,
     scroller: () => column,
-    origin: () => column?.querySelector<HTMLElement>(".col-row")?.offsetTop ?? 0,
+    // The first row sits below the notes above it; the top spacer is not part of that, or the window would move itself.
+    origin: () => (column?.querySelector<HTMLElement>(".col-row")?.offsetTop ?? 0) - (column?.querySelector<HTMLElement>("[data-spacer=top]")?.offsetHeight ?? 0),
     rendered: () => Array.from(column?.querySelectorAll(".col-row") ?? []),
     estimate: 33,
   });
@@ -123,7 +124,12 @@ const Column: Component<{
   createEffect(() => (props.focused ? props.cursor : undefined), (key) => {
     if (!key) return;
     const index = entries().findIndex((entry) => entry.key === key);
-    if (index >= 0) window.reveal(index);
+    if (index < 0) return;
+    window.reveal(index);
+    // The row exists only once the window has been built around it; then bring it into view.
+    onSettled(() => {
+      column?.querySelector<HTMLElement>(`.col-row[data-key="${CSS.escape(key)}"]`)?.scrollIntoView?.({ block: "nearest" });
+    });
   });
 
   return (
@@ -146,7 +152,7 @@ const Column: Component<{
             <Show when={value().kind === "ok" && entries().length === 0}>
               <p class="col-note muted">{columnFilterKey(props.filter) ? t("Nothing here matches the filters") : t("Empty folder")}</p>
             </Show>
-            <Show when={window.shown().start > 0}><div aria-hidden="true" style={{ height: `${window.shown().start * window.rowHeight()}px`, "flex-shrink": 0 }} /></Show>
+            <Show when={window.shown().start > 0}><div aria-hidden="true" data-spacer="top" style={{ height: `${window.shown().start * window.rowHeight()}px`, "flex-shrink": 0 }} /></Show>
             <For each={slice()}>{(entry) => (
               <div
                 class={["col-row", { selected: props.selected(entry.key) }]}

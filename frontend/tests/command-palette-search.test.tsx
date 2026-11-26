@@ -71,6 +71,23 @@ describe("CommandPalette search hits", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it("keeps the highlighted entry when a late hit sorts above it, so Enter runs what was highlighted", async () => {
+    const unlock = vi.fn();
+    const late = vi.fn();
+    const list: Command[] = [{ id: "lock", label: "Lock manager", run: vi.fn() }, { id: "unlock", label: "Unlock vault", run: unlock }];
+    const view = render(() => <CommandPalette open commands={list} search={async () => [hit("file-1", "Lock file", late)]} onClose={vi.fn()} />);
+    const box = view.getByRole("combobox", { name: "Search commands" });
+    await fireEvent.input(box, { target: { value: "lock" } });
+    await fireEvent.keyDown(box, { key: "ArrowDown" });
+    expect(view.getByRole("option", { name: /Unlock vault/ })).toHaveAttribute("aria-selected", "true");
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(view.getByRole("option", { name: /Unlock vault/ })).toHaveAttribute("aria-selected", "true");
+    await fireEvent.keyDown(box, { key: "Enter" });
+    expect(unlock).toHaveBeenCalledOnce();
+    expect(late).not.toHaveBeenCalled();
+  });
+
   it("a failing search leaves the commands working", async () => {
     const view = render(() => <CommandPalette open commands={commands()} search={async () => { throw new Error("boom"); }} onClose={vi.fn()} />);
     await fireEvent.input(view.getByRole("combobox", { name: "Search commands" }), { target: { value: "lock" } });

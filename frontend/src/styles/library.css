@@ -147,7 +147,7 @@ details summary { cursor: pointer; color: var(--ink-muted); }
 /* A column is as wide as its longest name, within limits: short folders stay compact, long names end in an ellipsis.
    Every column after the first has the dashed guide as its left edge, drawn in the column's own background. Its content
    starts one pixel to the right of it (padding), so no row, hover or selection fill can ever cover the line. */
-.col { flex: 0 0 260px; min-width: 0; max-width: 100%; display: flex; flex-direction: column; padding: 6px 0; overflow-y: auto; }
+.col { position: relative; flex: 0 0 260px; min-width: 0; max-width: 100%; display: flex; flex-direction: column; padding: 6px 0; overflow-y: auto; }
 .col + .col { background: var(--guide) left top / 1px 8px repeat-y; padding-left: 1px; }
 .col-row { display: flex; align-items: center; gap: 8px; min-height: 33px; padding: 6px 16px; cursor: default; user-select: none; }
 .col-row:hover { background: var(--hover); }
