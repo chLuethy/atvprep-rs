@@ -78,6 +78,57 @@ describe("grosse Listen", () => {
     } finally { vi.useRealTimers(); }
   });
 
+  /** The list with two pages loaded (rows 0-99, next page "c3"); later reads of the head answer with `head(reads)`. */
+  const refreshed = async (head: () => { items: FileRow[]; next: string | null }) => {
+    vi.useFakeTimers();
+    let reads = 0;
+    const cursors: string[] = [];
+    const api: Api = { request: vi.fn(async (path: string) => {
+      if (path === "/dashboard") return json({ files: {}, scans: {}, jobs: { running: 1 } });
+      if (!path.startsWith("/files?")) return json([]);
+      const cursor = new URLSearchParams(path.split("?")[1]).get("cursor");
+      if (cursor) cursors.push(cursor);
+      if (cursor === "c2") return json(Array.from({ length: 50 }, (_, index) => row(50 + index)), { next_cursor: "c3" });
+      if (cursor === "c3") return json([row(100)], { next_cursor: null });
+      reads += 1;
+      if (reads === 1) return json(Array.from({ length: 50 }, (_, index) => row(index)), { next_cursor: "c2" });
+      const fresh = head();
+      return json(fresh.items, { next_cursor: fresh.next });
+    }) };
+    const view = render(() => <LibraryPage api={api} activeId={undefined} onOpen={() => {}} />);
+    await vi.advanceTimersByTimeAsync(0);
+    fireEvent.click(view.getByRole("button", { name: "Load more files" }));
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(4100);
+    return { view, api, cursors };
+  };
+
+  it("eine neue Datei oben verliert beim Auffrischen die Zeile nicht, die über das Limit rutscht", async () => {
+    try {
+      const { view, cursors } = await refreshed(() => ({ items: [row(500), ...Array.from({ length: 99 }, (_, index) => row(index))], next: "c-head" }));
+      // Rows 0-99 were loaded; the head now holds 100 rows from the new one, and row 99 lies behind it.
+      expect(view.getByRole("table")).toHaveAttribute("aria-rowcount", "102");
+      expect(view.getByRole("link", { name: /S01E0500/ })).toBeInTheDocument();
+      fireEvent.click(view.getByRole("button", { name: "Load more files" }));
+      await vi.advanceTimersByTimeAsync(0);
+      // The next page is the one after what was loaded, not after the head.
+      expect(cursors.at(-1)).toBe("c3");
+      view.unmount();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("verschwindet eine Zeile im Kopf, wird der Rest verworfen und der Cursor des Kopfes genommen", async () => {
+    try {
+      const { view, cursors } = await refreshed(() => ({ items: Array.from({ length: 100 }, (_, index) => row(index)).filter((item) => item.id !== "m_2"), next: "c-head" }));
+      expect(view.queryByRole("link", { name: /S01E0002/ })).toBeNull();
+      expect(view.getByRole("table")).toHaveAttribute("aria-rowcount", "100");
+      fireEvent.click(view.getByRole("button", { name: "Load more files" }));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(cursors.at(-1)).toBe("c-head");
+      view.unmount();
+    } finally { vi.useRealTimers(); }
+  });
+
   it("die Spaltenansicht rendert einen grossen Ordner nicht ganz", async () => {
     const files = Array.from({ length: 400 }, (_, index) => row(index));
     const api: Api = { request: vi.fn(async (path: string) => {

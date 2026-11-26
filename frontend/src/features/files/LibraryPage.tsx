@@ -180,11 +180,7 @@ export const LibraryPage: Component<{
     const mine = generation;
     const page = await loadFiles(api, { ...asked.filter, cursor: null, sort: asked.sort, limit: Math.min(100, Math.max(50, rows().length)) });
     if (mine !== generation || page.error) return;
-    const loaded = rows();
-    const head = new Set(page.items.map((item) => item.id));
-    const behind = loaded.length > page.items.length && page.nextCursor !== null;
-    const fresh = behind ? [...page.items, ...loaded.slice(page.items.length).filter((item) => !head.has(item.id))] : page.items;
-    const cursor = behind ? nextCursor() : page.nextCursor;
+    const { rows: fresh, cursor } = mergeHead(rows(), page.items, page.nextCursor, nextCursor());
     const previous = rows();
     const oldKey = uniqueRowKeys(previous, fileKey);
     const newKey = uniqueRowKeys(fresh, fileKey);
@@ -877,3 +873,23 @@ export const LibraryPage: Component<{
 };
 
 export { verdictOf };
+
+/**
+ * The loaded rows with their head read again. The head replaces what it covers; the rows loaded behind it stay (by id,
+ * so a row pushed past the head by a new file is not lost) and the next page keeps its cursor. If the two disagree
+ * about the overlap (a row of the head range is gone, or the order differs), the rows behind are dropped and the next
+ * page follows the head.
+ */
+export function mergeHead(loaded: FileRow[], head: FileRow[], headCursor: string | null, loadedCursor: string | null): { rows: FileRow[]; cursor: string | null } {
+  if (headCursor === null) return { rows: head, cursor: headCursor };
+  // A file is the same by its place in the library; the id may change between reads.
+  const identity = (item: FileRow) => fileKey(item) ?? item.id;
+  const inHead = new Set(head.map(identity));
+  const lastOverlap = loaded.reduce((last, item, position) => (inHead.has(identity(item)) ? position : last), -1);
+  const overlap = loaded.slice(0, lastOverlap + 1).map(identity);
+  const known = new Set(overlap);
+  const order = head.map(identity).filter((key) => known.has(key));
+  const agree = overlap.every((key, position) => inHead.has(key) && key === order[position]);
+  if (!agree) return { rows: head, cursor: headCursor };
+  return { rows: [...head, ...loaded.slice(lastOverlap + 1).filter((item) => !inHead.has(identity(item)))], cursor: loadedCursor };
+}
