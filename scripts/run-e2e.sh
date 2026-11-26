@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run the Playwright smoke test against the Rust server serving the built SPA.
 # Needs sqlite3, ffprobe, the frontend dependencies and a Chromium (`npx playwright install chromium`).
-# The journeys expect a fixed fixture (Sample Movie, Failed Movie, a queued and a failed job, and
+# The journeys expect a fixed fixture (Sample Movie, Failed Movie, a queued and a failed job, a failed job on a long-named file, and
 # six files with long Sonarr/Radarr names in series and movie folders); it is
 # inserted into a freshly migrated temporary database before the server serves the tests.
 set -euo pipefail
@@ -110,11 +110,12 @@ INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,finge
  (4,1,'Old Codec Movie.mp4','movie','.mp4',$size,1,'$fingerprint',1,4,1,'present','warning','action_required','fix','video','reencode'),
 $arr_sql;
 INSERT INTO inspections(media_file_id,source_fingerprint,input_fingerprint,tool_name,tool_version,result) VALUES(1,'$fingerprint','$fingerprint','ffprobe','e2e','{"format":{"format_name":"mp4"}}');
-INSERT INTO jobs(id,action,status,trigger,total_count,failed_count,error) VALUES(1,'verify','queued','manual',1,0,NULL),(2,'fix','failed','manual',1,1,'synthetic e2e failure'),(3,'fix','failed','manual',1,1,'worker stopped');
+INSERT INTO jobs(id,action,status,trigger,total_count,failed_count,error) VALUES(1,'verify','queued','manual',1,0,NULL),(2,'fix','failed','manual',1,1,'synthetic e2e failure'),(3,'fix','failed','manual',1,1,'worker stopped'),(5,'fix','failed','manual',1,1,'worker stopped');
 INSERT INTO job_items(id,job_id,media_file_id,action,position,status,attempt,error_code,error_detail,input_snapshot_json,log_tail,finished_at) VALUES
  (1,1,1,'verify',1,'queued',0,NULL,NULL,'{"relative_path":"Sample Movie.mp4"}','synthetic executor log',NULL),
  (2,2,2,'fix',1,'failed',1,'synthetic_failure','synthetic e2e failure','{"relative_path":"Failed Movie.mp4"}','synthetic executor log',NULL),
- (3,3,3,'fix',1,'interrupted',1,'worker_stopped','The worker stopped while this ran.','{"relative_path":"Interrupted Movie.mp4"}','synthetic executor log','2999-01-01T00:00:00Z');
+ (3,3,3,'fix',1,'interrupted',1,'worker_stopped','The worker stopped while this ran.','{"relative_path":"Interrupted Movie.mp4"}','synthetic executor log','2999-01-01T00:00:00Z'),
+ (5,5,6,'fix',1,'interrupted',1,'worker_stopped','The worker stopped while this ran.','{"relative_path":"TV/The Marvelous Mrs. Maisel (2017) {tvdb-330139}/Season 01/The Marvelous Mrs. Maisel (2017) - S01E02 - Ya Shivu v Bolshom Dome Na Kholme [AMZN WEBDL-2160p][DV HDR10Plus][EAC3 Atmos 5.1][h265]-NTb.mp4"}','synthetic executor log','2999-01-01T00:00:00Z');
 -- A schedule and the verification one of its runs queued; schedules store their jobs as manual.
 INSERT INTO schedules(id,name,action,days_mask,time_of_day,enabled) VALUES(1,'E2E Weekly','verify',1,'03:00',0);
 INSERT INTO jobs(id,action,status,trigger,total_count,succeeded_count,settings_snapshot_json) VALUES(4,'verify','succeeded','manual',1,1,'{"schedule_id":1}');
