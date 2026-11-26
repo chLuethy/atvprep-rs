@@ -45,9 +45,11 @@
 .files-table tr.row:focus-visible { outline-offset: -2px; }
 .files-table tr.row { user-select: none; cursor: pointer; }
 /* The name column is the flexible one and wraps; Status and Size are columns of their own that never wrap. `.files-table td` sets nowrap, so the selector must be at least as specific. */
-.files-table td.file-cell { width: 100%; min-width: min(200px, 35vw); white-space: normal; }
+.files-table td.file-cell { width: 100%; max-width: 0; min-width: min(200px, 35vw); white-space: normal; }
 .files-table td.col-status, .files-table td.num { width: 1%; }
 .file-title { display: block; min-height: 24px; color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
+.name-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.name-tag { padding: 0 6px; background: var(--sand); color: var(--ink-muted); font-size: var(--text-sm); white-space: nowrap; }
 .file-title:hover { text-decoration: underline; text-underline-offset: 3px; }
 .file-folder { display: block; color: var(--ink-muted); overflow-wrap: anywhere; font-size: var(--text-sm); }
 .file-cell .interrupted-note { display: block; font-size: var(--text-sm); color: var(--warn); }

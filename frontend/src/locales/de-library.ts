@@ -116,6 +116,8 @@ export const deMenusAndKeys: Record<string, string | readonly [string, string]> 
   "Search commands": "Befehle suchen",
   "Type a command": "Befehl eingeben",
   "No command found": "Kein Befehl gefunden",
+  "Job": "Auftrag",
+  "Schedule": "Zeitplan",
   "Unable to unlock manager session.": "Die Manager-Sitzung konnte nicht entsperrt werden.",
   "Unlock manager": "Manager entsperren",
   "Master token": "Master-Token",

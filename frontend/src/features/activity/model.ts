@@ -2,6 +2,7 @@ import type { ChipKind } from "../../ui/StatusChip";
 import type { IconName } from "../../ui/icons";
 import { N, t } from "../../lib/i18n";
 import { baseName } from "../files/model";
+import { parseMediaName, shortName } from "../../lib/mediaName";
 import type { ItemRow, JobRow } from "./loaders";
 
 export type Tone = { kind: ChipKind; icon: IconName; label: string; live?: boolean };
@@ -41,8 +42,9 @@ export const canRetry = (job: Pick<JobRow, "status">) => job.status === "failed"
 const ACTIONS: Record<string, string> = { prepare: N("Prepare"), verify: N("Verify"), inspect: N("Inspect") };
 export const actionLabel = (action: string) => (ACTIONS[action] ? t(ACTIONS[action]) : humanize(action));
 
-export function jobTitle(job: JobRow): string {
-  const name = job.subject ? baseName(job.subject).title : "";
+export function jobTitle(job: JobRow, options: { full?: boolean } = {}): string {
+  const title = job.subject ? baseName(job.subject).title : "";
+  const name = options.full ? title : shortName(parseMediaName(title), { withGroup: true });
   if (name) return job.total_count > 1 ? t("{name} and {count} more", { name, count: job.total_count - 1 }) : name;
   return job.total_count > 1 ? t("{action} job for {count} files", { action: actionLabel(job.action), count: job.total_count }) : t("{action} job", { action: actionLabel(job.action) });
 }
@@ -122,8 +124,40 @@ const REFUSALS: ReadonlyArray<string> = [
   N("The approving session is no longer active."),
 ];
 
-/** An item's recorded reason, in the chosen language where the worker wrote a known one. */
+/** What each error code of an item means, in words; the worker writes the codes, the page explains them. */
+const ERROR_CODES: Readonly<Record<string, string>> = {
+  worker_stopped: N("The worker stopped while this ran."),
+  synthetic_failure: N("The job failed."),
+  encode_not_allowed: N("Encoding was not allowed for this file."),
+  analysis: N("The file could not be analysed."),
+  ffmpeg: N("ffmpeg failed while rewriting the file."),
+  no_output: N("The run produced no output file."),
+  blockers: N("Problems in the file block this change."),
+  unsafe: N("The result was not safe to put in place."),
+  transcode: N("Re-encoding the file failed."),
+  mp4box: N("The chunk step failed. MP4Box is missing or reported an error."),
+};
+
+/** The meaning of an error code in the chosen language, or nothing for a code this page does not know. */
+export function describeErrorCode(code: string): string | undefined {
+  const known = Object.hasOwn(ERROR_CODES, code) ? ERROR_CODES[code] : undefined;
+  return known === undefined ? undefined : t(known);
+}
+
+/** Texts the worker writes itself when it recovers an item; they are put into the chosen language. */
+const RECOVERY_DETAILS: ReadonlyArray<string> = [
+  N("The worker stopped while this ran."),
+  N("The worker stopped or lost its lease while this ran."),
+  N("The worker stopped or lost its lease while this ran, so the work was lost. It was queued again as a new job."),
+  N("The worker stopped while this ran, and new work is paused for a release switch. Start it again by hand once the switch is done."),
+];
+const GAVE_UP = /^The worker stopped while this ran, (\d+) times in a row\. The manager gave up; start it again by hand\.$/;
+
+/** An item's recorded reason, in the chosen language where the worker wrote a known one; any other text stays as written. */
 export function describeDetail(detail: string): string {
+  if (RECOVERY_DETAILS.includes(detail)) return t(detail);
+  const gaveUp = GAVE_UP.exec(detail);
+  if (gaveUp) return t("The worker stopped while this ran, {count} times in a row. The manager gave up; start it again by hand.", { count: gaveUp[1] ?? "" });
   const refused = /^([\s\S]*) Queue the preparation again\.$/.exec(detail);
   const reason = refused?.[1];
   if (reason === undefined || !REFUSALS.includes(reason)) return detail;

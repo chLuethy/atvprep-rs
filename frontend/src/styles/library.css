@@ -40,9 +40,10 @@
 .facts dd { margin: 0; min-width: 0; font-weight: 400; }
 .insp-sec h3, .preview h3 { margin: 22px 0 8px; }
 .why { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.why-item { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; align-items: start; }
+.why-item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: start; }
 .why-item p { margin: 0; color: var(--ink); }
 .why-item .rule { display: block; color: var(--ink-muted); }
+.why-code summary { cursor: pointer; color: var(--ink-muted); }
 .tracks { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
 .tracks th { font-weight: 500; color: var(--ink-muted); text-align: left; padding: 4px 8px 4px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .tracks td, .tracks tbody th { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; white-space: nowrap; color: var(--ink); font-weight: 400; }
@@ -155,6 +156,10 @@ details summary { cursor: pointer; color: var(--ink-muted); }
 .col-icon { display: inline-flex; color: var(--ink-muted); flex: none; }
 .col-icon.folder { color: var(--accent); }
 .col-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Cut in the middle: the head shrinks with an ellipsis, the tail (episode end, group) stays. */
+.mid { display: flex; min-width: 0; white-space: nowrap; }
+.mid-head { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.mid-tail { flex: none; white-space: pre; }
 .col-trail { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; color: var(--ink-muted); flex: none; }
 .col-badge { display: inline-flex; align-items: center; gap: 3px; font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
 .col-badge.bad, .col-state.bad { color: var(--bad); }
