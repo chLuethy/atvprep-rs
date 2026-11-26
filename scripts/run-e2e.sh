@@ -92,6 +92,14 @@ for entry in "${arr_files[@]}"; do
 done
 arr_sql=${arr_sql%,$'\n'}
 
+# ATVPREP_E2E_BULK=2000 adds that many more files (only in the database) for the journey of large lists; the default fixture stays small.
+bulk_sql=""
+if [ "${ATVPREP_E2E_BULK:-0}" -gt 0 ]; then
+  bulk_sql="WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<${ATVPREP_E2E_BULK})
+INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,scanned_device,scanned_inode,scanned_ctime_ns,discovery_state,compliance_state,workflow_state,desired_action,encode_need,planned_change)
+SELECT 1000+i,1,'Bulk/Serie (2020) {tvdb-1}/Season 01/Serie (2020) - S01E'||printf('%04d',i)||' - Folge [WEBDL-1080p][h264]-GRP.mp4','movie','.mp4',$size,1,'$fingerprint',1,1000+i,1,'present','clean','idle','none','none','none' FROM n;"
+fi
+
 sqlite3 "$work/manager.sqlite" <<SQL
 INSERT INTO scan_runs(id,root_id,generation,status,finished_at,orphans_json) VALUES(100,1,100,'succeeded',datetime('now'),'{"count":1,"bytes":15,"files":[{"relative_path":"$leftover","size":15,"modified_at":"2026-11-01 10:00:00"}]}');
 INSERT OR IGNORE INTO library_roots(id,name,canonical_path) VALUES(1,'E2E Library','$(cd "$work/media" && pwd -P)');
@@ -119,6 +127,7 @@ INSERT OR IGNORE INTO scheduler_leases(id) VALUES(1);
 INSERT OR IGNORE INTO media_executor_leases(id) VALUES(1);
 UPDATE scheduler_leases SET owner_id='e2e-fixture',lease_expires_at='2999-01-01 00:00:00.000000' WHERE id=1;
 UPDATE media_executor_leases SET owner_id='e2e-fixture',lease_expires_at='2999-01-01 00:00:00.000000' WHERE id=1;
+$bulk_sql
 SQL
 start
 
