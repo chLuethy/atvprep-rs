@@ -341,12 +341,20 @@ fn read_atom_header(file: &mut File, offset: u64) -> Result<Option<Atom>> {
     }))
 }
 
+/// Whether an atom header still fits between `cursor` and `end`. Fewer bytes are padding: the
+/// patcher closes a moov that shrank by 1 to 7 bytes with zeros, since no `free` box fits.
+fn header_fits(cursor: u64, end: u64) -> bool {
+    cursor
+        .checked_add(8)
+        .is_some_and(|header_end| header_end <= end)
+}
+
 /// The direct children of `parent`, starting `extra` bytes into its payload.
 fn children_after(file: &mut File, parent: &Atom, extra: u64) -> Result<Vec<Atom>> {
     let mut cursor = parent.payload_offset + extra;
     let end = parent.payload_offset + parent.payload_size;
     let mut found = Vec::new();
-    while cursor < end {
+    while header_fits(cursor, end) {
         let Some(atom) = read_atom_header(file, cursor)? else {
             break;
         };
@@ -364,7 +372,7 @@ fn children(file: &mut File, parent: &Atom) -> Result<Vec<Atom>> {
 fn find_child(file: &mut File, parent: &Atom, kind: [u8; 4]) -> Result<Option<Atom>> {
     let mut cursor = parent.payload_offset;
     let end = parent.payload_offset + parent.payload_size;
-    while cursor < end {
+    while header_fits(cursor, end) {
         let Some(atom) = read_atom_header(file, cursor)? else {
             return Ok(None);
         };
@@ -839,6 +847,34 @@ mod tests {
             bytes.windows(4).any(|w| w == b"text"),
             "the chapter handler is still text"
         );
+    }
+
+    /// Schrumpft das moov um 1 bis 7 Bytes, polstert der Patcher es mit Nullbytes auf (kein `free`
+    /// passt hinein). Der Walk endet dort, statt die Nullbytes und den mdat-Kopf als Atom zu lesen.
+    fn padded_moov() -> (tempfile::TempDir, std::path::PathBuf) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("syn_pad_3.mp4");
+        std::fs::copy(fixture_path("syn_pad_3.mp4"), &path).unwrap();
+        crate::mp4::patch::Patcher::default()
+            .set_subtitle_accessibility(&path, &[], None)
+            .unwrap();
+        (dir, path)
+    }
+
+    #[test]
+    fn a_moov_closed_by_zero_padding_is_walked_to_its_end() {
+        let (_dir, path) = padded_moov();
+        let bytes = std::fs::read(&path).unwrap();
+        let moov = bytes.windows(4).position(|w| w == b"moov").unwrap() - 4;
+        let size = u32::from_be_bytes(bytes[moov..moov + 4].try_into().unwrap()) as usize;
+        assert_eq!(
+            &bytes[moov + size - 3..moov + size],
+            [0, 0, 0],
+            "the moov ends in padding"
+        );
+        assert!(!read_tracks(&path).unwrap().is_empty());
+        normalize_dec3_for_no_atmos(&path).unwrap();
+        set_subtitle_handler_types_to_sbtl(&path).unwrap();
     }
 
     #[test]
