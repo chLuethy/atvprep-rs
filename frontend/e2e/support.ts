@@ -1,9 +1,14 @@
 import { expect, type Page } from "@playwright/test";
 
 export async function unlock(page: Page): Promise<void> {
-  await page.getByLabel("Master token").fill(process.env.E2E_MASTER_TOKEN ?? "");
-  await page.getByRole("button", { name: "Unlock" }).click();
-  await expect(page.getByRole("button", { name: "Lock", exact: true })).toBeVisible();
+  const lock = page.getByRole("button", { name: "Lock", exact: true });
+  // The gate shows the token form while it still asks the server whether a session exists; with a session (a
+  // reload, a second page in the same context) the form goes away by itself. Do not wait for a form that left.
+  const unlocked = await page.getByLabel("Master token").fill(process.env.E2E_MASTER_TOKEN ?? "", { timeout: 2_000 }).then(() => false, () => lock.isVisible());
+  if (!unlocked) {
+    await page.getByRole("button", { name: "Unlock" }).click({ timeout: 2_000 }).catch(async (error) => { if (!(await lock.isVisible())) throw error; });
+  }
+  await expect(lock).toBeVisible();
 }
 
 export async function openAndUnlock(page: Page, path: string): Promise<void> {

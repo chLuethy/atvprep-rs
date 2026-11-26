@@ -1,10 +1,12 @@
-import { createEffect, createMemo, createSignal, For, refresh, Show, untrack, type Component } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onSettled, refresh, Show, untrack, type Component } from "solid-js";
+import { createRowWindow } from "../../lib/rowWindow";
 import { N, t, tn } from "../../lib/i18n";
-import { Button, Icon } from "../../ui";
+import { Button, Icon, MiddleText } from "../../ui";
+import { parseMediaName, shortName } from "../../lib/mediaName";
 import { allReady, describeCounts, loadBrowse, worstIn, type Browse, type BrowseFolder, type StateCounts } from "./browse";
 import type { Api, FileRow } from "./loaders";
 import { EMPTY_FILTER, fileSortQuery, type FileFilter, type FileSort } from "./filters";
-import { verdictOf } from "./model";
+import { baseName, verdictOf } from "./model";
 import { RowMenu, type MenuItem } from "./RowMenu";
 import { additive, copyText, selectionMenu, type SelectionAction } from "./selection";
 import { columnFilterKey, type ColumnPath } from "./columnPath";
@@ -27,6 +29,13 @@ export type ColumnAction = SelectionAction;
 /** The order a column asks for, as one comparable string; none given is the server's own order. */
 const sortKey = (sort: FileSort | undefined) => (sort === undefined ? "server" : fileSortQuery(sort));
 
+/** The file as a column row shows it: series left out (the folder names it), the extension kept. */
+const columnName = (path: string | undefined) => {
+  const name = lastName(path);
+  const stem = baseName(path ?? "").title;
+  const parsed = parseMediaName(stem);
+  return parsed.matched && stem ? `${shortName(parsed, { dropSeries: true, withGroup: true })}${name.slice(stem.length)}` : name;
+};
 const lastName =(path: string | undefined) => (path ?? "").split("/").pop() || t("(unnamed)");
 const entriesOf = (data: Browse): Entry[] => [
   ...data.folders.map((folder): Entry => ({ kind: "folder", key: `d:${folder.name}`, folder })),
@@ -66,6 +75,8 @@ const Column: Component<{
   version: number;
   selected: (key: string) => boolean;
   focused: boolean;
+  /** The key of the entry the keys moved to. */
+  cursor: string | null;
   onEntries: (index: number, entries: Entry[]) => void;
   onRow: (index: number, entry: Entry, event: MouseEvent) => void;
   onMenu: (index: number, entry: Entry, event: MouseEvent) => void;
@@ -93,6 +104,33 @@ const Column: Component<{
   createEffect(() => ({ ready: loaded()?.kind === "ok", index: props.index, entries: entries() }), ({ ready, index, entries }) => {
     if (ready) props.onEntries(index, entries);
   });
+  // A big folder builds only the rows near the screen; the others are two spacers of the same height.
+  let column: HTMLDivElement | undefined;
+  const window = createRowWindow({
+    total: () => entries().length,
+    scroller: () => column,
+    // The first row sits below the notes above it; the top spacer is not part of that, or the window would move itself.
+    origin: () => (column?.querySelector<HTMLElement>(".col-row")?.offsetTop ?? 0) - (column?.querySelector<HTMLElement>("[data-spacer=top]")?.offsetHeight ?? 0),
+    rendered: () => Array.from(column?.querySelectorAll(".col-row") ?? []),
+    estimate: 33,
+  });
+  onSettled(() => window.attach());
+  createEffect(() => entries().length, () => window.recompute());
+  const slice = createMemo(() => {
+    const { start, end } = window.shown();
+    return entries().slice(start, end);
+  });
+  // The row the keys moved to may lie outside the window: build it, then bring it into view.
+  createEffect(() => (props.focused ? props.cursor : undefined), (key) => {
+    if (!key) return;
+    const index = entries().findIndex((entry) => entry.key === key);
+    if (index < 0) return;
+    window.reveal(index);
+    // The row exists only once the window has been built around it; then bring it into view.
+    onSettled(() => {
+      column?.querySelector<HTMLElement>(`.col-row[data-key="${CSS.escape(key)}"]`)?.scrollIntoView?.({ block: "nearest" });
+    });
+  });
 
   return (
     <div
@@ -101,6 +139,7 @@ const Column: Component<{
       role="listbox"
       aria-multiselectable="true"
       aria-label={props.index === 0 ? t("Libraries") : t("Folder contents")}
+      ref={column}
       onClick={(event) => { if (event.target === event.currentTarget) props.onBackground(props.index); }}
     >
       <Show when={loaded()} fallback={<p class="col-note muted">{t("Loading")}</p>}>
@@ -113,7 +152,8 @@ const Column: Component<{
             <Show when={value().kind === "ok" && entries().length === 0}>
               <p class="col-note muted">{columnFilterKey(props.filter) ? t("Nothing here matches the filters") : t("Empty folder")}</p>
             </Show>
-            <For each={entries()}>{(entry) => (
+            <Show when={window.shown().start > 0}><div aria-hidden="true" data-spacer="top" style={{ height: `${window.shown().start * window.rowHeight()}px`, "flex-shrink": 0 }} /></Show>
+            <For each={slice()}>{(entry) => (
               <div
                 class={["col-row", { selected: props.selected(entry.key) }]}
                 role="option"
@@ -134,7 +174,7 @@ const Column: Component<{
                 ) : (
                   <>
                     <span class="col-icon"><Icon name="file" size={16} /></span>
-                    <span class="col-name" title={lastName(entry.file.display_path)}>{lastName(entry.file.display_path)}</span>
+                    <MiddleText class="col-name" text={columnName(entry.file.display_path)} full={lastName(entry.file.display_path)} />
                     <span class="col-trail">
                       <span class={`col-state ${verdictOf(entry.file).kind}`} title={verdictOf(entry.file).label} role="img" aria-label={verdictOf(entry.file).label}>
                         <Icon name={verdictOf(entry.file).icon} size={12} />
@@ -144,6 +184,7 @@ const Column: Component<{
                 )}
               </div>
             )}</For>
+            <Show when={entries().length > window.shown().end}><div aria-hidden="true" style={{ height: `${(entries().length - window.shown().end) * window.rowHeight()}px`, "flex-shrink": 0 }} /></Show>
             <Show when={value().kind === "ok" && (value() as { truncated?: boolean }).truncated}>
               <p class="col-note muted">{t("Only the first files are listed. Use the search to find the rest.")}</p>
             </Show>
@@ -442,6 +483,7 @@ export const ColumnsView: Component<{
             version={props.version}
             selected={(key) => isSelected(index, key)}
             focused={active() === index}
+            cursor={cursor()}
             onEntries={onEntries}
             onRow={onRow}
             onMenu={onMenu}

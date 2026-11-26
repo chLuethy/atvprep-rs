@@ -7,13 +7,13 @@
 .appearance-mode .seg { min-width: 210px; }
 .settings-body { display: grid; gap: 16px; max-width: 1360px; margin: 0 auto; padding-bottom: 16px; min-width: 0; }
 .settings-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; max-width: 1360px; margin: 0 auto 16px; }
-.settings-head h2 { min-width: 0; overflow-wrap: anywhere; }
+.settings-head h1 { min-width: 0; overflow-wrap: anywhere; }
 .settings-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
 .settings-col { display: grid; gap: 16px; min-width: 0; }
 @media (max-width: 1100px) { .settings-cols { grid-template-columns: minmax(0, 1fr); } }
 .setting-group { display: grid; gap: 16px; min-width: 0; padding: 16px; background: var(--surface); border: 1px solid var(--line); }
 .setting-group > * { margin: 0; }
-.setting-group h3 { padding: 0; }
+.setting-group h2 { padding: 0; }
 .setting { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: start; min-width: 0; }
 .setting > * { min-width: 0; }
 .setting > :not(.btn):not(.audit) { grid-column: 1; }
@@ -22,6 +22,8 @@
 .setting label { display: block; margin-bottom: 4px; }
 .setting input[type="number"], .setting input.input { width: 100%; max-width: 240px; }
 .setting input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
+/* A phone needs a touch target of at least 24px (WCAG 2.5.8). */
+@media (max-width: 720px) { .setting input[type="checkbox"] { width: 24px; height: 24px; } }
 .setting textarea.lines { width: 100%; font-family: var(--font-mono); font-size: var(--text-sm); resize: vertical; }
 .help { display: block; margin-top: 4px; color: var(--ink-muted); font-size: var(--text-sm); }
 .help.caution { color: var(--warn); }
@@ -32,3 +34,6 @@
   .setting { grid-template-columns: minmax(0, 1fr); }
   .setting > .btn { grid-column: 1; grid-row: auto; justify-self: start; }
 }
+/* Lines of text stay readable: about 75 characters. */
+.settings-body p, .settings-body .help, .appearance-settings .help { max-width: 75ch; }
+.appearance-settings h2 { font-size: var(--text-md); font-weight: 700; margin: 1em 0; }

@@ -24,7 +24,7 @@ import { isTyping } from "../../lib/keys";
 import { uniqueRowKeys } from "../../lib/rowKeys";
 import { fileKey } from "./identity";
 import { realtimeState } from "../../lib/realtime";
-import { fitBottomTo } from "../../lib/fitBottom";
+import { fitBottomTo, SINGLE_COLUMN_MAX } from "../../lib/fitBottom";
 
 const readView = (): "list" | "columns" => (recall("layout") === "columns" ? "columns" : "list");
 
@@ -64,6 +64,7 @@ export const LibraryPage: Component<{
   const [nextCursor, setNextCursor] = createSignal<string | null>(null);
   const [phase, setPhase] = createSignal<Phase>("loading");
   const [loadingMore, setLoadingMore] = createSignal(false);
+  const [reveal, setReveal] = createSignal<{ id: string } | undefined>(undefined);
   const [moreProblem, setMoreProblem] = createSignal<string | null>(null);
   const [counts, setCounts] = createSignal<Record<string, number> | null>(null);
   const facet = createFacetFilter(FILE_FILTER_SPEC, { filter: () => props.filter, onFilter: (next, how) => props.onFilter?.(next, how) });
@@ -118,7 +119,6 @@ export const LibraryPage: Component<{
   let removeTrigger: HTMLButtonElement | undefined;
 
   let generation = 0;
-  let pages = 1;
   // Files to mark as their rows are built: new ones and those whose state changed in the last refresh.
   let flagged = new Set<string>();
   let searchInput: HTMLInputElement | undefined;
@@ -141,7 +141,6 @@ export const LibraryPage: Component<{
       // Re-sorting keeps the table (and its headers) on screen until the new order arrives.
       if (!quiet) setPhase("loading");
       setPicked(new Set<string>());
-      pages = 1;
     } else {
       setLoadingMore(true);
     }
@@ -160,7 +159,6 @@ export const LibraryPage: Component<{
       return;
     }
     setMoreProblem(null);
-    if (!reset) pages += 1;
     if (reset) setRows(page.items);
     else {
       const known = new Set(rows().map((row) => row.id));
@@ -174,18 +172,15 @@ export const LibraryPage: Component<{
     }
   };
 
-  /** Read every page loaded so far again and replace the rows in place; selection and open file stay. */
+  /**
+   * Read the head of the list again and replace it in place; selection and open file stay. One request, whatever
+   * the number of pages loaded: the rows behind the head keep what they had until the list is loaded again.
+   */
   const readFreshRows = async (asked: { filter: FileFilter; sort: Sort }, api: Api) => {
     const mine = generation;
-    let cursor: string | null = null;
-    const fresh: FileRow[] = [];
-    for (let index = 0; index < pages; index += 1) {
-      const page = await loadFiles(api, { ...asked.filter, cursor, sort: asked.sort });
-      if (mine !== generation || page.error) return;
-      fresh.push(...page.items);
-      cursor = page.nextCursor;
-      if (!cursor) break;
-    }
+    const page = await loadFiles(api, { ...asked.filter, cursor: null, sort: asked.sort, limit: Math.min(100, Math.max(50, rows().length)) });
+    if (mine !== generation || page.error) return;
+    const { rows: fresh, cursor } = mergeHead(rows(), page.items, page.nextCursor, nextCursor());
     const previous = rows();
     const oldKey = uniqueRowKeys(previous, fileKey);
     const newKey = uniqueRowKeys(fresh, fileKey);
@@ -597,7 +592,8 @@ export const LibraryPage: Component<{
     if (!next) return;
     if (extend) selectRow(next, { metaKey: false, ctrlKey: false, shiftKey: true });
     else applySelection([next.id], next.id, next.id);
-    queueMicrotask(() => document.querySelector<HTMLElement>(`tr.row[data-id="${next.id}"]`)?.focus());
+    // The list builds only the rows near the screen; it brings this one in and focuses it.
+    setReveal({ id: next.id });
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -634,7 +630,9 @@ export const LibraryPage: Component<{
 
   /** What the selection bar acts on: the marked files, else the open file. One file is a selection too: the bar is where Verify, Re-inspect and Prepare live. */
   const barRows = (): FileRow[] => (pickedRows().length > 0 ? pickedRows() : targets());
-  const selectionCount = () => (picked().size > 0 ? pickedRows().length : props.activeId ? 1 : 0);
+  /** The open file counts once it is known: a row of the list or a loaded detail. An id nothing answers to selects nothing. */
+  const openKnown = () => !!openFile() || visibleRows().some((row) => row.id === props.activeId);
+  const selectionCount = () => (picked().size > 0 ? pickedRows().length : props.activeId && openKnown() ? 1 : 0);
   const barVisible = () => selectionCount() > 0;
   const selectionPreparable = () => preparableRows(barRows());
   /** Empties the marked files only; the open file stays open. */
@@ -646,6 +644,19 @@ export const LibraryPage: Component<{
   const detailOpen = () => !!previewRows() || !!props.activeId || selectionCount() > 1 || columnsBar();
   let page: HTMLElement | undefined;
   let split: HTMLDivElement | undefined;
+  let detailSide: HTMLElement | undefined;
+  // An opened file is said aloud, and where the details stand under the list (up to SINGLE_COLUMN_MAX) they are scrolled into view, except in the columns view, which keeps head and filter in sight; beside the list nothing moves.
+  const [opened, setOpened] = createSignal("");
+  // J and K move the open file while the details stay open: only a file opening from closed scrolls.
+  let detailsShown = false;
+  createEffect(() => (props.activeId && openKnown() ? props.activeId : undefined), (id) => {
+    if (!id) { setOpened(""); detailsShown = false; return; }
+    const wasShown = detailsShown;
+    detailsShown = true;
+    const path = openFile()?.id === id ? openFile()?.display_path : visibleRows().find((row) => row.id === id)?.display_path;
+    setOpened(t("Details of {name} opened", { name: baseName(path ?? "").title || id }));
+    if (!wasShown && !showColumns() && window.matchMedia?.(`(max-width: ${SINGLE_COLUMN_MAX}px)`).matches) detailSide?.scrollIntoView?.({ block: "start" });
+  });
   // The page fills the height down to the bottom of the sidebar's appearance buttons; one column just flows.
   onSettled(() => fitBottomTo({ page: () => page, split: () => split, anchor: () => document.querySelector<HTMLElement>("[data-fit-bottom]") }));
 
@@ -718,6 +729,7 @@ export const LibraryPage: Component<{
             </div>
           </div>
         </Show>
+        <p class="sr-only" aria-live="polite">{opened()}</p>
         <Show when={status()}><p class="notice ok lib-notice" role="status">{status()}</p></Show>
         <Show when={actionError()}><p class="notice bad lib-notice" role="alert">{actionError()}</p></Show>
       </div>
@@ -766,6 +778,7 @@ export const LibraryPage: Component<{
                     onSelect={selectRow}
                     onMenu={onRowMenu}
                     flagged={(row) => flagged.has(row.id)}
+                    reveal={reveal()}
                     libraryName={(id) => roots().find((root) => root.id === id)?.name ?? id}
                   />
                 </Show>
@@ -834,7 +847,7 @@ export const LibraryPage: Component<{
         </div>
 
         <Show when={detailOpen()}>
-          <aside class="files-detail" aria-label={t("Details")}>
+          <aside class="files-detail" aria-label={t("Details")} ref={detailSide}>
             <Show
               when={previewRows()}
               fallback={
@@ -864,3 +877,23 @@ export const LibraryPage: Component<{
 };
 
 export { verdictOf };
+
+/**
+ * The loaded rows with their head read again. The head replaces what it covers; the rows loaded behind it stay (by id,
+ * so a row pushed past the head by a new file is not lost) and the next page keeps its cursor. If the two disagree
+ * about the overlap (a row of the head range is gone, or the order differs), the rows behind are dropped and the next
+ * page follows the head.
+ */
+export function mergeHead(loaded: FileRow[], head: FileRow[], headCursor: string | null, loadedCursor: string | null): { rows: FileRow[]; cursor: string | null } {
+  if (headCursor === null) return { rows: head, cursor: headCursor };
+  // A file is the same by its place in the library; the id may change between reads.
+  const identity = (item: FileRow) => fileKey(item) ?? item.id;
+  const inHead = new Set(head.map(identity));
+  const lastOverlap = loaded.reduce((last, item, position) => (inHead.has(identity(item)) ? position : last), -1);
+  const overlap = loaded.slice(0, lastOverlap + 1).map(identity);
+  const known = new Set(overlap);
+  const order = head.map(identity).filter((key) => known.has(key));
+  const agree = overlap.every((key, position) => inHead.has(key) && key === order[position]);
+  if (!agree) return { rows: head, cursor: headCursor };
+  return { rows: [...head, ...loaded.slice(lastOverlap + 1).filter((item) => !inHead.has(identity(item)))], cursor: loadedCursor };
+}

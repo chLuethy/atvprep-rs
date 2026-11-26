@@ -1,5 +1,5 @@
 import { createEffect, createMemo, createSignal, For, onSettled, Show, type Component } from "solid-js";
-import { Button, Icon, ProgressBar } from "../../ui";
+import { Button, Icon, MiddleText, ProgressBar } from "../../ui";
 import { FilterBar, NoMatches, type Facet } from "../../ui/FilterBar";
 import { StatusChip } from "../../ui";
 import { JobDetail } from "./JobDetail";
@@ -54,7 +54,7 @@ const Row: Component<{ job: JobRow; current: boolean; flagged: boolean; onOpen: 
         data-id={props.job.id}
         onClick={(event) => { event.preventDefault(); props.onOpen(props.job.id); }}
       >
-        <span class="job-title">{jobTitle(props.job)}</span>
+        <MiddleText class="job-title" text={jobTitle(props.job)} full={jobTitle(props.job, { full: true })} tail={16} />
         <Show when={props.job.matched_path}>
           {(path) => <span class="job-match muted" title={path()}>{t("Match: {file}", { file: baseName(path()).title })}</span>}
         </Show>

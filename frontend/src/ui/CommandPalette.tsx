@@ -3,13 +3,43 @@ import { createEffect, createMemo, createSignal, For, Show, type Component } fro
 
 export type Command = { id: string; label: string; hint?: string; run: () => void };
 
+/** The pause after the last keystroke before the search asks the server. */
+const SEARCH_DELAY_MS = 200;
+
+/** `label` cut into the parts around the first (case-insensitive) occurrence of `needle`; no occurrence is one plain part. */
+function marked(label: string, needle: string): { before: string; hit: string; after: string } | null {
+  const at = needle ? label.toLowerCase().indexOf(needle.toLowerCase()) : -1;
+  return at < 0 ? null : { before: label.slice(0, at), hit: label.slice(at, at + needle.length), after: label.slice(at + needle.length) };
+}
+
 /**
  * A keyboard-first command list (⌘K). The search owns focus the whole time; arrows move a
  * highlight, Enter runs it, Escape leaves. Focus goes back to wherever it was when it opened.
  */
-export const CommandPalette: Component<{ open: boolean; commands: Command[]; onClose: () => void }> = (props) => {
+export const CommandPalette: Component<{
+  open: boolean;
+  commands: Command[];
+  /** More hits for a typed query (files, jobs, schedules), asked after a pause; the commands work without it. */
+  search?: (query: string) => Promise<Command[]>;
+  onClose: () => void;
+}> = (props) => {
   const [query, setQuery] = createSignal("");
-  const [index, setIndex] = createSignal(0);
+  const [found, setFound] = createSignal<Command[]>([]);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let asked = 0;
+
+  const ask = (text: string) => {
+    clearTimeout(timer);
+    const turn = ++asked;
+    setFound([]);
+    const needle = text.trim();
+    if (!props.search || !needle) return;
+    timer = setTimeout(() => {
+      props.search?.(needle).then((hits) => { if (turn === asked) setFound(hits); }, () => undefined);
+    }, SEARCH_DELAY_MS);
+  };
+  // The highlight is the entry the person moved to, found again by its id when late hits change the order; none means the first.
+  const [chosen, setChosen] = createSignal<string | null>(null);
   let input: HTMLInputElement | undefined;
   let previous: Element | null = null;
 
@@ -23,18 +53,21 @@ export const CommandPalette: Component<{ open: boolean; commands: Command[]; onC
   const visible = createMemo(() => {
     const needle = query().trim().toLowerCase();
     if (!needle) return props.commands;
-    return props.commands
-      .map((command, position) => ({ command, position, score: rank(command.label, needle) }))
-      .filter((entry) => entry.score >= 0)
-      .sort((a, b) => a.score - b.score || a.position - b.position)
+    // Hits come after commands of the same weight; a hit the server found by its folder only is weakest.
+    const commands = props.commands.map((command) => ({ command, score: rank(command.label, needle), hit: 0 }));
+    const hits = found().map((command) => ({ command, score: rank(command.label, needle) >= 0 ? rank(command.label, needle) : 3, hit: 1 }));
+    return [...commands.filter((entry) => entry.score >= 0), ...hits]
+      .map((entry, position) => ({ ...entry, position }))
+      .sort((a, b) => a.score - b.score || a.hit - b.hit || a.position - b.position)
       .map((entry) => entry.command);
   });
 
   createEffect(() => props.open, (open) => {
+    ask("");
     if (open) {
       previous = document.activeElement;
       setQuery("");
-      setIndex(0);
+      setChosen(null);
       queueMicrotask(() => input?.focus());
     } else if (previous instanceof HTMLElement) {
       const target = previous;
@@ -43,6 +76,14 @@ export const CommandPalette: Component<{ open: boolean; commands: Command[]; onC
     }
   });
 
+  const index = () => {
+    const at = chosen() === null ? -1 : visible().findIndex((command) => command.id === chosen());
+    return Math.max(0, at);
+  };
+  const setIndex = (value: number | ((current: number) => number)) => {
+    const next = typeof value === "function" ? value(index()) : value;
+    setChosen(visible()[next]?.id ?? null);
+  };
   const run = (command: Command | undefined) => {
     if (!command) return;
     props.onClose();
@@ -72,7 +113,7 @@ export const CommandPalette: Component<{ open: boolean; commands: Command[]; onC
             autocomplete="off"
             placeholder={t("Type a command")}
             value={query()}
-            onInput={(event) => { setQuery(event.currentTarget.value); setIndex(0); }}
+            onInput={(event) => { setQuery(event.currentTarget.value); setChosen(null); ask(event.currentTarget.value); }}
             onKeyDown={onKeyDown}
           />
           <ul id="palette-list" role="listbox" class="pal-list">
@@ -80,11 +121,17 @@ export const CommandPalette: Component<{ open: boolean; commands: Command[]; onC
               <li
                 id={`palette-${command.id}`}
                 role="option"
+                aria-label={command.hint ? `${command.label}, ${command.hint}` : command.label}
                 aria-selected={index() === position() ? "true" : "false"}
                 onMouseMove={() => setIndex(position())}
                 onClick={() => run(command)}
               >
-                <span>{command.label}</span>
+                <span class="pal-label" title={command.label}>
+                  {(() => {
+                    const parts = marked(command.label, query().trim());
+                    return parts ? <>{parts.before}<mark>{parts.hit}</mark>{parts.after}</> : command.label;
+                  })()}
+                </span>
                 <Show when={command.hint}><span class="pal-hint">{command.hint}</span></Show>
               </li>
             )}</For>

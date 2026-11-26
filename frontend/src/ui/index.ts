@@ -1,5 +1,6 @@
 export { Button } from "./Button";
 export { Icon, type IconName } from "./icons";
+export { MiddleText } from "./MiddleText";
 export { Kbd } from "./Kbd";
 export { StatusChip, type ChipKind } from "./StatusChip";
 export { CommandPalette, type Command } from "./CommandPalette";

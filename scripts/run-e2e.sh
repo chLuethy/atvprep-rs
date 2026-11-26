@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Run the Playwright smoke test against the Rust server serving the built SPA.
 # Needs sqlite3, ffprobe, the frontend dependencies and a Chromium (`npx playwright install chromium`).
-# The journeys expect a fixed fixture (Sample Movie, Failed Movie, a queued and a failed job); it is
+# The journeys expect a fixed fixture (Sample Movie, Failed Movie, a queued and a failed job, a failed job on a long-named file, and
+# six files with long Sonarr/Radarr names in series and movie folders); it is
 # inserted into a freshly migrated temporary database before the server serves the tests.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -70,6 +71,35 @@ fingerprint=$(shasum -a 256 "$work/media/Sample Movie.mp4" | cut -d' ' -f1)
 # A leftover partial rewrite beside the source, as a crash would leave it, and the scan that found it.
 leftover=".tmp_fixmeta_enc.Sample Movie.4711-0a1b2c3d.mp4"
 printf 'partial rewrite' > "$work/media/$leftover"
+# Long Sonarr/Radarr names: series with season folder and {tvdb-...}, movies with {imdb-...} and quality tags.
+# One entry per file: relative path, compliance state, workflow state, desired action, encode need, planned change.
+arr_files=(
+  "TV/The Marvelous Mrs. Maisel (2017) {tvdb-330139}/Season 01/The Marvelous Mrs. Maisel (2017) - S01E01 - Pilot [AMZN WEBDL-2160p][DV HDR10Plus][EAC3 Atmos 5.1][h265]-NTb.mp4|clean|idle|none|none|none"
+  "TV/The Marvelous Mrs. Maisel (2017) {tvdb-330139}/Season 01/The Marvelous Mrs. Maisel (2017) - S01E02 - Ya Shivu v Bolshom Dome Na Kholme [AMZN WEBDL-2160p][DV HDR10Plus][EAC3 Atmos 5.1][h265]-NTb.mp4|warning|action_required|fix|none|remux"
+  "TV/Severance (2022) {tvdb-371980}/Season 02/Severance (2022) - S02E09 - Cold Harbor [ATVP WEBDL-2160p][DV HDR10][EAC3 Atmos 5.1][h265]-FLUX.mp4|clean|idle|none|none|none"
+  "Movies/Dune Part Two (2024) {imdb-tt15239678}/Dune Part Two (2024) {imdb-tt15239678} [Remux-2160p][DV HDR10][TrueHD Atmos 7.1][h265]-FraMeSToR.mp4|warning|action_required|fix|audio|reencode"
+  "Movies/Blade Runner 2049 (2017) {imdb-tt1856101}/Blade Runner 2049 (2017) {imdb-tt1856101} [Bluray-1080p Proper][DTS-HD MA 5.1][x264]-CtrlHD.mp4|clean|idle|none|none|none"
+  "Movies/The Lord of the Rings The Return of the King (2003) {imdb-tt0167260}/The Lord of the Rings The Return of the King (2003) {imdb-tt0167260} {edition-Extended Cut} [Bluray-2160p][HDR10][DTS-HD MA 5.1][h265]-WiLDCAT.mp4|warning|action_required|fix|video|reencode"
+)
+arr_sql=""
+id=5
+for entry in "${arr_files[@]}"; do
+  IFS='|' read -r rel compliance workflow desired need change <<< "$entry"
+  mkdir -p "$work/media/$(dirname "$rel")"
+  printf 'synthetic e2e media' > "$work/media/$rel"
+  arr_sql+="($id,1,'$rel','movie','.mp4',$size,1,'$fingerprint',1,$id,1,'present','$compliance','$workflow','$desired','$need','$change'),"$'\n'
+  id=$((id + 1))
+done
+arr_sql=${arr_sql%,$'\n'}
+
+# ATVPREP_E2E_BULK=2000 adds that many more files (only in the database) for the journey of large lists; the default fixture stays small.
+bulk_sql=""
+if [ "${ATVPREP_E2E_BULK:-0}" -gt 0 ]; then
+  bulk_sql="WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<${ATVPREP_E2E_BULK})
+INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,fingerprint,scanned_device,scanned_inode,scanned_ctime_ns,discovery_state,compliance_state,workflow_state,desired_action,encode_need,planned_change)
+SELECT 1000+i,1,'Bulk/Serie (2020) {tvdb-1}/Season 01/Serie (2020) - S01E'||printf('%04d',i)||' - Folge [WEBDL-1080p][h264]-GRP.mp4','movie','.mp4',$size,1,'$fingerprint',1,1000+i,1,'present','clean','idle','none','none','none' FROM n;"
+fi
+
 sqlite3 "$work/manager.sqlite" <<SQL
 INSERT INTO scan_runs(id,root_id,generation,status,finished_at,orphans_json) VALUES(100,1,100,'succeeded',datetime('now'),'{"count":1,"bytes":15,"files":[{"relative_path":"$leftover","size":15,"modified_at":"2026-11-01 10:00:00"}]}');
 INSERT OR IGNORE INTO library_roots(id,name,canonical_path) VALUES(1,'E2E Library','$(cd "$work/media" && pwd -P)');
@@ -77,17 +107,35 @@ INSERT INTO media_files(id,root_id,relative_path,kind,suffix,size,mtime_ns,finge
  (1,1,'Sample Movie.mp4','movie','.mp4',$size,1,'$fingerprint',1,1,1,'present','clean','idle','none','none','none'),
  (2,1,'Failed Movie.mp4','movie','.mp4',$size,1,'$fingerprint',1,2,1,'present','warning','action_required','fix','none','remux'),
  (3,1,'Interrupted Movie.mp4','movie','.mp4',$size,1,'$fingerprint',1,3,1,'present','warning','action_required','fix','none','remux'),
- (4,1,'Old Codec Movie.mp4','movie','.mp4',$size,1,'$fingerprint',1,4,1,'present','warning','action_required','fix','video','reencode');
+ (4,1,'Old Codec Movie.mp4','movie','.mp4',$size,1,'$fingerprint',1,4,1,'present','warning','action_required','fix','video','reencode'),
+$arr_sql;
 INSERT INTO inspections(media_file_id,source_fingerprint,input_fingerprint,tool_name,tool_version,result) VALUES(1,'$fingerprint','$fingerprint','ffprobe','e2e','{"format":{"format_name":"mp4"}}');
-INSERT INTO jobs(id,action,status,trigger,total_count,failed_count,error) VALUES(1,'verify','queued','manual',1,0,NULL),(2,'fix','failed','manual',1,1,'synthetic e2e failure'),(3,'fix','failed','manual',1,1,'worker stopped');
+INSERT INTO jobs(id,action,status,trigger,total_count,failed_count,error) VALUES(1,'verify','queued','manual',1,0,NULL),(2,'fix','failed','manual',1,1,'synthetic e2e failure'),(3,'fix','failed','manual',1,1,'worker stopped'),(5,'fix','failed','manual',1,1,'worker stopped');
 INSERT INTO job_items(id,job_id,media_file_id,action,position,status,attempt,error_code,error_detail,input_snapshot_json,log_tail,finished_at) VALUES
  (1,1,1,'verify',1,'queued',0,NULL,NULL,'{"relative_path":"Sample Movie.mp4"}','synthetic executor log',NULL),
  (2,2,2,'fix',1,'failed',1,'synthetic_failure','synthetic e2e failure','{"relative_path":"Failed Movie.mp4"}','synthetic executor log',NULL),
- (3,3,3,'fix',1,'interrupted',1,'worker_stopped','The worker stopped while this ran.','{"relative_path":"Interrupted Movie.mp4"}','synthetic executor log','2999-01-01T00:00:00Z');
+ (3,3,3,'fix',1,'interrupted',1,'worker_stopped','The worker stopped while this ran.','{"relative_path":"Interrupted Movie.mp4"}','synthetic executor log','2999-01-01T00:00:00Z'),
+ (5,5,6,'fix',1,'interrupted',1,'worker_stopped','The worker stopped while this ran.','{"relative_path":"TV/The Marvelous Mrs. Maisel (2017) {tvdb-330139}/Season 01/The Marvelous Mrs. Maisel (2017) - S01E02 - Ya Shivu v Bolshom Dome Na Kholme [AMZN WEBDL-2160p][DV HDR10Plus][EAC3 Atmos 5.1][h265]-NTb.mp4"}','synthetic executor log','2999-01-01T00:00:00Z');
 -- A schedule and the verification one of its runs queued; schedules store their jobs as manual.
 INSERT INTO schedules(id,name,action,days_mask,time_of_day,enabled) VALUES(1,'E2E Weekly','verify',1,'03:00',0);
 INSERT INTO jobs(id,action,status,trigger,total_count,succeeded_count,settings_snapshot_json) VALUES(4,'verify','succeeded','manual',1,1,'{"schedule_id":1}');
-INSERT INTO job_items(id,job_id,media_file_id,action,position,status,attempt,input_snapshot_json,finished_at) VALUES(4,4,4,'verify',1,'succeeded',1,'{"relative_path":"Old Codec Movie.mp4"}','2026-11-01T03:01:00Z');
+INSERT INTO job_items(id,job_id,media_file_id,action,position,status,attempt,input_snapshot_json,log_tail,finished_at) VALUES(4,4,4,'verify',1,'succeeded',1,'{"relative_path":"Old Codec Movie.mp4"}','[00:00:01] Start: prepare
+[00:00:01] File: Old Codec Movie.mp4
+[00:00:01] Tool: atvprep 0.9.0
+[00:00:01] Command: atvprep prepare --yes --encode copy --crf 18 -- Old Codec Movie.mp4
+[00:00:01] Encode allowance: copy
+[00:00:01] Target profile: crf 18, prefer HEVC 10-bit no, keep AV1 no, fix DTS no
+[00:00:01] Delete original: yes
+ATVPREP-PROGRESS 87
+ATVPREP-PROGRESS 99
+{"bytes":3645981583,"phase":"verify","seconds":71.2}
+[00:14:20] Phase verify: started 00:14:19, took 1:11
+postfix-only: Old Codec Movie
+  • tags: elng 2 -> elng 7 · fall 2
+ATVPREP-VERIFY passed, 0 blockers, 0 warnings
+ATVPREP-OUTCOME patched
+[00:14:21] Exit code: 0
+[00:14:21] Duration: 14:21','2026-11-01T03:01:00Z');
 INSERT INTO schedule_runs(schedule_id,slot,started_at,trigger,result,job_id) VALUES(1,'2026-11-01 03:00:00.000000','2026-11-01 03:00:00.000000','scheduled','Queued 1 file',4);
 INSERT INTO events(job_id,topic,entity_type,entity_id,payload_json,expires_at) VALUES(1,'job.created','job',1,'{"action":"verify","source":"e2e"}',datetime('now','+1 day'));
 -- Keep the fixture stable: the real workers must not pick it up.
@@ -95,6 +143,7 @@ INSERT OR IGNORE INTO scheduler_leases(id) VALUES(1);
 INSERT OR IGNORE INTO media_executor_leases(id) VALUES(1);
 UPDATE scheduler_leases SET owner_id='e2e-fixture',lease_expires_at='2999-01-01 00:00:00.000000' WHERE id=1;
 UPDATE media_executor_leases SET owner_id='e2e-fixture',lease_expires_at='2999-01-01 00:00:00.000000' WHERE id=1;
+$bulk_sql
 SQL
 start
 

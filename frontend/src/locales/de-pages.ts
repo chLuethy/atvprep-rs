@@ -193,8 +193,6 @@ export const deShell: Record<string, string> = {
   "Lock manager": "Manager sperren",
   "Session": "Sitzung",
   "Skip to content": "Zum Inhalt springen",
-  "Close navigation": "Navigation schliessen",
-  "Open navigation": "Navigation öffnen",
   "Close": "Schliessen",
   "Menu": "Menü",
   "Main": "Hauptnavigation",

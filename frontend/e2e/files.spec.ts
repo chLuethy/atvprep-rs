@@ -38,7 +38,7 @@ test.describe("files journey", () => {
     await openAndUnlock(page, "/files");
     await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
     const bar = page.getByRole("search", { name: "Filter files" });
-    await expect(bar.getByText("4 of 4 files")).toBeVisible();
+    await expect(bar.getByText("10 of 10 files")).toBeVisible();
 
     await bar.getByRole("button", { name: "Status", exact: true }).click();
     const status = page.getByRole("dialog", { name: "Status" });
@@ -46,7 +46,7 @@ test.describe("files journey", () => {
     await expect(page).toHaveURL(/\?status=clean$/);
     await expect(page.getByRole("link", { name: "Failed Movie" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Sample Movie" })).toBeVisible();
-    await expect(bar.getByText("1 of 4 files")).toBeVisible();
+    await expect(bar.getByText("4 of 10 files")).toBeVisible();
 
     // A second state adds its files (OR).
     await status.getByRole("checkbox", { name: /^Warning/ }).check();
@@ -91,7 +91,7 @@ test.describe("files journey", () => {
     await row.getByRole("button", { name: "Extension", exact: true }).click();
     const extension = page.getByRole("dialog", { name: "Extension" });
     await extension.getByRole("searchbox", { name: "Search Extension" }).fill("mp");
-    await extension.getByRole("checkbox", { name: "mp4, 4 files" }).check();
+    await extension.getByRole("checkbox", { name: "mp4, 10 files" }).check();
     await expect(page).toHaveURL(/\?suffix=\.mp4$/);
     await expect(page.getByRole("link", { name: "Failed Movie" })).toBeVisible();
     await page.keyboard.press("Escape");
@@ -144,10 +144,10 @@ test.describe("files journey", () => {
     await expect(firstRow).toContainText("Sample Movie");
     await sortBy.selectOption("title");
     await expect(page).toHaveURL(/\?sort=title$/);
-    await expect(firstRow).toContainText("Failed Movie");
+    await expect(firstRow).toContainText("Blade Runner 2049");
     await page.getByRole("button", { name: "File", exact: true }).click();
     await expect(page).toHaveURL(/\?sort=title&dir=desc$/);
-    await expect(firstRow).toContainText("Sample Movie");
+    await expect(firstRow).toContainText("The Marvelous Mrs. Maisel");
     await page.reload();
     await expect(sortBy).toHaveValue("title");
     await expect(page.getByRole("button", { name: "Descending" })).toBeVisible();
@@ -162,15 +162,15 @@ test.describe("files journey", () => {
     await library.click();
     const names = columns.locator('.col[data-col="1"] [role=option] .col-name');
     // Recently added, newest first, as in the list.
-    await expect(names).toHaveText(["Old Codec Movie.mp4", "Interrupted Movie.mp4", "Failed Movie.mp4", "Sample Movie.mp4"]);
+    await expect(names).toHaveText(["Movies", "TV", "Old Codec Movie.mp4", "Interrupted Movie.mp4", "Failed Movie.mp4", "Sample Movie.mp4"]);
 
     const sortBy = page.getByRole("combobox", { name: "Sort by" });
     await sortBy.selectOption("title");
-    await expect(names).toHaveText(["Failed Movie.mp4", "Interrupted Movie.mp4", "Old Codec Movie.mp4", "Sample Movie.mp4"]);
+    await expect(names).toHaveText(["Movies", "TV", "Failed Movie.mp4", "Interrupted Movie.mp4", "Old Codec Movie.mp4", "Sample Movie.mp4"]);
     await columns.getByRole("option", { name: /Interrupted Movie/ }).click();
 
     await page.getByRole("button", { name: "Ascending" }).click();
-    await expect(names).toHaveText(["Sample Movie.mp4", "Old Codec Movie.mp4", "Interrupted Movie.mp4", "Failed Movie.mp4"]);
+    await expect(names).toHaveText(["TV", "Movies", "Sample Movie.mp4", "Old Codec Movie.mp4", "Interrupted Movie.mp4", "Failed Movie.mp4"]);
     await expect(columns.getByRole("option", { name: /Interrupted Movie/ })).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("navigation", { name: "Location" })).toContainText(libraryName);
   });

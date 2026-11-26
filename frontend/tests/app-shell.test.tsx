@@ -61,9 +61,18 @@ describe("application shell accessibility", () => {
   it("provides an explicit mobile navigation toggle", () => {
     const { getByRole } = render(() => <App />);
 
-    const toggle = getByRole("button", { name: "Open navigation" });
+    const toggle = getByRole("button", { name: "Menu" });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(toggle).toHaveAttribute("aria-controls", "main-navigation");
+  });
+
+  it("nennt den sichtbaren Text des Menü-Buttons im zugänglichen Namen", async () => {
+    const { getByRole } = render(() => <App />);
+    const toggle = getByRole("button", { name: /Menu/ });
+    expect(toggle).toHaveAccessibleName(expect.stringContaining(toggle.textContent!.trim()));
+    await fireEvent.click(toggle);
+    const close = getByRole("button", { name: /Close/ });
+    expect(close).toHaveAccessibleName(expect.stringContaining(close.textContent!.trim()));
   });
 
   it("labels the primary navigation and offers the appearance switch", () => {
@@ -94,9 +103,9 @@ describe("application shell accessibility", () => {
   it("opens the navigation from the mobile toggle", async () => {
     const { getByRole } = render(() => <App />);
 
-    await fireEvent.click(getByRole("button", { name: "Open navigation" }));
+    await fireEvent.click(getByRole("button", { name: "Menu" }));
 
-    expect(getByRole("button", { name: "Close navigation" })).toHaveAttribute("aria-expanded", "true");
+    expect(getByRole("button", { name: "Close" })).toHaveAttribute("aria-expanded", "true");
   });
 
   it("shows a Lock control only when the app runs inside a session, and locks through it", async () => {

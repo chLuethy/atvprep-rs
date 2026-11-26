@@ -14,8 +14,9 @@
 .pad { padding: 20px 16px; }
 .more { padding: 14px 16px; }
 
-.th-btn { background: none; border: 0; padding: 0; color: inherit; font-weight: inherit; }
-.th-btn:hover { color: var(--ink); }
+/* A touch target is at least 24px (WCAG 2.5.8): the padding grows the button, the negative margin keeps the header row as high as before. */
+.th-btn { background: none; border: 0; padding: 4px 4px; margin: -4px -4px; min-height: 24px; color: inherit; font-weight: inherit; }
+.th-btn:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 
 .lib-side { border-left: 1px solid var(--line); background: var(--surface); overflow: auto; min-height: 0; padding: 16px max(16px, env(safe-area-inset-right, 0px)) 28px 18px; }
@@ -39,9 +40,10 @@
 .facts dd { margin: 0; min-width: 0; font-weight: 400; }
 .insp-sec h3, .preview h3 { margin: 22px 0 8px; }
 .why { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.why-item { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; align-items: start; }
+.why-item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: start; }
 .why-item p { margin: 0; color: var(--ink); }
 .why-item .rule { display: block; color: var(--ink-muted); }
+.why-code summary { cursor: pointer; color: var(--ink-muted); }
 .tracks { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
 .tracks th { font-weight: 500; color: var(--ink-muted); text-align: left; padding: 4px 8px 4px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .tracks td, .tracks tbody th { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; white-space: nowrap; color: var(--ink); font-weight: 400; }
@@ -106,7 +108,7 @@ details summary { cursor: pointer; color: var(--ink-muted); }
 .sym.neutral { color: var(--ink-muted); }
 /* File health: badge, bar and count share three columns, so every badge starts at the same edge and the label column is as wide as the longest label. */
 .health { display: grid; grid-template-columns: max-content minmax(0, 1fr) auto; gap: 8px 12px; }
-.health-row { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: center; color: var(--ink); text-decoration: none; }
+.health-row { min-height: 24px; display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: center; color: var(--ink); text-decoration: none; }
 .health-row .count { grid-column: 3; grid-row: 1; justify-self: end; font-family: var(--font-mono); font-size: var(--text-sm); }
 .health-row .chip { grid-column: 1; grid-row: 1; justify-self: start; }
 .health-row .hbar { grid-column: 2; grid-row: 1; }
@@ -117,6 +119,8 @@ details summary { cursor: pointer; color: var(--ink-muted); }
 .hbar.neutral > span { background: var(--border); }
 .legend { flex-direction: row; flex-wrap: wrap; gap: 4px 18px; margin-top: 12px; }
 .legend a { color: var(--ink); text-decoration: none; }
+.legend a { display: inline-flex; align-items: center; min-height: 24px; }
+.needs a, .now-row a { display: flex; align-items: center; min-height: 24px; }
 .legend a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .legend .count { font-weight: 600; margin-right: 2px; }
 .now-row { display: flex; align-items: center; gap: 10px; }
@@ -137,13 +141,13 @@ details summary { cursor: pointer; color: var(--ink-muted); }
 .sidecar-state.pending { color: var(--ink); font-weight: 500; }
 
 /* columns view: the library as folders, one column per level */
-.cols-wrap { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-.cols { flex: 1; min-height: 0; display: flex; overflow-x: auto; overflow-y: hidden; }
+.cols-wrap { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+.cols { flex: 1; min-width: 0; min-height: 0; display: flex; overflow-x: auto; overflow-y: hidden; }
 .cols:focus-visible { outline-offset: -2px; }
 /* A column is as wide as its longest name, within limits: short folders stay compact, long names end in an ellipsis.
    Every column after the first has the dashed guide as its left edge, drawn in the column's own background. Its content
    starts one pixel to the right of it (padding), so no row, hover or selection fill can ever cover the line. */
-.col { flex: 0 0 260px; min-width: 0; max-width: 100%; display: flex; flex-direction: column; padding: 6px 0; overflow-y: auto; }
+.col { position: relative; flex: 0 0 260px; min-width: 0; max-width: 100%; display: flex; flex-direction: column; padding: 6px 0; overflow-y: auto; }
 .col + .col { background: var(--guide) left top / 1px 8px repeat-y; padding-left: 1px; }
 .col-row { display: flex; align-items: center; gap: 8px; min-height: 33px; padding: 6px 16px; cursor: default; user-select: none; }
 .col-row:hover { background: var(--hover); }
@@ -152,6 +156,10 @@ details summary { cursor: pointer; color: var(--ink-muted); }
 .col-icon { display: inline-flex; color: var(--ink-muted); flex: none; }
 .col-icon.folder { color: var(--accent); }
 .col-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Cut in the middle: the head shrinks with an ellipsis, the tail (episode end, group) stays. */
+.mid { display: flex; min-width: 0; white-space: nowrap; }
+.mid-head { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.mid-tail { flex: none; white-space: pre; }
 .col-trail { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; color: var(--ink-muted); flex: none; }
 .col-badge { display: inline-flex; align-items: center; gap: 3px; font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
 .col-badge.bad, .col-state.bad { color: var(--bad); }
@@ -162,7 +170,7 @@ details summary { cursor: pointer; color: var(--ink-muted); }
 .col-note { margin: 8px 16px;font-size: var(--text-sm); }
 .pathbar { display: flex; align-items: center; gap: 2px; padding: 5px 12px; border-top: 1px solid var(--line); color: var(--ink-muted); overflow-x: auto; white-space: nowrap; }
 .crumb { background: none; border: 0; padding: 2px 6px; color: var(--ink-muted); font-size: var(--text-sm); }
-.crumb:hover { background: var(--hover); color: var(--ink); }
+.crumb:hover { text-decoration: underline; text-underline-offset: 3px; }
 .crumb[aria-current="location"] { color: var(--ink); font-weight: 500; }
 .statusbar { margin: 0; padding: 4px 12px 7px; text-align: center; font-size: var(--text-sm); border-top: 1px solid var(--line); min-height: 1.6em; }
 .view-switch { flex: none; }

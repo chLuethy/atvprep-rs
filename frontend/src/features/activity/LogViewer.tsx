@@ -1,13 +1,14 @@
-import { createEffect, createMemo, refresh, Show, type Component } from "solid-js";
+import { createEffect, createMemo, createSignal, refresh, Show, type Component } from "solid-js";
 import { Button } from "../../ui";
 import { N, t } from "../../lib/i18n";
 import { loadLog, type Api } from "./loaders";
 import { isItemTerminal, type ItemStatus } from "./model";
+import { LogView } from "./LogView";
 
 const SESSION_EXPIRED = N("Session expired. Lock and unlock again.");
 
 /**
- * The tail of one item's log as plain text. Polls every three seconds while the item can still
+ * The tail of one item's log, set out by default and as plain text on request; the download is always the plain text. Polls every three seconds while the item can still
  * change, and reads it one last time when the item ends.
  */
 export const LogViewer: Component<{ api: Api; itemId: string; status: ItemStatus }> = (props) => {
@@ -15,6 +16,7 @@ export const LogViewer: Component<{ api: Api; itemId: string; status: ItemStatus
   const itemId = createMemo(() => props.itemId);
   const state = createMemo(() => loadLog(props.api, itemId()), { loadingValue: undefined });
   const refetch = () => refresh(state);
+  const [raw, setRaw] = createSignal(false);
 
   // A growing log stays at its end for a reader who is at the end, and stays put for one who scrolled up.
   let box: HTMLPreElement | undefined;
@@ -42,6 +44,10 @@ export const LogViewer: Component<{ api: Api; itemId: string; status: ItemStatus
   return (
     <div class="log">
       <div class="log-tools">
+        <div class="seg" role="group" aria-label={t("Log view")}>
+          <button type="button" aria-pressed={raw() ? "false" : "true"} onClick={() => setRaw(false)}>{t("Formatted")}</button>
+          <button type="button" aria-pressed={raw() ? "true" : "false"} onClick={() => setRaw(true)}>{t("Raw text")}</button>
+        </div>
         <Button variant="quiet" disabled={!state()?.data} onClick={download}>{t("Download log")}</Button>
       </div>
       <Show when={state()} fallback={<p class="muted">{t("Loading log")}</p>}>
@@ -54,7 +60,12 @@ export const LogViewer: Component<{ api: Api; itemId: string; status: ItemStatus
               when={current().kind === "ok"}
               fallback={<div class="notice bad" role="alert"><p>{t("Unable to load log")}</p><Button onClick={() => void refetch()}>{t("Retry loading log")}</Button></div>}
             >
-              <pre ref={(element) => { box = element; following = true; }} onScroll={() => { following = atEnd(); }} class="raw" aria-label={t("Plain text log")}>{current().data?.log_tail}</pre>
+              <Show
+                when={raw()}
+                fallback={<LogView text={current().data?.log_tail ?? ""} itemId={props.itemId} />}
+              >
+                <pre ref={(element) => { box = element; following = true; queueMicrotask(() => { element.scrollTop = element.scrollHeight; }); }} onScroll={() => { following = atEnd(); }} class="raw" aria-label={t("Plain text log")}>{current().data?.log_tail}</pre>
+              </Show>
             </Show>
           </Show>
         )}

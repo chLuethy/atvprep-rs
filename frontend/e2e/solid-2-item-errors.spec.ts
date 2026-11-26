@@ -36,7 +36,7 @@ test("behält offenes Protokoll und Fokus bei Item-Nachladefehler und verzögert
     const first = page.locator(".item-row").filter({ hasText: "First Browser Item" });
     const toggle = first.getByRole("button", { name: "Log", exact: true });
     await toggle.click();
-    const log = page.getByLabel("Plain text log");
+    const log = page.getByRole("region", { name: "Formatted log" });
     await expect(log).toContainText("Bereits geöffnetes Protokoll");
     await page.getByRole("button", { name: "Load more items" }).click();
     const failure = page.getByRole("alert").filter({ hasText: "Unable to load more items" });

@@ -31,14 +31,14 @@ p { text-wrap: pretty; }
 /* Prose keeps a comfortable measure; data and controls run as wide as they need. */
 .help, .foot, .notice p { max-width: 65ch; }
 /* The one style for a label, wherever one appears: copper, with a colon after it (the colon is drawn, so the texts stay plain). */
-.label, .insp-sec h3, .preview h3, .ov-sec h2, .setting-group h3, .job-group h2, .change .kind, .shortcuts h3, .facts dt {
+.label, .insp-sec h3, .preview h3, .ov-sec h2, .setting-group h2, .job-group h2, .change .kind, .shortcuts h3, .facts dt {
   font-size: var(--text-xs);
   font-weight: 400;
   line-height: 1.2727273;
   letter-spacing: var(--tracking-caps);
   color: var(--accent);
 }
-.label::after, .insp-sec h3::after, .preview h3::after, .ov-sec h2::after, .setting-group h3::after, .job-group h2::after, .change .kind::after, .shortcuts h3::after, .facts dt::after { content: ":"; }
+.label::after, .insp-sec h3::after, .preview h3::after, .ov-sec h2::after, .setting-group h2::after, .job-group h2::after, .change .kind::after, .shortcuts h3::after, .facts dt::after { content: ":"; }
 #root { height: 100%; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
@@ -219,11 +219,14 @@ a { color: var(--accent); }
 /* command palette */
 .pal-bg { position: fixed; inset: 0; z-index: 50; display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; background: var(--scrim); }
 .pal { width: min(560px, calc(100vw - 32px)); background: var(--surface); border: 1px solid var(--accent); box-shadow: var(--shadow); overflow: hidden; }
-.pal-input { width: 100%; border: 0; border-bottom: 1px solid var(--line); padding: 12px 14px; font-size: var(--text-md); background: none; color: var(--ink); outline: none; }
+.pal-input { width: 100%; border: 0; border-bottom: 1px solid var(--line); padding: 12px 14px; font-size: var(--text-md); background: none; color: var(--ink); }
+.pal-input:focus-visible { outline-offset: -2px; }
 .pal-list { list-style: none; margin: 0; padding: 6px; max-height: 320px; overflow: auto; }
 .pal-list li { display: flex; align-items: center; gap: 10px; padding: 6px 8px; cursor: pointer; }
 .pal-list li[aria-selected="true"] { background: var(--accent-weak); }
-.pal-hint { margin-left: auto; color: var(--ink-muted); font-size: var(--text-sm); }
+.pal-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pal-label mark { background: none; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.pal-hint { flex: none; margin-left: auto; color: var(--ink-muted); font-size: var(--text-sm); }
 .pal-empty { color: var(--ink-muted); cursor: default; }
 
 .bar { display: inline-block; width: 120px; height: 4px; background: var(--line); overflow: hidden; vertical-align: middle; }

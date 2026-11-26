@@ -1071,7 +1071,7 @@ describe("LibraryPage: following jobs without a reload", () => {
     } finally { vi.useRealTimers(); }
   });
 
-  it("merkt einen Scan während langsamen Datei-Nachladens und revalidiert danach beide sichtbaren Seiten", async () => {
+  it("merkt einen Scan während langsamen Datei-Nachladens und liest danach nur den Kopf der Liste erneut", async () => {
     vi.useFakeTimers();
     try {
       let finish!: (response: Response) => void;
@@ -1097,8 +1097,8 @@ describe("LibraryPage: following jobs without a reload", () => {
       finish(json([ROWS[0]]));
       await vi.advanceTimersByTimeAsync(0);
       expect(firstReads).toBe(2);
-      expect(moreReads).toBe(2);
-      expect(view.getByRole("link", { name: "Pretty Woman (1990)" })).toHaveAttribute("href", "/files/m_fresh_second");
+      expect(moreReads).toBe(1);
+      expect(view.getByRole("link", { name: "Pretty Woman (1990)" })).toHaveAttribute("href", "/files/m_f1");
       expect(view.getByRole("link", { name: "Heat" })).toHaveAttribute("href", "/files/m_first_2");
       expect(view.container.querySelectorAll("tbody tr")).toHaveLength(2);
       view.unmount();
@@ -1824,5 +1824,63 @@ describe("LibraryPage: re-inspecting several files, like Verify", () => {
 
     await waitFor(() => expect(jobs(calls).map((job) => job.media_ids.length)).toEqual([100, 100, 30]));
     expect(await view.findByText(/Inspection queued for 230 files/)).toBeInTheDocument();
+  });
+});
+
+describe("LibraryPage: barrierefreie Zeilen und unbekannte Datei", () => {
+  it("hat einen Tab-Stopp je Zeile: der Titel-Link ist für die Tastatur nicht erreichbar", async () => {
+    const { api } = makeApi();
+    const view = renderLibrary(api);
+    const link = await view.findByRole("link", { name: "Heat" });
+
+    expect(link).toHaveAttribute("tabindex", "-1");
+    const stops = view.getAllByRole("row").filter((row) => row.getAttribute("tabindex") === "0");
+    expect(stops).toHaveLength(1);
+  });
+
+  it("zeigt bei einer unbekannten Datei-ID keine Auswahlleiste", async () => {
+    const { api } = makeApi();
+    const inner = api.request;
+    const notFound: Api = { request: vi.fn(async (path: string, init?: RequestInit) => path === "/files/m_nope" ? json({}, 404) : inner(path, init)) };
+    const view = renderLibrary(notFound, "m_nope");
+
+    expect(await view.findByText("Unable to load file detail")).toBeInTheDocument();
+    expect(view.queryByRole("region", { name: "Selection" })).not.toBeInTheDocument();
+  });
+});
+
+describe("LibraryPage: details under the list in one column", () => {
+  const narrow = () => {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({ matches: query.includes("max-width"), media: query, addEventListener: () => {}, removeEventListener: () => {} })) as unknown as typeof window.matchMedia;
+    const scrolls = vi.fn();
+    const originalScroll = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrolls;
+    return { scrolls, restore: () => { window.matchMedia = original; Element.prototype.scrollIntoView = originalScroll; } };
+  };
+
+  it("scrolls to the details when a file opens, not on every J and K while they are open", async () => {
+    const { scrolls, restore } = narrow();
+    try {
+      const { api } = makeApi();
+      const [active, setActive] = createSignal<string | undefined>(undefined);
+      const view = render(() => <LibraryPage api={api} activeId={active()} onOpen={(id) => setActive(id)} />);
+      await view.findByRole("link", { name: "Heat" });
+
+      setActive("m_f2");
+      await waitFor(() => expect(scrolls).toHaveBeenCalledTimes(1));
+      // J and K move the open file: the details stay where they are.
+      setActive("m_f3");
+      await view.findByText(/Details of Arrival/);
+      setActive("m_f1");
+      await view.findByText(/Details of Pretty Woman/);
+      expect(scrolls).toHaveBeenCalledTimes(1);
+      // Closed and opened again, they scroll once more.
+      setActive(undefined);
+      await waitFor(() => expect(view.queryByText(/Details of/)).not.toBeInTheDocument());
+      setActive("m_f2");
+      await waitFor(() => expect(scrolls).toHaveBeenCalledTimes(2));
+      view.unmount();
+    } finally { restore(); }
   });
 });
