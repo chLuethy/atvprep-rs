@@ -1447,6 +1447,30 @@ describe("LogViewer, set out", () => {
     expect(await view.findByRole("region", { name: "Formatted log" })).toBeInTheDocument();
   });
 
+  it("sets out a finished check: passed rules in one line, a warning on its own, the verdict as facts", async () => {
+    const text = ["Start: verify", "File: film.mp4", "Rule fast-start: warning: moov at end", "Rule apple-tags: ok", "Rule stereo-twin: ok", "Rule no-fragments: ok", "State: warning", "Encode need: audio", "Planned change: unknown", "Exit code: 1", "Duration: 4.21 s"].join("\n");
+    const view = render(() => <LogViewer api={apiFor(() => json({ item_id: "i_1", status: "ok", log_tail: text }))} itemId="i_1" status="succeeded" />);
+    const log = await view.findByRole("region", { name: "Formatted log" });
+
+    expect(within(log).getByText("Verify")).toBeInTheDocument();
+    expect(within(log).getByText("3 rules passed")).toBeInTheDocument();
+    expect(within(log).getByText("fast-start")).toBeInTheDocument();
+    expect(within(log).getByText("moov at end")).toBeInTheDocument();
+    expect(within(log).getByText("Encode need")).toBeInTheDocument();
+    expect(within(log).queryByText("apple-tags")).not.toBeInTheDocument();
+  });
+
+  it("sets out a finished analysis: the streams with their channels, language and flags", async () => {
+    const text = ["Start: inspect", "File: film.mp4", "Tool: ffprobe 7.1.1", "Stream 0: video h264, default", "Stream 1: audio eac3, 6 channels, 48000 Hz, language ger, default", "Exit code: 0", "Duration: 4.21 s"].join("\n");
+    const view = render(() => <LogViewer api={apiFor(() => json({ item_id: "i_1", status: "ok", log_tail: text }))} itemId="i_1" status="succeeded" />);
+    const log = await view.findByRole("region", { name: "Formatted log" });
+
+    expect(within(log).getByText("Stream 1")).toBeInTheDocument();
+    expect(within(log).getByText("audio eac3")).toBeInTheDocument();
+    expect(within(log).getByText("6 channels")).toBeInTheDocument();
+    expect(within(log).getByText("language ger")).toBeInTheDocument();
+  });
+
   it("names the facts in German and leaves what the tools wrote alone", async () => {
     setLanguage("de");
     const view = open();

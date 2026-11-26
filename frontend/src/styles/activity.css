@@ -81,6 +81,7 @@
 .log-step.outcome b, .log-step.end b { color: var(--ink); }
 .log-step.bullet { padding: 2px 0 2px 16px; border-bottom: 0; }
 .log-bullet { color: var(--ink-muted); text-align: center; }
+.log-tag { border: 1px solid var(--line); padding: 0 6px; line-height: 1.5; color: var(--ink-muted); font-size: var(--text-xs); white-space: nowrap; }
 .log-step.omitted .log-main { font-style: italic; }
 
 

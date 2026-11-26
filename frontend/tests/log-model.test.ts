@@ -68,6 +68,25 @@ describe("parseLog", () => {
     expect(rows[1]).toEqual({ kind: "rule", name: "apple-tags", state: "ok", detail: "" });
   });
 
+  it("reads the streams of an inspection with their channels, language and flags", () => {
+    const rows = parseLog("Start: inspect\nStream 0: video h264, default\nStream 1: audio eac3, 6 channels, 48000 Hz, language ger, default").rows;
+    expect(rows).toEqual([
+      { kind: "stream", index: "0", type: "video", codec: "h264", parts: ["default"] },
+      { kind: "stream", index: "1", type: "audio", codec: "eac3", parts: ["6 channels", "48000 Hz", "language ger", "default"] },
+    ]);
+  });
+
+  it("reads a rule that names a track", () => {
+    expect(parseLog("Rule stereo-twin (track 2): warning: no stereo twin").rows).toEqual([
+      { kind: "rule", name: "stereo-twin", track: "2", state: "warning", detail: "no stereo twin" },
+    ]);
+  });
+
+  it("reads a failed check: tool output stays a note, the failure is an error", () => {
+    const doc = parseLog("Start: verify\nboom\nExit code: 2\nFailed: verification_failed: the tool exited with code 2");
+    expect(doc.rows.map((row) => row.kind)).toEqual(["note", "end", "error"]);
+  });
+
   it("reads a failure and the plan lines", () => {
     const rows = parseLog("ATVPREP-PLAN video: copy\nATVPREP-ERROR disk full\nFailed: verification_failed: disk full").rows;
     expect(rows).toEqual([

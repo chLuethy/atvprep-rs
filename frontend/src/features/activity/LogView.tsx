@@ -98,7 +98,14 @@ export const LogView: Component<{ text: string; itemId: string }> = (props) => {
                   <><Icon name="check" /><span class="log-main">{tn("{count} rule passed", "{count} rules passed", ok().count)}</span></>
                 )}</Match>
                 <Match when={row.kind === "rule" ? row : undefined}>{(rule) => (
-                  <><StatusChip kind={ruleChip(rule().state)} icon={rule().state === "ok" ? "check" : "warn"}>{ruleLabel(rule().state)}</StatusChip><span class="log-main"><b class="mono">{rule().name}</b><Show when={rule().detail}><span>{rule().detail}</span></Show></span></>
+                  <><StatusChip kind={ruleChip(rule().state)} icon={rule().state === "ok" ? "check" : "warn"}>{ruleLabel(rule().state)}</StatusChip><span class="log-main"><b class="mono">{rule().name}</b><Show when={rule().track}><span class="muted">{t("track {id}", { id: rule().track ?? "" })}</span></Show><Show when={rule().detail}><span>{rule().detail}</span></Show></span></>
+                )}</Match>
+                <Match when={row.kind === "stream" ? row : undefined}>{(stream) => (
+                  <>
+                    <Icon name="rows" />
+                    <span class="log-main"><b>{t("Stream {index}", { index: stream().index })}</b><span>{`${stream().type} ${stream().codec}`}</span>
+                      <For each={stream().parts}>{(part) => <span class="log-tag">{part}</span>}</For></span>
+                  </>
                 )}</Match>
                 <Match when={row.kind === "check" ? row : undefined}>{(check) => (
                   <>

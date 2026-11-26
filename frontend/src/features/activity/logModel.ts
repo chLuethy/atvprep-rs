@@ -24,7 +24,8 @@ export type RuleState = "ok" | "warning" | "blocker" | "other";
 export type LogRow =
   | { kind: "phase"; name: string; started?: string; took?: string; bytes?: number }
   | { kind: "plan"; stream: string; action: string }
-  | { kind: "rule"; name: string; state: RuleState; detail: string }
+  | { kind: "stream"; index: string; type: string; codec: string; parts: string[] }
+  | { kind: "rule"; name: string; track?: string; state: RuleState; detail: string }
   | { kind: "check"; passed: boolean; blockers: number; warnings: number }
   | { kind: "outcome"; value: string }
   | { kind: "original"; kept: boolean; why: string }
@@ -44,7 +45,8 @@ const STAMP = /^\[(\d{2}:\d{2}:\d{2})\]\s?/;
 const PROGRESS = /^ATVPREP-PROGRESS\s+(\d{1,3})\s*$/;
 const OMITTED = /^…\s*(\d+)\s+bytes omitted\s*…$/;
 const PHASE_STEP = /^Phase\s+(\S+?):\s+started\s+(\S+?),\s+took\s+(.+)$/;
-const RULE = /^Rule\s+(\S+):\s+(.*)$/;
+const RULE = /^Rule\s+(\S+?)(?:\s+\(track\s+(\d+)\))?:\s+(.*)$/;
+const STREAM = /^Stream\s+(\d+):\s+(\S+)\s+(\S+)((?:,\s*.+)?)$/;
 const BULLET = /^\s*[•·*-]\s+(.*)$/;
 
 const clamp = (value: number) => Math.max(0, Math.min(100, value));
@@ -169,8 +171,14 @@ export function parseLog(text: string): LogDoc {
     }
     const rule = RULE.exec(trimmed);
     if (rule) {
-      const { state, detail } = ruleState(rule[2]!);
-      doc.rows.push({ kind: "rule", name: rule[1]!, state, detail });
+      const { state, detail } = ruleState(rule[3]!);
+      doc.rows.push({ kind: "rule", name: rule[1]!, ...(rule[2] ? { track: rule[2] } : {}), state, detail });
+      continue;
+    }
+    const stream = STREAM.exec(trimmed);
+    if (stream) {
+      const parts = (stream[4] ?? "").split(",").map((part) => part.trim()).filter(Boolean);
+      doc.rows.push({ kind: "stream", index: stream[1]!, type: stream[2]!, codec: stream[3]!, parts });
       continue;
     }
 
