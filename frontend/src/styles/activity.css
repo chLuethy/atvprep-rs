@@ -51,19 +51,26 @@
 .item-progress .bar { flex: 1; width: auto; min-width: 0; }
 .item-name { font-weight: 400; }
 .item-name.repeat { color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
-.item-log { margin-top: 4px; }
-.item-log .btn.quiet, .log-tools .btn.quiet { padding-left: 0; }
+.item-log { margin-top: 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; }
+.item-log > .log { display: contents; }
+/* The disclosure that opens a log: a chevron and the word, in the row the log's own controls join once it is open. */
+.log-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 8px 0 0; border: 0; background: none; color: var(--accent); font-size: var(--text-control); line-height: 1.4; }
+.log-toggle:hover { text-decoration: underline; text-underline-offset: 3px; }
+.log-toggle > svg { transition: transform var(--dur-fast) var(--ease-out); }
+.item-log.open .log-toggle > svg { transform: rotate(90deg); }
+.log-tools .btn.quiet { padding-left: 0; }
 .item-plan { margin: 4px 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: var(--text-sm); min-width: 0; }
 .change-mark { border: 1px solid currentColor; padding: 0 6px; line-height: 1.5; color: var(--ink-muted); white-space: nowrap; }
 .change-mark.patch { color: var(--ok); }
 .change-mark.remux { color: var(--warn); }
 .change-mark.audio, .change-mark.reencode { color: var(--bad); }
 .item-steps { flex-basis: 100%; color: var(--ink-muted); min-width: 0; overflow-wrap: anywhere; }
-.log-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 8px; }
+.log-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px 12px; margin-left: auto; }
+.item-log > .log > :not(.log-tools) { flex: 1 1 100%; }
 
 /* The log, set out. Two groups, tight inside and apart from each other: what ran (facts, command), then what happened
    (progress, steps). Every step has the same three cells: a mark, the words, the time the manager stamped it with. */
-.log-view { margin-top: 12px; display: flex; flex-direction: column; gap: 20px; min-width: 0; font-size: var(--text-sm); }
+.log-view { container-type: inline-size; margin-top: 8px; display: flex; flex-direction: column; gap: 20px; min-width: 0; font-size: var(--text-sm); }
 .log-head, .log-timeline { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .log-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 12px; align-items: baseline; margin: 0; }
 .log-facts div { display: contents; }
@@ -90,6 +97,9 @@
 .log-bullet { color: var(--ink-muted); text-align: center; }
 .log-tag { border: 1px solid var(--line); padding: 0 6px; line-height: 1.5; color: var(--ink-muted); font-size: var(--text-xs); white-space: nowrap; }
 .log-step.omitted .log-main { font-style: italic; }
+.log-step.streams { grid-template-columns: minmax(0, 1fr); padding: 8px 0 4px; }
+.log-streams { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.log-step.clean .log-main b { font-weight: 400; color: var(--ink-muted); }
 
 
 /* Below 1180 px the detail stands under the list and the page scrolls as one.
@@ -98,4 +108,19 @@
   .library.activity { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; align-content: start; flex: none; min-height: 0; overflow: visible; height: auto; }
   .activity .lib-main, .activity .lib-side { min-height: auto; overflow: visible; }
   .activity .lib-scroll { overflow: visible; }
+}
+
+/* Narrow: a stream is two lines instead of seven columns, so nothing scrolls sideways and no column is cut off. */
+@container (max-width: 34rem) {
+  .log-streams .tracks, .log-streams .tracks tbody { display: block; }
+  .log-streams .tracks thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .log-streams .tracks tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 12px; padding: 6px 0 6px 1.5rem; border-bottom: 1px solid var(--line); }
+  .log-streams .tracks th, .log-streams .tracks td { display: block; padding: 0; border: 0; white-space: normal; }
+  .log-streams .tracks td:empty { display: none; }
+  /* The number hangs in the indent; a full-width break between the first three cells and the details makes the second line. */
+  .log-streams .c-idx { margin-left: -1.5rem; width: calc(1.5rem - 12px); }
+  .log-streams .tracks tr::after { content: ""; flex: 0 0 100%; order: 1; }
+  .log-streams .c-ch, .log-streams .c-rate, .log-streams .c-lang, .log-streams .c-flags { order: 2; }
+  .log-streams .c-ch, .log-streams .c-rate, .log-streams .c-lang, .log-streams .c-flags { color: var(--ink-muted); font-size: var(--text-xs); }
+  .log-streams .c-ch:not(:empty)::after { content: " " attr(data-unit); }
 }

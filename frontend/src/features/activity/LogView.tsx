@@ -21,6 +21,17 @@ const factLabel = (key: FactKey): string => {
   }
 };
 
+/** What a stream line's parts say: channels, sample rate and language each get a column, the rest are flags. */
+function streamCells(stream: StreamRow) {
+  let channels = "", rate = "", language = "";
+  const flags: string[] = [];
+  for (const part of stream.parts) {
+    const c = /^(\d+) channels?$/.exec(part), r = /^(\d+) Hz$/.exec(part), l = /^language (.+)$/.exec(part);
+    if (c) channels = c[1]!; else if (r) rate = part; else if (l) language = l[1]!; else flags.push(part);
+  }
+  return { channels, rate, language, flags };
+}
+
 /** The facts' values are the tool's own words except the yes/no a log spells out. */
 const factValue = (key: FactKey, value: string): string => {
   if (key === "Start") return actionLabel(value);
@@ -28,17 +39,25 @@ const factValue = (key: FactKey, value: string): string => {
   return value;
 };
 
-type Shown = LogRow | { kind: "rules-ok"; count: number; time?: undefined };
+type StreamRow = Extract<LogRow, { kind: "stream" }>;
+type Shown = LogRow | { kind: "rules-ok"; count: number; time?: undefined } | { kind: "streams"; streams: StreamRow[]; time?: undefined };
 
 /** Rules that passed are one line; a rule that did not stays a line of its own, in its place. */
 function summarise(rows: readonly LogRow[]): Shown[] {
   const okCount = rows.filter((row) => row.kind === "rule" && row.state === "ok").length;
   const shown: Shown[] = [];
   let placed = false;
+  let streams: Extract<Shown, { kind: "streams" }> | undefined;
   const errors = rows.filter((row): row is Extract<LogRow, { kind: "error" }> => row.kind === "error");
   for (const row of rows) {
     // The closing "Failed: code: message" line repeats the error the tool reported before it.
     if (row.kind === "error" && errors.some((other) => other !== row && other.text.length > row.text.length && other.text.includes(row.text))) continue;
+    if (row.kind === "stream") {
+      if (!streams) { streams = { kind: "streams", streams: [] }; shown.push(streams); }
+      streams.streams.push(row);
+      continue;
+    }
+    streams = undefined;
     if (row.kind === "rule" && row.state === "ok") {
       if (!placed) { shown.push({ kind: "rules-ok", count: okCount }); placed = true; }
       continue;
@@ -93,7 +112,7 @@ export const LogView: Component<{ text: string; itemId: string }> = (props) => {
           <For each={rows()} keyed={(entry) => entry.key}>{(entry) => {
             const row = entry().row;
             return (
-            <li class={["log-step", row.kind, row.kind === "rule" ? row.state : "", row.kind === "note" && row.bullet ? "bullet" : "", toneOf(row) && `tone-${toneOf(row)}`]}>
+            <li class={["log-step", row.kind, row.kind === "rule" ? row.state : "", row.kind === "note" && row.bullet ? "bullet" : "", toneOf(row) && `tone-${toneOf(row)}`, row.kind === "end" && row.exit === "0" ? "clean" : ""]}>
               <Switch>
                 <Match when={row.kind === "phase" ? row : undefined}>{(phase) => (
                   <>
@@ -111,12 +130,24 @@ export const LogView: Component<{ text: string; itemId: string }> = (props) => {
                 <Match when={row.kind === "rule" ? row : undefined}>{(rule) => (
                   <><span class="log-mark" role="img" aria-label={ruleLabel(rule().state)}><Icon name={rule().state === "ok" ? "check" : "warn"} /></span><span class="log-main"><b class="mono">{rule().name}</b><Show when={rule().track}><span class="muted">{t("track {id}", { id: rule().track ?? "" })}</span></Show><Show when={rule().detail}><span>{rule().detail}</span></Show></span></>
                 )}</Match>
-                <Match when={row.kind === "stream" ? row : undefined}>{(stream) => (
-                  <>
-                    <Icon name="rows" />
-                    <span class="log-main"><b>{t("Stream {index}", { index: stream().index })}</b><span>{`${stream().type} ${stream().codec}`}</span>
-                      <For each={stream().parts}>{(part) => <span class="log-tag">{part}</span>}</For></span>
-                  </>
+                <Match when={row.kind === "streams" ? row : undefined}>{(block) => (
+                  <div class="log-streams">
+                    <span class="label">{t("Streams")}</span>
+                    <div class="scroll-x">
+                      <table class="tracks">
+                        <thead><tr>
+                          <th scope="col">#</th><th scope="col">{t("Type")}</th><th scope="col">{t("Codec")}</th><th scope="col">{t("Channels")}</th><th scope="col">{t("Sample rate")}</th><th scope="col">{t("Language")}</th><th scope="col">{t("Flags")}</th>
+                        </tr></thead>
+                        <tbody>
+                          <For each={block().streams} keyed={(stream) => `${stream.index}:${stream.type}:${stream.codec}:${stream.parts.join("|")}`}>{(streamOf) => {
+                            const stream = streamOf();
+                            const cells = streamCells(stream);
+                            return <tr><th scope="row" class="num c-idx">{stream.index}</th><td class="c-type">{stream.type}</td><td class="mono c-codec">{stream.codec}</td><td class="num c-ch" data-unit={t("ch")}>{cells.channels}</td><td class="num c-rate">{cells.rate}</td><td class="c-lang">{cells.language}</td><td class="c-flags">{cells.flags.join(", ")}</td></tr>;
+                          }}</For>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 )}</Match>
                 <Match when={row.kind === "check" ? row : undefined}>{(check) => (
                   <>

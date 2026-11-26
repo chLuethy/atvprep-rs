@@ -22,8 +22,10 @@ const itemName = (item: ItemRow) => (fullItemName(item) ? shortName(parseMediaNa
 const ItemLog: Component<{ api: Api; itemId: string; status: ItemStatus }> = (props) => {
   const [open, setOpen] = createSignal(false);
   return (
-    <div class="item-log">
-      <Button variant="quiet" aria-expanded={open() ? "true" : "false"} onClick={() => setOpen((value) => !value)}>{t("Log")}</Button>
+    <div class={["item-log", { open: open() }]}>
+      <button type="button" class="log-toggle" aria-expanded={open() ? "true" : "false"} onClick={() => setOpen((value) => !value)}>
+        <Icon name="chevron" />{t("Log")}
+      </button>
       <Show when={open()}><LogViewer api={props.api} itemId={props.itemId} status={props.status} /></Show>
     </div>
   );

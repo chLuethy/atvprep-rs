@@ -1460,15 +1460,16 @@ describe("LogViewer, set out", () => {
     expect(within(log).queryByText("apple-tags")).not.toBeInTheDocument();
   });
 
-  it("sets out a finished analysis: the streams with their channels, language and flags", async () => {
+  it("sets out a finished analysis: the streams as one table with channels, rate, language and flags", async () => {
     const text = ["Start: inspect", "File: film.mp4", "Tool: ffprobe 7.1.1", "Stream 0: video h264, default", "Stream 1: audio eac3, 6 channels, 48000 Hz, language ger, default", "Exit code: 0", "Duration: 4.21 s"].join("\n");
     const view = render(() => <LogViewer api={apiFor(() => json({ item_id: "i_1", status: "ok", log_tail: text }))} itemId="i_1" status="succeeded" />);
     const log = await view.findByRole("region", { name: "Formatted log" });
 
-    expect(within(log).getByText("Stream 1")).toBeInTheDocument();
-    expect(within(log).getByText("audio eac3")).toBeInTheDocument();
-    expect(within(log).getByText("6 channels")).toBeInTheDocument();
-    expect(within(log).getByText("language ger")).toBeInTheDocument();
+    const table = within(log).getByRole("table");
+    expect(within(table).getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual(["#", "Type", "Codec", "Channels", "Sample rate", "Language", "Flags"]);
+    const audio = within(table).getAllByRole("row")[2]!;
+    expect(within(audio).getAllByRole("cell").map((cell) => cell.textContent)).toEqual(["audio", "eac3", "6", "48000 Hz", "ger", "default"]);
+    expect(within(audio).getByRole("rowheader")).toHaveTextContent("1");
   });
 
   it("names the facts in German and leaves what the tools wrote alone", async () => {
