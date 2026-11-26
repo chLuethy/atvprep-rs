@@ -151,6 +151,11 @@ describe("plannedStepTexts", () => {
     ];
     expect(plannedStepTexts(steps)).toEqual(["Rewrite the file with chunks of about half a second"]);
   });
+
+  it("keeps the planner's steps for two streams apart, even when they read alike", () => {
+    const step = (stream: number): PlanStep => ({ kind: "sample_rate", stream, from_codec: "eac3", to_codec: "aac", from_hz: 44100, to_hz: 48000 });
+    expect(plannedStepTexts([step(1), step(2)])).toHaveLength(2);
+  });
 });
 
 describe("blockerVerdict", () => {

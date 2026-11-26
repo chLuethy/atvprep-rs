@@ -96,8 +96,10 @@ const EMBED_STEP = /^\[embed\] subtitles: (\d+)$/;
  * it leaves unchanged is not a step; a text step that is none of these stays as it came.
  */
 export function plannedStepTexts(steps: ReadonlyArray<PlanStep>): string[] {
-  // One finding per track ("chunk-length" for video and each audio) asks for the same remux: say it once.
-  return [...new Set(steps.flatMap((step) => {
+  // One finding per track ("chunk-length" for video and each audio) asks for the same change: say it once.
+  // Only verify findings are merged; the planner's own steps stand one per stream, alike or not.
+  const fromFindings = new Set<string>();
+  return steps.flatMap((step) => {
     if (!isText(step)) return [formatPlanStep(step)];
     const embed = EMBED_STEP.exec(step.text);
     if (embed) {
@@ -106,8 +108,9 @@ export function plannedStepTexts(steps: ReadonlyArray<PlanStep>): string[] {
     }
     const reason = parseReason(step.text);
     if (!reason.severity) return [step.text];
-    return expectedChanges([reason]).filter((change) => change.kind !== "none").map((change) => change.text);
-  }))];
+    return expectedChanges([reason]).filter((change) => change.kind !== "none").map((change) => change.text)
+      .filter((text) => !fromFindings.has(text) && fromFindings.add(text));
+  });
 }
 
 /** Whether a blocked file can be repaired by a fix, needs hand work, or was never really checked. */

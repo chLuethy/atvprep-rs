@@ -82,7 +82,7 @@ const ruleLabel = (state: RuleState) => (state === "blocker" ? t("Blocker") : st
  * One item's log, set out: the opening facts, the steps in order with their times and how the run
  * ended. The progress is not repeated here: the item row above already shows it while the item runs. The text it comes from is the same text "Download log" hands out.
  */
-export const LogView: Component<{ text: string; itemId: string }> = (props) => {
+export const LogView: Component<{ text: string }> = (props) => {
   const doc = createMemo(() => parseLog(props.text));
   const rows = createMemo(() => summarise(doc().rows).map((row, index) => ({ row, key: `${index}:${JSON.stringify(row)}` })));
   const facts = () => doc().facts.filter((fact) => fact.key !== "Command");
